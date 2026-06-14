@@ -1356,10 +1356,16 @@ createMapStructures();
       }
 
       function loadGunModel() {
+        if (typeof THREE === 'undefined') {
+          gunState.error = 'Three.js が読み込めませんでした';
+          logFileLine(`🔴 ${gunState.error}`, 'error');
+          console.error(gunState.error);
+          return;
+        }
         if (!THREE.GLTFLoader) {
           gunState.error = 'GLTFLoader が読み込めませんでした';
-          logFileLine(`🔴 ${gunState.error}`,'error');
-          logFileLine('→ CDNs: three.min.js / examples/js/loaders/GLTFLoader.js を確認してください','error');
+          logFileLine(`🔴 ${gunState.error}`, 'error');
+          logFileLine('→ CDN URL / ネットワーク / キャッシュ / 版不一致を確認してください', 'error');
           console.error(gunState.error);
           return;
         }

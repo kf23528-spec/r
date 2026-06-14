@@ -426,7 +426,6 @@
       renderer.setSize(window.innerWidth, window.innerHeight, false);
       renderer.outputColorSpace = THREE.SRGBColorSpace;
       renderer.setClearColor(0x0b0f14, 1);
-      // ★ 2パスレンダリングのためautoClearを無効化
       renderer.autoClear = false;
 
       // =====================================================================
@@ -437,11 +436,10 @@
       scene.fog = new THREE.Fog(0xc7e2ff, 34, 110);
 
       // =====================================================================
-      // UIシーン（銃モデル専用 — depthTest は通常のまま、深度バッファをリセット後に描画）
+      // UIシーン（銃モデル専用）
       // =====================================================================
       const uiScene = new THREE.Scene();
 
-      // uiScene用のライト（銃が暗くならないように）
       uiScene.add(new THREE.AmbientLight(0xffffff, 2.0));
       const uiDirLight = new THREE.DirectionalLight(0xffffff, 2.5);
       uiDirLight.position.set(1, 2, 3);
@@ -758,34 +756,47 @@
       // =====================================================================
       const gunState = { recoil: 0, modelReady: false, error: null };
 
-      // ★【修正1】銃の向き: Y軸を Math.PI * 1.5（270度）に設定して銃口を前方へ
+      // ★【修正1】銃の向き: Y軸を Math.PI / 2（90度）に変更して銃口を前方（奥側）へ
       const GUN_BASE_POS = new THREE.Vector3(0.3, -0.2, -0.5);
-      const GUN_BASE_ROT = new THREE.Euler(0, Math.PI * 1.5, 0, 'YXZ');
+      const GUN_BASE_ROT = new THREE.Euler(0, Math.PI / 2, 0, 'YXZ');
 
-      let gunRoot = null; // uiScene 内の銃ルートノード
+      let gunRoot = null;
 
       // =====================================================================
-      // ★【修正2】オーディオプリロード — ゲーム起動時に1回だけ生成・ロード完了させる
-      //   射撃時は currentTime = 0 にして play() するだけの軽量処理にする
+      // オーディオ管理
       // =====================================================================
-
-      // AudioContext を使った完全プリロード方式
-      // HTMLAudioElement プールを8本用意し、起動時にfetchで音声データをArrayBufferとして取得し
-      // Blob URLを生成してsrcに設定することで、射撃時はデコード済みデータを即座に再生できる
       let audioCtx = null;
-      let decodedAudioBuffer = null;       // AudioContext 用デコード済みバッファ
+      let decodedAudioBuffer = null;
       let audioUnlocked = false;
       let audioPreloadDone = false;
 
-      // HTMLAudio プール（AudioContext が使えない環境のフォールバック用）
       const shootSoundPool = [];
       let shootSoundIndex = 0;
-      let useAudioContext = false;         // true なら AudioContext 方式で再生
+      let useAudioContext = false;
 
       /**
-       * ゲーム起動時に1回だけ呼ぶ。
-       * fetch で ju.mp3 をバイナリ取得 → Blob URL 生成 → HTMLAudio プールに設定 → preload。
-       * これにより射撃イベント時にはネットワーク通信が一切発生しない。
+       * AudioContext を確実にアンロック（resume）してから再生する内部関数。
+       * スマホ/タブレットのセキュリティ制限に対応するため、
+       * state が 'suspended' なら必ず resume() を await してから BufferSource を生成する。
+       */
+      async function _resumeAndPlayViaAudioContext() {
+        try {
+          // ★【修正2-A】state が suspended なら resume() を確実に待機する
+          if (audioCtx.state === 'suspended') {
+            await audioCtx.resume();
+          }
+          const src = audioCtx.createBufferSource();
+          src.buffer = decodedAudioBuffer;
+          src.connect(audioCtx.destination);
+          src.start(0);
+        } catch (err) {
+          logFileLine(`🔴 AudioContext 再生エラー: ${describeError(err)}`, 'error');
+        }
+      }
+
+      /**
+       * ゲーム起動時に1回だけ呼ぶプリロード関数。
+       * fetch で ju.mp3 をバイナリ取得 → AudioContext デコード → HTMLAudio フォールバック。
        */
       async function preloadShootSound() {
         if (!audioSupport) {
@@ -796,17 +807,16 @@
 
         let blobUrl = null;
 
-        // --- Step1: fetch でバイナリ取得 ---
         try {
           const res = await fetch(SHOOT_AUDIO_URL, { cache: 'force-cache' });
           if (!res.ok) {
             logFileLine(`🔴 ju.mp3: ${res.status} ${res.statusText} — 射撃音なしで続行します。`, 'error');
-            setupFallbackAudioPool(null); // src なしでプール作成（再生は失敗するが動作は続く）
+            setupFallbackAudioPool(null);
             return;
           }
           const arrayBuffer = await res.arrayBuffer();
 
-          // --- Step2: AudioContext デコードを試みる（最高品質・最低遅延）---
+          // AudioContext デコードを試みる
           try {
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             decodedAudioBuffer = await audioCtx.decodeAudioData(arrayBuffer.slice(0));
@@ -819,7 +829,7 @@
             if (audioCtx) { try { audioCtx.close(); } catch {} audioCtx = null; }
           }
 
-          // --- Step3: HTMLAudio Blob URL フォールバック ---
+          // HTMLAudio Blob URL フォールバック
           const blob = new Blob([arrayBuffer], { type: 'audio/mpeg' });
           blobUrl = URL.createObjectURL(blob);
           setupFallbackAudioPool(blobUrl);
@@ -830,19 +840,14 @@
         }
       }
 
-      /**
-       * HTMLAudio プールをセットアップ。
-       * blobUrl が null の場合はプールは作るがsrcは空（再生は失敗する）。
-       * fetch は setupFallbackAudioPool 内では行わない — 既にバイナリ取得済み。
-       */
       function setupFallbackAudioPool(blobUrl) {
         for (let i = 0; i < 8; i++) {
           const a = new Audio();
           a.volume = 0.95;
           a.preload = 'auto';
           if (blobUrl) {
-            a.src = blobUrl; // Blob URL なのでネットワーク通信ゼロ
-            a.load();        // デコードをブラウザに依頼（バックグラウンドで完了）
+            a.src = blobUrl;
+            a.load();
           }
           a.addEventListener('canplaythrough', () => {
             if (i === 0 && !audioPreloadDone) {
@@ -861,19 +866,24 @@
       }
 
       /**
-       * ユーザーインタラクション時にオーディオコンテキストをアンロック。
-       * モバイルブラウザは自動再生ポリシーのため初回タッチが必要。
+       * ★【修正2-B】unlockAudio — SHOOTボタン等のユーザー操作イベント内で呼び出す。
+       * AudioContext が suspended 状態なら resume() する。
+       * HTMLAudio プールは無音再生 → 即停止でアンロック。
        */
       function unlockAudio() {
         if (audioUnlocked) return;
         audioUnlocked = true;
 
-        // AudioContext が suspended なら resume
+        // ★ AudioContext が suspended なら即座に resume（モバイル自動再生ポリシー対応）
         if (useAudioContext && audioCtx && audioCtx.state === 'suspended') {
-          audioCtx.resume().catch(() => {});
+          audioCtx.resume().then(() => {
+            logFileLine('🔊 AudioContext resume() 成功（unlockAudio）');
+          }).catch((err) => {
+            logFileLine(`⚠️ AudioContext resume() 失敗: ${describeError(err)}`, 'warn');
+          });
         }
 
-        // HTMLAudio プールは無音再生 → 即停止でアンロック
+        // HTMLAudio プールのアンロック（無音再生 → 即停止）
         for (const a of shootSoundPool) {
           try {
             const p = a.play();
@@ -888,19 +898,15 @@
 
       /**
        * 射撃時に呼ぶ軽量再生関数。
-       * AudioContext 方式: デコード済みバッファから BufferSource を作成して play（遅延ゼロ）
-       * HTMLAudio 方式:   currentTime = 0 にして play（ネットワーク通信なし）
+       * AudioContext 方式: resume() を確実に行ってから BufferSource を再生。
+       * HTMLAudio 方式: currentTime = 0 にして play()。
        */
       function playShootSound() {
         if (!audioSupport) return;
 
         if (useAudioContext && audioCtx && decodedAudioBuffer) {
-          // AudioContext が suspended の場合は resume してから再生
-          if (audioCtx.state === 'suspended') {
-            audioCtx.resume().then(() => _playViaAudioContext()).catch(() => {});
-          } else {
-            _playViaAudioContext();
-          }
+          // ★【修正2-C】再生のたびに suspended チェックを行い、必要なら resume してから再生
+          _resumeAndPlayViaAudioContext();
           return;
         }
 
@@ -913,23 +919,11 @@
           const p = a.play();
           if (p && typeof p.catch === 'function') {
             p.catch((err) => {
-              // autoplay policy で弾かれた場合は警告のみ（ラグは発生しない）
               logFileLine(`⚠️ ju.mp3 再生ポリシーエラー: ${describeError(err)}`, 'warn');
             });
           }
         } catch (err) {
           logFileLine(`🔴 ju.mp3 再生中の例外: ${describeError(err)}`, 'error');
-        }
-      }
-
-      function _playViaAudioContext() {
-        try {
-          const src = audioCtx.createBufferSource();
-          src.buffer = decodedAudioBuffer;
-          src.connect(audioCtx.destination);
-          src.start(0);
-        } catch (err) {
-          logFileLine(`🔴 AudioContext 再生エラー: ${describeError(err)}`, 'error');
         }
       }
 
@@ -1262,7 +1256,7 @@
         if (ammo <= 0) { startReload(); return; }
 
         unlockAudio();
-        playShootSound();   // ★ プリロード済みバッファの再生のみ — 重い処理なし
+        playShootSound();
         triggerRecoil();
 
         ammo--;
@@ -1448,14 +1442,14 @@
         const normalizedScale = 0.95 / maxDim;
         root.scale.setScalar(normalizedScale);
 
-        // ★【修正1】銃口が前方（-Z方向）を向くよう GUN_BASE_ROT（Y=Math.PI*1.5）を適用
+        // ★【修正1】銃口が前方（+Z方向 = カメラ前方）を向くよう GUN_BASE_ROT（Y=Math.PI/2）を適用
         root.position.copy(GUN_BASE_POS);
         root.rotation.copy(GUN_BASE_ROT);
 
         uiScene.add(root);
         gunRoot = root;
         gunState.modelReady = true;
-        logFileLine('🟢 銃モデルの読み込み完了（uiScene に追加済み、Y軸270度補正適用）');
+        logFileLine('🟢 銃モデルの読み込み完了（uiScene に追加済み、Y軸90度補正適用）');
       }
 
       function loadGunModel() {
@@ -1684,9 +1678,14 @@
       // =====================================================================
       // タッチ / マウスイベント
       // =====================================================================
+
+      // ★【修正2-D】SHOOTボタンのtouchstartで unlockAudio() を確実に呼び出す
+      // unlockAudio() 内で audioCtx.resume() が実行されるため、
+      // スマホのセキュリティ制限を突破してから playShootSound() が走る
       shootBtn.addEventListener('touchstart', (e) => {
         e.preventDefault(); e.stopPropagation();
-        unlockAudio(); setFiringHeld(true);
+        unlockAudio();       // ← タップ直後に AudioContext を resume
+        setFiringHeld(true);
       }, { passive: false });
       shootBtn.addEventListener('touchend',   (e) => { e.preventDefault(); setFiringHeld(false); }, { passive: false });
       shootBtn.addEventListener('touchcancel',(e) => { e.preventDefault(); setFiringHeld(false); }, { passive: false });
@@ -1867,12 +1866,11 @@
       // 起動
       // =====================================================================
       logFileLine('起動: 2パスレンダリング（uiScene分離方式）で銃を最前面に表示します。');
-      logFileLine('修正1: 銃Y軸回転 = Math.PI * 1.5（270度）で銃口を前方に向けました。');
-      logFileLine('修正2: 射撃音を fetch でプリロード → AudioContext デコード方式に変更しました。');
+      logFileLine('修正1: 銃Y軸回転 = Math.PI / 2（90度）で銃口を前方に向けました。');
+      logFileLine('修正2: SHOOTボタンのtouchstartで unlockAudio() → audioCtx.resume() を確実に実行します。');
+      logFileLine('修正2: _resumeAndPlayViaAudioContext() で毎回 suspended チェック＆await resume() を行います。');
 
-      // ★ 射撃音プリロードを非同期で開始（ゲームループ開始をブロックしない）
       preloadShootSound();
-
       initGame();
       animate();
     })();

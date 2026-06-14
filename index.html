@@ -3,19 +3,18 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="format-detection" content="telephone=no" />
   <title>FPS Team Deathmatch</title>
   <style>
     :root{
-      --blue:#4aa3ff;
-      --red:#ff5c5c;
       --bg:#07111d;
       --panel: rgba(10, 15, 24, .72);
       --panel2: rgba(8, 12, 18, .88);
       --text:#eaf2ff;
       --muted:#9fb3cc;
-      --accent:#79d0ff;
-      --good:#44d18a;
-      --warn:#ffd166;
+      --blue:#4aa3ff;
+      --red:#ff5c5c;
+      --green:#44d18a;
     }
     html, body {
       width: 100%;
@@ -24,17 +23,22 @@
       overflow: hidden;
       background: var(--bg);
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Hiragino Sans", "Noto Sans JP", sans-serif;
-      touch-action: none;
-      overscroll-behavior: none;
       user-select: none;
       -webkit-user-select: none;
       -webkit-touch-callout: none;
+      touch-action: none;
+      overscroll-behavior: none;
+    }
+    * {
+      box-sizing: border-box;
+      touch-action: none;
     }
     #app {
       position: fixed;
       inset: 0;
       overflow: hidden;
       background: radial-gradient(ellipse at center, #12263a 0%, #07111d 60%, #04070c 100%);
+      touch-action: none;
     }
     canvas {
       display: block;
@@ -47,6 +51,7 @@
       inset: 0;
       pointer-events: none;
       color: var(--text);
+      touch-action: none;
     }
     .topbar {
       position: absolute;
@@ -55,6 +60,7 @@
       transform: translateX(-50%);
       display: flex;
       align-items: center;
+      justify-content: space-between;
       gap: 10px;
       padding: 10px 14px;
       border-radius: 16px;
@@ -62,23 +68,23 @@
       box-shadow: 0 10px 30px rgba(0,0,0,.28);
       border: 1px solid rgba(255,255,255,.08);
       backdrop-filter: blur(10px);
-      min-width: min(720px, calc(100vw - 18px));
-      justify-content: space-between;
+      width: min(920px, calc(100vw - 12px));
+      pointer-events: none;
     }
-    .scoreWrap {
+    .leftStats, .rightStats {
       display: flex;
       align-items: center;
-      gap: 12px;
-      font-weight: 800;
-      letter-spacing: .4px;
+      gap: 10px;
       flex-wrap: wrap;
     }
     .teamScore {
       display: flex;
       align-items: center;
       gap: 8px;
-      font-size: clamp(14px, 2.2vw, 18px);
+      font-weight: 900;
+      letter-spacing: .4px;
       white-space: nowrap;
+      font-size: clamp(14px, 2.1vw, 18px);
     }
     .badge {
       width: 12px;
@@ -88,43 +94,78 @@
     }
     .badge.blue { background: var(--blue); }
     .badge.red { background: var(--red); }
-    .stats {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      font-size: clamp(12px, 1.8vw, 15px);
-      color: #d8e4f4;
-      opacity: .98;
-    }
     .statChip {
       padding: 6px 10px;
       border-radius: 999px;
       background: rgba(255,255,255,.06);
       border: 1px solid rgba(255,255,255,.06);
+      font-size: clamp(12px, 1.7vw, 15px);
+      color: #d8e4f4;
+      white-space: nowrap;
+      font-weight: 700;
     }
+
+    #hpHud {
+      position: absolute;
+      left: calc(env(safe-area-inset-left, 0px) + 12px);
+      bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+      width: min(280px, calc(100vw - 24px));
+      padding: 10px 12px 12px;
+      border-radius: 16px;
+      background: rgba(10, 14, 20, .62);
+      border: 1px solid rgba(255,255,255,.08);
+      box-shadow: 0 10px 30px rgba(0,0,0,.24);
+      backdrop-filter: blur(10px);
+      pointer-events: none;
+    }
+    #hpText {
+      font-size: 18px;
+      font-weight: 900;
+      color: #8ff0a8;
+      letter-spacing: .03em;
+      margin-bottom: 8px;
+      text-shadow: 0 0 10px rgba(68,209,138,.18);
+    }
+    #hpBarOuter {
+      width: 100%;
+      height: 16px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.08);
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,.08);
+    }
+    #hpBarInner {
+      width: 100%;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #35d06d 0%, #66e28c 100%);
+      box-shadow: 0 0 18px rgba(68,209,138,.22);
+      transform-origin: left center;
+      transform: scaleX(1);
+    }
+
     #centerHint, #gameOver {
       position: absolute;
       left: 50%;
       transform: translateX(-50%);
       text-align: center;
       pointer-events: none;
+      touch-action: none;
     }
     #centerHint {
       top: 50%;
       transform: translate(-50%, -50%);
       padding: 14px 16px;
       border-radius: 16px;
-      background: rgba(10,14,20,.55);
+      background: rgba(10,14,20,.58);
       border: 1px solid rgba(255,255,255,.08);
       box-shadow: 0 12px 40px rgba(0,0,0,.25);
       max-width: min(92vw, 560px);
       color: #f1f7ff;
       font-weight: 700;
       line-height: 1.5;
-      opacity: 0;
-      transition: opacity .18s ease;
+      display: block;
     }
-    #centerHint.show { opacity: 1; }
     #centerHint .sub {
       display: block;
       margin-top: 6px;
@@ -132,6 +173,7 @@
       font-weight: 600;
       font-size: 13px;
     }
+
     #reticle {
       position: absolute;
       left: 50%;
@@ -141,6 +183,7 @@
       transform: translate(-50%, -50%);
       opacity: .95;
       filter: drop-shadow(0 0 8px rgba(0,0,0,.25));
+      pointer-events: none;
     }
     #reticle::before, #reticle::after {
       content: "";
@@ -160,10 +203,12 @@
       width: 18px;
       height: 2px;
     }
+
     #touchLayer {
       position: fixed;
       inset: 0;
       pointer-events: none;
+      touch-action: none;
     }
     #joyBase {
       position: absolute;
@@ -178,6 +223,7 @@
       backdrop-filter: blur(6px);
       pointer-events: auto;
       display: none;
+      touch-action: none;
     }
     #joyStick {
       position: absolute;
@@ -191,14 +237,15 @@
       background: rgba(122,208,255,.38);
       border: 1px solid rgba(255,255,255,.20);
       box-shadow: 0 10px 20px rgba(0,0,0,.18);
-      transform: translate(0, 0);
+      transform: translate(0px, 0px);
+      touch-action: none;
     }
     #fireBtn {
       position: absolute;
       right: calc(env(safe-area-inset-right, 0px) + 18px);
       bottom: calc(env(safe-area-inset-bottom, 0px) + 18px);
-      width: min(24vw, 118px);
-      height: min(24vw, 118px);
+      width: min(24vw, 122px);
+      height: min(24vw, 122px);
       border-radius: 50%;
       background: radial-gradient(circle at 35% 35%, rgba(255,255,255,.26), rgba(255,92,92,.22) 30%, rgba(255,92,92,.12) 64%, rgba(255,255,255,.08) 100%);
       border: 1px solid rgba(255,255,255,.15);
@@ -212,11 +259,14 @@
       text-transform: uppercase;
       align-items: center;
       justify-content: center;
+      touch-action: none;
     }
     #fireBtn span {
       display: block;
       transform: translateY(-1px);
+      pointer-events: none;
     }
+
     #gameOver {
       top: 44%;
       width: min(92vw, 560px);
@@ -258,25 +308,23 @@
       letter-spacing: .04em;
       cursor: pointer;
       box-shadow: 0 12px 26px rgba(74,163,255,.28);
-    }
-    .mobileOnlyNote {
-      display: none;
+      touch-action: none;
     }
     @media (pointer: coarse) {
       #joyBase, #fireBtn { display: flex; }
-      .mobileOnlyNote { display: block; }
-      .topbar { min-width: unset; width: calc(100vw - 12px); }
+      .topbar { width: calc(100vw - 10px); }
+      #hpHud { width: min(240px, calc(100vw - 24px)); }
     }
     @media (max-width: 520px) {
       .topbar {
         padding: 8px 10px;
         gap: 8px;
       }
-      .scoreWrap {
+      .leftStats, .rightStats {
         gap: 8px;
       }
-      .stats {
-        gap: 8px;
+      #hpText {
+        font-size: 16px;
       }
     }
   </style>
@@ -287,19 +335,24 @@
 
     <div id="hud">
       <div class="topbar">
-        <div class="scoreWrap">
+        <div class="leftStats">
           <div class="teamScore"><span class="badge blue"></span><span>BLUE <span id="blueScore">0</span></span></div>
           <div class="teamScore"><span class="badge red"></span><span>RED <span id="redScore">0</span></span></div>
         </div>
-        <div class="stats">
+        <div class="rightStats">
           <div class="statChip">DEATHS: <span id="deaths">0</span></div>
           <div class="statChip">TARGET: 20 KILLS</div>
         </div>
       </div>
 
-      <div id="centerHint" class="show">
-        <div id="hintMain">クリックでポインターロック開始 / スマホはそのまま操作</div>
-        <span class="sub">PC: WASD移動・マウス視点・左クリック射撃 / スマホ: 左下スティック・右半分スワイプで視点・右下ボタンで射撃</span>
+      <div id="hpHud">
+        <div id="hpText">HP: 100</div>
+        <div id="hpBarOuter"><div id="hpBarInner"></div></div>
+      </div>
+
+      <div id="centerHint">
+        <div id="hintMain">クリック / タップで案内を閉じます</div>
+        <span class="sub">PC: WASD移動・マウス視点・左クリック射撃 / スマホ: 左下スティック・右半分スワイプで視点・右下で射撃</span>
       </div>
 
       <div id="reticle"></div>
@@ -328,8 +381,9 @@
       const blueScoreEl = document.getElementById('blueScore');
       const redScoreEl = document.getElementById('redScore');
       const deathsEl = document.getElementById('deaths');
+      const hpTextEl = document.getElementById('hpText');
+      const hpBarInnerEl = document.getElementById('hpBarInner');
       const hintEl = document.getElementById('centerHint');
-      const hintMainEl = document.getElementById('hintMain');
       const gameOverEl = document.getElementById('gameOver');
       const winnerTextEl = document.getElementById('winnerText');
       const resultTextEl = document.getElementById('resultText');
@@ -342,37 +396,21 @@
       const BLUE = 0x4aa3ff;
       const RED = 0xff5c5c;
       const ARENA = { w: 80, d: 80 };
+      const PLAYER_MAX_HP = 100;
+      const ENEMY_HIT_DAMAGE = 28;
+      const PLAYER_HIT_DAMAGE = 34;
+      const MODEL_TARGET_HEIGHT = 4.8;
+      const GROUND_Y = 0;
 
       let scene, camera, renderer, orbit, clock;
-      let player;
       let gameOver = false;
-      let loaded = {
-        human: false,
-        gun: false,
-        humanTemplate: null,
-        gunTemplate: null
-      };
 
       const keys = Object.create(null);
       const obstacleMeshes = [];
       const obstacleBoxes = [];
+      const hitObjects = [];
       const characters = [];
-      const allHitboxes = [];
       const patrolPoints = [];
-      const teamSpawns = {
-        blue: [
-          new THREE.Vector3(-30, 0,  26),
-          new THREE.Vector3(-34, 0,  10),
-          new THREE.Vector3(-30, 0, -10),
-          new THREE.Vector3(-34, 0, -28)
-        ],
-        red: [
-          new THREE.Vector3( 30, 0,  26),
-          new THREE.Vector3( 34, 0,  10),
-          new THREE.Vector3( 30, 0, -10),
-          new THREE.Vector3( 34, 0, -28)
-        ]
-      };
 
       const ui = {
         blueScore: 0,
@@ -385,27 +423,47 @@
         yaw: 0,
         pitch: 0,
         lookSensitivity: 0.0022,
-        touchLookActive: false,
+        moveVec: new THREE.Vector2(),
         touchLookId: null,
         lastTouchX: 0,
         lastTouchY: 0,
-        moveTouchId: null,
-        moveVec: new THREE.Vector2(),
         fireHeld: false,
-        fireInterval: null
+        fireTimer: null
       };
 
-      const tmpV3 = new THREE.Vector3();
-      const tmpV2 = new THREE.Vector2();
-      const tmpBox = new THREE.Box3();
-      const raycaster = new THREE.Raycaster();
-      const bulletHits = [];
-      const obstacleHitObjects = [];
-      let teamHumanLoadedOnce = false;
-      let gunLoadedOnce = false;
+      const player = {
+        pos: new THREE.Vector3(0, 0, 0),
+        hp: PLAYER_MAX_HP,
+        dead: false,
+        respawnAt: 0,
+        invulnUntil: 0,
+        shootCooldown: 0,
+        speed: 6.2,
+        radius: 0.65,
+        gun: null,
+        collider: null
+      };
 
-      const lerp = THREE.MathUtils.lerp;
-      const clamp = THREE.MathUtils.clamp;
+      const playerSpawn = new THREE.Vector3(teamSpawnX('blue', 0), 0, teamSpawnZ('blue', 0) + 4);
+
+      function teamSpawnX(team, idx) {
+        return team === 'blue'
+          ? [-30, -34, -30, -34][idx % 4]
+          : [30, 34, 30, 34][idx % 4];
+      }
+
+      function teamSpawnZ(team, idx) {
+        return team === 'blue'
+          ? [26, 10, -10, -28][idx % 4]
+          : [26, 10, -10, -28][idx % 4];
+      }
+
+      const raycaster = new THREE.Raycaster();
+      const tmpVec3 = new THREE.Vector3();
+      const tmpVec3b = new THREE.Vector3();
+      const tmpBox = new THREE.Box3();
+      const tmpSize = new THREE.Vector3();
+      const tmpCenter = new THREE.Vector3();
 
       function init() {
         scene = new THREE.Scene();
@@ -413,7 +471,7 @@
         scene.fog = new THREE.Fog(0x07111d, 42, 120);
 
         camera = new THREE.PerspectiveCamera(74, window.innerWidth / window.innerHeight, 0.1, 300);
-        camera.position.set(0, 1.72, 0);
+        camera.position.set(playerSpawn.x, 1.7, playerSpawn.z);
 
         renderer = new THREE.WebGLRenderer({
           canvas,
@@ -433,20 +491,16 @@
         buildLights();
         buildArena();
         buildPatrolPoints();
-
-        player = createPlayer();
-
+        buildPlayerColliderAndGun();
         createBots();
-
         loadModels();
-
         bindInput();
         bindResize();
         updateHUD();
-        showHint(true);
+        updateHPUI();
 
         if (isTouch) {
-          hintMainEl.textContent = 'スマホ操作モードです。左下スティックで移動、右半分スワイプで視点、右下で射撃。';
+          document.getElementById('hintMain').textContent = 'スマホ操作モードです。左下スティックで移動、右半分スワイプで視点、右下で射撃。';
         }
 
         animate();
@@ -468,30 +522,27 @@
         scene.add(amb);
       }
 
-      function addObstacle(x, y, z, w, h, d, color, roughness = 1) {
+      function addObstacle(x, y, z, w, h, d, color) {
         const geo = new THREE.BoxGeometry(w, h, d);
         const mat = new THREE.MeshStandardMaterial({
           color,
-          roughness,
+          roughness: 1,
           metalness: 0.02
         });
         const mesh = new THREE.Mesh(geo, mat);
         mesh.position.set(x, y, z);
-        mesh.castShadow = false;
-        mesh.receiveShadow = true;
         mesh.userData.isObstacle = true;
         scene.add(mesh);
         obstacleMeshes.push(mesh);
+        hitObjects.push(mesh);
 
         const box = {
-          x, z, w, d,
           minX: x - w / 2,
           maxX: x + w / 2,
           minZ: z - d / 2,
           maxZ: z + d / 2
         };
         obstacleBoxes.push(box);
-        obstacleHitObjects.push(mesh);
         return mesh;
       }
 
@@ -512,61 +563,53 @@
         scene.add(grid);
 
         // 外周壁
-        addObstacle(0, 2.5, -ARENA.d/2 + 1.5, ARENA.w, 5, 3, 0x132030);
-        addObstacle(0, 2.5,  ARENA.d/2 - 1.5, ARENA.w, 5, 3, 0x132030);
-        addObstacle(-ARENA.w/2 + 1.5, 2.5, 0, 3, 5, ARENA.d, 0x132030);
-        addObstacle( ARENA.w/2 - 1.5, 2.5, 0, 3, 5, ARENA.d, 0x132030);
+        addObstacle(0, 2.5, -ARENA.d / 2 + 1.5, ARENA.w, 5, 3, 0x132030);
+        addObstacle(0, 2.5,  ARENA.d / 2 - 1.5, ARENA.w, 5, 3, 0x132030);
+        addObstacle(-ARENA.w / 2 + 1.5, 2.5, 0, 3, 5, ARENA.d, 0x132030);
+        addObstacle( ARENA.w / 2 - 1.5, 2.5, 0, 3, 5, ARENA.d, 0x132030);
 
-        // 中央レーンのカバー
+        // カバー
         addObstacle(-12, 1.35, 0, 4, 2.7, 12, 0x6f7f90);
         addObstacle(12, 1.35, 0, 4, 2.7, 12, 0x6f7f90);
         addObstacle(0, 1.0, -20, 18, 2, 4, 0x8c9aab);
         addObstacle(0, 1.0, 20, 18, 2, 4, 0x8c9aab);
 
-        // 左側サイト
+        // 左側
         addObstacle(-24, 1.4, -16, 8, 2.8, 4, 0x72859a);
         addObstacle(-26, 1.4, 14, 4, 2.8, 14, 0x5f6d7e);
         addObstacle(-18, 1.0, 26, 10, 2, 4, 0x7d8ca0);
 
-        // 右側サイト
+        // 右側
         addObstacle(24, 1.4, 16, 8, 2.8, 4, 0x72859a);
         addObstacle(26, 1.4, -14, 4, 2.8, 14, 0x5f6d7e);
         addObstacle(18, 1.0, -26, 10, 2, 4, 0x7d8ca0);
 
-        // 低い箱・遮蔽物
+        // 小カバー
         addObstacle(-8, 0.75, -6, 6, 1.5, 6, 0x4f6274);
-        addObstacle( 8, 0.75,  6, 6, 1.5, 6, 0x4f6274);
-        addObstacle(-3, 0.75,  8, 5, 1.5, 5, 0x4f6274);
-        addObstacle( 3, 0.75, -8, 5, 1.5, 5, 0x4f6274);
+        addObstacle(8, 0.75, 6, 6, 1.5, 6, 0x4f6274);
+        addObstacle(-3, 0.75, 8, 5, 1.5, 5, 0x4f6274);
+        addObstacle(3, 0.75, -8, 5, 1.5, 5, 0x4f6274);
 
-        // 斜めに見えるような塔/バリア
+        // サイトの端
         addObstacle(-36, 1.9, 0, 5, 3.8, 5, 0x41546d);
-        addObstacle( 36, 1.9, 0, 5, 3.8, 5, 0x41546d);
-        addObstacle( 0, 2.2, 34, 8, 4.4, 4, 0x3b516a);
-        addObstacle( 0, 2.2,-34, 8, 4.4, 4, 0x3b516a);
+        addObstacle(36, 1.9, 0, 5, 3.8, 5, 0x41546d);
+        addObstacle(0, 2.2, 34, 8, 4.4, 4, 0x3b516a);
+        addObstacle(0, 2.2, -34, 8, 4.4, 4, 0x3b516a);
 
-        // 床のマーキング
+        // 床のライン
         const laneMat = new THREE.MeshStandardMaterial({ color: 0x243448, roughness: 1 });
         const lane1 = new THREE.Mesh(new THREE.BoxGeometry(66, 0.02, 2), laneMat);
         lane1.position.set(0, 0.011, 0);
         scene.add(lane1);
-
         const lane2 = new THREE.Mesh(new THREE.BoxGeometry(2, 0.02, 66), laneMat);
         lane2.position.set(0, 0.011, 0);
         scene.add(lane2);
-
-        const decoMat = new THREE.MeshStandardMaterial({ color: 0x0f1b29, roughness: 1 });
-        for (let i = 0; i < 8; i++) {
-          const mark = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.02, 8), decoMat);
-          mark.position.set(-10 + i * 3.25, 0.012, (i % 2 === 0 ? 1 : -1) * 14);
-          scene.add(mark);
-        }
       }
 
       function buildPatrolPoints() {
         const pts = [
           [-28, -26], [-16, -18], [-8, -26], [0, -18], [8, -26], [18, -18], [28, -26],
-          [-28, 26],  [-16, 18],  [-8, 26],  [0, 18],  [8, 26],  [18, 18],  [28, 26],
+          [-28, 26], [-16, 18], [-8, 26], [0, 18], [8, 26], [18, 18], [28, 26],
           [-30, 0], [-20, 0], [-10, 0], [10, 0], [20, 0], [30, 0],
           [-24, 10], [-10, 10], [10, -10], [24, -10]
         ];
@@ -575,22 +618,19 @@
 
       function makeLabelSprite(text, colorHex) {
         const color = colorHex === BLUE ? '#4aa3ff' : '#ff5c5c';
-        const canvas = document.createElement('canvas');
-        canvas.width = 512;
-        canvas.height = 128;
-        const ctx = canvas.getContext('2d');
+        const canvas2 = document.createElement('canvas');
+        canvas2.width = 512;
+        canvas2.height = 128;
+        const ctx = canvas2.getContext('2d');
 
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.clearRect(0, 0, canvas2.width, canvas2.height);
 
-        // 背景
         ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
         roundRect(ctx, 20, 18, 472, 92, 24, true, false);
 
-        // 色帯
         ctx.fillStyle = color;
         roundRect(ctx, 28, 28, 70, 72, 18, true, false);
 
-        // テキスト
         ctx.fillStyle = '#ffffff';
         ctx.font = 'bold 40px system-ui, sans-serif';
         ctx.textAlign = 'left';
@@ -601,9 +641,10 @@
         ctx.font = 'bold 22px system-ui, sans-serif';
         ctx.fillText(colorHex === BLUE ? 'ALLY' : 'ENEMY', 118, 94);
 
-        const tex = new THREE.CanvasTexture(canvas);
+        const tex = new THREE.CanvasTexture(canvas2);
         tex.encoding = THREE.sRGBEncoding;
         tex.needsUpdate = true;
+
         const mat = new THREE.SpriteMaterial({
           map: tex,
           transparent: true,
@@ -632,41 +673,367 @@
         if (stroke) ctx.stroke();
       }
 
+      function updateHUD() {
+        blueScoreEl.textContent = ui.blueScore;
+        redScoreEl.textContent = ui.redScore;
+        deathsEl.textContent = ui.deaths;
+      }
+
+      function updateHPUI() {
+        const hp = Math.max(0, Math.min(PLAYER_MAX_HP, Math.floor(player.hp)));
+        hpTextEl.textContent = `HP: ${hp}`;
+        hpBarInnerEl.style.transform = `scaleX(${hp / PLAYER_MAX_HP})`;
+      }
+
+      function showGameOver(winTeam) {
+        gameOver = true;
+        winnerTextEl.textContent = winTeam === 'blue' ? 'BLUE TEAM WINS' : 'RED TEAM WINS';
+        resultTextEl.textContent = winTeam === 'blue'
+          ? '青チームが先に20キルに到達しました。'
+          : '赤チームが先に20キルに到達しました。';
+        gameOverEl.classList.add('show');
+        stopFireLoop();
+        if (document.pointerLockElement) document.exitPointerLock?.();
+      }
+
+      function checkWin() {
+        if (ui.blueScore >= 20) {
+          showGameOver('blue');
+        } else if (ui.redScore >= 20) {
+          showGameOver('red');
+        }
+      }
+
+      function hideHintForever() {
+        if (hintEl && hintEl.style.display !== 'none') {
+          hintEl.style.display = 'none';
+        }
+      }
+
+      function bindInput() {
+        // どこかを1回タップ/クリックしたら中央ダイアログを完全に消す
+        const hideHintOnce = () => hideHintForever();
+        document.addEventListener('pointerdown', hideHintOnce, { capture: true, passive: true });
+        document.addEventListener('touchstart', hideHintOnce, { capture: true, passive: true });
+        document.addEventListener('mousedown', hideHintOnce, { capture: true, passive: true });
+
+        window.addEventListener('keydown', (e) => {
+          keys[e.code] = true;
+        });
+
+        window.addEventListener('keyup', (e) => {
+          keys[e.code] = false;
+        });
+
+        // デスクトップ: クリックでポインターロック
+        renderer.domElement.addEventListener('click', () => {
+          if (gameOver) return;
+          if (!isTouch && document.pointerLockElement !== renderer.domElement) {
+            renderer.domElement.requestPointerLock?.();
+          }
+        });
+
+        document.addEventListener('pointerlockchange', () => {
+          pointer.locked = (document.pointerLockElement === renderer.domElement);
+        });
+
+        document.addEventListener('mousemove', (e) => {
+          if (!pointer.locked || gameOver) return;
+          pointer.yaw -= e.movementX * pointer.lookSensitivity;
+          pointer.pitch -= e.movementY * pointer.lookSensitivity;
+          pointer.pitch = clamp(pointer.pitch, -1.45, 1.45);
+        });
+
+        window.addEventListener('contextmenu', (e) => e.preventDefault());
+
+        // 左下ジョイスティック
+        let joyPointerId = null;
+        let joyCenter = { x: 0, y: 0 };
+
+        function setJoyVec(x, y) {
+          const dx = x - joyCenter.x;
+          const dy = y - joyCenter.y;
+          const max = 44;
+          const len = Math.hypot(dx, dy);
+          const nx = len > 0 ? dx / len : 0;
+          const ny = len > 0 ? dy / len : 0;
+          const clamped = Math.min(len, max);
+          joyStick.style.transform = `translate(${nx * clamped}px, ${ny * clamped}px)`;
+          pointer.moveVec.set((nx * clamped) / max, (ny * clamped) / max);
+        }
+
+        joyBase.addEventListener('pointerdown', (e) => {
+          if (gameOver) return;
+          e.preventDefault();
+          hideHintForever();
+          joyPointerId = e.pointerId;
+          joyBase.setPointerCapture(e.pointerId);
+          const rect = joyBase.getBoundingClientRect();
+          joyCenter.x = rect.left + rect.width / 2;
+          joyCenter.y = rect.top + rect.height / 2;
+          setJoyVec(e.clientX, e.clientY);
+        });
+
+        joyBase.addEventListener('pointermove', (e) => {
+          if (e.pointerId !== joyPointerId || gameOver) return;
+          e.preventDefault();
+          setJoyVec(e.clientX, e.clientY);
+        });
+
+        const stopJoy = (e) => {
+          if (joyPointerId === null) return;
+          if (e && e.pointerId !== joyPointerId) return;
+          pointer.moveVec.set(0, 0);
+          joyStick.style.transform = 'translate(0px, 0px)';
+          joyPointerId = null;
+        };
+        joyBase.addEventListener('pointerup', stopJoy);
+        joyBase.addEventListener('pointercancel', stopJoy);
+        joyBase.addEventListener('lostpointercapture', stopJoy);
+
+        // 右半分スワイプで視点
+        let lookPointerId = null;
+        renderer.domElement.addEventListener('pointerdown', (e) => {
+          if (gameOver) return;
+          if (e.pointerType === 'touch') {
+            const rect = renderer.domElement.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            if (x < rect.width * 0.34) return;
+            if (e.target === fireBtn || fireBtn.contains(e.target)) return;
+            lookPointerId = e.pointerId;
+            pointer.touchLookId = e.pointerId;
+            pointer.lastTouchX = e.clientX;
+            pointer.lastTouchY = e.clientY;
+            renderer.domElement.setPointerCapture?.(e.pointerId);
+            e.preventDefault();
+          }
+        });
+
+        renderer.domElement.addEventListener('pointermove', (e) => {
+          if (e.pointerType !== 'touch') return;
+          if (lookPointerId !== e.pointerId || gameOver) return;
+          e.preventDefault();
+          const dx = e.clientX - pointer.lastTouchX;
+          const dy = e.clientY - pointer.lastTouchY;
+          pointer.lastTouchX = e.clientX;
+          pointer.lastTouchY = e.clientY;
+          pointer.yaw -= dx * 0.0055;
+          pointer.pitch -= dy * 0.0055;
+          pointer.pitch = clamp(pointer.pitch, -1.45, 1.45);
+        });
+
+        const endLook = (e) => {
+          if (lookPointerId !== e.pointerId) return;
+          lookPointerId = null;
+          pointer.touchLookId = null;
+        };
+        renderer.domElement.addEventListener('pointerup', endLook);
+        renderer.domElement.addEventListener('pointercancel', endLook);
+        renderer.domElement.addEventListener('lostpointercapture', () => {
+          lookPointerId = null;
+          pointer.touchLookId = null;
+        });
+
+        // FIREボタン: pointerdown + touchstart で確実に発火、長押し連射対応
+        const startFire = (e) => {
+          if (gameOver) return;
+          hideHintForever();
+          e.preventDefault();
+          e.stopPropagation();
+          if (pointer.fireHeld) return;
+          pointer.fireHeld = true;
+          fireOnce();
+          pointer.fireTimer = setInterval(() => {
+            if (!gameOver && pointer.fireHeld) fireOnce();
+          }, 130);
+        };
+
+        const stopFire = (e) => {
+          if (e) {
+            e.preventDefault?.();
+            e.stopPropagation?.();
+          }
+          pointer.fireHeld = false;
+          if (pointer.fireTimer) {
+            clearInterval(pointer.fireTimer);
+            pointer.fireTimer = null;
+          }
+        };
+
+        fireBtn.addEventListener('pointerdown', startFire, { passive: false });
+        fireBtn.addEventListener('pointerup', stopFire, { passive: false });
+        fireBtn.addEventListener('pointercancel', stopFire, { passive: false });
+        fireBtn.addEventListener('pointerleave', stopFire, { passive: false });
+
+        fireBtn.addEventListener('touchstart', startFire, { passive: false });
+        fireBtn.addEventListener('touchend', stopFire, { passive: false });
+        fireBtn.addEventListener('touchcancel', stopFire, { passive: false });
+
+        fireBtn.addEventListener('mousedown', (e) => {
+          if (e.button !== 0) return;
+          startFire(e);
+        });
+        fireBtn.addEventListener('mouseup', stopFire);
+        fireBtn.addEventListener('mouseleave', stopFire);
+
+        restartBtn.addEventListener('click', restartGame);
+        restartBtn.addEventListener('touchstart', (e) => { e.preventDefault(); restartGame(); }, { passive: false });
+
+        // ブラウザ標準のズーム・スクロール対策
+        document.addEventListener('gesturestart', (e) => e.preventDefault(), { passive: false });
+        document.addEventListener('gesturechange', (e) => e.preventDefault(), { passive: false });
+        document.addEventListener('gestureend', (e) => e.preventDefault(), { passive: false });
+        document.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
+      }
+
+      function bindResize() {
+        window.addEventListener('resize', () => {
+          camera.aspect = window.innerWidth / window.innerHeight;
+          camera.updateProjectionMatrix();
+          renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+          renderer.setSize(window.innerWidth, window.innerHeight, false);
+        });
+      }
+
+      function restartGame() {
+        ui.blueScore = 0;
+        ui.redScore = 0;
+        ui.deaths = 0;
+        updateHUD();
+
+        gameOver = false;
+        gameOverEl.classList.remove('show');
+
+        player.pos.copy(playerSpawn);
+        player.hp = PLAYER_MAX_HP;
+        player.dead = false;
+        player.respawnAt = 0;
+        player.invulnUntil = performance.now() + 800;
+        player.shootCooldown = 0;
+
+        pointer.yaw = 0;
+        pointer.pitch = 0;
+        pointer.moveVec.set(0, 0);
+        stopFireLoop();
+
+        characters.forEach((ch, i) => {
+          ch.dead = false;
+          ch.hp = 100;
+          ch.respawnAt = 0;
+          ch.fireCooldown = 0;
+          ch.wanderTarget = null;
+          ch.wanderTimer = 0;
+          const spawns = teamSpawnFor(ch.team);
+          ch.root.position.copy(spawns[i % spawns.length]).add(new THREE.Vector3((Math.random() - 0.5) * 3.5, 0, (Math.random() - 0.5) * 3.5));
+          ch.root.visible = true;
+        });
+
+        camera.position.set(player.pos.x, 1.7, player.pos.z);
+        camera.rotation.set(0, 0, 0);
+      }
+
+      function teamSpawnFor(team) {
+        return team === 'blue'
+          ? [
+              new THREE.Vector3(-30, 0, 26),
+              new THREE.Vector3(-34, 0, 10),
+              new THREE.Vector3(-30, 0, -10),
+              new THREE.Vector3(-34, 0, -28)
+            ]
+          : [
+              new THREE.Vector3(30, 0, 26),
+              new THREE.Vector3(34, 0, 10),
+              new THREE.Vector3(30, 0, -10),
+              new THREE.Vector3(34, 0, -28)
+            ];
+      }
+
+      function buildPlayerColliderAndGun() {
+        player.collider = new THREE.Mesh(
+          new THREE.BoxGeometry(1.4, 2.4, 1.4),
+          new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false })
+        );
+        player.collider.userData.player = true;
+        player.collider.userData.isPlayerCollider = true;
+        scene.add(player.collider);
+        hitObjects.push(player.collider);
+
+        player.gun = new THREE.Group();
+        camera.add(player.gun);
+        player.gun.position.set(0.42, -0.28, -0.85);
+        buildFallbackGun();
+      }
+
+      function buildFallbackGun() {
+        if (!player.gun) return;
+        while (player.gun.children.length) player.gun.remove(player.gun.children[0]);
+
+        const gray = 0x7e8792;
+        const dark = 0x303943;
+
+        const barrel = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.05, 0.06, 0.9, 18),
+          new THREE.MeshStandardMaterial({ color: gray, roughness: 0.9 })
+        );
+        barrel.rotation.z = Math.PI / 2;
+        barrel.position.set(0.14, 0.02, -0.62);
+        player.gun.add(barrel);
+
+        const body = new THREE.Mesh(
+          new THREE.BoxGeometry(0.28, 0.22, 0.55),
+          new THREE.MeshStandardMaterial({ color: dark, roughness: 0.95 })
+        );
+        body.position.set(0.1, -0.02, -0.22);
+        player.gun.add(body);
+
+        const handle = new THREE.Mesh(
+          new THREE.BoxGeometry(0.16, 0.34, 0.18),
+          new THREE.MeshStandardMaterial({ color: dark, roughness: 0.95 })
+        );
+        handle.position.set(0.05, -0.22, -0.08);
+        handle.rotation.z = -0.25;
+        player.gun.add(handle);
+
+        const top = new THREE.Mesh(
+          new THREE.BoxGeometry(0.16, 0.12, 0.28),
+          new THREE.MeshStandardMaterial({ color: gray, roughness: 0.8 })
+        );
+        top.position.set(0.12, 0.12, -0.34);
+        player.gun.add(top);
+      }
+
       class Character {
-        constructor({ team, name, spawn }) {
+        constructor(team, name, spawn) {
           this.team = team;
           this.name = name;
           this.spawn = spawn.clone();
           this.health = 100;
-          this.maxHealth = 100;
           this.dead = false;
           this.respawnAt = 0;
           this.fireCooldown = 0;
           this.wanderTarget = null;
           this.wanderTimer = 0;
-          this.thinkTimer = 0;
-          this.speed = team === 'blue' ? 4.15 : 4.2;
-          this.radius = 0.7;
-          this.height = 2.0;
+          this.speed = 4.15;
+          this.radius = 0.72;
           this.root = new THREE.Group();
-          this.root.position.copy(this.spawn);
-          this.root.userData.character = this;
+          this.root.position.copy(spawn);
           scene.add(this.root);
 
           this.visualRoot = new THREE.Group();
           this.root.add(this.visualRoot);
 
           this.collider = new THREE.Mesh(
-            new THREE.BoxGeometry(1.1, 2.0, 1.1),
+            new THREE.BoxGeometry(1.4, 2.4, 1.4),
             new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false })
           );
-          this.collider.position.set(0, 1.0, 0);
+          this.collider.position.set(0, 1.2, 0);
           this.collider.userData.character = this;
+          this.collider.userData.team = team;
           this.root.add(this.collider);
-          allHitboxes.push(this.collider);
+          hitObjects.push(this.collider);
 
           this.label = makeLabelSprite(name, team === 'blue' ? BLUE : RED);
-          this.label.position.set(0, 2.9, 0);
+          this.label.position.set(0, 5.3, 0);
           this.root.add(this.label);
 
           this.marker = new THREE.Mesh(
@@ -674,11 +1041,14 @@
             new THREE.MeshBasicMaterial({ color: team === 'blue' ? BLUE : RED })
           );
           this.marker.rotation.x = Math.PI / 2;
-          this.marker.position.set(0, 2.45, 0);
+          this.marker.position.set(0, 4.6, 0);
           this.root.add(this.marker);
 
           this.setFallbackAppearance();
-          this.root.visible = true;
+        }
+
+        get position() {
+          return this.root.position;
         }
 
         setFallbackAppearance() {
@@ -694,33 +1064,36 @@
             new THREE.BoxGeometry(0.95, 1.2, 0.55),
             new THREE.MeshStandardMaterial({ color: bodyColor, roughness: 0.95 })
           );
-          torso.position.set(0, 1.15, 0);
+          torso.position.set(0, 1.25, 0);
           this.visualRoot.add(torso);
 
           const head = new THREE.Mesh(
             new THREE.BoxGeometry(0.6, 0.6, 0.6),
             new THREE.MeshStandardMaterial({ color: capColor, roughness: 0.95 })
           );
-          head.position.set(0, 2.0, 0);
+          head.position.set(0, 2.05, 0);
           this.visualRoot.add(head);
 
           const armGeo = new THREE.BoxGeometry(0.2, 0.9, 0.2);
           const armMat = new THREE.MeshStandardMaterial({ color: baseColor, roughness: 0.96 });
+
           const armL = new THREE.Mesh(armGeo, armMat);
-          armL.position.set(-0.6, 1.15, 0);
+          armL.position.set(-0.6, 1.2, 0);
           armL.rotation.z = 0.15;
           this.visualRoot.add(armL);
+
           const armR = new THREE.Mesh(armGeo, armMat);
-          armR.position.set(0.6, 1.15, 0);
+          armR.position.set(0.6, 1.2, 0);
           armR.rotation.z = -0.15;
           this.visualRoot.add(armR);
 
           const legGeo = new THREE.BoxGeometry(0.24, 1.0, 0.24);
           const legL = new THREE.Mesh(legGeo, armMat);
-          legL.position.set(-0.24, 0.25, 0);
+          legL.position.set(-0.24, 0.28, 0);
           this.visualRoot.add(legL);
+
           const legR = new THREE.Mesh(legGeo, armMat);
-          legR.position.set(0.24, 0.25, 0);
+          legR.position.set(0.24, 0.28, 0);
           this.visualRoot.add(legR);
         }
 
@@ -728,6 +1101,7 @@
           while (this.visualRoot.children.length) {
             this.visualRoot.remove(this.visualRoot.children[0]);
           }
+
           const model = THREE.SkeletonUtils.clone(template);
           model.traverse((o) => {
             if (o.isMesh) {
@@ -740,12 +1114,26 @@
               }
             }
           });
-          model.scale.setScalar(1.35);
+
+          // サイズを3倍～5倍程度に拡大し、足元を地面(y=0)に接地
+          tmpBox.setFromObject(model);
+          tmpBox.getSize(tmpSize);
+          tmpBox.getCenter(tmpCenter);
+
+          const rawHeight = Math.max(0.001, tmpSize.y);
+          const scale = THREE.MathUtils.clamp(MODEL_TARGET_HEIGHT / rawHeight, 3.3, 5.0);
+          model.scale.setScalar(scale);
+
+          // 原点をモデル中心へ寄せ、底面が地面に接するようにオフセット
+          model.position.set(
+            -tmpCenter.x * scale,
+            -tmpBox.min.y * scale,
+            -tmpCenter.z * scale
+          );
           model.rotation.y = Math.PI;
-          model.position.set(0, 0, 0);
+
           this.visualRoot.add(model);
 
-          // 見た目の差異を少し調整
           if (this.team === 'blue') {
             model.traverse((o) => {
               if (o.isMesh && o.material && o.material.color) {
@@ -761,34 +1149,28 @@
           }
         }
 
-        setGunTemplate(template) {}
-
         respawn() {
           this.dead = false;
-          this.health = this.maxHealth;
+          this.health = 100;
           this.root.visible = true;
           this.root.position.copy(this.spawn);
-          this.wanderTarget = null;
-          this.thinkTimer = 0;
+          this.root.position.y = GROUND_Y;
           this.fireCooldown = 0;
+          this.wanderTarget = null;
+          this.wanderTimer = 0;
         }
 
         kill(killer) {
           if (this.dead) return;
           this.dead = true;
           this.root.visible = false;
-          this.respawnAt = performance.now() + 2800;
+          this.respawnAt = performance.now() + 2200;
 
           if (killer && killer.team !== this.team) {
             if (killer.team === 'blue') ui.blueScore++;
             else ui.redScore++;
             updateHUD();
             checkWin();
-          }
-
-          if (this === player) {
-            ui.deaths++;
-            updateHUD();
           }
         }
 
@@ -801,10 +1183,6 @@
           }
         }
 
-        get position() {
-          return this.root.position;
-        }
-
         updateFacing(targetPos) {
           const dx = targetPos.x - this.position.x;
           const dz = targetPos.z - this.position.z;
@@ -812,117 +1190,55 @@
         }
       }
 
-      const playerState = {
-        pos: new THREE.Vector3(0, 0, 30),
-        vel: new THREE.Vector3(),
-        speed: 6.2,
-        radius: 0.65,
-        gun: null,
-        reload: 0,
-        shootCooldown: 0,
-        health: 100,
-        dead: false,
-        respawnAt: 0
-      };
-
-      function createPlayer() {
-        playerState.pos.copy(teamSpawns.blue[0]).add(new THREE.Vector3(0, 0, 4));
-        playerState.pos.y = 0;
-
-        const gunGroup = new THREE.Group();
-        camera.add(gunGroup);
-        gunGroup.position.set(0.42, -0.28, -0.85);
-        gunGroup.rotation.set(0, 0, 0);
-        playerState.gun = gunGroup;
-
-        buildFallbackGun();
-        return playerState;
-      }
-
-      function buildFallbackGun() {
-        if (!playerState.gun) return;
-        while (playerState.gun.children.length) {
-          playerState.gun.remove(playerState.gun.children[0]);
-        }
-
-        const gray = 0x7e8792;
-        const dark = 0x303943;
-        const barrel = new THREE.Mesh(
-          new THREE.CylinderGeometry(0.05, 0.06, 0.9, 18),
-          new THREE.MeshStandardMaterial({ color: gray, roughness: 0.9 })
-        );
-        barrel.rotation.z = Math.PI / 2;
-        barrel.position.set(0.14, 0.02, -0.62);
-        playerState.gun.add(barrel);
-
-        const body = new THREE.Mesh(
-          new THREE.BoxGeometry(0.28, 0.22, 0.55),
-          new THREE.MeshStandardMaterial({ color: dark, roughness: 0.95 })
-        );
-        body.position.set(0.1, -0.02, -0.22);
-        playerState.gun.add(body);
-
-        const handle = new THREE.Mesh(
-          new THREE.BoxGeometry(0.16, 0.34, 0.18),
-          new THREE.MeshStandardMaterial({ color: dark, roughness: 0.95 })
-        );
-        handle.position.set(0.05, -0.22, -0.08);
-        handle.rotation.z = -0.25;
-        playerState.gun.add(handle);
-
-        const top = new THREE.Mesh(
-          new THREE.BoxGeometry(0.16, 0.12, 0.28),
-          new THREE.MeshStandardMaterial({ color: gray, roughness: 0.8 })
-        );
-        top.position.set(0.12, 0.12, -0.34);
-        playerState.gun.add(top);
-      }
-
       function createCharacter(team, idx) {
-        const namesBlue = ['ALPHA', 'BRAVO', 'CHARLIE', 'PLAYER'];
+        const namesBlue = ['ALPHA', 'BRAVO', 'CHARLIE'];
         const namesRed = ['R-1', 'R-2', 'R-3', 'R-4'];
-
-        const ch = new Character({
-          team,
-          name: team === 'blue' ? namesBlue[idx] || `ALLY-${idx+1}` : namesRed[idx] || `ENEMY-${idx+1}`,
-          spawn: teamSpawns[team][idx % teamSpawns[team].length]
-        });
-
+        const spawns = teamSpawnFor(team);
+        const spawn = spawns[idx % spawns.length].clone();
+        const ch = new Character(team, team === 'blue' ? namesBlue[idx] || `ALLY-${idx+1}` : namesRed[idx] || `ENEMY-${idx+1}`, spawn);
         characters.push(ch);
         return ch;
       }
 
       function createBots() {
-        // 味方AI 3人
         createCharacter('blue', 0);
         createCharacter('blue', 1);
         createCharacter('blue', 2);
 
-        // 敵AI 4人
         createCharacter('red', 0);
         createCharacter('red', 1);
         createCharacter('red', 2);
         createCharacter('red', 3);
       }
 
+      function teamSpawnFor(team) {
+        return team === 'blue'
+          ? [
+              new THREE.Vector3(-30, 0, 26),
+              new THREE.Vector3(-34, 0, 10),
+              new THREE.Vector3(-30, 0, -10),
+              new THREE.Vector3(-34, 0, -28)
+            ]
+          : [
+              new THREE.Vector3(30, 0, 26),
+              new THREE.Vector3(34, 0, 10),
+              new THREE.Vector3(30, 0, -10),
+              new THREE.Vector3(34, 0, -28)
+            ];
+      }
+
       function loadModels() {
         const gltfLoader = new THREE.GLTFLoader();
+
         gltfLoader.load(
           './human1.glb',
           (gltf) => {
-            loaded.human = true;
-            loaded.humanTemplate = gltf.scene;
-            teamHumanLoadedOnce = true;
             characters.forEach((ch) => {
-              if (ch && !ch.dead) {
-                ch.setModelTemplate(gltf.scene);
-              }
+              if (!ch.dead) ch.setModelTemplate(gltf.scene);
             });
           },
           undefined,
           () => {
-            loaded.human = false;
-            loaded.humanTemplate = null;
             characters.forEach((ch) => ch.setFallbackAppearance());
           }
         );
@@ -930,23 +1246,19 @@
         gltfLoader.load(
           './ju.glb',
           (gltf) => {
-            loaded.gun = true;
-            loaded.gunTemplate = gltf.scene;
             applyGunModel(gltf.scene);
           },
           undefined,
           () => {
-            loaded.gun = false;
             buildFallbackGun();
           }
         );
       }
 
       function applyGunModel(template) {
-        if (!playerState.gun) return;
-        while (playerState.gun.children.length) {
-          playerState.gun.remove(playerState.gun.children[0]);
-        }
+        if (!player.gun) return;
+        while (player.gun.children.length) player.gun.remove(player.gun.children[0]);
+
         const gun = THREE.SkeletonUtils.clone(template);
         gun.traverse((o) => {
           if (o.isMesh) {
@@ -962,261 +1274,55 @@
         gun.scale.setScalar(0.85);
         gun.rotation.set(0, Math.PI / 2, 0);
         gun.position.set(0.02, -0.08, -0.1);
-        playerState.gun.add(gun);
+        player.gun.add(gun);
       }
 
-      function bindInput() {
-        window.addEventListener('keydown', (e) => {
-          keys[e.code] = true;
-        });
+      function buildFallbackGun() {
+        if (!player.gun) return;
+        while (player.gun.children.length) player.gun.remove(player.gun.children[0]);
 
-        window.addEventListener('keyup', (e) => {
-          keys[e.code] = false;
-        });
+        const gray = 0x7e8792;
+        const dark = 0x303943;
 
-        // Desktop: クリックでポインターロック
-        renderer.domElement.addEventListener('click', () => {
-          if (gameOver) return;
-          if (!isTouch && document.pointerLockElement !== renderer.domElement) {
-            renderer.domElement.requestPointerLock?.();
-          }
-        });
+        const barrel = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.05, 0.06, 0.9, 18),
+          new THREE.MeshStandardMaterial({ color: gray, roughness: 0.9 })
+        );
+        barrel.rotation.z = Math.PI / 2;
+        barrel.position.set(0.14, 0.02, -0.62);
+        player.gun.add(barrel);
 
-        document.addEventListener('pointerlockchange', () => {
-          pointer.locked = (document.pointerLockElement === renderer.domElement);
-          if (pointer.locked) {
-            showHint(false);
-          } else if (!isTouch) {
-            showHint(true);
-          }
-        });
+        const body = new THREE.Mesh(
+          new THREE.BoxGeometry(0.28, 0.22, 0.55),
+          new THREE.MeshStandardMaterial({ color: dark, roughness: 0.95 })
+        );
+        body.position.set(0.1, -0.02, -0.22);
+        player.gun.add(body);
 
-        document.addEventListener('mousemove', (e) => {
-          if (!pointer.locked || gameOver) return;
-          pointer.yaw -= e.movementX * pointer.lookSensitivity;
-          pointer.pitch -= e.movementY * pointer.lookSensitivity;
-          pointer.pitch = clamp(pointer.pitch, -1.45, 1.45);
-        });
+        const handle = new THREE.Mesh(
+          new THREE.BoxGeometry(0.16, 0.34, 0.18),
+          new THREE.MeshStandardMaterial({ color: dark, roughness: 0.95 })
+        );
+        handle.position.set(0.05, -0.22, -0.08);
+        handle.rotation.z = -0.25;
+        player.gun.add(handle);
 
-        window.addEventListener('mousedown', (e) => {
-          if (gameOver) return;
-          if (!isTouch && e.button === 0) {
-            if (document.pointerLockElement === renderer.domElement) {
-              shootPlayer();
-            }
-          }
-        });
-
-        window.addEventListener('contextmenu', (e) => e.preventDefault());
-
-        // Touch joystick
-        let joyPointer = null;
-        let joyCenter = { x: 0, y: 0 };
-
-        joyBase.addEventListener('pointerdown', (e) => {
-          if (gameOver) return;
-          e.preventDefault();
-          joyPointer = e.pointerId;
-          joyBase.setPointerCapture(e.pointerId);
-          const rect = joyBase.getBoundingClientRect();
-          joyCenter.x = rect.left + rect.width / 2;
-          joyCenter.y = rect.top + rect.height / 2;
-          updateJoystick(e.clientX, e.clientY);
-        });
-
-        joyBase.addEventListener('pointermove', (e) => {
-          if (e.pointerId !== joyPointer) return;
-          e.preventDefault();
-          updateJoystick(e.clientX, e.clientY);
-        });
-
-        const stopJoy = (e) => {
-          if (e.pointerId !== joyPointer) return;
-          e.preventDefault();
-          joyPointer = null;
-          pointer.moveVec.set(0, 0);
-          joyStick.style.transform = 'translate(0px, 0px)';
-        };
-
-        joyBase.addEventListener('pointerup', stopJoy);
-        joyBase.addEventListener('pointercancel', stopJoy);
-        joyBase.addEventListener('lostpointercapture', () => {
-          joyPointer = null;
-          pointer.moveVec.set(0, 0);
-          joyStick.style.transform = 'translate(0px, 0px)';
-        });
-
-        function updateJoystick(x, y) {
-          const dx = x - joyCenter.x;
-          const dy = y - joyCenter.y;
-          const max = 44;
-          const len = Math.hypot(dx, dy);
-          const nx = len > 0 ? dx / len : 0;
-          const ny = len > 0 ? dy / len : 0;
-          const clamped = Math.min(len, max);
-          joyStick.style.transform = `translate(${nx * clamped}px, ${ny * clamped}px)`;
-          pointer.moveVec.set((nx * clamped) / max, (ny * clamped) / max);
-        }
-
-        // Touch look on canvas
-        let lookPointer = null;
-
-        renderer.domElement.addEventListener('pointerdown', (e) => {
-          if (gameOver) return;
-          if (e.pointerType !== 'touch') return;
-          // 右半分を視点操作に使う。左下はジョイスティックが受ける。
-          const rect = renderer.domElement.getBoundingClientRect();
-          const x = e.clientX - rect.left;
-          if (x < rect.width * 0.34) return;
-          // 右下の射撃ボタンは別要素が受ける
-          if (e.target === fireBtn || fireBtn.contains(e.target)) return;
-          lookPointer = e.pointerId;
-          pointer.touchLookId = e.pointerId;
-          pointer.touchLookActive = true;
-          pointer.lastTouchX = e.clientX;
-          pointer.lastTouchY = e.clientY;
-          renderer.domElement.setPointerCapture(e.pointerId);
-          e.preventDefault();
-        });
-
-        renderer.domElement.addEventListener('pointermove', (e) => {
-          if (e.pointerType !== 'touch') return;
-          if (lookPointer !== e.pointerId || gameOver) return;
-          e.preventDefault();
-          const dx = e.clientX - pointer.lastTouchX;
-          const dy = e.clientY - pointer.lastTouchY;
-          pointer.lastTouchX = e.clientX;
-          pointer.lastTouchY = e.clientY;
-          pointer.yaw -= dx * 0.0055;
-          pointer.pitch -= dy * 0.0055;
-          pointer.pitch = clamp(pointer.pitch, -1.45, 1.45);
-        });
-
-        const endLook = (e) => {
-          if (lookPointer !== e.pointerId) return;
-          lookPointer = null;
-          pointer.touchLookActive = false;
-          pointer.touchLookId = null;
-        };
-
-        renderer.domElement.addEventListener('pointerup', endLook);
-        renderer.domElement.addEventListener('pointercancel', endLook);
-        renderer.domElement.addEventListener('lostpointercapture', () => {
-          lookPointer = null;
-          pointer.touchLookActive = false;
-          pointer.touchLookId = null;
-        });
-
-        // Fire button
-        const startFire = (e) => {
-          if (gameOver) return;
-          e.preventDefault();
-          fireOnceForTouch();
-          if (pointer.fireInterval) clearInterval(pointer.fireInterval);
-          pointer.fireHeld = true;
-          pointer.fireInterval = setInterval(() => {
-            if (!gameOver && pointer.fireHeld) fireOnceForTouch();
-          }, 220);
-        };
-
-        const stopFire = (e) => {
-          if (e) e.preventDefault();
-          pointer.fireHeld = false;
-          if (pointer.fireInterval) {
-            clearInterval(pointer.fireInterval);
-            pointer.fireInterval = null;
-          }
-        };
-
-        fireBtn.addEventListener('pointerdown', startFire);
-        fireBtn.addEventListener('pointerup', stopFire);
-        fireBtn.addEventListener('pointercancel', stopFire);
-        fireBtn.addEventListener('pointerleave', stopFire);
-        fireBtn.addEventListener('contextmenu', (e) => e.preventDefault());
-
-        restartBtn.addEventListener('click', restartGame);
-
-        window.addEventListener('blur', () => {
-          keys.W = keys.A = keys.S = keys.D = false;
-          stopFire();
-          pointer.moveVec.set(0, 0);
-          joyStick.style.transform = 'translate(0px, 0px)';
-        });
+        const top = new THREE.Mesh(
+          new THREE.BoxGeometry(0.16, 0.12, 0.28),
+          new THREE.MeshStandardMaterial({ color: gray, roughness: 0.8 })
+        );
+        top.position.set(0.12, 0.12, -0.34);
+        player.gun.add(top);
       }
 
-      function showHint(flag) {
-        hintEl.classList.toggle('show', !!flag);
-      }
-
-      function bindResize() {
-        window.addEventListener('resize', () => {
-          camera.aspect = window.innerWidth / window.innerHeight;
-          camera.updateProjectionMatrix();
-          renderer.setSize(window.innerWidth, window.innerHeight, false);
-          renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-        });
-      }
-
-      function normalizeAngle(a) {
-        while (a > Math.PI) a -= Math.PI * 2;
-        while (a < -Math.PI) a += Math.PI * 2;
-        return a;
-      }
-
-      function updateHUD() {
-        blueScoreEl.textContent = ui.blueScore;
-        redScoreEl.textContent = ui.redScore;
-        deathsEl.textContent = ui.deaths;
-      }
-
-      function checkWin() {
-        if (gameOver) return;
-        if (ui.blueScore >= 20 || ui.redScore >= 20) {
-          gameOver = true;
-          const blueWon = ui.blueScore >= 20 && ui.blueScore >= ui.redScore;
-          winnerTextEl.textContent = blueWon ? 'BLUE TEAM WINS' : 'RED TEAM WINS';
-          resultTextEl.textContent = blueWon ? '青チームが先に20キルに到達しました。' : '赤チームが先に20キルに到達しました。';
-          gameOverEl.classList.add('show');
-          showHint(false);
-          stopAllInputs();
-          if (document.pointerLockElement) document.exitPointerLock?.();
+      function hideHintForever() {
+        if (hintEl && hintEl.style.display !== 'none') {
+          hintEl.style.display = 'none';
         }
       }
 
-      function stopAllInputs() {
-        pointer.fireHeld = false;
-        if (pointer.fireInterval) {
-          clearInterval(pointer.fireInterval);
-          pointer.fireInterval = null;
-        }
-        pointer.moveVec.set(0, 0);
-        joyStick.style.transform = 'translate(0px, 0px)';
-      }
-
-      function restartGame() {
-        ui.blueScore = 0;
-        ui.redScore = 0;
-        ui.deaths = 0;
-        updateHUD();
-        gameOver = false;
-        gameOverEl.classList.remove('show');
-        showHint(!isTouch);
-
-        // reset player
-        playerState.pos.set(teamSpawns.blue[0].x, 0, teamSpawns.blue[0].z + 4);
-        playerState.health = 100;
-        playerState.dead = false;
-        playerState.respawnAt = 0;
-        pointer.yaw = 0;
-        pointer.pitch = 0;
-        camera.rotation.set(0, 0, 0);
-
-        // reset bots
-        characters.forEach((c, i) => {
-          const spawn = teamSpawns[c.team][i % teamSpawns[c.team].length].clone();
-          c.spawn.copy(spawn);
-          c.respawn();
-        });
+      function updatePlayerCollider() {
+        player.collider.position.set(player.pos.x, 1.2, player.pos.z);
       }
 
       function stopAtWalls(pos, radius) {
@@ -1229,23 +1335,24 @@
           const dx = pos.x - nearestX;
           const dz = pos.z - nearestZ;
           if ((dx * dx + dz * dz) < radius * radius) {
-            // 別軸で押し戻す
-            const pushX = Math.abs(dx) > Math.abs(dz) ? (dx >= 0 ? radius - Math.abs(dx) : -(radius - Math.abs(dx))) : 0;
-            const pushZ = Math.abs(dz) >= Math.abs(dx) ? (dz >= 0 ? radius - Math.abs(dz) : -(radius - Math.abs(dz))) : 0;
-            if (pushX !== 0) pos.x += pushX * 0.55;
-            if (pushZ !== 0) pos.z += pushZ * 0.55;
+            if (Math.abs(dx) > Math.abs(dz)) {
+              pos.x += dx >= 0 ? radius * 0.45 : -radius * 0.45;
+            } else {
+              pos.z += dz >= 0 ? radius * 0.45 : -radius * 0.45;
+            }
           }
         }
+
         pos.x = clamp(pos.x, -ARENA.w / 2 + radius + 1.2, ARENA.w / 2 - radius - 1.2);
         pos.z = clamp(pos.z, -ARENA.d / 2 + radius + 1.2, ARENA.d / 2 - radius - 1.2);
       }
 
-      function canSee(source, target, ignoreChar) {
-        const from = new THREE.Vector3(source.x, 1.55, source.z);
-        const to = new THREE.Vector3(target.x, 1.55, target.z);
+      function canSee(fromPos, toPos) {
+        const from = new THREE.Vector3(fromPos.x, 1.55, fromPos.z);
+        const to = new THREE.Vector3(toPos.x, 1.55, toPos.z);
         const dir = to.clone().sub(from);
         const dist = dir.length();
-        if (dist < 0.01) return true;
+        if (dist < 0.001) return true;
         dir.normalize();
 
         raycaster.set(from, dir);
@@ -1257,11 +1364,12 @@
       function getVisibleEnemyFor(ch) {
         let best = null;
         let bestDist = Infinity;
+
         for (const other of characters) {
           if (other.dead || other.team === ch.team) continue;
           const d = ch.position.distanceTo(other.position);
           if (d > 34) continue;
-          if (!canSee(ch.position, other.position, ch)) continue;
+          if (!canSee(ch.position, other.position)) continue;
           if (d < bestDist) {
             best = other;
             bestDist = d;
@@ -1272,7 +1380,6 @@
 
       function pickPatrolPoint(ch) {
         const p = patrolPoints[(Math.random() * patrolPoints.length) | 0].clone();
-        // チーム側に少し寄せる
         if (ch.team === 'blue') p.x = Math.min(p.x, 10 + Math.random() * 10);
         else p.x = Math.max(p.x, -10 - Math.random() * 10);
         return p;
@@ -1288,130 +1395,115 @@
         stopAtWalls(attempt, ch.radius);
         ch.position.copy(attempt);
 
-        // 見た目の向き
-        const lookYaw = Math.atan2(moveDir.x, moveDir.z);
-        ch.root.rotation.y = lookYaw;
+        const yaw = Math.atan2(moveDir.x, moveDir.z);
+        ch.root.rotation.y = yaw;
       }
 
-      function chooseTargetMove(ch, target) {
-        const to = target.position.clone().sub(ch.position);
-        const dist = to.length();
-        to.y = 0;
-        if (dist < 0.001) return new THREE.Vector3();
-
-        const dir = to.clone().normalize();
-        // 遠ければ近づく、近ければ少し下がる
-        if (dist > 12) return dir;
-        if (dist < 7) return dir.multiplyScalar(-1);
-        // 中距離は横移動も少し混ぜる
-        const side = new THREE.Vector3(-dir.z, 0, dir.x);
-        return dir.multiplyScalar(0.55).add(side.multiplyScalar((Math.random() > 0.5 ? 1 : -1) * 0.55));
+      function getShotOrigin(shooter) {
+        const origin = new THREE.Vector3();
+        if (shooter === 'player') {
+          origin.set(camera.position.x, camera.position.y, camera.position.z);
+        } else {
+          origin.set(shooter.position.x, 1.58, shooter.position.z);
+        }
+        return origin;
       }
 
-      function shootRay(origin, direction, shooter, damage) {
-        const maxDist = 60;
-        const bulletsFrom = new THREE.Vector3(origin.x, origin.y, origin.z);
-        const dir = direction.clone().normalize();
-        raycaster.set(bulletsFrom, dir);
-        raycaster.far = maxDist;
+      function traceShot(origin, direction, shooter, damage) {
+        raycaster.set(origin, direction.clone().normalize());
+        raycaster.far = 70;
 
-        bulletHits.length = 0;
-        const allObjects = obstacleHitObjects.concat(allHitboxes);
-        const hits = raycaster.intersectObjects(allObjects, false);
+        const hits = raycaster.intersectObjects(hitObjects, false);
         if (!hits.length) return;
 
-        // 近い順に見て、最初の障害物 or 敵キャラを採用
         for (const hit of hits) {
           const obj = hit.object;
+
           if (obj.userData && obj.userData.isObstacle) {
             return;
           }
+
+          if (obj.userData && obj.userData.isPlayerCollider) {
+            if (shooter === player || player.dead || performance.now() < player.invulnUntil) return;
+            if (shooter.team && shooter.team === 'blue') return;
+            playerTakeDamage(damage, shooter);
+            return;
+          }
+
           const ch = obj.userData && obj.userData.character;
-          if (!ch || ch.dead || ch === shooter) continue;
-          if (ch.team === shooter.team) continue;
+          if (!ch || ch.dead) continue;
+
+          if (shooter !== player && ch === shooter) continue;
+          if (shooter.team && ch.team === shooter.team) continue;
+
           ch.damage(damage, shooter);
           return;
         }
       }
 
-      function shootFromCharacter(shooter, targetPos) {
-        if (shooter.dead || gameOver) return;
-        if (shooter.fireCooldown > 0) return;
-        shooter.fireCooldown = shooter.team === 'blue' ? 0.22 : 0.28;
+      function fireOnce() {
+        if (gameOver) return;
+        if (player.dead) return;
+        if (player.shootCooldown > 0) return;
 
-        const origin = shooter.position.clone();
-        origin.y = 1.58;
+        player.shootCooldown = 0.12;
+        const origin = new THREE.Vector3(camera.position.x, camera.position.y, camera.position.z);
+        const dir = new THREE.Vector3();
+        camera.getWorldDirection(dir);
+        traceShot(origin, dir, player, PLAYER_HIT_DAMAGE);
+      }
 
+      function playerTakeDamage(amount, attacker) {
+        if (player.dead) return;
+        if (performance.now() < player.invulnUntil) return;
+
+        player.hp -= amount;
+        if (player.hp <= 0) {
+          player.hp = 0;
+          ui.deaths++;
+          updateHUD();
+          respawnPlayer(attacker);
+        }
+        updateHPUI();
+      }
+
+      function respawnPlayer(attacker) {
+        if (attacker && attacker.team === 'red') {
+          ui.redScore++;
+          updateHUD();
+          checkWin();
+        }
+
+        player.dead = false;
+        player.hp = PLAYER_MAX_HP;
+        player.pos.copy(playerSpawn);
+        player.invulnUntil = performance.now() + 900;
+        updateHPUI();
+      }
+
+      function respawnBot(ch) {
+        const spawns = teamSpawnFor(ch.team);
+        const idx = (Math.random() * spawns.length) | 0;
+        ch.spawn.copy(spawns[idx]).add(new THREE.Vector3((Math.random() - 0.5) * 3.5, 0, (Math.random() - 0.5) * 3.5));
+        ch.respawn();
+      }
+
+      function aiShootAt(ch, targetPos) {
+        if (ch.dead || gameOver) return;
+        if (ch.fireCooldown > 0) return;
+        ch.fireCooldown = ch.team === 'blue' ? 0.22 : 0.28;
+
+        const origin = new THREE.Vector3(ch.position.x, 1.58, ch.position.z);
         const dir = targetPos.clone().sub(origin);
         dir.y *= 0.35;
 
-        // 少し散らす
-        const spread = shooter === player ? 0.012 : 0.03;
+        const spread = ch === player ? 0.012 : 0.03;
         dir.x += (Math.random() - 0.5) * spread;
         dir.y += (Math.random() - 0.5) * spread * 0.55;
         dir.z += (Math.random() - 0.5) * spread;
 
-        shootRay(origin, dir, shooter, shooter === player ? 34 : 28);
-      }
-
-      function shootPlayer() {
-        if (gameOver) return;
-        if (playerState.dead) return;
-        if (playerState.shootCooldown > 0) return;
-
-        playerState.shootCooldown = 0.15;
-        const origin = new THREE.Vector3(playerState.pos.x, 1.62, playerState.pos.z);
-        const dir = new THREE.Vector3(
-          Math.sin(pointer.yaw) * Math.cos(pointer.pitch),
-          Math.sin(pointer.pitch),
-          -Math.cos(pointer.yaw) * Math.cos(pointer.pitch)
-        ).normalize();
-
-        shootRay(origin, dir, player, 34);
-      }
-
-      function fireOnceForTouch() {
-        shootPlayer();
-      }
-
-      function updatePlayer(dt) {
-        if (playerState.dead || gameOver) return;
-
-        // desktop wasd + touch joystick
-        const moveX = (keys.KeyD ? 1 : 0) - (keys.KeyA ? 1 : 0) + pointer.moveVec.x;
-        const moveY = (keys.KeyS ? 1 : 0) - (keys.KeyW ? 1 : 0) + pointer.moveVec.y;
-
-        const yaw = pointer.yaw;
-        const forward = new THREE.Vector3(Math.sin(yaw), 0, -Math.cos(yaw));
-        const right = new THREE.Vector3(Math.cos(yaw), 0, Math.sin(yaw));
-
-        const desired = new THREE.Vector3();
-        desired.addScaledVector(right, moveX);
-        desired.addScaledVector(forward, moveY);
-        if (desired.lengthSq() > 0) desired.normalize();
-
-        const next = playerState.pos.clone().addScaledVector(desired, playerState.speed * dt);
-        stopAtWalls(next, playerState.radius);
-        playerState.pos.copy(next);
-
-        if (keys.Space) {
-          // 連打しないように、必要なら将来ここへ拡張
-        }
-
-        // 視点を反映
-        camera.position.set(playerState.pos.x, 1.7, playerState.pos.z);
-        camera.rotation.order = 'YXZ';
-        camera.rotation.y = pointer.yaw;
-        camera.rotation.x = pointer.pitch;
-
-        // 銃の簡易揺れ
-        if (playerState.gun) {
-          const bob = Math.sin(performance.now() * 0.012) * 0.008 * Math.min(1, desired.length() * 2);
-          playerState.gun.position.y = -0.28 + bob;
-          playerState.gun.position.x = 0.42 + Math.sin(performance.now() * 0.008) * 0.01;
-        }
-
-        if (playerState.shootCooldown > 0) playerState.shootCooldown -= dt;
+        const damage = ch.team === 'blue' ? PLAYER_HIT_DAMAGE : ENEMY_HIT_DAMAGE;
+        traceShot(origin, dir, ch, damage);
       }
 
       function updateAI(ch, dt) {
@@ -1422,22 +1514,26 @@
         let moveDir = new THREE.Vector3();
 
         if (visibleEnemy) {
-          ch.thinkTimer += dt;
           const toEnemy = visibleEnemy.position.clone().sub(ch.position);
           const dist = toEnemy.length();
+          toEnemy.y = 0;
 
-          if (dist < 0.001) return;
-          moveDir = chooseTargetMove(ch, visibleEnemy);
-
-          // 視界が通っていれば射撃
-          if (ch.fireCooldown <= 0 && dist < 35 && canSee(ch.position, visibleEnemy.position, ch)) {
-            ch.updateFacing(visibleEnemy.position);
-            shootFromCharacter(ch, visibleEnemy.position);
+          if (dist > 0.001) {
+            if (dist > 12) {
+              moveDir.copy(toEnemy).normalize();
+            } else if (dist < 7) {
+              moveDir.copy(toEnemy).normalize().multiplyScalar(-1);
+            } else {
+              const forward = toEnemy.clone().normalize();
+              const side = new THREE.Vector3(-forward.z, 0, forward.x);
+              moveDir.copy(forward).multiplyScalar(0.55).add(side.multiplyScalar((Math.random() > 0.5 ? 1 : -1) * 0.55));
+            }
           }
 
-          // 近すぎる時は少しずつ離れる
-          if (dist < 7.5) {
-            moveDir.add(toEnemy.clone().setY(0).normalize().multiplyScalar(-0.6));
+          ch.updateFacing(visibleEnemy.position);
+
+          if (ch.fireCooldown <= 0 && dist < 35 && canSee(ch.position, visibleEnemy.position)) {
+            aiShootAt(ch, visibleEnemy.position.clone());
           }
         } else {
           ch.wanderTimer -= dt;
@@ -1447,14 +1543,11 @@
           }
           moveDir = ch.wanderTarget.clone().sub(ch.position);
           moveDir.y = 0;
-
-          // たまに振り向く
           if (moveDir.lengthSq() > 0.001) {
             ch.root.rotation.y = Math.atan2(moveDir.x, moveDir.z);
           }
         }
 
-        // 障害物に引っかかったら少し方向転換
         const before = ch.position.clone();
         moveCharacter(ch, moveDir, ch.speed, dt);
         if (before.distanceToSquared(ch.position) < 0.00005) {
@@ -1464,216 +1557,17 @@
             ch.wanderTarget = null;
           }
         }
-
-        // 生きている相手が近くで見えるときはより積極的に射撃
-        if (visibleEnemy && visibleEnemy !== player && ch.fireCooldown <= 0) {
-          const dist = ch.position.distanceTo(visibleEnemy.position);
-          if (dist < 32) {
-            ch.updateFacing(visibleEnemy.position);
-            shootFromCharacter(ch, visibleEnemy.position);
-          }
-        }
       }
 
       function respawnIfNeeded(ch) {
         if (!ch.dead) return;
         if (performance.now() >= ch.respawnAt) {
-          // チーム内で少し散らす
-          const spawnList = teamSpawns[ch.team];
-          const idx = (Math.random() * spawnList.length) | 0;
-          ch.spawn.copy(spawnList[idx]).add(new THREE.Vector3((Math.random() - 0.5) * 3.5, 0, (Math.random() - 0.5) * 3.5));
-          ch.respawn();
+          respawnBot(ch);
         }
       }
 
-      function respawnPlayerIfNeeded() {
-        if (!playerState.dead) return;
-        if (performance.now() >= playerState.respawnAt) {
-          playerState.dead = false;
-          playerState.health = 100;
-          playerState.pos.copy(teamSpawns.blue[0]).add(new THREE.Vector3(0, 0, 4));
-        }
-      }
-
-      function killPlayer() {
-        if (playerState.dead) return;
-        playerState.dead = true;
-        ui.deaths++;
-        updateHUD();
-        playerState.respawnAt = performance.now() + 2800;
-      }
-
-      function playerTakeDamage(amount, attacker) {
-        if (playerState.dead || gameOver) return;
-        playerState.health -= amount;
-        if (playerState.health <= 0) {
-          playerState.health = 0;
-          killPlayer();
-          if (attacker && attacker.team === 'red') {
-            ui.redScore++;
-            updateHUD();
-            checkWin();
-          }
-        }
-      }
-
-      // 念のため、プレイヤーが死んだ時に表示更新だけ入れる拡張ポイント
-      // このベースでは敵弾がプレイヤーに当たる処理は将来拡張しやすい形にしてある
-
-      function updateEnemyShotsHitPlayer(dt) {
-        // 近い将来の拡張用。ベースではプレイヤー被弾を簡潔にするためここにまとめる。
-        // AIが射撃する際、弾線は味方を無視して障害物か敵に当たる。
-        // プレイヤー側への被弾は「敵が射撃するRayの命中」で判定できるようにしておく。
-      }
-
-      function maybeHitPlayerFromEnemyRays() {
-        // 射撃の際、敵AIの弾がプレイヤーに当たるかを確認。
-        // プレイヤーは collider ではなく camera position を基準に簡易ヒット判定。
-        // ここでは強めに簡略化し、敵の射撃時にプレイヤーに直線が通れば命中にする。
-      }
-
-      function enemyDirectHitToPlayer(shooter, targetPos) {
-        if (playerState.dead || gameOver) return;
-        const origin = shooter.position.clone();
-        origin.y = 1.58;
-        const target = new THREE.Vector3(playerState.pos.x, 1.58, playerState.pos.z);
-        const dir = target.clone().sub(origin).normalize();
-
-        // 射線上に障害物があるか確認
-        raycaster.set(origin, dir);
-        raycaster.far = origin.distanceTo(target);
-        const blockHits = raycaster.intersectObjects(obstacleMeshes, true);
-        if (blockHits.length) return;
-
-        // プレイヤーの簡易当たり判定
-        const toPlayer = target.clone().sub(origin);
-        const proj = toPlayer.dot(dir);
-        if (proj > 0 && proj < 60) {
-          const closest = origin.clone().addScaledVector(dir, proj);
-          const distXZ = Math.hypot(closest.x - target.x, closest.z - target.z);
-          const distY = Math.abs(closest.y - target.y);
-          if (distXZ < 0.9 && distY < 1.0) {
-            playerTakeDamage(shooter === player ? 34 : 28, shooter);
-          }
-        }
-      }
-
-      function patchShotsToPlayer(ch, target) {
-        if (ch.team !== 'red') return;
-        if (playerState.dead || gameOver) return;
-        // 敵の射撃からプレイヤーへの当たり判定を入れる。
-        const origin = ch.position.clone();
-        origin.y = 1.58;
-        const targetP = new THREE.Vector3(playerState.pos.x, 1.58, playerState.pos.z);
-        const dir = targetP.clone().sub(origin);
-        const dist = dir.length();
-        if (dist < 0.001) return;
-        dir.normalize();
-
-        // 障害物チェック
-        raycaster.set(origin, dir);
-        raycaster.far = dist;
-        const hits = raycaster.intersectObjects(obstacleMeshes, true);
-        if (hits.length) return;
-
-        // 命中
-        const closest = origin.clone().addScaledVector(dir, dist);
-        const d = Math.hypot(closest.x - targetP.x, closest.z - targetP.z);
-        if (d < 0.95) {
-          playerTakeDamage(28, ch);
-        }
-      }
-
-      // AI射撃の補助：敵の弾はプレイヤーも判定
-      const originalShootFromCharacter = shootFromCharacter;
-      shootFromCharacter = function(shooter, targetPos) {
-        if (shooter.dead || gameOver) return;
-        if (shooter.fireCooldown > 0) return;
-        shooter.fireCooldown = shooter.team === 'blue' ? 0.22 : 0.28;
-
-        const origin = shooter.position.clone();
-        origin.y = 1.58;
-
-        const dir = targetPos.clone().sub(origin);
-        dir.y *= 0.35;
-
-        const spread = shooter === player ? 0.012 : 0.03;
-        dir.x += (Math.random() - 0.5) * spread;
-        dir.y += (Math.random() - 0.5) * spread * 0.55;
-        dir.z += (Math.random() - 0.5) * spread;
-
-        // まず敵/障害物の弾線処理
-        const maxDist = 60;
-        raycaster.set(origin, dir.clone().normalize());
-        raycaster.far = maxDist;
-        const allObjects = obstacleHitObjects.concat(allHitboxes);
-        const hits = raycaster.intersectObjects(allObjects, false);
-        let hitEnemy = false;
-
-        if (hits.length) {
-          for (const hit of hits) {
-            const obj = hit.object;
-            if (obj.userData && obj.userData.isObstacle) {
-              break;
-            }
-            const ch = obj.userData && obj.userData.character;
-            if (!ch || ch.dead || ch === shooter) continue;
-            if (ch.team === shooter.team) continue;
-            ch.damage(shooter === player ? 34 : 28, shooter);
-            hitEnemy = true;
-            break;
-          }
-        }
-
-        // 敵チームはプレイヤーも射撃対象にできる
-        if (!hitEnemy && shooter.team === 'red') {
-          patchShotsToPlayer(shooter, targetPos);
-        }
-      };
-
-      function animate() {
-        requestAnimationFrame(animate);
-        const dt = Math.min(clock.getDelta(), 0.033);
-
-        if (!gameOver) {
-          updatePlayer(dt);
-
-          // enemy / ally AI
-          for (const ch of characters) {
-            respawnIfNeeded(ch);
-            if (!ch.dead) updateAI(ch, dt);
-          }
-
-          respawnPlayerIfNeeded();
-        }
-
-        renderer.render(scene, camera);
-      }
-
-      // 画面外クリック・タップでの hint 表示
-      document.addEventListener('pointerdown', (e) => {
-        if (gameOver) return;
-        if (!isTouch && e.pointerType === 'mouse') {
-          showHint(document.pointerLockElement !== renderer.domElement);
-        }
-      });
-
-      // プレイヤーを狙う敵の射撃は updateAI の shootFromCharacter 内で判定済み
-      // ここではプレイヤーのカメラ位置同期を毎フレーム行う
-      function syncCamera() {
-        camera.position.set(playerState.pos.x, 1.7, playerState.pos.z);
-        camera.rotation.order = 'YXZ';
-        camera.rotation.y = pointer.yaw;
-        camera.rotation.x = pointer.pitch;
-      }
-
-      // player update の後にカメラ反映
-      const originalUpdatePlayer = updatePlayer;
-      updatePlayer = function(dt) {
-        if (playerState.dead || gameOver) {
-          syncCamera();
-          return;
-        }
+      function updatePlayer(dt) {
+        if (player.dead || gameOver) return;
 
         const moveX = (keys.KeyD ? 1 : 0) - (keys.KeyA ? 1 : 0) + pointer.moveVec.x;
         const moveY = (keys.KeyS ? 1 : 0) - (keys.KeyW ? 1 : 0) + pointer.moveVec.y;
@@ -1687,27 +1581,71 @@
         desired.addScaledVector(forward, moveY);
         if (desired.lengthSq() > 0) desired.normalize();
 
-        const next = playerState.pos.clone().addScaledVector(desired, playerState.speed * dt);
-        stopAtWalls(next, playerState.radius);
-        playerState.pos.copy(next);
+        const next = player.pos.clone().addScaledVector(desired, player.speed * dt);
+        stopAtWalls(next, player.radius);
+        player.pos.copy(next);
+        updatePlayerCollider();
 
-        if (playerState.gun) {
+        camera.position.set(player.pos.x, 1.7, player.pos.z);
+        camera.rotation.order = 'YXZ';
+        camera.rotation.y = pointer.yaw;
+        camera.rotation.x = pointer.pitch;
+
+        if (player.gun) {
           const bob = Math.sin(performance.now() * 0.012) * 0.008 * Math.min(1, desired.length() * 2);
-          playerState.gun.position.y = -0.28 + bob;
-          playerState.gun.position.x = 0.42 + Math.sin(performance.now() * 0.008) * 0.01;
+          player.gun.position.y = -0.28 + bob;
+          player.gun.position.x = 0.42 + Math.sin(performance.now() * 0.008) * 0.01;
         }
 
-        if (playerState.shootCooldown > 0) playerState.shootCooldown -= dt;
+        if (player.shootCooldown > 0) player.shootCooldown -= dt;
+      }
 
-        syncCamera();
-      };
+      function restartIfNeededFromScore() {
+        if (gameOver) return;
+        if (ui.blueScore >= 20 || ui.redScore >= 20) checkWin();
+      }
 
-      // player shots use same function
-      window.addEventListener('pointerdown', (e) => {
-        if (!isTouch && e.pointerType === 'mouse' && e.button === 0 && document.pointerLockElement === renderer.domElement) {
-          shootPlayer();
+      function stopFireLoop() {
+        pointer.fireHeld = false;
+        if (pointer.fireTimer) {
+          clearInterval(pointer.fireTimer);
+          pointer.fireTimer = null;
         }
+      }
+
+      function animate() {
+        requestAnimationFrame(animate);
+        const dt = Math.min(clock.getDelta(), 0.033);
+
+        if (!gameOver) {
+          updatePlayer(dt);
+          for (const ch of characters) {
+            respawnIfNeeded(ch);
+            if (!ch.dead) updateAI(ch, dt);
+          }
+          restartIfNeededFromScore();
+        }
+
+        renderer.render(scene, camera);
+      }
+
+      // 外部クリック時にヒントを消してもいいように、初回だけ完全に非表示へ
+      document.addEventListener('pointerdown', () => hideHintForever(), { capture: true, passive: true });
+      document.addEventListener('touchstart', () => hideHintForever(), { capture: true, passive: true });
+      document.addEventListener('mousedown', () => hideHintForever(), { capture: true, passive: true });
+
+      window.addEventListener('blur', () => {
+        keys.KeyW = keys.KeyA = keys.KeyS = keys.KeyD = false;
+        pointer.moveVec.set(0, 0);
+        stopFireLoop();
+        joyStick.style.transform = 'translate(0px, 0px)';
       });
+
+      // iOS/Safari系のズーム・スクロール癖を抑制
+      document.addEventListener('gesturestart', (e) => e.preventDefault(), { passive: false });
+      document.addEventListener('gesturechange', (e) => e.preventDefault(), { passive: false });
+      document.addEventListener('gestureend', (e) => e.preventDefault(), { passive: false });
+      document.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
 
       init();
     })();

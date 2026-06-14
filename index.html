@@ -248,7 +248,6 @@
       filter: brightness(1.08);
     }
 
-
     #fileLogWrap {
       position: absolute;
       left: 12px;
@@ -338,7 +337,6 @@
 
       <button id="shootBtn">SHOOT</button>
 
-
       <div id="fileLogWrap">
         <div id="fileLogTitle">📁 ファイル読み込みログ</div>
         <textarea id="fileLogArea" readonly spellcheck="false" aria-label="ファイル読み込みログ" placeholder="ここに ju.glb / ju.mp3 の読み込み状況とエラーが表示されます"></textarea>
@@ -375,9 +373,7 @@
       const rotateOverlay = document.getElementById('rotateOverlay');
       const fileLogArea = document.getElementById('fileLogArea');
 
-      // GitHub上のファイル名（大文字・小文字）と完全に一致させること。
       const GUN_MODEL_URL = 'ju.glb';
-      // GitHub上のファイル名（大文字・小文字）と完全に一致させること。
       const SHOOT_AUDIO_URL = 'ju.mp3';
 
       const audioSupport = (() => {
@@ -417,6 +413,9 @@
         }
       }
 
+      // =====================================================================
+      // レンダラー設定 — autoClear を false にして2パス描画を自前制御する
+      // =====================================================================
       const renderer = new THREE.WebGLRenderer({
         canvas,
         antialias: true,
@@ -427,15 +426,36 @@
       renderer.setSize(window.innerWidth, window.innerHeight, false);
       renderer.outputColorSpace = THREE.SRGBColorSpace;
       renderer.setClearColor(0x0b0f14, 1);
+      // ★ 2パスレンダリングのためautoClearを無効化
+      renderer.autoClear = false;
 
+      // =====================================================================
+      // メインシーン（ステージ・敵・弾）
+      // =====================================================================
       const scene = new THREE.Scene();
       scene.background = new THREE.Color(0xc7e2ff);
       scene.fog = new THREE.Fog(0xc7e2ff, 34, 110);
+
+      // =====================================================================
+      // UIシーン（銃モデル専用 — depthTest は通常のまま、深度バッファをリセット後に描画）
+      // =====================================================================
+      const uiScene = new THREE.Scene();
+
+      // uiScene用のライト（銃が暗くならないように）
+      uiScene.add(new THREE.AmbientLight(0xffffff, 2.0));
+      const uiDirLight = new THREE.DirectionalLight(0xffffff, 2.5);
+      uiDirLight.position.set(1, 2, 3);
+      uiScene.add(uiDirLight);
+      const uiHemi = new THREE.HemisphereLight(0xffffff, 0xaaaaaa, 1.5);
+      uiScene.add(uiHemi);
 
       const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 200);
       camera.rotation.order = 'YXZ';
       camera.position.set(-16, 1.6, 0);
 
+      // =====================================================================
+      // メインシーンのライト
+      // =====================================================================
       scene.add(new THREE.HemisphereLight(0xeef8ff, 0xaabed3, 2.0));
       const dir = new THREE.DirectionalLight(0xffffff, 2.35);
       dir.position.set(10, 18, 8);
@@ -452,6 +472,9 @@
         scene.add(lamp);
       }
 
+      // =====================================================================
+      // フロア・グリッド
+      // =====================================================================
       const floor = new THREE.Mesh(
         new THREE.PlaneGeometry(104, 104),
         new THREE.MeshStandardMaterial({ color: 0x5f6d78, roughness: 0.98, metalness: 0.0 })
@@ -465,6 +488,9 @@
 
       const border = 34;
 
+      // =====================================================================
+      // スポーン位置
+      // =====================================================================
       const spawnPoints = {
         blue: [
           { x: -26, z: -20 },
@@ -481,15 +507,18 @@
       };
       const spawnSafeRadius = 5.0;
 
+      // =====================================================================
+      // 障害物データ・マテリアル
+      // =====================================================================
       const obstacleData = [];
       const obstacleGroup = new THREE.Group();
       scene.add(obstacleGroup);
 
       const obstacleMaterials = {
-        wall: new THREE.MeshStandardMaterial({ color: 0xa7b2bf, roughness: 0.92, metalness: 0.03 }),
+        wall:  new THREE.MeshStandardMaterial({ color: 0xa7b2bf, roughness: 0.92, metalness: 0.03 }),
         crate: new THREE.MeshStandardMaterial({ color: 0xb07a45, roughness: 0.96, metalness: 0.0 }),
         metal: new THREE.MeshStandardMaterial({ color: 0x7a8795, roughness: 0.62, metalness: 0.18 }),
-        dark: new THREE.MeshStandardMaterial({ color: 0x4e5964, roughness: 0.88, metalness: 0.04 })
+        dark:  new THREE.MeshStandardMaterial({ color: 0x4e5964, roughness: 0.88, metalness: 0.04 })
       };
 
       function rectIntersectsCircle(minX, maxX, minZ, maxZ, cx, cz, radius) {
@@ -521,85 +550,76 @@
         return mesh;
       }
 
+      function createMapStructures() {
+        addObstacle(-30, 0, 1.2, 4.0, 58, 'wall');
+        addObstacle(30, 0, 1.2, 4.0, 58, 'wall');
+        addObstacle(0, -30, 58, 4.0, 1.2, 'wall');
+        addObstacle(0, 30, 58, 4.0, 1.2, 'wall');
 
+        addObstacle(0, 0, 9.2, 2.6, 9.2, 'metal');
+        addObstacle(-2.8, 0, 2.0, 4.8, 2.0, 'crate');
+        addObstacle(2.8, 0, 2.0, 4.8, 2.0, 'crate');
 
-function createMapStructures() {
-  // 外周の見えやすいフレーム
-  addObstacle(-30, 0, 1.2, 4.0, 58, 'wall');
-  addObstacle(30, 0, 1.2, 4.0, 58, 'wall');
-  addObstacle(0, -30, 58, 4.0, 1.2, 'wall');
-  addObstacle(0, 30, 58, 4.0, 1.2, 'wall');
+        addObstacle(-20, -18, 6.5, 2.2, 1.4, 'dark');
+        addObstacle(-20, -10, 1.4, 2.8, 7.5, 'wall');
+        addObstacle(-24, -2, 7.5, 1.8, 1.4, 'crate');
+        addObstacle(-18, 6, 1.4, 3.2, 7.4, 'metal');
+        addObstacle(-24, 14, 7.5, 2.2, 1.4, 'dark');
+        addObstacle(-17, 18, 1.4, 2.6, 6.0, 'crate');
 
-  // 中央の広場
-  addObstacle(0, 0, 9.2, 2.6, 9.2, 'metal');
-  addObstacle(-2.8, 0, 2.0, 4.8, 2.0, 'crate');
-  addObstacle(2.8, 0, 2.0, 4.8, 2.0, 'crate');
+        addObstacle(20, 18, 6.5, 2.2, 1.4, 'dark');
+        addObstacle(20, 10, 1.4, 2.8, 7.5, 'wall');
+        addObstacle(24, 2, 7.5, 1.8, 1.4, 'crate');
+        addObstacle(18, -6, 1.4, 3.2, 7.4, 'metal');
+        addObstacle(24, -14, 7.5, 2.2, 1.4, 'dark');
+        addObstacle(17, -18, 1.4, 2.6, 6.0, 'crate');
 
-  // 左側の迷路ブロック
-  addObstacle(-20, -18, 6.5, 2.2, 1.4, 'dark');
-  addObstacle(-20, -10, 1.4, 2.8, 7.5, 'wall');
-  addObstacle(-24, -2, 7.5, 1.8, 1.4, 'crate');
-  addObstacle(-18, 6, 1.4, 3.2, 7.4, 'metal');
-  addObstacle(-24, 14, 7.5, 2.2, 1.4, 'dark');
-  addObstacle(-17, 18, 1.4, 2.6, 6.0, 'crate');
+        addObstacle(-8, -22, 1.4, 3.0, 9.0, 'crate');
+        addObstacle(8, -22, 1.4, 3.0, 9.0, 'crate');
+        addObstacle(-8, 22, 1.4, 3.0, 9.0, 'crate');
+        addObstacle(8, 22, 1.4, 3.0, 9.0, 'crate');
 
-  // 右側の迷路ブロック
-  addObstacle(20, 18, 6.5, 2.2, 1.4, 'dark');
-  addObstacle(20, 10, 1.4, 2.8, 7.5, 'wall');
-  addObstacle(24, 2, 7.5, 1.8, 1.4, 'crate');
-  addObstacle(18, -6, 1.4, 3.2, 7.4, 'metal');
-  addObstacle(24, -14, 7.5, 2.2, 1.4, 'dark');
-  addObstacle(17, -18, 1.4, 2.6, 6.0, 'crate');
+        addObstacle(-12, -6, 8.0, 2.2, 1.4, 'wall');
+        addObstacle(-12, 6, 1.4, 2.2, 8.0, 'wall');
+        addObstacle(12, 6, 8.0, 2.2, 1.4, 'wall');
+        addObstacle(12, -6, 1.4, 2.2, 8.0, 'wall');
 
-  // 上下の迷路回廊
-  addObstacle(-8, -22, 1.4, 3.0, 9.0, 'crate');
-  addObstacle(8, -22, 1.4, 3.0, 9.0, 'crate');
-  addObstacle(-8, 22, 1.4, 3.0, 9.0, 'crate');
-  addObstacle(8, 22, 1.4, 3.0, 9.0, 'crate');
+        addObstacle(-6, -14, 1.4, 2.0, 6.8, 'metal');
+        addObstacle(6, 14, 1.4, 2.0, 6.8, 'metal');
 
-  // 中央へ向かう折れ曲がり通路
-  addObstacle(-12, -6, 8.0, 2.2, 1.4, 'wall');
-  addObstacle(-12, 6, 1.4, 2.2, 8.0, 'wall');
-  addObstacle(12, 6, 8.0, 2.2, 1.4, 'wall');
-  addObstacle(12, -6, 1.4, 2.2, 8.0, 'wall');
+        addObstacle(-26, -4, 4.0, 2.6, 1.2, 'crate');
+        addObstacle(-26, 4, 4.0, 2.6, 1.2, 'crate');
+        addObstacle(26, -4, 4.0, 2.6, 1.2, 'crate');
+        addObstacle(26, 4, 4.0, 2.6, 1.2, 'crate');
 
-  addObstacle(-6, -14, 1.4, 2.0, 6.8, 'metal');
-  addObstacle(6, 14, 1.4, 2.0, 6.8, 'metal');
+        addObstacle(-4, -26, 1.2, 2.6, 4.0, 'metal');
+        addObstacle(4, -26, 1.2, 2.6, 4.0, 'metal');
+        addObstacle(-4, 26, 1.2, 2.6, 4.0, 'metal');
+        addObstacle(4, 26, 1.2, 2.6, 4.0, 'metal');
 
-  // ループっぽく回り込める壁群
-  addObstacle(-26, -4, 4.0, 2.6, 1.2, 'crate');
-  addObstacle(-26, 4, 4.0, 2.6, 1.2, 'crate');
-  addObstacle(26, -4, 4.0, 2.6, 1.2, 'crate');
-  addObstacle(26, 4, 4.0, 2.6, 1.2, 'crate');
+        const pillars = [
+          [-22, -22], [-14, -22], [-6, -22], [6, -22], [14, -22], [22, -22],
+          [-22, 22], [-14, 22], [-6, 22], [6, 22], [14, 22], [22, 22],
+          [-22, -14], [-22, -6], [-22, 6], [-22, 14],
+          [22, -14], [22, -6], [22, 6], [22, 14],
+          [-10, -10], [10, 10], [-10, 10], [10, -10],
+          [0, -18], [0, 18], [-18, 0], [18, 0]
+        ];
+        for (const [x, z] of pillars) {
+          addObstacle(x, z, 1.1, 3.4, 1.1, (Math.abs(x) + Math.abs(z)) % 2 === 0 ? 'crate' : 'metal');
+        }
 
-  addObstacle(-4, -26, 1.2, 2.6, 4.0, 'metal');
-  addObstacle(4, -26, 1.2, 2.6, 4.0, 'metal');
-  addObstacle(-4, 26, 1.2, 2.6, 4.0, 'metal');
-  addObstacle(4, 26, 1.2, 2.6, 4.0, 'metal');
+        addObstacle(-15, 0, 4.0, 1.0, 1.2, 'dark');
+        addObstacle(15, 0, 4.0, 1.0, 1.2, 'dark');
+        addObstacle(0, -15, 1.2, 1.0, 4.0, 'dark');
+        addObstacle(0, 15, 1.2, 1.0, 4.0, 'dark');
+      }
 
-  // 細い柱と視認性のあるランドマーク
-  const pillars = [
-    [-22, -22], [-14, -22], [-6, -22], [6, -22], [14, -22], [22, -22],
-    [-22, 22], [-14, 22], [-6, 22], [6, 22], [14, 22], [22, 22],
-    [-22, -14], [-22, -6], [-22, 6], [-22, 14],
-    [22, -14], [22, -6], [22, 6], [22, 14],
-    [-10, -10], [10, 10], [-10, 10], [10, -10],
-    [0, -18], [0, 18], [-18, 0], [18, 0]
-  ];
-  for (const [x, z] of pillars) {
-    addObstacle(x, z, 1.1, 3.4, 1.1, (Math.abs(x) + Math.abs(z)) % 2 === 0 ? 'crate' : 'metal');
-  }
+      createMapStructures();
 
-  // 開けた区画を残すための低い仕切り
-  addObstacle(-15, 0, 4.0, 1.0, 1.2, 'dark');
-  addObstacle(15, 0, 4.0, 1.0, 1.2, 'dark');
-  addObstacle(0, -15, 1.2, 1.0, 4.0, 'dark');
-  addObstacle(0, 15, 1.2, 1.0, 4.0, 'dark');
-}
-
-createMapStructures();
-
-
+      // =====================================================================
+      // コリジョン・移動ヘルパー
+      // =====================================================================
       function isBlocked(x, z, radius = 0.48) {
         for (const o of obstacleData) {
           const cx = THREE.MathUtils.clamp(x, o.minX, o.maxX);
@@ -640,9 +660,9 @@ createMapStructures();
       }
 
       function segmentIntersectsRect2D(x1, z1, x2, z2, minX, maxX, minZ, maxZ, radius = 0.05) {
-        const left = minX - radius;
-        const right = maxX + radius;
-        const top = minZ - radius;
+        const left   = minX - radius;
+        const right  = maxX + radius;
+        const top    = minZ - radius;
         const bottom = maxZ + radius;
 
         let t0 = 0;
@@ -684,11 +704,14 @@ createMapStructures();
         return false;
       }
 
+      // =====================================================================
+      // ゲーム定数・状態
+      // =====================================================================
       const TEAM = { BLUE: 'blue', RED: 'red' };
       const TEAM_SIZE = 4;
       const WIN_SCORE = 5;
 
-      const units = [];
+      const units   = [];
       const bullets = [];
 
       const group = new THREE.Group();
@@ -697,63 +720,75 @@ createMapStructures();
       const unitMaterials = {
         blueBody: new THREE.MeshStandardMaterial({ color: 0x2f7dff, roughness: 0.65, metalness: 0.05 }),
         blueHead: new THREE.MeshStandardMaterial({ color: 0x64a4ff, roughness: 0.45, metalness: 0.05 }),
-        redBody: new THREE.MeshStandardMaterial({ color: 0xd72626, roughness: 0.65, metalness: 0.05 }),
-        redHead: new THREE.MeshStandardMaterial({ color: 0xff4a4a, roughness: 0.45, metalness: 0.05 })
+        redBody:  new THREE.MeshStandardMaterial({ color: 0xd72626, roughness: 0.65, metalness: 0.05 }),
+        redHead:  new THREE.MeshStandardMaterial({ color: 0xff4a4a, roughness: 0.45, metalness: 0.05 })
       };
 
       const bulletMaterial = new THREE.MeshStandardMaterial({
-        color: 0xf2f2f2,
-        roughness: 0.35,
-        metalness: 0.15
+        color: 0xf2f2f2, roughness: 0.35, metalness: 0.15
       });
-
       const enemyBulletMaterial = new THREE.MeshStandardMaterial({
-        color: 0xff2f2f,
-        roughness: 0.3,
-        metalness: 0.1
+        color: 0xff2f2f, roughness: 0.3, metalness: 0.1
       });
 
-      const player = {
-        hp: 100,
-        maxHp: 100,
-        hurtFlash: 0,
-        alive: true
-      };
+      const player = { hp: 100, maxHp: 100, hurtFlash: 0, alive: true };
 
-      let yaw = 0;
+      let yaw   = 0;
       let pitch = 0;
-      let roundIndex = 1;
-      let blueScore = 0;
-      let redScore = 0;
+      let roundIndex   = 1;
+      let blueScore    = 0;
+      let redScore     = 0;
       let portraitMode = window.innerHeight > window.innerWidth;
       let joystickTouchId = null;
-      let aimTouchId = null;
-      let roundEnding = false;
-      let matchOver = false;
+      let aimTouchId      = null;
+      let roundEnding  = false;
+      let matchOver    = false;
       let roundResetTimer = 0;
-      let firingHeld = false;
+      let firingHeld   = false;
       let fireLoopTimer = null;
-      let reloading = false;
-      let reloadTimer = 0;
+      let reloading    = false;
+      let reloadTimer  = 0;
 
-      const joy = { x: 0, y: 0 };
-      const aim = { lastX: 0, lastY: 0 };
+      const joy  = { x: 0, y: 0 };
+      const aim  = { lastX: 0, lastY: 0 };
       const moveVelocity = { x: 0, z: 0 };
+
+      // =====================================================================
+      // 銃モデル管理（uiScene に追加する）
+      // =====================================================================
       const gunState = { recoil: 0, modelReady: false, error: null };
 
+      // ★ 銃のベース位置・回転（カメラのローカル座標ではなく uiScene 内で固定）
+      //   カメラと同期して毎フレーム位置・回転を上書きする
+      const GUN_BASE_POS = new THREE.Vector3(0.3, -0.2, -0.5);
+      const GUN_BASE_ROT = new THREE.Euler(0, Math.PI, 0, 'YXZ');
+
+      let gunRoot = null; // uiScene 内の銃ルートノード
+
+      // 射撃音プール
       const shootSoundPool = [];
       let shootSoundIndex = 0;
-      let audioUnlocked = false;
-
+      let audioUnlocked   = false;
       let shootAudioReadyLogged = false;
       let shootAudioErrorLogged = false;
 
+      const clock = new THREE.Clock();
+
+      const MAG_SIZE           = 15;
+      const FIRE_INTERVAL      = 0.11;
+      const RELOAD_TIME        = 1.15;
+      const DAMAGE_PER_BULLET  = 25;
+      const PLAYER_MOVE_SPEED  = 5.5;
+      let ammo = MAG_SIZE;
+
+      // =====================================================================
+      // 音声
+      // =====================================================================
       function setupShootSoundPool() {
         if (!audioSupport) {
           logFileLine('⚠️ このブラウザは Audio をサポートしていません。', 'warn');
           return;
         }
-
         logFileLine(`📦 射撃音の準備中: ${SHOOT_AUDIO_URL}`);
         probeAsset(SHOOT_AUDIO_URL, 'ju.mp3');
 
@@ -788,13 +823,9 @@ createMapStructures();
           try {
             const p = a.play();
             if (p && typeof p.then === 'function') {
-              p.then(() => {
-                a.pause();
-                a.currentTime = 0;
-              }).catch(() => {});
+              p.then(() => { a.pause(); a.currentTime = 0; }).catch(() => {});
             } else {
-              a.pause();
-              a.currentTime = 0;
+              a.pause(); a.currentTime = 0;
             }
           } catch {}
         }
@@ -817,16 +848,9 @@ createMapStructures();
         }
       }
 
-      const clock = new THREE.Clock();
-
-      const MAG_SIZE = 15;
-      const FIRE_INTERVAL = 0.11;
-      const RELOAD_TIME = 1.15;
-      const DAMAGE_PER_BULLET = 25;
-      const PLAYER_MOVE_SPEED = 5.5;
-
-      let ammo = MAG_SIZE;
-
+      // =====================================================================
+      // UI 更新
+      // =====================================================================
       function updateOrientationUI() {
         portraitMode = window.innerHeight > window.innerWidth;
         rotateOverlay.style.display = portraitMode ? 'flex' : 'none';
@@ -851,7 +875,7 @@ createMapStructures();
 
       function updateScoreUI() {
         blueScoreEl.textContent = String(blueScore);
-        redScoreEl.textContent = String(redScore);
+        redScoreEl.textContent  = String(redScore);
         roundTextEl.textContent = String(roundIndex);
       }
 
@@ -864,6 +888,9 @@ createMapStructures();
         showAnnouncement._t = setTimeout(() => announce.classList.remove('show'), 540);
       }
 
+      // =====================================================================
+      // カメラ
+      // =====================================================================
       function clampCamera() {
         camera.position.x = THREE.MathUtils.clamp(camera.position.x, -border, border);
         camera.position.z = THREE.MathUtils.clamp(camera.position.z, -border, border);
@@ -875,11 +902,22 @@ createMapStructures();
         camera.rotation.y = yaw;
       }
 
+      // =====================================================================
+      // スポーン
+      // =====================================================================
       function getSpawnPoint(team, index = 0) {
         const list = team === TEAM.BLUE ? spawnPoints.blue : spawnPoints.red;
         return list[index % list.length];
       }
 
+      function randomSpawn(team) {
+        const list = team === TEAM.BLUE ? spawnPoints.blue : spawnPoints.red;
+        return list[Math.floor(Math.random() * list.length)];
+      }
+
+      // =====================================================================
+      // ユニット生成
+      // =====================================================================
       function createUnit(team, isPlayer = false) {
         const unit = new THREE.Group();
         const body = new THREE.Mesh(
@@ -910,13 +948,14 @@ createMapStructures();
           fireMin: 0.35,
           fireMax: 1.2,
           fireCooldown: THREE.MathUtils.randFloat(0.35, 1.2),
-          wanderDir: new THREE.Vector2(THREE.MathUtils.randFloat(-1, 1), THREE.MathUtils.randFloat(-1, 1)).normalize(),
+          wanderDir: new THREE.Vector2(
+            THREE.MathUtils.randFloat(-1, 1),
+            THREE.MathUtils.randFloat(-1, 1)
+          ).normalize(),
           wanderTimer: THREE.MathUtils.randFloat(0.8, 2.5)
         };
 
-        if (isPlayer) {
-          unit.visible = false;
-        }
+        if (isPlayer) unit.visible = false;
 
         scene.add(unit);
         units.push(unit);
@@ -931,10 +970,10 @@ createMapStructures();
         } else {
           unit.userData.hp = Math.min(unit.userData.hp, unit.userData.maxHp);
         }
-        unit.userData.radius = 1.0 + (level - 1) * 0.02;
-        unit.userData.moveSpeed = 1.0 + (level - 1) * 0.06;
+        unit.userData.radius      = 1.0 + (level - 1) * 0.02;
+        unit.userData.moveSpeed   = 1.0 + (level - 1) * 0.06;
         unit.userData.bulletDamage = 8 + (level - 1) * 1.4;
-        unit.userData.bulletSpeed = 16 + (level - 1) * 0.35;
+        unit.userData.bulletSpeed  = 16 + (level - 1) * 0.35;
         unit.userData.fireMin = Math.max(0.18, 0.35 - (level - 1) * 0.02);
         unit.userData.fireMax = Math.max(0.55, 1.2 - (level - 1) * 0.05);
       }
@@ -953,7 +992,9 @@ createMapStructures();
         unit.position.set(spawn.x, 0, spawn.z);
         unit.visible = !unit.userData.isPlayer;
         unit.userData.alive = true;
-        unit.userData.wanderDir.set(THREE.MathUtils.randFloat(-1, 1), THREE.MathUtils.randFloat(-1, 1)).normalize();
+        unit.userData.wanderDir
+          .set(THREE.MathUtils.randFloat(-1, 1), THREE.MathUtils.randFloat(-1, 1))
+          .normalize();
         unit.userData.wanderTimer = THREE.MathUtils.randFloat(0.8, 2.5);
         applyGrowthStats(unit);
         unit.userData.fireCooldown = THREE.MathUtils.randFloat(unit.userData.fireMin, unit.userData.fireMax);
@@ -961,17 +1002,20 @@ createMapStructures();
       }
 
       const playerUnit = createUnit(TEAM.BLUE, true);
-      const blueBots = [createUnit(TEAM.BLUE), createUnit(TEAM.BLUE), createUnit(TEAM.BLUE)];
-      const redBots = [createUnit(TEAM.RED), createUnit(TEAM.RED), createUnit(TEAM.RED), createUnit(TEAM.RED)];
+      const blueBots   = [createUnit(TEAM.BLUE), createUnit(TEAM.BLUE), createUnit(TEAM.BLUE)];
+      const redBots    = [createUnit(TEAM.RED), createUnit(TEAM.RED), createUnit(TEAM.RED), createUnit(TEAM.RED)];
 
+      // =====================================================================
+      // ラウンド管理
+      // =====================================================================
       function respawnRound() {
         if (matchOver) return;
 
-        roundEnding = false;
+        roundEnding     = false;
         roundResetTimer = 0;
 
         const blueUnits = [playerUnit, ...blueBots];
-        const redUnits = [...redBots];
+        const redUnits  = [...redBots];
 
         blueUnits.forEach((u, i) => {
           const p = getSpawnPoint(TEAM.BLUE, i);
@@ -982,8 +1026,12 @@ createMapStructures();
           u.position.set(p.x, 0, p.z);
         });
 
-        camera.position.set(getSpawnPoint(TEAM.BLUE, 0).x, 1.6, getSpawnPoint(TEAM.BLUE, 0).z);
-        yaw = 0;
+        camera.position.set(
+          getSpawnPoint(TEAM.BLUE, 0).x,
+          1.6,
+          getSpawnPoint(TEAM.BLUE, 0).z
+        );
+        yaw   = 0;
         pitch = 0;
 
         for (const u of units) {
@@ -991,28 +1039,19 @@ createMapStructures();
         }
 
         applyGrowthStats(playerUnit);
-
-        player.hp = playerUnit.userData.maxHp;
+        player.hp    = playerUnit.userData.maxHp;
         player.alive = true;
         updatePlayerHPUI();
 
         playerUnit.visible = false;
-        for (const u of blueBots) {
-          u.visible = true;
-          u.userData.alive = true;
-          applyGrowthStats(u);
-        }
-        for (const u of redBots) {
-          u.visible = true;
-          u.userData.alive = true;
-          applyGrowthStats(u);
-        }
+        for (const u of blueBots) { u.visible = true; u.userData.alive = true; applyGrowthStats(u); }
+        for (const u of redBots)  { u.visible = true; u.userData.alive = true; applyGrowthStats(u); }
 
         clearBullets();
-        ammo = MAG_SIZE;
+        ammo      = MAG_SIZE;
         reloading = false;
         reloadTimer = 0;
-        firingHeld = false;
+        firingHeld  = false;
         updateAmmoUI();
         updateOrientationUI();
       }
@@ -1027,7 +1066,7 @@ createMapStructures();
 
       function startReload() {
         if (reloading || roundEnding || matchOver || !player.alive) return;
-        reloading = true;
+        reloading  = true;
         firingHeld = false;
         if (fireLoopTimer !== null) {
           clearInterval(fireLoopTimer);
@@ -1037,7 +1076,7 @@ createMapStructures();
       }
 
       function finishReload() {
-        ammo = MAG_SIZE;
+        ammo      = MAG_SIZE;
         reloading = false;
         updateAmmoUI();
       }
@@ -1059,8 +1098,8 @@ createMapStructures();
         );
         mesh.position.copy(position);
         mesh.userData = {
-          dir: direction.clone().normalize(),
-          prev: position.clone(),
+          dir:    direction.clone().normalize(),
+          prev:   position.clone(),
           speed,
           life,
           damage,
@@ -1076,14 +1115,10 @@ createMapStructures();
 
       function getNearestEnemy(unit) {
         const enemies = units.filter(u => u.userData.alive && u.userData.team !== unit.userData.team);
-        let best = null;
-        let bestDist = Infinity;
+        let best = null, bestDist = Infinity;
         for (const enemy of enemies) {
           const d = unit.position.distanceTo(enemy.position);
-          if (d < bestDist) {
-            bestDist = d;
-            best = enemy;
-          }
+          if (d < bestDist) { bestDist = d; best = enemy; }
         }
         return best;
       }
@@ -1099,7 +1134,7 @@ createMapStructures();
         showAnnouncement(`${winnerTeam === TEAM.BLUE ? 'BLUE' : 'RED'} +1`);
 
         clearBullets();
-        reloading = false;
+        reloading  = false;
         firingHeld = false;
         if (fireLoopTimer !== null) {
           clearInterval(fireLoopTimer);
@@ -1121,18 +1156,18 @@ createMapStructures();
       function checkRoundEnd() {
         if (roundEnding || matchOver) return;
         const blueAlive = getAliveUnitsByTeam(TEAM.BLUE).length;
-        const redAlive = getAliveUnitsByTeam(TEAM.RED).length;
+        const redAlive  = getAliveUnitsByTeam(TEAM.RED).length;
         if (blueAlive === 0 && redAlive > 0) endRound(TEAM.RED);
         else if (redAlive === 0 && blueAlive > 0) endRound(TEAM.BLUE);
         else if (redAlive === 0 && blueAlive === 0) endRound(Math.random() < 0.5 ? TEAM.BLUE : TEAM.RED);
       }
 
+      // =====================================================================
+      // 射撃
+      // =====================================================================
       function shootPlayer() {
         if (portraitMode || roundEnding || matchOver || reloading || !player.alive) return;
-        if (ammo <= 0) {
-          startReload();
-          return;
-        }
+        if (ammo <= 0) { startReload(); return; }
 
         unlockAudio();
         playShootSound();
@@ -1151,7 +1186,6 @@ createMapStructures();
       }
 
       function setFiringHeld(state) {
-
         firingHeld = state;
         if (state && !reloading && !roundEnding && !matchOver && player.alive && fireLoopTimer === null) {
           shootPlayer();
@@ -1169,20 +1203,20 @@ createMapStructures();
         }
       }
 
+      // =====================================================================
+      // バーチャルジョイスティック
+      // =====================================================================
       function setJoystickFromTouch(touch) {
         const rect = joystickEl.getBoundingClientRect();
-        const cx = rect.left + rect.width / 2;
-        const cy = rect.top + rect.height / 2;
+        const cx = rect.left + rect.width  / 2;
+        const cy = rect.top  + rect.height / 2;
 
         let dx = touch.clientX - cx;
         let dy = touch.clientY - cy;
         const len = Math.hypot(dx, dy);
         const max = rect.width * 0.30;
 
-        if (len > max) {
-          dx = dx / len * max;
-          dy = dy / len * max;
-        }
+        if (len > max) { dx = dx / len * max; dy = dy / len * max; }
 
         joy.x = dx / max;
         joy.y = dy / max;
@@ -1190,34 +1224,29 @@ createMapStructures();
       }
 
       function resetJoystickVisual() {
-        joy.x = 0;
-        joy.y = 0;
+        joy.x = 0; joy.y = 0;
         knobEl.style.transform = 'translate(-50%, -50%)';
       }
 
+      // =====================================================================
+      // プレイヤー移動
+      // =====================================================================
       function movePlayer(dt) {
-        if (!player.alive) {
-          moveVelocity.x = 0;
-          moveVelocity.z = 0;
-          return;
-        }
+        if (!player.alive) { moveVelocity.x = 0; moveVelocity.z = 0; return; }
 
         syncCameraRotation();
 
         const inputX = THREE.MathUtils.clamp(joy.x, -1, 1);
         const inputY = THREE.MathUtils.clamp(joy.y, -1, 1);
         const moveForward = -inputY;
-        const moveLeft = inputX; // 右に倒すと正の値
-        const magnitude = Math.min(1, Math.hypot(moveLeft, moveForward));
+        const moveLeft    =  inputX;
+        const magnitude   = Math.min(1, Math.hypot(moveLeft, moveForward));
 
         const forwardVec = new THREE.Vector3();
         camera.getWorldDirection(forwardVec);
         forwardVec.y = 0;
-        if (forwardVec.lengthSq() < 1e-8) {
-          forwardVec.set(0, 0, -1);
-        } else {
-          forwardVec.normalize();
-        }
+        if (forwardVec.lengthSq() < 1e-8) forwardVec.set(0, 0, -1);
+        else forwardVec.normalize();
 
         const rightVec = new THREE.Vector3().crossVectors(forwardVec, camera.up).normalize();
 
@@ -1254,7 +1283,6 @@ createMapStructures();
       }
 
       function updatePlayerUnit() {
-
         playerUnit.position.copy(camera.position);
         playerUnit.visible = false;
       }
@@ -1263,105 +1291,91 @@ createMapStructures();
         player.alive = player.hp > 0;
         if (!player.alive) {
           firingHeld = false;
-          if (fireLoopTimer !== null) {
-            clearInterval(fireLoopTimer);
-            fireLoopTimer = null;
-          }
+          if (fireLoopTimer !== null) { clearInterval(fireLoopTimer); fireLoopTimer = null; }
         }
       }
 
-      const gunBasePos = new THREE.Vector3(0.3, -0.25, -0.5);
-      const gunBaseRot = new THREE.Euler(-0.14, -0.18, 0.10);
-      let gunModel = null;
+      // =====================================================================
+      // ★ 銃モデル — uiScene に追加し、毎フレームカメラ姿勢と同期する
+      // =====================================================================
 
-      function fitGunModel(root) {
-        const box = new THREE.Box3().setFromObject(root);
-        const size = new THREE.Vector3();
-        const center = new THREE.Vector3();
-        box.getSize(size);
-        box.getCenter(center);
-
-        if (!Number.isFinite(size.x) || size.lengthSq() < 1e-8) return false;
-
-        root.position.sub(center);
-
-        const maxDim = Math.max(size.x, size.y, size.z);
-        if (maxDim > 0) {
-          const scale = 0.95 / maxDim;
-          root.scale.setScalar(scale);
-        }
-
-        root.rotation.set(0, Math.PI / 2, 0);
-        root.position.y += 0.08;
-        return true;
-      }
-
-      function forceVisibleGunMaterials(root) {
-        root.traverse((obj) => {
-          if (!obj.isMesh) return;
-          obj.castShadow = false;
-          obj.receiveShadow = false;
-
-          if (Array.isArray(obj.material)) {
-            obj.material = obj.material.map((mat) => {
-              const basic = new THREE.MeshBasicMaterial({
-                color: mat && mat.color ? mat.color.getHex() : 0xffffff
-              });
-              if (mat && mat.map) basic.map = mat.map;
-              if (mat && mat.alphaMap) basic.alphaMap = mat.alphaMap;
-              if (mat && mat.transparent) basic.transparent = true;
-              if (mat && typeof mat.opacity === 'number') basic.opacity = mat.opacity;
-              basic.needsUpdate = true;
-              return basic;
-            });
-          } else {
-            const mat = obj.material;
-            const basic = new THREE.MeshBasicMaterial({
-              color: mat && mat.color ? mat.color.getHex() : 0xffffff
-            });
-            if (mat && mat.map) basic.map = mat.map;
-            if (mat && mat.alphaMap) basic.alphaMap = mat.alphaMap;
-            if (mat && mat.transparent) basic.transparent = true;
-            if (mat && typeof mat.opacity === 'number') basic.opacity = mat.opacity;
-            basic.needsUpdate = true;
-            obj.material = basic;
-          }
-        });
-      }
-
-      function placeGunRoot(root) {
-        root.position.copy(gunBasePos);
-        root.rotation.copy(gunBaseRot);
-        root.scale.setScalar(1);
-      }
-
+      /**
+       * GLTFのシーンを正規化（バウンディングボックスで0.95に収める）してから
+       * ユーザ指定のローカル位置・回転・スケールにリセットする。
+       */
       function installGunModel(gltf) {
-        if (gunModel && gunModel.parent) {
-          gunModel.parent.remove(gunModel);
+        if (gunRoot && gunRoot.parent) {
+          gunRoot.parent.remove(gunRoot);
+          gunRoot = null;
         }
 
         const root = gltf.scene || (gltf.scenes && gltf.scenes[0]);
         if (!root) {
           gunState.error = 'ju.glb にシーンがありません';
           logFileLine(`🔴 ${gunState.error}`, 'error');
-          console.error(gunState.error);
           return;
         }
 
-        forceVisibleGunMaterials(root);
+        // マテリアルを MeshStandardMaterial に統一して明るく見えるようにする
+        root.traverse((obj) => {
+          if (!obj.isMesh) return;
+          obj.castShadow    = false;
+          obj.receiveShadow = false;
 
-        if (!fitGunModel(root)) {
-          gunState.error = 'ju.glb のサイズ調整に失敗しました';
+          const applyMat = (mat) => {
+            if (!mat) return new THREE.MeshStandardMaterial({ color: 0xcccccc });
+            const std = new THREE.MeshStandardMaterial({
+              color:     mat.color   ? mat.color.clone() : new THREE.Color(0xcccccc),
+              roughness: 0.45,
+              metalness: 0.25,
+            });
+            if (mat.map)       { std.map       = mat.map;       std.map.colorSpace = THREE.SRGBColorSpace; }
+            if (mat.normalMap) std.normalMap = mat.normalMap;
+            if (mat.transparent) { std.transparent = true; std.opacity = mat.opacity ?? 1.0; }
+            std.needsUpdate = true;
+            return std;
+          };
+
+          if (Array.isArray(obj.material)) {
+            obj.material = obj.material.map(applyMat);
+          } else {
+            obj.material = applyMat(obj.material);
+          }
+        });
+
+        // バウンディングボックスで中心合わせ & スケール正規化
+        const box  = new THREE.Box3().setFromObject(root);
+        const size = new THREE.Vector3();
+        const center = new THREE.Vector3();
+        box.getSize(size);
+        box.getCenter(center);
+
+        if (!Number.isFinite(size.x) || size.lengthSq() < 1e-8) {
+          gunState.error = 'ju.glb のバウンディングボックスが無効です';
           logFileLine(`🔴 ${gunState.error}`, 'error');
-          console.error(gunState.error);
           return;
         }
 
-        placeGunRoot(root);
-        camera.add(root);
-        gunModel = root;
+        // モデル原点を中心に移動
+        root.position.sub(center);
+
+        // 最大辺が 0.95 になるようにスケール
+        const maxDim = Math.max(size.x, size.y, size.z);
+        const normalizedScale = 0.95 / maxDim;
+        root.scale.setScalar(normalizedScale);
+
+        // ★ 仕様に従った位置・回転・スケール設定
+        //   position と rotation は updateGun() で毎フレーム上書きするので、
+        //   ここでは初期値を入れるだけでよい
+        root.position.copy(GUN_BASE_POS);
+        root.rotation.copy(GUN_BASE_ROT);
+        // scale は正規化済みを維持（updateGun でリコイルアニメのみ加算）
+
+        // ★ メインシーンではなく uiScene に追加
+        uiScene.add(root);
+        gunRoot = root;
         gunState.modelReady = true;
-        logFileLine('🟢 銃モデルの読み込み完了');
+        logFileLine('🟢 銃モデルの読み込み完了（uiScene に追加済み）');
       }
 
       function loadGunModel() {
@@ -1380,9 +1394,8 @@ createMapStructures();
             try {
               installGunModel(gltf);
             } catch (err) {
-              gunState.error = err && err.message ? err.message : String(err);
-              logFileLine(`🔴 ju.glb の処理中にエラー: ${describeError(err)}`, 'error');
-              console.error('ju.glb の処理中にエラー:', err);
+              gunState.error = describeError(err);
+              logFileLine(`🔴 ju.glb の処理中にエラー: ${gunState.error}`, 'error');
             }
           },
           undefined,
@@ -1393,21 +1406,50 @@ createMapStructures();
             if (/404|not found|failed to fetch|network error/i.test(detail)) {
               logFileLine('→ 404 Not Found（ファイル名・配置・大文字小文字を確認してください）', 'error');
             }
-            console.error(gunState.error, err);
           }
         );
       }
 
-      function updateGun() {
-        if (!gunModel) return;
-        const recoil = gunState.recoil;
-        gunState.recoil = THREE.MathUtils.lerp(gunState.recoil, 0, 0.18);
+      /**
+       * 毎フレーム呼び出し。
+       * uiScene 内の gunRoot をカメラのワールド行列から算出した
+       * 「カメラ右手前」の位置に同期させる。
+       */
+      function updateGun(dt) {
+        if (!gunRoot) return;
 
-        const targetPos = gunBasePos.clone().add(new THREE.Vector3(0, recoil * 0.12, recoil * 0.18));
-        gunModel.position.lerp(targetPos, 0.24);
-        gunModel.rotation.x = THREE.MathUtils.lerp(gunModel.rotation.x, gunBaseRot.x - recoil * 0.18, 0.22);
-        gunModel.rotation.y = THREE.MathUtils.lerp(gunModel.rotation.y, gunBaseRot.y, 0.22);
-        gunModel.rotation.z = THREE.MathUtils.lerp(gunModel.rotation.z, gunBaseRot.z + recoil * 0.03, 0.22);
+        // リコイルアニメーション
+        gunState.recoil = THREE.MathUtils.lerp(gunState.recoil, 0, 1 - Math.exp(-14 * dt));
+
+        // カメラのワールド行列からローカル→ワールド変換行列を取得
+        camera.updateMatrixWorld();
+        const camMat = camera.matrixWorld;
+
+        // カメラのローカル座標でのオフセット（右手前 + リコイル）
+        const recoil = gunState.recoil;
+        const localOffset = new THREE.Vector3(
+          GUN_BASE_POS.x,
+          GUN_BASE_POS.y + recoil * 0.06,   // 上に跳ね上がる
+          GUN_BASE_POS.z + recoil * 0.12     // 後ろに引く
+        );
+
+        // カメラのローカルオフセットをワールド座標に変換
+        const worldPos = localOffset.clone().applyMatrix4(camMat);
+        gunRoot.position.copy(worldPos);
+
+        // カメラのワールド回転を銃に適用し、さらに銃口方向の補正を加える
+        const camQuat = new THREE.Quaternion();
+        camera.getWorldQuaternion(camQuat);
+
+        // GUN_BASE_ROT を Quaternion 化して合成
+        const baseRotQuat = new THREE.Quaternion().setFromEuler(GUN_BASE_ROT);
+        // リコイルによる仰角
+        const recoilPitchQuat = new THREE.Quaternion().setFromAxisAngle(
+          new THREE.Vector3(1, 0, 0),
+          -recoil * 0.15
+        );
+
+        gunRoot.quaternion.copy(camQuat).multiply(baseRotQuat).multiply(recoilPitchQuat);
       }
 
       function triggerRecoil() {
@@ -1416,21 +1458,25 @@ createMapStructures();
 
       loadGunModel();
 
+      // =====================================================================
+      // AI
+      // =====================================================================
       function aiUpdate(unit, time, dt) {
-
         if (!unit.userData.alive || unit.userData.isPlayer) return;
 
         unit.userData.wanderTimer -= dt;
         if (unit.userData.wanderTimer <= 0) {
           unit.userData.wanderTimer = THREE.MathUtils.randFloat(0.8, 2.5);
-          unit.userData.wanderDir.set(THREE.MathUtils.randFloat(-1, 1), THREE.MathUtils.randFloat(-1, 1)).normalize();
+          unit.userData.wanderDir
+            .set(THREE.MathUtils.randFloat(-1, 1), THREE.MathUtils.randFloat(-1, 1))
+            .normalize();
         }
 
         const target = getNearestEnemy(unit);
         if (!target) return;
 
-        const dx = target.position.x - unit.position.x;
-        const dz = target.position.z - unit.position.z;
+        const dx   = target.position.x - unit.position.x;
+        const dz   = target.position.z - unit.position.z;
         const dist = Math.hypot(dx, dz);
 
         let vx = unit.userData.wanderDir.x * 0.7;
@@ -1462,7 +1508,7 @@ createMapStructures();
         const shootRange = 42;
         if (unit.userData.fireCooldown <= 0 && dist < shootRange && !roundEnding && !matchOver) {
           const muzzlePos = new THREE.Vector3(unit.position.x, unit.position.y + 1.55, unit.position.z);
-          const aimPos = target.position.clone();
+          const aimPos    = target.position.clone();
           aimPos.y += 0.05;
           const dir = aimPos.sub(muzzlePos).normalize();
           createBullet(
@@ -1473,35 +1519,34 @@ createMapStructures();
             4.0,
             unit.userData.bulletDamage || 8
           );
-          unit.userData.fireCooldown = THREE.MathUtils.randFloat(unit.userData.fireMin || 0.9, unit.userData.fireMax || 1.75);
+          unit.userData.fireCooldown = THREE.MathUtils.randFloat(
+            unit.userData.fireMin || 0.9,
+            unit.userData.fireMax || 1.75
+          );
         }
       }
 
+      // =====================================================================
+      // 弾更新
+      // =====================================================================
       function updateBullets(dt) {
         for (let i = bullets.length - 1; i >= 0; i--) {
           const bullet = bullets[i];
-          const data = bullet.userData;
+          const data   = bullet.userData;
 
           data.prev.copy(bullet.position);
           bullet.position.addScaledVector(data.dir, data.speed * dt);
           data.life -= dt;
 
           if (data.life <= 0) {
-            group.remove(bullet);
-            bullet.geometry.dispose();
-            bullets.splice(i, 1);
-            continue;
+            group.remove(bullet); bullet.geometry.dispose(); bullets.splice(i, 1); continue;
           }
 
-          // 先に構造物判定を行い、壁や障害物に当たった弾は消滅する
           if (bulletHitsAnyObstacle(data.prev, bullet.position)) {
-            group.remove(bullet);
-            bullet.geometry.dispose();
-            bullets.splice(i, 1);
-            continue;
+            group.remove(bullet); bullet.geometry.dispose(); bullets.splice(i, 1); continue;
           }
 
-          const hitTeam = data.team === TEAM.BLUE ? TEAM.RED : TEAM.BLUE;
+          const hitTeam    = data.team === TEAM.BLUE ? TEAM.RED : TEAM.BLUE;
           const targetUnits = units.filter(u => u.userData.alive && u.userData.team === hitTeam);
 
           for (const unit of targetUnits) {
@@ -1509,13 +1554,11 @@ createMapStructures();
             if (distancePointToSegment(center, data.prev, bullet.position) < unit.userData.radius) {
               unit.userData.hp -= data.damage;
 
-              group.remove(bullet);
-              bullet.geometry.dispose();
-              bullets.splice(i, 1);
+              group.remove(bullet); bullet.geometry.dispose(); bullets.splice(i, 1);
 
               if (unit.userData.isPlayer) {
-                player.hp = Math.max(0, unit.userData.hp);
-                player.maxHp = unit.userData.maxHp || player.maxHp;
+                player.hp     = Math.max(0, unit.userData.hp);
+                player.maxHp  = unit.userData.maxHp || player.maxHp;
                 player.hurtFlash = 1;
                 updatePlayerHPUI();
               }
@@ -1562,38 +1605,24 @@ createMapStructures();
 
       function handlePlayerInput(dt) {
         if (portraitMode || roundEnding || matchOver || !player.alive) return;
-
         movePlayer(dt);
         updatePlayerUnit();
       }
 
-      // Touch / mouse controls
+      // =====================================================================
+      // タッチ / マウスイベント
+      // =====================================================================
       shootBtn.addEventListener('touchstart', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        unlockAudio();
-        setFiringHeld(true);
+        e.preventDefault(); e.stopPropagation();
+        unlockAudio(); setFiringHeld(true);
       }, { passive: false });
+      shootBtn.addEventListener('touchend',   (e) => { e.preventDefault(); setFiringHeld(false); }, { passive: false });
+      shootBtn.addEventListener('touchcancel',(e) => { e.preventDefault(); setFiringHeld(false); }, { passive: false });
+      shootBtn.addEventListener('mousedown',  (e) => { e.preventDefault(); unlockAudio(); setFiringHeld(true); });
 
-      shootBtn.addEventListener('touchend', (e) => {
-        e.preventDefault();
-        setFiringHeld(false);
-      }, { passive: false });
-
-      shootBtn.addEventListener('touchcancel', (e) => {
-        e.preventDefault();
-        setFiringHeld(false);
-      }, { passive: false });
-
-      shootBtn.addEventListener('mousedown', (e) => {
-        e.preventDefault();
-        unlockAudio();
-        setFiringHeld(true);
-      });
-
-      document.addEventListener('mouseup', () => setFiringHeld(false));
-      document.addEventListener('mousedown', () => unlockAudio());
-      document.addEventListener('contextmenu', (e) => e.preventDefault());
+      document.addEventListener('mouseup',      () => setFiringHeld(false));
+      document.addEventListener('mousedown',    () => unlockAudio());
+      document.addEventListener('contextmenu',  (e) => e.preventDefault());
 
       document.addEventListener('touchstart', (e) => {
         unlockAudio();
@@ -1604,10 +1633,10 @@ createMapStructures();
           const y = touch.clientY;
 
           const shootRect = shootBtn.getBoundingClientRect();
-          const joyRect = joystickEl.getBoundingClientRect();
+          const joyRect   = joystickEl.getBoundingClientRect();
 
           const inShoot = x >= shootRect.left && x <= shootRect.right && y >= shootRect.top && y <= shootRect.bottom;
-          const inJoy = x >= joyRect.left && x <= joyRect.right && y >= joyRect.top && y <= joyRect.bottom;
+          const inJoy   = x >= joyRect.left   && x <= joyRect.right   && y >= joyRect.top   && y <= joyRect.bottom;
 
           if (inShoot) continue;
 
@@ -1618,9 +1647,9 @@ createMapStructures();
           }
 
           if (x > window.innerWidth * 0.42 && aimTouchId === null) {
-            aimTouchId = touch.identifier;
-            aim.lastX = x;
-            aim.lastY = y;
+            aimTouchId  = touch.identifier;
+            aim.lastX   = x;
+            aim.lastY   = y;
           }
         }
       }, { passive: false });
@@ -1640,7 +1669,7 @@ createMapStructures();
             aim.lastY = touch.clientY;
 
             const sensitivity = 0.0039;
-            yaw -= dx * sensitivity;
+            yaw   -= dx * sensitivity;
             pitch -= dy * sensitivity;
 
             const pitchLimit = Math.PI / 2 - 0.05;
@@ -1653,28 +1682,21 @@ createMapStructures();
 
       document.addEventListener('touchend', (e) => {
         for (const touch of e.changedTouches) {
-          if (touch.identifier === joystickTouchId) {
-            joystickTouchId = null;
-            resetJoystickVisual();
-          }
-          if (touch.identifier === aimTouchId) {
-            aimTouchId = null;
-          }
+          if (touch.identifier === joystickTouchId) { joystickTouchId = null; resetJoystickVisual(); }
+          if (touch.identifier === aimTouchId)      { aimTouchId = null; }
         }
       }, { passive: false });
 
       document.addEventListener('touchcancel', (e) => {
         for (const touch of e.changedTouches) {
-          if (touch.identifier === joystickTouchId) {
-            joystickTouchId = null;
-            resetJoystickVisual();
-          }
-          if (touch.identifier === aimTouchId) {
-            aimTouchId = null;
-          }
+          if (touch.identifier === joystickTouchId) { joystickTouchId = null; resetJoystickVisual(); }
+          if (touch.identifier === aimTouchId)      { aimTouchId = null; }
         }
       }, { passive: false });
 
+      // =====================================================================
+      // リサイズ
+      // =====================================================================
       function resize() {
         const w = window.innerWidth;
         const h = window.innerHeight;
@@ -1684,11 +1706,14 @@ createMapStructures();
         updateOrientationUI();
       }
 
+      // =====================================================================
+      // ★ メインループ — 2パスレンダリング
+      // =====================================================================
       function animate() {
         requestAnimationFrame(animate);
 
         const dt = Math.min(clock.getDelta(), 0.033);
-        const t = clock.elapsedTime;
+        const t  = clock.elapsedTime;
 
         syncCameraRotation();
 
@@ -1696,7 +1721,7 @@ createMapStructures();
           if (!roundEnding) {
             handlePlayerInput(dt);
             updatePlayerUnit();
-            updateGun();
+            updateGun(dt);  // ← uiScene内の銃位置をカメラに同期
 
             for (const u of units) {
               aiUpdate(u, t, dt);
@@ -1706,43 +1731,37 @@ createMapStructures();
             checkRoundEnd();
           } else {
             roundResetTimer -= dt;
-            if (roundResetTimer <= 0) {
-              resetForNextRound();
-            }
+            if (roundResetTimer <= 0) resetForNextRound();
           }
 
           updateReload(dt);
           updatePlayerDamageFlash(dt);
+        } else {
+          // マッチ終了後も銃アニメは継続
+          updateGun(dt);
         }
 
+        // ─── 2パスレンダリング ──────────────────────────────────
+        // パス 1: カラーバッファ & 深度バッファを全消去
+        renderer.clear();
+
+        // パス 2: メインシーン（ステージ・敵・弾）を描画
         renderer.render(scene, camera);
+
+        // パス 3: 深度バッファのみリセット → 以降の描画が常に最前面になる
+        renderer.clearDepth();
+
+        // パス 4: uiScene（銃モデル）を描画 — 壁に隠れず常に最前面
+        renderer.render(uiScene, camera);
+        // ────────────────────────────────────────────────────────
       }
 
-      window.addEventListener('resize', resize);
+      window.addEventListener('resize',            resize);
       window.addEventListener('orientationchange', resize);
 
-      // Start
-      const startPositions = {
-        blue: [-28, -24, -20, -16],
-        red: [16, 20, 24, 28]
-      };
-
-      function initialLayout() {
-        const blueTeam = getAliveUnitsByTeam(TEAM.BLUE);
-        const redTeam = getAliveUnitsByTeam(TEAM.RED);
-        let i = 0;
-        for (const u of units) {
-          const team = u.userData.team;
-          const zList = team === TEAM.BLUE ? [-9, -3, 3, 9] : [-9, -3, 3, 9];
-          const xBase = team === TEAM.BLUE ? -24 : 24;
-          u.position.set(xBase + (team === TEAM.BLUE ? i * 2.5 : -i * 2.5), 0, zList[i % 4]);
-          if (u.userData.isPlayer) {
-            u.position.copy(camera.position);
-          }
-          i++;
-        }
-      }
-
+      // =====================================================================
+      // 初期化
+      // =====================================================================
       function initGame() {
         updateScoreUI();
         updateAmmoUI();
@@ -1750,36 +1769,35 @@ createMapStructures();
         updateOrientationUI();
 
         const blueUnits = [playerUnit, ...blueBots];
-        const redUnits = [...redBots];
+        const redUnits  = [...redBots];
 
         blueUnits.forEach((u, i) => {
           const p = getSpawnPoint(TEAM.BLUE, i);
           u.position.set(p.x, 0, p.z);
-          u.visible = !u.userData.isPlayer;
-          u.userData.alive = true;
-          u.userData.level = 1;
-          u.userData.hp = 100;
+          u.visible         = !u.userData.isPlayer;
+          u.userData.alive  = true;
+          u.userData.level  = 1;
+          u.userData.hp     = 100;
         });
 
         redUnits.forEach((u, i) => {
           const p = getSpawnPoint(TEAM.RED, i);
           u.position.set(p.x, 0, p.z);
-          u.visible = true;
+          u.visible        = true;
           u.userData.alive = true;
           u.userData.level = 1;
-          u.userData.hp = 100;
+          u.userData.hp    = 100;
         });
 
         camera.position.set(getSpawnPoint(TEAM.BLUE, 0).x, 1.6, getSpawnPoint(TEAM.BLUE, 0).z);
         playerUnit.position.copy(camera.position);
         player.maxHp = playerUnit.userData.maxHp;
-        player.hp = player.maxHp;
+        player.hp    = player.maxHp;
         player.alive = true;
         updatePlayerHPUI();
       }
 
-      // Player unit is the camera-controlled blue fighter.
-      logFileLine('起動: GitHub Pages 対策ログを有効化しました。');
+      logFileLine('起動: 2パスレンダリング（uiScene分離方式）で銃を最前面に表示します。');
       setupShootSoundPool();
       initGame();
       animate();

@@ -248,6 +248,58 @@
       filter: brightness(1.08);
     }
 
+
+    #fileLogWrap {
+      position: absolute;
+      left: 12px;
+      top: 12px;
+      z-index: 160;
+      width: min(42vw, 420px);
+      pointer-events: none;
+      color: #e8ffe8;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    }
+
+    #fileLogTitle {
+      display: inline-block;
+      margin: 0 0 6px 0;
+      padding: 6px 10px;
+      border-radius: 8px 8px 0 0;
+      background: rgba(0, 0, 0, 0.76);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-bottom: none;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      pointer-events: none;
+    }
+
+    #fileLogArea {
+      display: block;
+      width: 100%;
+      height: min(24vh, 220px);
+      min-height: 120px;
+      box-sizing: border-box;
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 0 10px 10px 10px;
+      background: rgba(0, 0, 0, 0.72);
+      color: #e6ffe6;
+      padding: 10px;
+      resize: none;
+      outline: none;
+      overflow: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-size: 11px;
+      line-height: 1.45;
+      pointer-events: auto;
+      box-shadow: 0 10px 22px rgba(0,0,0,0.3);
+    }
+
+    #fileLogArea::placeholder {
+      color: rgba(230,255,230,0.65);
+    }
+
     @media (orientation: portrait) {
       #rotateOverlay {
         display: flex;
@@ -286,6 +338,12 @@
 
       <button id="shootBtn">SHOOT</button>
 
+
+      <div id="fileLogWrap">
+        <div id="fileLogTitle">📁 ファイル読み込みログ</div>
+        <textarea id="fileLogArea" readonly spellcheck="false" aria-label="ファイル読み込みログ" placeholder="ここに ju.glb / ju.mp3 の読み込み状況とエラーが表示されます"></textarea>
+      </div>
+
       <div id="rotateOverlay">画面を横向きにしてください</div>
     </div>
   </div>
@@ -306,10 +364,49 @@
       const joystickEl = document.getElementById('joystick');
       const knobEl = document.getElementById('knob');
       const rotateOverlay = document.getElementById('rotateOverlay');
+      const fileLogArea = document.getElementById('fileLogArea');
+
+      // GitHub上のファイル名（大文字・小文字）と完全に一致させること。
+      const GUN_MODEL_URL = 'ju.glb';
+      // GitHub上のファイル名（大文字・小文字）と完全に一致させること。
+      const SHOOT_AUDIO_URL = 'ju.mp3';
 
       const audioSupport = (() => {
         try { return typeof Audio !== 'undefined'; } catch { return false; }
       })();
+
+      function logFileLine(message, kind = 'info') {
+        const ts = new Date().toLocaleTimeString('ja-JP', { hour12: false });
+        const line = `[${ts}] ${message}`;
+        if (fileLogArea) {
+          fileLogArea.value += (fileLogArea.value ? '\n' : '') + line;
+          fileLogArea.scrollTop = fileLogArea.scrollHeight;
+        }
+        const method = kind === 'error' ? 'error' : (kind === 'warn' ? 'warn' : 'log');
+        console[method](line);
+      }
+
+      function describeError(err) {
+        if (!err) return '不明なエラー';
+        if (typeof err === 'string') return err;
+        if (err instanceof Error) return err.message || String(err);
+        return err.message || err.statusText || err.toString?.() || JSON.stringify(err);
+      }
+
+      async function probeAsset(url, label) {
+        try {
+          const response = await fetch(url, { method: 'HEAD', cache: 'no-store' });
+          if (!response.ok) {
+            logFileLine(`🔴 ${label}: ${response.status} ${response.statusText || 'HTTP error'} / 404 Not Found（ファイルが見つかりません）`, 'error');
+            return false;
+          }
+          logFileLine(`🟢 ${label}: 事前チェック成功`);
+          return true;
+        } catch (err) {
+          logFileLine(`🔴 ${label}: 事前チェックで通信エラー - ${describeError(err)}`, 'error');
+          return false;
+        }
+      }
 
       const renderer = new THREE.WebGLRenderer({
         canvas,
@@ -639,12 +736,38 @@ createMapStructures();
       let shootSoundIndex = 0;
       let audioUnlocked = false;
 
+      let shootAudioReadyLogged = false;
+      let shootAudioErrorLogged = false;
+
       function setupShootSoundPool() {
-        if (!audioSupport) return;
+        if (!audioSupport) {
+          logFileLine('⚠️ このブラウザは Audio をサポートしていません。', 'warn');
+          return;
+        }
+
+        logFileLine(`📦 射撃音の準備中: ${SHOOT_AUDIO_URL}`);
+        probeAsset(SHOOT_AUDIO_URL, 'ju.mp3');
+
         for (let i = 0; i < 8; i++) {
-          const a = new Audio('ju.mp3');
+          const a = new Audio(SHOOT_AUDIO_URL);
           a.preload = 'auto';
           a.volume = 0.95;
+          a.addEventListener('canplaythrough', () => {
+            if (!shootAudioReadyLogged) {
+              shootAudioReadyLogged = true;
+              logFileLine('🟢 射撃音の読み込み完了');
+            }
+          }, { once: true });
+          a.addEventListener('error', () => {
+            if (shootAudioErrorLogged) return;
+            shootAudioErrorLogged = true;
+            const err = a.error;
+            const code = err ? `code=${err.code}` : 'code=unknown';
+            logFileLine(`🔴 ju.mp3 の読み込み失敗 (${code})`, 'error');
+            if (err && err.code === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED) {
+              logFileLine('→ 404 Not Found / ファイル名不一致 / 破損ファイルの可能性があります。', 'error');
+            }
+          });
           shootSoundPool.push(a);
         }
       }
@@ -675,8 +798,14 @@ createMapStructures();
         try {
           a.currentTime = 0;
           const p = a.play();
-          if (p && typeof p.catch === 'function') p.catch(() => {});
-        } catch {}
+          if (p && typeof p.catch === 'function') {
+            p.catch((err) => {
+              logFileLine(`🔴 ju.mp3 再生失敗: ${describeError(err)}`, 'error');
+            });
+          }
+        } catch (err) {
+          logFileLine(`🔴 ju.mp3 再生中の例外: ${describeError(err)}`, 'error');
+        }
       }
 
       const clock = new THREE.Clock();
@@ -1142,6 +1271,28 @@ createMapStructures();
         return true;
       }
 
+      function forceVisibleGunMaterials(root) {
+        root.traverse((obj) => {
+          if (!obj.isMesh) return;
+          obj.castShadow = false;
+          obj.receiveShadow = false;
+
+          const originalMaterial = obj.material;
+          const mats = Array.isArray(originalMaterial) ? originalMaterial : [originalMaterial];
+          const nextMaterials = mats.map((mat) => {
+            const color = (mat && mat.color && mat.color.isColor) ? mat.color.getHex() : 0xffffff;
+            const basic = new THREE.MeshBasicMaterial({ color });
+            if (mat && mat.map) basic.map = mat.map;
+            if (mat && mat.alphaMap) basic.alphaMap = mat.alphaMap;
+            if (mat && mat.transparent) basic.transparent = true;
+            if (mat && typeof mat.opacity === 'number') basic.opacity = mat.opacity;
+            basic.needsUpdate = true;
+            return basic;
+          });
+          obj.material = Array.isArray(originalMaterial) ? nextMaterials : nextMaterials[0];
+        });
+      }
+
       function installGunModel(gltf) {
         if (gunModel) {
           gun.remove(gunModel);
@@ -1151,20 +1302,16 @@ createMapStructures();
         const root = gltf.scene || (gltf.scenes && gltf.scenes[0]);
         if (!root) {
           gunState.error = 'ju.glb にシーンがありません';
+          logFileLine(`🔴 ${gunState.error}`, 'error');
           console.error(gunState.error);
           return;
         }
 
-        root.traverse((obj) => {
-          if (obj.isMesh) {
-            obj.castShadow = false;
-            obj.receiveShadow = false;
-            if (obj.material) obj.material.needsUpdate = true;
-          }
-        });
+        forceVisibleGunMaterials(root);
 
         if (!fitGunModel(root)) {
           gunState.error = 'ju.glb のサイズ調整に失敗しました';
+          logFileLine(`🔴 ${gunState.error}`, 'error');
           console.error(gunState.error);
           return;
         }
@@ -1172,28 +1319,45 @@ createMapStructures();
         gunModel = root;
         gun.add(root);
         gunState.modelReady = true;
+        logFileLine('🟢 銃モデルの読み込み完了');
       }
 
       function loadGunModel() {
         if (!THREE.GLTFLoader) {
           gunState.error = 'GLTFLoader が読み込めませんでした';
+          logFileLine(`🔴 ${gunState.error}`, 'error');
           console.error(gunState.error);
           return;
         }
-        const loader = new THREE.GLTFLoader();
+
+        logFileLine(`📦 3D銃モデルの読み込み開始: ${GUN_MODEL_URL}`);
+        probeAsset(GUN_MODEL_URL, 'ju.glb');
+
+        const loadingManager = new THREE.LoadingManager();
+        loadingManager.onError = (url) => {
+          logFileLine(`🔴 ファイル読み込み失敗: ${url} / 404 Not Found の可能性`, 'error');
+        };
+
+        const loader = new THREE.GLTFLoader(loadingManager);
         loader.load(
-          'ju.glb',
+          GUN_MODEL_URL,
           (gltf) => {
             try {
               installGunModel(gltf);
             } catch (err) {
               gunState.error = err && err.message ? err.message : String(err);
+              logFileLine(`🔴 ju.glb の処理中にエラー: ${describeError(err)}`, 'error');
               console.error('ju.glb の処理中にエラー:', err);
             }
           },
           undefined,
           (err) => {
-            gunState.error = 'ju.glb の読み込みに失敗しました';
+            const detail = describeError(err);
+            gunState.error = `ju.glb の読み込みに失敗しました: ${detail}`;
+            logFileLine(`🔴 ${gunState.error}`, 'error');
+            if (/404|not found|failed to fetch|network error/i.test(detail)) {
+              logFileLine('→ 404 Not Found（ファイル名・配置・大文字小文字を確認してください）', 'error');
+            }
             console.error(gunState.error, err);
           }
         );
@@ -1579,6 +1743,7 @@ createMapStructures();
       }
 
       // Player unit is the camera-controlled blue fighter.
+      logFileLine('起動: GitHub Pages 対策ログを有効化しました。');
       setupShootSoundPool();
       initGame();
       animate();

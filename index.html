@@ -4,11 +4,6 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>3D FPS Prototype 4v4</title>
-<script src="https://cloudflare.com"></script>
-<script src="https://jsdelivr.net"></script>
-<!-- 実際に動作する Three.js / GLTFLoader も読み込む -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/examples/js/loaders/GLTFLoader.js"></script>
   <style>
     html, body {
       margin: 0;
@@ -353,6 +348,8 @@
     </div>
   </div>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/examples/js/loaders/GLTFLoader.js"></script>
   <script>
     (() => {
       const canvas = document.getElementById('c');
@@ -864,6 +861,11 @@ createMapStructures();
         camera.position.y = 1.6;
       }
 
+      function syncCameraRotation() {
+        camera.rotation.x = pitch;
+        camera.rotation.y = yaw;
+      }
+
       function getSpawnPoint(team, index = 0) {
         const list = team === TEAM.BLUE ? spawnPoints.blue : spawnPoints.red;
         return list[index % list.length];
@@ -1130,6 +1132,7 @@ createMapStructures();
         ammo--;
         updateAmmoUI();
 
+        syncCameraRotation();
         const dirVec = new THREE.Vector3();
         camera.getWorldDirection(dirVec);
         const spawnPos = camera.position.clone().add(dirVec.clone().multiplyScalar(0.92));
@@ -1183,65 +1186,62 @@ createMapStructures();
         knobEl.style.transform = 'translate(-50%, -50%)';
       }
 
-function movePlayer(dt) {
-  if (!player.alive) {
-    moveVelocity.x = 0;
-    moveVelocity.z = 0;
-    return;
-  }
-
-  // ラーメン屋ゲームと同じ「視点基準のローカル移動」。
-  // 前に倒したらカメラ正面へ、右に倒したらカメラ右方向へ進む。
-  const moveForward = -joy.y;
-  const moveLeft = joy.x; // 右に倒すと正の値になる
-  const mag = Math.min(1, Math.hypot(moveLeft, moveForward));
-
-  const forward = new THREE.Vector3();
-  camera.getWorldDirection(forward);
-  forward.y = 0;
-  if (forward.lengthSq() < 1e-8) forward.set(0, 0, -1);
-  else forward.normalize();
-
-  const right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize();
-
-  const desired = new THREE.Vector3();
-  desired.addScaledVector(forward, moveForward);
-  desired.addScaledVector(right, moveLeft);
-
-  if (desired.lengthSq() > 1e-8) {
-    desired.normalize().multiplyScalar(PLAYER_MOVE_SPEED * mag);
-  }
-
-  // ぬるぬるしすぎない、でも離したら気持ちよく止まる減衰
-  const accel = 22.0;
-  const damping = Math.exp(-14.0 * dt);
-
-  moveVelocity.x += (desired.x - moveVelocity.x) * Math.min(1, accel * dt);
-  moveVelocity.z += (desired.z - moveVelocity.z) * Math.min(1, accel * dt);
-
-  if (mag < 0.02) {
-    moveVelocity.x *= damping;
-    moveVelocity.z *= damping;
-  }
-
-  const dx = moveVelocity.x * dt;
-  const dz = moveVelocity.z * dt;
-
-  const moved = moveEntityXZ(camera, dx, dz, 0.45);
-  if (!moved) {
-    if (!moveEntityXZ(camera, dx, 0, 0.45)) moveVelocity.x *= 0.2;
-    if (!moveEntityXZ(camera, 0, dz, 0.45)) moveVelocity.z *= 0.2;
-  }
-
-  clampCamera();
-}
-
-        clampCamera();
-
-        if (mag < 0.02 && Math.hypot(moveVelocity.x, moveVelocity.z) < 0.03) {
+      function movePlayer(dt) {
+        if (!player.alive) {
           moveVelocity.x = 0;
           moveVelocity.z = 0;
+          return;
         }
+
+        syncCameraRotation();
+
+        const inputX = THREE.MathUtils.clamp(joy.x, -1, 1);
+        const inputY = THREE.MathUtils.clamp(joy.y, -1, 1);
+        const moveForward = -inputY;
+        const moveLeft = inputX; // 右に倒すと正の値
+        const magnitude = Math.min(1, Math.hypot(moveLeft, moveForward));
+
+        const forwardVec = new THREE.Vector3();
+        camera.getWorldDirection(forwardVec);
+        forwardVec.y = 0;
+        if (forwardVec.lengthSq() < 1e-8) {
+          forwardVec.set(0, 0, -1);
+        } else {
+          forwardVec.normalize();
+        }
+
+        const rightVec = new THREE.Vector3().crossVectors(forwardVec, camera.up).normalize();
+
+        const desiredDir = new THREE.Vector3()
+          .addScaledVector(forwardVec, moveForward)
+          .addScaledVector(rightVec, moveLeft);
+
+        const desiredSpeed = PLAYER_MOVE_SPEED * magnitude;
+        if (desiredDir.lengthSq() > 1e-8) desiredDir.normalize();
+        desiredDir.multiplyScalar(desiredSpeed);
+
+        const response = 1 - Math.exp(-20.0 * dt);
+        moveVelocity.x = THREE.MathUtils.lerp(moveVelocity.x, desiredDir.x, response);
+        moveVelocity.z = THREE.MathUtils.lerp(moveVelocity.z, desiredDir.z, response);
+
+        if (magnitude < 0.02) {
+          const stop = Math.pow(0.03, dt);
+          moveVelocity.x *= stop;
+          moveVelocity.z *= stop;
+          if (Math.abs(moveVelocity.x) < 0.01) moveVelocity.x = 0;
+          if (Math.abs(moveVelocity.z) < 0.01) moveVelocity.z = 0;
+        }
+
+        const dx = moveVelocity.x * dt;
+        const dz = moveVelocity.z * dt;
+
+        const moved = moveEntityXZ(camera, dx, dz, 0.45);
+        if (!moved) {
+          if (!moveEntityXZ(camera, dx, 0, 0.45)) moveVelocity.x *= 0.1;
+          if (!moveEntityXZ(camera, 0, dz, 0.45)) moveVelocity.z *= 0.1;
+        }
+
+        clampCamera();
       }
 
       function updatePlayerUnit() {
@@ -1353,7 +1353,12 @@ function movePlayer(dt) {
         logFileLine(`📦 3D銃モデルの読み込み開始: ${GUN_MODEL_URL}`);
         probeAsset(GUN_MODEL_URL, 'ju.glb');
 
-        const loader = new THREE.GLTFLoader();
+        const loadingManager = new THREE.LoadingManager();
+        loadingManager.onError = (url) => {
+          logFileLine(`🔴 ファイル読み込み失敗: ${url} / 404 Not Found の可能性`, 'error');
+        };
+
+        const loader = new THREE.GLTFLoader(loadingManager);
         loader.load(
           GUN_MODEL_URL,
           (gltf) => {
@@ -1669,6 +1674,8 @@ function movePlayer(dt) {
         const dt = Math.min(clock.getDelta(), 0.033);
         const t = clock.elapsedTime;
 
+        syncCameraRotation();
+
         if (!matchOver) {
           if (!roundEnding) {
             handlePlayerInput(dt);
@@ -1692,8 +1699,6 @@ function movePlayer(dt) {
           updatePlayerDamageFlash(dt);
         }
 
-        camera.rotation.x = pitch;
-        camera.rotation.y = yaw;
         renderer.render(scene, camera);
       }
 

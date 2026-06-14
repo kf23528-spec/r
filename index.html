@@ -348,9 +348,11 @@
     </div>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/loaders/GLTFLoader.js"></script>
-  <script>
+  <script type="module">
+import * as THREE_BASE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/GLTFLoader.js';
+const THREE = Object.assign({}, THREE_BASE, { GLTFLoader });
+
     (() => {
       const canvas = document.getElementById('c');
       const shootBtn = document.getElementById('shootBtn');
@@ -1789,6 +1791,6 @@ createMapStructures();
       initGame();
       animate();
     })();
-  </script>
+</script>
 </body>
 </html>

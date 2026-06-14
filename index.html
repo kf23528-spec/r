@@ -4,6 +4,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>3D FPS Prototype 4v4</title>
+<script src="https://cloudflare.com"></script>
+<script src="https://jsdelivr.net"></script>
+<!-- 実際に動作する Three.js / GLTFLoader も読み込む -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/examples/js/loaders/GLTFLoader.js"></script>
   <style>
     html, body {
       margin: 0;
@@ -348,8 +353,6 @@
     </div>
   </div>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/examples/js/loaders/GLTFLoader.js"></script>
   <script>
     (() => {
       const canvas = document.getElementById('c');
@@ -1180,41 +1183,58 @@ createMapStructures();
         knobEl.style.transform = 'translate(-50%, -50%)';
       }
 
-      function movePlayer(dt) {
-        if (!player.alive) {
-          moveVelocity.x = 0;
-          moveVelocity.z = 0;
-          return;
-        }
+function movePlayer(dt) {
+  if (!player.alive) {
+    moveVelocity.x = 0;
+    moveVelocity.z = 0;
+    return;
+  }
 
-        const mag = Math.min(1, Math.hypot(joy.x, joy.y));
-        const forwardInput = -joy.y;
-        const strafeInput = joy.x;
+  // ラーメン屋ゲームと同じ「視点基準のローカル移動」。
+  // 前に倒したらカメラ正面へ、右に倒したらカメラ右方向へ進む。
+  const moveForward = -joy.y;
+  const moveLeft = joy.x; // 右に倒すと正の値になる
+  const mag = Math.min(1, Math.hypot(moveLeft, moveForward));
 
-        const forwardVec = new THREE.Vector3(Math.sin(yaw), 0, -Math.cos(yaw));
-        const rightVec = new THREE.Vector3(Math.cos(yaw), 0, Math.sin(yaw));
+  const forward = new THREE.Vector3();
+  camera.getWorldDirection(forward);
+  forward.y = 0;
+  if (forward.lengthSq() < 1e-8) forward.set(0, 0, -1);
+  else forward.normalize();
 
-        const desiredX = (rightVec.x * strafeInput + forwardVec.x * forwardInput) * PLAYER_MOVE_SPEED * mag;
-        const desiredZ = (rightVec.z * strafeInput + forwardVec.z * forwardInput) * PLAYER_MOVE_SPEED * mag;
+  const right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize();
 
-        const accel = 18.5;
-        const smooth = 1 - Math.exp(-accel * dt);
-        const damping = Math.pow(0.06, dt);
+  const desired = new THREE.Vector3();
+  desired.addScaledVector(forward, moveForward);
+  desired.addScaledVector(right, moveLeft);
 
-        moveVelocity.x = THREE.MathUtils.lerp(moveVelocity.x, desiredX, smooth);
-        moveVelocity.z = THREE.MathUtils.lerp(moveVelocity.z, desiredZ, smooth);
+  if (desired.lengthSq() > 1e-8) {
+    desired.normalize().multiplyScalar(PLAYER_MOVE_SPEED * mag);
+  }
 
-        moveVelocity.x *= damping;
-        moveVelocity.z *= damping;
+  // ぬるぬるしすぎない、でも離したら気持ちよく止まる減衰
+  const accel = 22.0;
+  const damping = Math.exp(-14.0 * dt);
 
-        const dx = moveVelocity.x * dt;
-        const dz = moveVelocity.z * dt;
+  moveVelocity.x += (desired.x - moveVelocity.x) * Math.min(1, accel * dt);
+  moveVelocity.z += (desired.z - moveVelocity.z) * Math.min(1, accel * dt);
 
-        const moved = moveEntityXZ(camera, dx, dz, 0.45);
-        if (!moved) {
-          if (!moveEntityXZ(camera, dx, 0, 0.45)) moveVelocity.x *= 0.15;
-          if (!moveEntityXZ(camera, 0, dz, 0.45)) moveVelocity.z *= 0.15;
-        }
+  if (mag < 0.02) {
+    moveVelocity.x *= damping;
+    moveVelocity.z *= damping;
+  }
+
+  const dx = moveVelocity.x * dt;
+  const dz = moveVelocity.z * dt;
+
+  const moved = moveEntityXZ(camera, dx, dz, 0.45);
+  if (!moved) {
+    if (!moveEntityXZ(camera, dx, 0, 0.45)) moveVelocity.x *= 0.2;
+    if (!moveEntityXZ(camera, 0, dz, 0.45)) moveVelocity.z *= 0.2;
+  }
+
+  clampCamera();
+}
 
         clampCamera();
 
@@ -1333,12 +1353,7 @@ createMapStructures();
         logFileLine(`📦 3D銃モデルの読み込み開始: ${GUN_MODEL_URL}`);
         probeAsset(GUN_MODEL_URL, 'ju.glb');
 
-        const loadingManager = new THREE.LoadingManager();
-        loadingManager.onError = (url) => {
-          logFileLine(`🔴 ファイル読み込み失敗: ${url} / 404 Not Found の可能性`, 'error');
-        };
-
-        const loader = new THREE.GLTFLoader(loadingManager);
+        const loader = new THREE.GLTFLoader();
         loader.load(
           GUN_MODEL_URL,
           (gltf) => {

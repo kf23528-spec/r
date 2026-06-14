@@ -1261,12 +1261,8 @@ createMapStructures();
         }
       }
 
-      const gun = new THREE.Group();
-      gun.position.set(1.58, -0.40, -0.98);
-      gun.rotation.set(-0.14, -0.18, 0.10);
-      gun.scale.setScalar(1.18);
-      camera.add(gun);
-
+      const gunBasePos = new THREE.Vector3(0.3, -0.25, -0.5);
+      const gunBaseRot = new THREE.Euler(-0.14, -0.18, 0.10);
       let gunModel = null;
 
       function fitGunModel(root) {
@@ -1297,26 +1293,42 @@ createMapStructures();
           obj.castShadow = false;
           obj.receiveShadow = false;
 
-          const originalMaterial = obj.material;
-          const mats = Array.isArray(originalMaterial) ? originalMaterial : [originalMaterial];
-          const nextMaterials = mats.map((mat) => {
-            const color = (mat && mat.color && mat.color.isColor) ? mat.color.getHex() : 0xffffff;
-            const basic = new THREE.MeshBasicMaterial({ color });
+          if (Array.isArray(obj.material)) {
+            obj.material = obj.material.map((mat) => {
+              const basic = new THREE.MeshBasicMaterial({
+                color: mat && mat.color ? mat.color.getHex() : 0xffffff
+              });
+              if (mat && mat.map) basic.map = mat.map;
+              if (mat && mat.alphaMap) basic.alphaMap = mat.alphaMap;
+              if (mat && mat.transparent) basic.transparent = true;
+              if (mat && typeof mat.opacity === 'number') basic.opacity = mat.opacity;
+              basic.needsUpdate = true;
+              return basic;
+            });
+          } else {
+            const mat = obj.material;
+            const basic = new THREE.MeshBasicMaterial({
+              color: mat && mat.color ? mat.color.getHex() : 0xffffff
+            });
             if (mat && mat.map) basic.map = mat.map;
             if (mat && mat.alphaMap) basic.alphaMap = mat.alphaMap;
             if (mat && mat.transparent) basic.transparent = true;
             if (mat && typeof mat.opacity === 'number') basic.opacity = mat.opacity;
             basic.needsUpdate = true;
-            return basic;
-          });
-          obj.material = Array.isArray(originalMaterial) ? nextMaterials : nextMaterials[0];
+            obj.material = basic;
+          }
         });
       }
 
+      function placeGunRoot(root) {
+        root.position.copy(gunBasePos);
+        root.rotation.copy(gunBaseRot);
+        root.scale.setScalar(1);
+      }
+
       function installGunModel(gltf) {
-        if (gunModel) {
-          gun.remove(gunModel);
-          gunModel = null;
+        if (gunModel && gunModel.parent) {
+          gunModel.parent.remove(gunModel);
         }
 
         const root = gltf.scene || (gltf.scenes && gltf.scenes[0]);
@@ -1336,8 +1348,9 @@ createMapStructures();
           return;
         }
 
+        placeGunRoot(root);
+        camera.add(root);
         gunModel = root;
-        gun.add(root);
         gunState.modelReady = true;
         logFileLine('🟢 銃モデルの読み込み完了');
       }
@@ -1384,14 +1397,15 @@ createMapStructures();
       }
 
       function updateGun() {
+        if (!gunModel) return;
         const recoil = gunState.recoil;
         gunState.recoil = THREE.MathUtils.lerp(gunState.recoil, 0, 0.18);
 
-        const targetPos = new THREE.Vector3(1.58, -0.40 + recoil * 0.12, -0.98 + recoil * 0.18);
-        gun.position.lerp(targetPos, 0.24);
-        gun.rotation.x = THREE.MathUtils.lerp(gun.rotation.x, -0.14 - recoil * 0.18, 0.22);
-        gun.rotation.y = THREE.MathUtils.lerp(gun.rotation.y, -0.18, 0.22);
-        gun.rotation.z = THREE.MathUtils.lerp(gun.rotation.z, 0.10 + recoil * 0.03, 0.22);
+        const targetPos = gunBasePos.clone().add(new THREE.Vector3(0, recoil * 0.12, recoil * 0.18));
+        gunModel.position.lerp(targetPos, 0.24);
+        gunModel.rotation.x = THREE.MathUtils.lerp(gunModel.rotation.x, gunBaseRot.x - recoil * 0.18, 0.22);
+        gunModel.rotation.y = THREE.MathUtils.lerp(gunModel.rotation.y, gunBaseRot.y, 0.22);
+        gunModel.rotation.z = THREE.MathUtils.lerp(gunModel.rotation.z, gunBaseRot.z + recoil * 0.03, 0.22);
       }
 
       function triggerRecoil() {

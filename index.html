@@ -286,6 +286,7 @@
       </div>
       <div id="crosshair"></div>
       <div id="announce"></div>
+      <div id="victoryOverlay" aria-hidden="true"><div id="victoryText">YOUR TEAM WON</div></div>
       <div id="joystick">
         <div class="base"></div>
         <div class="knob" id="knob"></div>
@@ -324,6 +325,8 @@
       const reloadBtn       = document.getElementById('reloadBtn');
       const adsBtn          = document.getElementById('adsBtn');
       const announce        = document.getElementById('announce');
+      const victoryOverlay  = document.getElementById('victoryOverlay');
+      const victoryTextEl   = document.getElementById('victoryText');
       const blueScoreEl     = document.getElementById('blueScore');
       const redScoreEl      = document.getElementById('redScore');
       const roundTextEl     = document.getElementById('roundText');
@@ -878,6 +881,19 @@
         showAnnouncement._t = setTimeout(() => announce.classList.remove('show'), 540);
       }
 
+      function showVictorySequence(text) {
+        if (!victoryOverlay || !victoryTextEl) {
+          showAnnouncement(text);
+          return;
+        }
+        victoryTextEl.textContent = text;
+        victoryOverlay.classList.remove('show');
+        void victoryOverlay.offsetWidth;
+        victoryOverlay.classList.add('show');
+        clearTimeout(showVictorySequence._t);
+        showVictorySequence._t = setTimeout(() => victoryOverlay.classList.remove('show'), 2350);
+      }
+
       /* ── ADS 制御 ─────────────────────────────────── */
       function setADS(active) {
         adsActive = active;
@@ -1060,9 +1076,11 @@
         if (fireLoopTimer!==null) { clearInterval(fireLoopTimer); fireLoopTimer=null; }
         if (blueScore>=WIN_SCORE || redScore>=WIN_SCORE) {
           matchOver=true; roundResetTimer=0;
-          setTimeout(() => showAnnouncement(`${blueScore>=WIN_SCORE?'BLUE WIN':'RED WIN'}`), 40);
+          const blueWon = blueScore>=WIN_SCORE;
+          setTimeout(() => showVictorySequence(blueWon ? 'YOUR TEAM WON' : 'ENEMY TEAM WON'), 40);
           return;
         }
+
         roundResetTimer=1.5;
       }
 
@@ -1364,12 +1382,12 @@
         // カメラのワールド行列に基づいて銃の位置・向きを計算
         camera.updateMatrixWorld();
         const camMat = camera.matrixWorld;
-        const recoil = gunState.recoil;
+        const recoil = 0;
 
         const localOffset = new THREE.Vector3(
           gunPosCurrent.x,
-          gunPosCurrent.y + recoil * 0.06 + reloadOffsetY,
-          gunPosCurrent.z + recoil * 0.12
+          gunPosCurrent.y + reloadOffsetY,
+          gunPosCurrent.z
         );
 
         const worldPos = localOffset.clone().applyMatrix4(camMat);
@@ -1378,11 +1396,10 @@
         const camQuat = new THREE.Quaternion();
         camera.getWorldQuaternion(camQuat);
         const baseRotQuat = new THREE.Quaternion().setFromEuler(GUN_BASE_ROT);
-        const recoilPitchQuat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -recoil * 0.15);
-        gunRoot.quaternion.copy(camQuat).multiply(baseRotQuat).multiply(recoilPitchQuat);
+        gunRoot.quaternion.copy(camQuat).multiply(baseRotQuat);
       }
 
-      function triggerRecoil() { gunState.recoil = Math.min(1.0, gunState.recoil + 0.72); }
+      function triggerRecoil() { gunState.recoil = 0; }
 
       loadGunModel();
 

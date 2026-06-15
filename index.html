@@ -5,15 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <title>3D FPS NEON ARENA – Online Multiplayer</title>
 
-<!-- ══ Three.js r128 (GLTFLoader対応) ══ -->
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
-
-<!-- ══ Socket.io CDN（絶対パス・サーバー未搭載時もクラッシュしない） ══ -->
 <script src="https://cdn.socket.io/4.7.5/socket.io.min.js" crossorigin="anonymous"></script>
 
 <style>
-/* ─── RESET & BASE ─── */
 html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#0b0f14;
   overscroll-behavior:none;touch-action:none;
   font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
@@ -22,7 +18,6 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#0b0f14;
 canvas{display:block;width:100%;height:100%;touch-action:none}
 #hud{position:absolute;inset:0;pointer-events:none}
 
-/* ─── HP バー（左上） ─── */
 #hpBlock{position:absolute;top:14px;left:14px;z-index:50;width:210px;max-width:48vw;pointer-events:none}
 #hpLabel{display:flex;justify-content:space-between;align-items:center;
   font-size:13px;font-weight:800;color:#fff;margin-bottom:5px;
@@ -34,7 +29,6 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
   background:linear-gradient(90deg,#3cff7d,#29d65e);border-radius:999px;
   transition:width 0.08s linear}
 
-/* ─── サーバー状態インジケーター（右上） ─── */
 #netBadge{position:absolute;top:14px;right:14px;z-index:160;
   padding:7px 14px;border-radius:999px;font-size:12px;font-weight:900;
   letter-spacing:0.10em;backdrop-filter:blur(4px);
@@ -44,13 +38,11 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 #netBadge.online{background:rgba(40,255,120,0.14);color:#3dff88;border-color:rgba(40,255,120,0.38)}
 #netBadge.offline{background:rgba(255,60,60,0.14);color:#ff6a6a;border-color:rgba(255,60,60,0.35)}
 
-/* ─── オンライン人数カウンター（右上・2段目） ─── */
 #onlineCount{position:absolute;top:56px;right:14px;z-index:160;
   padding:5px 12px;border-radius:999px;font-size:12px;font-weight:800;
   letter-spacing:0.08em;background:rgba(0,0,0,0.55);
   border:1px solid rgba(255,255,255,0.14);color:rgba(255,255,255,0.88);pointer-events:none}
 
-/* ─── スコア／弾薬（左上・HPの下） ─── */
 #status{position:absolute;top:74px;left:14px;z-index:50;color:#fff;
   font-weight:800;letter-spacing:0.04em;text-shadow:0 2px 8px rgba(0,0,0,0.7);line-height:1.6}
 #scoreBoard{font-size:17px;margin-bottom:3px}
@@ -60,7 +52,6 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 #reloadBar{display:none;margin-top:5px;width:140px;height:4px;background:rgba(255,255,255,0.15);border-radius:2px;overflow:hidden}
 #reloadBarFill{height:100%;width:0%;background:linear-gradient(90deg,#ffd84d,#ffb51e);border-radius:2px}
 
-/* ─── クロスヘア ─── */
 #crosshair{position:absolute;left:50%;top:50%;width:22px;height:22px;
   transform:translate(-50%,-50%);z-index:10;pointer-events:none}
 #crosshair::before,#crosshair::after{content:"";position:absolute;left:50%;top:50%;
@@ -69,7 +60,6 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 #crosshair::before{width:22px;height:2px}
 #crosshair::after{width:2px;height:22px}
 
-/* ─── キル演出（画面中央に💥 KILL!） ─── */
 #announce{position:absolute;left:50%;top:38%;
   transform:translate(-50%,-50%) scale(0.6);opacity:0;
   color:#ff3b3b;font-size:clamp(38px,9vw,88px);font-weight:900;
@@ -83,7 +73,6 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
   55%{opacity:1;transform:translate(-50%,-50%) scale(1.00)}
   100%{opacity:0;transform:translate(-50%,-50%) scale(0.90)}}
 
-/* ─── キルフィード（右上） ─── */
 #killFeed{position:absolute;top:98px;right:14px;z-index:50;
   pointer-events:none;display:flex;flex-direction:column;gap:5px;align-items:flex-end}
 .kfItem{padding:4px 10px;border-radius:8px;
@@ -92,7 +81,6 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
   animation:kfFade 2.6s ease-out forwards}
 @keyframes kfFade{0%{opacity:1;transform:translateX(0)}80%{opacity:1}100%{opacity:0;transform:translateX(22px)}}
 
-/* ─── ジョイスティック ─── */
 #joystick{position:absolute;left:18px;bottom:18px;
   width:min(34vw,170px);height:min(34vw,170px);
   max-width:170px;max-height:170px;min-width:120px;min-height:120px;
@@ -105,7 +93,6 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
   background:rgba(255,255,255,0.28);border:2px solid rgba(255,255,255,0.26);
   box-shadow:0 0 18px rgba(255,255,255,0.18)}
 
-/* ─── ボタン群 ─── */
 #shootBtn{position:absolute;right:14px;bottom:120px;
   width:min(17vw,100px);height:min(17vw,100px);
   max-width:100px;max-height:100px;min-width:80px;min-height:80px;
@@ -203,7 +190,6 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
   -webkit-tap-highlight-color:transparent}
 #lobbyStartBtn:active{transform:scale(0.97);filter:brightness(1.08)}
 
-/* ─── モードボタン ─── */
 #modePanel{margin-top:18px;padding:16px;border-radius:18px;
   background:linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.04));
   border:1px solid rgba(255,255,255,0.10)}
@@ -252,7 +238,6 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 #resultSub{margin-top:14px;font-size:clamp(14px,3vw,20px);opacity:0.88;letter-spacing:0.08em}
 @keyframes resultPop{from{transform:scale(0.98);filter:brightness(1.0)}to{transform:scale(1.03);filter:brightness(1.2)}}
 
-/* ─── 縦向き警告 ─── */
 #rotateOverlay{position:absolute;inset:0;display:none;align-items:center;
   justify-content:center;text-align:center;
   background:rgba(4,8,14,0.96);color:#ffffff;z-index:200;pointer-events:all;
@@ -266,7 +251,6 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
   <canvas id="c"></canvas>
   <div id="hud">
 
-    <!-- ── HP バー（左上） ── -->
     <div id="hpBlock">
       <div id="hpLabel">
         <span>💚 HP</span>
@@ -275,13 +259,9 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
       <div id="hpBarOuter"><div id="hpBarInner"></div></div>
     </div>
 
-    <!-- ── サーバー接続インジケーター（右上） ── -->
     <div id="netBadge" class="connecting">🟡 接続中...</div>
-
-    <!-- ── オンライン人数カウンター（右上2段目） ── -->
     <div id="onlineCount">👥 オンライン: 1人</div>
 
-    <!-- ── スコア・弾薬 ── -->
     <div id="status">
       <div id="scoreBoard">BLUE <span id="blueScore">0</span> / RED <span id="redScore">0</span></div>
       <div id="roundState">ROUND: <span id="roundText">1</span> | 先に5点で勝利</div>
@@ -290,24 +270,17 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
       <div id="reloadBar"><div id="reloadBarFill"></div></div>
     </div>
 
-    <!-- ── クロスヘア ── -->
     <div id="crosshair"></div>
-
-    <!-- ── キル演出（💥 KILL!） ── -->
     <div id="announce"></div>
-
-    <!-- ── キルフィード ── -->
     <div id="killFeed"></div>
 
-    <!-- ── ジョイスティック ── -->
     <div id="joystick"><div class="base"></div><div class="knob" id="knob"></div></div>
 
-    <!-- ── ボタン群 ── -->
     <button id="shootBtn">FIRE</button>
     <button id="reloadBtn" aria-label="リロード"></button>
     <button id="adsBtn" aria-label="ADS"></button>
 
-    <!-- ── ロビー ── -->
+    <!-- ロビー -->
     <div id="lobbyOverlay">
       <div id="lobbyShell">
         <div id="lobbyCard">
@@ -340,7 +313,7 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
       <button id="lobbyStartBtn">戦いにいく</button>
     </div>
 
-    <!-- ── ローディング ── -->
+    <!-- ローディング -->
     <div id="loadingOverlay">
       <div id="loadingCard">
         <div id="loadingSpinner"></div>
@@ -350,17 +323,16 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
       </div>
     </div>
 
-    <!-- ── リザルト ── -->
+    <!-- リザルト -->
     <div id="resultOverlay">
       <div id="resultText">YOUR TEAM WON</div>
       <div id="resultSub">LOADING BACK TO THE HUB...</div>
     </div>
 
-    <!-- ── 縦向き警告 ── -->
     <div id="rotateOverlay">📱 画面を横向きにしてください</div>
 
-  </div><!-- /#hud -->
-</div><!-- /#game -->
+  </div>
+</div>
 
 <script>
 (function () {
@@ -369,88 +341,88 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 // ═══════════════════════════════════════════════════════
 //  CONFIG
 // ═══════════════════════════════════════════════════════
-const RENDER_SERVER_URL = 'https://fps-game-server.onrender.com'; // Renderのサーバー
-const ONLINE_ROOM    = new URLSearchParams(location.search).get('room') || 'public';
-const PLAYER_NAME    = new URLSearchParams(location.search).get('name') || ('P' + Math.floor(Math.random() * 9000 + 1000));
-const WIN_SCORE      = 5;
-const MAG_SIZE       = 30;
-const FIRE_INTERVAL  = 0.10;   // seconds
-const RELOAD_TIME    = 1.0;    // seconds
-const DAMAGE_PER_BULLET = 25;
-const PLAYER_SPEED   = 5.5;
-const CAM_FOV_NORMAL = 70;
-const CAM_FOV_ADS    = 52;
-const RANK_KEY       = 'arena_rank_v6';
-const SEND_HZ        = 50;     // ms per send
+// ★★★ 修正: 正しいRenderサーバーURLに統一 ★★★
+const RENDER_SERVER_URL  = 'https://r-cjyh.onrender.com';
+const ONLINE_ROOM        = new URLSearchParams(location.search).get('room') || 'public';
+const PLAYER_NAME        = new URLSearchParams(location.search).get('name') || ('P' + Math.floor(Math.random() * 9000 + 1000));
+const WIN_SCORE          = 5;
+const MAG_SIZE           = 30;
+const FIRE_INTERVAL      = 0.10;
+const RELOAD_TIME        = 1.0;
+const DAMAGE_PER_BULLET  = 25;
+const PLAYER_SPEED       = 5.5;
+const CAM_FOV_NORMAL     = 70;
+const CAM_FOV_ADS        = 52;
+const RANK_KEY           = 'arena_rank_v6';
+const SEND_HZ            = 50;
+const BOT_COUNT          = 5;
+const BOT_HP             = 100;
+const BOT_MOVE           = 2.2;
 
-// ─── ボット設定 ───
-const BOT_COUNT = 5;
-const BOT_HP    = 100;
-const BOT_MOVE  = 2.2;
+// ★★★ 修正: ローディングタイムアウトを廃止し、接続イベント駆動に変更 ★★★
+// タイムアウト強制切り替えは一切なし
+// connectイベントが来た瞬間にローディングを消してゲーム開始
 
-// ─── 銃（カメラ基準オフセット） ───
 const GUN_POS_NORMAL = new THREE.Vector3(0.25, -0.22, -0.45);
 const GUN_POS_ADS    = new THREE.Vector3(0.00, -0.22, -0.45);
 
 // ═══════════════════════════════════════════════════════
 //  DOM REFS
 // ═══════════════════════════════════════════════════════
-const canvas         = document.getElementById('c');
-const shootBtn       = document.getElementById('shootBtn');
-const reloadBtn      = document.getElementById('reloadBtn');
-const adsBtn         = document.getElementById('adsBtn');
-const announce       = document.getElementById('announce');
-const blueScoreEl    = document.getElementById('blueScore');
-const redScoreEl     = document.getElementById('redScore');
-const roundTextEl    = document.getElementById('roundText');
-const ammoCountEl    = document.getElementById('ammoCount');
-const hpTextEl       = document.getElementById('hpText');
-const hpBarInner     = document.getElementById('hpBarInner');
-const joystickEl     = document.getElementById('joystick');
-const knobEl         = document.getElementById('knob');
-const rotateOverlay  = document.getElementById('rotateOverlay');
-const reloadIndicator= document.getElementById('reloadIndicator');
-const reloadBarEl    = document.getElementById('reloadBar');
-const reloadBarFill  = document.getElementById('reloadBarFill');
-const lobbyOverlay   = document.getElementById('lobbyOverlay');
-const lobbyStartBtn  = document.getElementById('lobbyStartBtn');
-const loadingOverlay = document.getElementById('loadingOverlay');
-const resultOverlay  = document.getElementById('resultOverlay');
-const lobbyModeValue = document.getElementById('lobbyModeValue');
-const casualModeBtn  = document.getElementById('casualModeBtn');
-const rankedModeBtn  = document.getElementById('rankedModeBtn');
-const modeDescEl     = document.getElementById('modeDesc');
-const crosshairEl    = document.getElementById('crosshair');
-const rankNameEl     = document.getElementById('rankName');
-const rankPctEl      = document.getElementById('rankPct');
-const rankFillEl     = document.getElementById('rankFill');
-const loadingTextEl  = document.getElementById('loadingText');
-const loadingSubEl   = document.getElementById('loadingSub');
-const resultTextEl   = document.getElementById('resultText');
-const resultSubEl    = document.getElementById('resultSub');
-const netBadge       = document.getElementById('netBadge');
-const onlineCountEl  = document.getElementById('onlineCount');
-const lobbyNetValue  = document.getElementById('lobbyNetValue');
-const lobbyRoomValue = document.getElementById('lobbyRoomValue');
-const killFeedEl     = document.getElementById('killFeed');
+const canvas          = document.getElementById('c');
+const shootBtn        = document.getElementById('shootBtn');
+const reloadBtn       = document.getElementById('reloadBtn');
+const adsBtn          = document.getElementById('adsBtn');
+const announce        = document.getElementById('announce');
+const blueScoreEl     = document.getElementById('blueScore');
+const redScoreEl      = document.getElementById('redScore');
+const roundTextEl     = document.getElementById('roundText');
+const ammoCountEl     = document.getElementById('ammoCount');
+const hpTextEl        = document.getElementById('hpText');
+const hpBarInner      = document.getElementById('hpBarInner');
+const joystickEl      = document.getElementById('joystick');
+const knobEl          = document.getElementById('knob');
+const rotateOverlay   = document.getElementById('rotateOverlay');
+const reloadIndicator = document.getElementById('reloadIndicator');
+const reloadBarEl     = document.getElementById('reloadBar');
+const reloadBarFill   = document.getElementById('reloadBarFill');
+const lobbyOverlay    = document.getElementById('lobbyOverlay');
+const lobbyStartBtn   = document.getElementById('lobbyStartBtn');
+const loadingOverlay  = document.getElementById('loadingOverlay');
+const resultOverlay   = document.getElementById('resultOverlay');
+const lobbyModeValue  = document.getElementById('lobbyModeValue');
+const casualModeBtn   = document.getElementById('casualModeBtn');
+const rankedModeBtn   = document.getElementById('rankedModeBtn');
+const modeDescEl      = document.getElementById('modeDesc');
+const crosshairEl     = document.getElementById('crosshair');
+const rankNameEl      = document.getElementById('rankName');
+const rankPctEl       = document.getElementById('rankPct');
+const rankFillEl      = document.getElementById('rankFill');
+const loadingTextEl   = document.getElementById('loadingText');
+const loadingSubEl    = document.getElementById('loadingSub');
+const resultTextEl    = document.getElementById('resultText');
+const resultSubEl     = document.getElementById('resultSub');
+const netBadge        = document.getElementById('netBadge');
+const onlineCountEl   = document.getElementById('onlineCount');
+const lobbyNetValue   = document.getElementById('lobbyNetValue');
+const lobbyRoomValue  = document.getElementById('lobbyRoomValue');
+const killFeedEl      = document.getElementById('killFeed');
 
 // ═══════════════════════════════════════════════════════
 //  THREE.JS SETUP（r128）
 // ═══════════════════════════════════════════════════════
-const THREE_    = window.THREE;
-const renderer  = new THREE_.WebGLRenderer({ canvas, antialias: true, alpha: false, powerPreference: 'high-performance' });
+const THREE_   = window.THREE;
+const renderer = new THREE_.WebGLRenderer({ canvas, antialias: true, alpha: false, powerPreference: 'high-performance' });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75));
 renderer.setSize(window.innerWidth, window.innerHeight, false);
 renderer.shadowMap.enabled = false;
 renderer.setClearColor(0x0b0f14, 1);
 renderer.autoClear = false;
 
-// メインシーン（3D世界）
 const scene = new THREE_.Scene();
 scene.background = new THREE_.Color(0xc7e2ff);
 scene.fog = new THREE_.Fog(0xc7e2ff, 40, 120);
 
-// UIシーン（銃モデル専用）
 const uiScene = new THREE_.Scene();
 uiScene.add(new THREE_.AmbientLight(0xffffff, 2.5));
 const uiDirLight = new THREE_.DirectionalLight(0xffffff, 3.0);
@@ -458,30 +430,25 @@ uiDirLight.position.set(1, 2, 3);
 uiScene.add(uiDirLight);
 uiScene.add(new THREE_.HemisphereLight(0xffffff, 0xaaaaaa, 2.0));
 
-// カメラ
 const camera = new THREE_.PerspectiveCamera(CAM_FOV_NORMAL, window.innerWidth / window.innerHeight, 0.05, 300);
 camera.rotation.order = 'YXZ';
 camera.position.set(0, 1.6, 8);
 
-// ─── ライティング（メインシーン） ───
 scene.add(new THREE_.HemisphereLight(0xeef8ff, 0xaabed3, 2.0));
 const dirLight = new THREE_.DirectionalLight(0xffffff, 2.5);
 dirLight.position.set(10, 18, 8);
 scene.add(dirLight);
 scene.add(new THREE_.AmbientLight(0xe2effa, 1.0));
 
-// ─── 射撃場：床と赤グリッド ───
 const floorMat = new THREE_.MeshStandardMaterial({ color: 0x3a4a3a, roughness: 0.98 });
 const floor = new THREE_.Mesh(new THREE_.PlaneGeometry(120, 120), floorMat);
 floor.rotation.x = -Math.PI / 2;
 scene.add(floor);
 
-// 赤グリッド
 const redGrid = new THREE_.GridHelper(60, 30, 0xff2222, 0xaa1111);
 redGrid.position.y = 0.01;
 scene.add(redGrid);
 
-// 壁（射撃場らしい後ろ壁）
 const wallMat = new THREE_.MeshStandardMaterial({ color: 0x5a6570, roughness: 0.95 });
 const backWall = new THREE_.Mesh(new THREE_.BoxGeometry(60, 8, 1.0), wallMat);
 backWall.position.set(0, 4, -28);
@@ -493,7 +460,6 @@ const rightWall = new THREE_.Mesh(new THREE_.BoxGeometry(1.0, 8, 58), wallMat);
 rightWall.position.set(30, 4, 0);
 scene.add(rightWall);
 
-// ポイントライト（射撃場照明）
 const lampPositions = [[-10, -10], [0, -10], [10, -10], [-10, 0], [10, 0], [0, -20]];
 lampPositions.forEach(([x, z]) => {
   const lamp = new THREE_.PointLight(0xfff5e0, 1.2, 30, 2.0);
@@ -507,14 +473,12 @@ lampPositions.forEach(([x, z]) => {
 const BASE_RANKS = ['ブロンズ','シルバー','ゴールド','プラチナ','ダイヤ','マスター','神'];
 const RANK_STEPS = ['I','II','III','IV','V'];
 const RANKS = BASE_RANKS.flatMap(b => RANK_STEPS.map(s => b + ' ' + s));
-
 let matchMode   = 'ranked';
 let rankXp      = 0;
 let rankIndex   = 0;
 let rankPercent = 0;
 
 function clamp01(v){ return Math.max(0, Math.min(1, v)); }
-
 function getRankState(xp){
   const xpPerRank = 100;
   const idx = Math.min(Math.floor(xp / xpPerRank), RANKS.length - 1);
@@ -522,7 +486,6 @@ function getRankState(xp){
   const pct  = idx === RANKS.length - 1 ? 1 : clamp01((xp - base) / xpPerRank);
   return { index: idx, name: RANKS[idx], percent: pct };
 }
-
 function saveRank(){ try{ localStorage.setItem(RANK_KEY, JSON.stringify({ xp: rankXp })); }catch{} }
 function loadRank(){
   try{ const d = JSON.parse(localStorage.getItem(RANK_KEY)||'{}'); if(Number.isFinite(d?.xp)) rankXp = Math.max(0, d.xp); }catch{}
@@ -545,9 +508,9 @@ function addRankXp(amount){
 }
 
 // ═══════════════════════════════════════════════════════
-//  AUDIO（Web Audio API合成銃声）
+//  AUDIO
 // ═══════════════════════════════════════════════════════
-let audioCtx = null;
+let audioCtx   = null;
 let audioReady = false;
 
 function unlockAudio(){
@@ -557,24 +520,18 @@ function unlockAudio(){
 }
 
 function playGunSound(){
-  // ju.mp3 がある場合は優先使用、なければ合成音
   if(gunAudio){
-    try{
-      gunAudio.currentTime = 0;
-      gunAudio.play().catch(()=>{});
-    }catch{}
+    try{ gunAudio.currentTime = 0; gunAudio.play().catch(()=>{}); }catch{}
     return;
   }
   if(!audioCtx) return;
   try{
     if(audioCtx.state === 'suspended') audioCtx.resume();
     const sampleRate = audioCtx.sampleRate;
-    const len = Math.floor(sampleRate * 0.12);
-    const buf = audioCtx.createBuffer(1, len, sampleRate);
+    const len  = Math.floor(sampleRate * 0.12);
+    const buf  = audioCtx.createBuffer(1, len, sampleRate);
     const data = buf.getChannelData(0);
-    for(let i = 0; i < len; i++){
-      data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (len * 0.12));
-    }
+    for(let i = 0; i < len; i++) data[i] = (Math.random()*2-1)*Math.exp(-i/(len*0.12));
     const src  = audioCtx.createBufferSource();
     const gain = audioCtx.createGain();
     const dist = audioCtx.createWaveShaper();
@@ -592,7 +549,6 @@ function playGunSound(){
   }catch{}
 }
 
-// ju.mp3 の読み込み試行
 let gunAudio = null;
 (function loadGunAudio(){
   const a = new Audio('ju.mp3');
@@ -601,76 +557,47 @@ let gunAudio = null;
 })();
 
 // ═══════════════════════════════════════════════════════
-//  GUN MODEL（GLTFLoader → ju.glb優先 / フォールバック手続き生成）
+//  GUN MODEL
 // ═══════════════════════════════════════════════════════
 let gunRoot = null;
-
-// カメラ基準オフセット
 const gunPosCurrent = new THREE_.Vector3().copy(GUN_POS_NORMAL);
 const gunPosTarget  = new THREE_.Vector3().copy(GUN_POS_NORMAL);
+const gunState = { recoil: 0, reloadAnim: false, reloadAnimT: 0, reloadAnimDur: RELOAD_TIME };
 
-// リコイル状態
-const gunState = {
-  recoil: 0,
-  reloadAnim: false,
-  reloadAnimT: 0,
-  reloadAnimDur: RELOAD_TIME
-};
-
-// 手続き生成銃（フォールバック）
 function buildProceduralGun(){
   const g   = new THREE_.Group();
-  const mat = new THREE_.MeshStandardMaterial({
-    color: 0x2a2a2a, roughness: 0.5, metalness: 0.6,
-    emissive: new THREE_.Color(0x1a1a1a), emissiveIntensity: 0.15
-  });
-  const accent = new THREE_.MeshStandardMaterial({
-    color: 0x1a1a2e, roughness: 0.7, metalness: 0.3,
-    emissive: new THREE_.Color(0x111122), emissiveIntensity: 0.12
-  });
-  // Body
-  const body = new THREE_.Mesh(new THREE_.BoxGeometry(0.06, 0.07, 0.32), mat);
+  const mat = new THREE_.MeshStandardMaterial({ color:0x2a2a2a,roughness:0.5,metalness:0.6,emissive:new THREE_.Color(0x1a1a1a),emissiveIntensity:0.15 });
+  const accent = new THREE_.MeshStandardMaterial({ color:0x1a1a2e,roughness:0.7,metalness:0.3,emissive:new THREE_.Color(0x111122),emissiveIntensity:0.12 });
+  const body = new THREE_.Mesh(new THREE_.BoxGeometry(0.06,0.07,0.32),mat);
   g.add(body);
-  // Barrel
-  const barrel = new THREE_.Mesh(new THREE_.CylinderGeometry(0.013, 0.013, 0.24, 8), mat);
-  barrel.rotation.x = Math.PI / 2;
-  barrel.position.set(0, 0.01, -0.22);
+  const barrel = new THREE_.Mesh(new THREE_.CylinderGeometry(0.013,0.013,0.24,8),mat);
+  barrel.rotation.x = Math.PI/2; barrel.position.set(0,0.01,-0.22);
   g.add(barrel);
-  // Grip
-  const grip = new THREE_.Mesh(new THREE_.BoxGeometry(0.044, 0.09, 0.055), accent);
-  grip.position.set(0, -0.07, 0.06);
-  grip.rotation.x = -0.18;
+  const grip = new THREE_.Mesh(new THREE_.BoxGeometry(0.044,0.09,0.055),accent);
+  grip.position.set(0,-0.07,0.06); grip.rotation.x=-0.18;
   g.add(grip);
-  // Mag
-  const mag = new THREE_.Mesh(new THREE_.BoxGeometry(0.036, 0.07, 0.04), accent);
-  mag.position.set(0, -0.065, -0.01);
+  const mag = new THREE_.Mesh(new THREE_.BoxGeometry(0.036,0.07,0.04),accent);
+  mag.position.set(0,-0.065,-0.01);
   g.add(mag);
-  // Sight
-  const rail = new THREE_.Mesh(new THREE_.BoxGeometry(0.038, 0.012, 0.16), mat);
-  rail.position.set(0, 0.041, -0.02);
+  const rail = new THREE_.Mesh(new THREE_.BoxGeometry(0.038,0.012,0.16),mat);
+  rail.position.set(0,0.041,-0.02);
   g.add(rail);
-  const fSight = new THREE_.Mesh(new THREE_.BoxGeometry(0.010, 0.018, 0.010), mat);
-  fSight.position.set(0, 0.052, -0.13);
+  const fSight = new THREE_.Mesh(new THREE_.BoxGeometry(0.010,0.018,0.010),mat);
+  fSight.position.set(0,0.052,-0.13);
   g.add(fSight);
-  // scope dot emissive
-  const dotMat = new THREE_.MeshStandardMaterial({
-    color: 0xff2200, emissive: 0xff2200, emissiveIntensity: 5.0
-  });
-  const dot = new THREE_.Mesh(new THREE_.SphereGeometry(0.003, 6, 6), dotMat);
-  dot.position.set(0, 0.054, -0.12);
+  const dotMat = new THREE_.MeshStandardMaterial({ color:0xff2200,emissive:0xff2200,emissiveIntensity:5.0 });
+  const dot = new THREE_.Mesh(new THREE_.SphereGeometry(0.003,6,6),dotMat);
+  dot.position.set(0,0.054,-0.12);
   g.add(dot);
   return g;
 }
 
-// GLTFLoader で ju.glb を読み込み試行、失敗したら手続き生成
 (function loadGunModel(){
   if(typeof THREE_.GLTFLoader !== 'undefined'){
     const loader = new THREE_.GLTFLoader();
-    loader.load(
-      'ju.glb',
+    loader.load('ju.glb',
       (gltf) => {
         const model = gltf.scene;
-        // 真っ黒対策：全メッシュに emissive 自発光を設定
         model.traverse(obj => {
           if(obj.isMesh && obj.material){
             const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
@@ -685,14 +612,13 @@ function buildProceduralGun(){
             });
           }
         });
-        // スケール調整（ju.glbのサイズに合わせて調整）
         model.scale.setScalar(0.12);
         gunRoot = model;
         uiScene.add(gunRoot);
         console.log('✅ ju.glb 読み込み成功');
       },
       undefined,
-      (err) => {
+      () => {
         console.warn('⚠️ ju.glb 未検出 → 手続き生成銃を使用');
         gunRoot = buildProceduralGun();
         uiScene.add(gunRoot);
@@ -704,45 +630,33 @@ function buildProceduralGun(){
   }
 })();
 
-// マズルフラッシュプール
 const muzzleFlashes = [];
 
 function createMuzzleFlash(){
   const fg = new THREE_.Group();
-  const coreMat  = new THREE_.MeshStandardMaterial({
-    color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 12,
-    transparent: true, opacity: 1.0, roughness: 0
-  });
-  const outerMat = new THREE_.MeshStandardMaterial({
-    color: 0xffcc00, emissive: 0xff8800, emissiveIntensity: 6,
-    transparent: true, opacity: 0.88, roughness: 0
-  });
-  fg.add(new THREE_.Mesh(new THREE_.SphereGeometry(0.030, 8, 8), coreMat));
-  fg.add(new THREE_.Mesh(new THREE_.SphereGeometry(0.062, 8, 8), outerMat));
+  const coreMat  = new THREE_.MeshStandardMaterial({ color:0xffffff,emissive:0xffffff,emissiveIntensity:12,transparent:true,opacity:1.0,roughness:0 });
+  const outerMat = new THREE_.MeshStandardMaterial({ color:0xffcc00,emissive:0xff8800,emissiveIntensity:6,transparent:true,opacity:0.88,roughness:0 });
+  fg.add(new THREE_.Mesh(new THREE_.SphereGeometry(0.030,8,8),coreMat));
+  fg.add(new THREE_.Mesh(new THREE_.SphereGeometry(0.062,8,8),outerMat));
   uiScene.add(fg);
-  muzzleFlashes.push({ group: fg, life: 0.06, maxLife: 0.06 });
+  muzzleFlashes.push({ group:fg, life:0.06, maxLife:0.06 });
 }
 
 function updateMuzzleFlashes(dt){
-  for(let i = muzzleFlashes.length - 1; i >= 0; i--){
+  for(let i = muzzleFlashes.length-1; i >= 0; i--){
     const f = muzzleFlashes[i];
     f.life -= dt;
     if(f.life <= 0){
       uiScene.remove(f.group);
-      f.group.traverse(o => {
-        if(o.isMesh){ if(o.geometry) o.geometry.dispose(); if(o.material) o.material.dispose(); }
-      });
-      muzzleFlashes.splice(i, 1);
+      f.group.traverse(o => { if(o.isMesh){ if(o.geometry) o.geometry.dispose(); if(o.material) o.material.dispose(); } });
+      muzzleFlashes.splice(i,1);
       continue;
     }
     const t = f.life / f.maxLife;
     f.group.traverse(o => { if(o.isMesh && o.material) o.material.opacity = t; });
-    f.group.scale.setScalar(1 + (1 - t) * 2.0);
-    // マズル位置をカメラ基準で計算
+    f.group.scale.setScalar(1 + (1-t)*2.0);
     camera.updateMatrixWorld();
-    const local = new THREE_.Vector3(
-      gunPosCurrent.x, gunPosCurrent.y + 0.04, gunPosCurrent.z - 0.25
-    );
+    const local = new THREE_.Vector3(gunPosCurrent.x, gunPosCurrent.y+0.04, gunPosCurrent.z-0.25);
     const world = local.applyMatrix4(camera.matrixWorld);
     f.group.position.copy(world);
     const q = new THREE_.Quaternion();
@@ -751,65 +665,45 @@ function updateMuzzleFlashes(dt){
   }
 }
 
-// 3Dリコイルアニメーション
 function updateGun(dt){
   if(!gunRoot) return;
-  // リコイル減衰（adsなら速め）
-  gunState.recoil = THREE_.MathUtils.lerp(
-    gunState.recoil, 0, 1 - Math.exp(-(adsActive ? 20 : 15) * dt)
-  );
-  // FOV補間（ADS）
+  gunState.recoil = THREE_.MathUtils.lerp(gunState.recoil, 0, 1-Math.exp(-(adsActive?20:15)*dt));
   const targetFov = adsActive ? CAM_FOV_ADS : CAM_FOV_NORMAL;
-  adsFovCurrent   = THREE_.MathUtils.lerp(adsFovCurrent, targetFov, 1 - Math.exp(-12 * dt));
+  adsFovCurrent   = THREE_.MathUtils.lerp(adsFovCurrent, targetFov, 1-Math.exp(-12*dt));
   if(Math.abs(adsFovCurrent - camera.fov) > 0.05){
     camera.fov = adsFovCurrent;
     camera.updateProjectionMatrix();
   }
-  // 銃の位置補間
-  gunPosCurrent.lerp(gunPosTarget, 1 - Math.exp(-15 * dt));
-  // リロードアニメ
+  gunPosCurrent.lerp(gunPosTarget, 1-Math.exp(-15*dt));
   let reloadOffY = 0;
   if(gunState.reloadAnim){
-    gunState.reloadAnimT = Math.min(gunState.reloadAnimT + dt, gunState.reloadAnimDur);
+    gunState.reloadAnimT = Math.min(gunState.reloadAnimT+dt, gunState.reloadAnimDur);
     const p = gunState.reloadAnimT / gunState.reloadAnimDur;
-    reloadOffY = p < 0.5
-      ? -0.28 * (p / 0.5) ** 2
-      : -0.28 * (1 - (1 - (2 * (p - 0.5)) ** 2));
+    reloadOffY = p < 0.5 ? -0.28*(p/0.5)**2 : -0.28*(1-(1-(2*(p-0.5))**2));
   }
-  // カメラ座標系でオフセット適用
   camera.updateMatrixWorld();
   const r = gunState.recoil;
-  const localOff = new THREE_.Vector3(
-    gunPosCurrent.x,
-    gunPosCurrent.y + r * 0.020 + reloadOffY,
-    gunPosCurrent.z + r * 0.055   // リコイルで手前に引く
-  );
+  const localOff = new THREE_.Vector3(gunPosCurrent.x, gunPosCurrent.y+r*0.020+reloadOffY, gunPosCurrent.z+r*0.055);
   gunRoot.position.copy(localOff.applyMatrix4(camera.matrixWorld));
   const qCam = new THREE_.Quaternion();
   camera.getWorldQuaternion(qCam);
-  const qPitch = new THREE_.Quaternion().setFromAxisAngle(
-    new THREE_.Vector3(1, 0, 0), -r * 0.08  // yとrotation.xを上に跳ね上げ
-  );
+  const qPitch = new THREE_.Quaternion().setFromAxisAngle(new THREE_.Vector3(1,0,0), -r*0.08);
   gunRoot.quaternion.copy(qCam).multiply(qPitch);
 }
 
 function triggerRecoil(){
-  // 射撃で z 手前引き + y/rotation.x 上跳ね
-  gunState.recoil = Math.min(1.0, gunState.recoil + (adsActive ? 0.04 : 0.12));
+  gunState.recoil = Math.min(1.0, gunState.recoil + (adsActive?0.04:0.12));
 }
 
 // ═══════════════════════════════════════════════════════
-//  BOT（赤いカプセル型標的）
+//  BOT
 // ═══════════════════════════════════════════════════════
-const botMeshes   = [];
-const botGroup    = new THREE_.Group();
+const botMeshes = [];
+const botGroup  = new THREE_.Group();
 scene.add(botGroup);
+const botHPs    = [];
+const botAlive  = [];
 
-// ボットのHP管理
-const botHPs      = [];
-const botAlive    = [];
-
-// 射撃場のボット配置位置（奥に並べる）
 const BOT_POSITIONS = [
   new THREE_.Vector3(-12, 0, -18),
   new THREE_.Vector3( -6, 0, -22),
@@ -820,46 +714,22 @@ const BOT_POSITIONS = [
 
 function createBotMesh(index){
   const g = new THREE_.Group();
-  const bodyMat = new THREE_.MeshStandardMaterial({
-    color: 0xcc2222, roughness: 0.65, metalness: 0.05,
-    emissive: new THREE_.Color(0x440000), emissiveIntensity: 0.3
-  });
-  const headMat = new THREE_.MeshStandardMaterial({
-    color: 0xff4444, roughness: 0.45,
-    emissive: new THREE_.Color(0x550000), emissiveIntensity: 0.25
-  });
-  // カプセル型ボディ
-  const body = new THREE_.Mesh(
-    new THREE_.CapsuleGeometry(0.35, 0.90, 6, 12),
-    bodyMat
-  );
+  const bodyMat = new THREE_.MeshStandardMaterial({ color:0xcc2222,roughness:0.65,metalness:0.05,emissive:new THREE_.Color(0x440000),emissiveIntensity:0.3 });
+  const headMat = new THREE_.MeshStandardMaterial({ color:0xff4444,roughness:0.45,emissive:new THREE_.Color(0x550000),emissiveIntensity:0.25 });
+  const body = new THREE_.Mesh(new THREE_.CapsuleGeometry(0.35,0.90,6,12),bodyMat);
   body.position.y = 1.10;
   g.add(body);
-  // 球の頭
-  const head = new THREE_.Mesh(
-    new THREE_.SphereGeometry(0.25, 12, 10),
-    headMat
-  );
+  const head = new THREE_.Mesh(new THREE_.SphereGeometry(0.25,12,10),headMat);
   head.position.y = 1.82;
   g.add(head);
-  // HP表示バー（上に浮かせる）
-  const hpBarGeom = new THREE_.PlaneGeometry(0.8, 0.08);
-  const hpBarMat  = new THREE_.MeshStandardMaterial({
-    color: 0x00ff44, emissive: 0x00ff44, emissiveIntensity: 1.5,
-    transparent: true, opacity: 0.9, side: THREE_.DoubleSide
-  });
-  const hpBar = new THREE_.Mesh(hpBarGeom, hpBarMat);
+  const hpBarGeom = new THREE_.PlaneGeometry(0.8,0.08);
+  const hpBarMat  = new THREE_.MeshStandardMaterial({ color:0x00ff44,emissive:0x00ff44,emissiveIntensity:1.5,transparent:true,opacity:0.9,side:THREE_.DoubleSide });
+  const hpBar = new THREE_.Mesh(hpBarGeom,hpBarMat);
   hpBar.position.y = 2.22;
   hpBar.name = 'hpBar';
   g.add(hpBar);
-  // ボット中心（Raycaster対象用の当たり判定Mesh）
-  const hitboxMat = new THREE_.MeshStandardMaterial({
-    color: 0xff0000, transparent: true, opacity: 0.0  // 不可視
-  });
-  const hitbox = new THREE_.Mesh(
-    new THREE_.CapsuleGeometry(0.38, 1.20, 4, 8),
-    hitboxMat
-  );
+  const hitboxMat = new THREE_.MeshStandardMaterial({ color:0xff0000,transparent:true,opacity:0.0 });
+  const hitbox = new THREE_.Mesh(new THREE_.CapsuleGeometry(0.38,1.20,4,8),hitboxMat);
   hitbox.position.y = 1.10;
   hitbox.userData.isBotHitbox = true;
   hitbox.userData.botIndex    = index;
@@ -869,20 +739,12 @@ function createBotMesh(index){
 }
 
 function spawnBot(index){
-  // 既存のメッシュを削除
-  if(botMeshes[index]){
-    botGroup.remove(botMeshes[index]);
-  }
-  const mesh = createBotMesh(index);
+  if(botMeshes[index]) botGroup.remove(botMeshes[index]);
+  const mesh    = createBotMesh(index);
   const basePos = BOT_POSITIONS[index % BOT_POSITIONS.length];
-  // ランダムにずらして再生成
-  const offsetX = (Math.random() - 0.5) * 8;
-  const offsetZ = (Math.random() - 0.5) * 4;
-  mesh.position.set(
-    basePos.x + offsetX,
-    0,
-    Math.max(basePos.z - 5, -27) + offsetZ
-  );
+  const offsetX = (Math.random()-0.5)*8;
+  const offsetZ = (Math.random()-0.5)*4;
+  mesh.position.set(basePos.x+offsetX, 0, Math.max(basePos.z-5,-27)+offsetZ);
   botGroup.add(mesh);
   botMeshes[index] = mesh;
   botHPs[index]    = BOT_HP;
@@ -893,12 +755,11 @@ function initBots(){
   for(let i = 0; i < BOT_COUNT; i++) spawnBot(i);
 }
 
-// ボット移動（前後にゆらゆら）
 const botMoveTimers = [];
 const botMoveDirs   = [];
 for(let i = 0; i < BOT_COUNT; i++){
-  botMoveTimers[i] = Math.random() * 2;
-  botMoveDirs[i]   = (Math.random() < 0.5 ? 1 : -1);
+  botMoveTimers[i] = Math.random()*2;
+  botMoveDirs[i]   = (Math.random()<0.5 ? 1 : -1);
 }
 
 function updateBots(dt){
@@ -906,69 +767,54 @@ function updateBots(dt){
     if(!botAlive[i]) continue;
     const mesh = botMeshes[i];
     if(!mesh) continue;
-    // 左右に揺れる動き
-    botMoveTimers[i] += dt * 0.8;
-    mesh.position.x += Math.sin(botMoveTimers[i] * 0.7) * BOT_MOVE * dt * botMoveDirs[i];
-    mesh.position.x = THREE_.MathUtils.clamp(mesh.position.x, -28, 28);
-    // HPバー更新
+    botMoveTimers[i] += dt*0.8;
+    mesh.position.x += Math.sin(botMoveTimers[i]*0.7)*BOT_MOVE*dt*botMoveDirs[i];
+    mesh.position.x = THREE_.MathUtils.clamp(mesh.position.x,-28,28);
     const hpBar = mesh.getObjectByName('hpBar');
     if(hpBar){
-      const pct = botHPs[i] / BOT_HP;
-      hpBar.scale.x = Math.max(0.01, pct);
-      hpBar.material.color.setHex(pct > 0.5 ? 0x00ff44 : pct > 0.25 ? 0xffcc00 : 0xff2222);
-      hpBar.material.emissive.setHex(pct > 0.5 ? 0x00ff44 : pct > 0.25 ? 0xffcc00 : 0xff2222);
-      // 常にカメラを向く
+      const pct = botHPs[i]/BOT_HP;
+      hpBar.scale.x = Math.max(0.01,pct);
+      hpBar.material.color.setHex(pct>0.5?0x00ff44:pct>0.25?0xffcc00:0xff2222);
+      hpBar.material.emissive.setHex(pct>0.5?0x00ff44:pct>0.25?0xffcc00:0xff2222);
       hpBar.lookAt(camera.position);
     }
   }
 }
 
 // ═══════════════════════════════════════════════════════
-//  RAYCASTER ヒット判定
+//  RAYCASTER
 // ═══════════════════════════════════════════════════════
 const raycaster = new THREE_.Raycaster();
 
 function checkBotHit(){
-  // 画面中央（クロスヘア位置）からレイを飛ばす
-  raycaster.setFromCamera(new THREE_.Vector2(0, 0), camera);
-  // botGroup内の全Meshと交差判定
+  raycaster.setFromCamera(new THREE_.Vector2(0,0), camera);
   const allMeshes = [];
-  botGroup.traverse(obj => {
-    if(obj.isMesh) allMeshes.push(obj);
-  });
+  botGroup.traverse(obj => { if(obj.isMesh) allMeshes.push(obj); });
   const intersects = raycaster.intersectObjects(allMeshes, false);
   if(intersects.length === 0) return false;
   const hit = intersects[0];
   const obj = hit.object;
-  // ボットのhitboxかどうか判定
   let botIndex = -1;
   if(obj.userData.isBotHitbox){
     botIndex = obj.userData.botIndex;
   } else {
-    // 親グループに botIndex があるか
     let parent = obj.parent;
     while(parent){
-      if(typeof parent.userData.botIndex === 'number'){
-        botIndex = parent.userData.botIndex;
-        break;
-      }
+      if(typeof parent.userData.botIndex === 'number'){ botIndex = parent.userData.botIndex; break; }
       parent = parent.parent;
     }
   }
   if(botIndex < 0 || !botAlive[botIndex]) return false;
-  // ヒット処理
   botHPs[botIndex] -= DAMAGE_PER_BULLET;
   if(botHPs[botIndex] <= 0){
     botAlive[botIndex] = false;
     const mesh = botMeshes[botIndex];
     if(mesh) botGroup.remove(mesh);
-    // キル演出
     showKillAnnouncement();
     addKillFeed('💥 BOT KILL！');
-    addRankXp(matchMode === 'ranked' ? 14 : 0);
+    addRankXp(matchMode==='ranked' ? 14 : 0);
     blueScore++;
     updateScoreUI();
-    // 少し遅れて別位置に再生成
     setTimeout(() => spawnBot(botIndex), 1200);
     return true;
   }
@@ -978,41 +824,45 @@ function checkBotHit(){
 // ═══════════════════════════════════════════════════════
 //  GAME STATE
 // ═══════════════════════════════════════════════════════
-const GAME_MODE = { LOBBY: 'lobby', LOADING: 'loading', BATTLE: 'battle', RESULT: 'result' };
+const GAME_MODE = { LOBBY:'lobby', LOADING:'loading', BATTLE:'battle', RESULT:'result' };
 
-let gameMode     = GAME_MODE.LOBBY;
-let blueScore    = 0, redScore = 0, roundIndex = 1;
-let matchOver    = false;
-let yaw          = 0, pitch = 0;
-let ammo         = MAG_SIZE;
-let reloading    = false, reloadTimer = 0;
-let firingHeld   = false, fireLoopTimer = null;
-let portraitMode = false;
-let adsActive    = false;
-let adsFovCurrent= CAM_FOV_NORMAL;
-let loadingTimer = null;
-let returnTimer  = null;
+let gameMode    = GAME_MODE.LOBBY;
+let blueScore   = 0, redScore = 0, roundIndex = 1;
+let matchOver   = false;
+let yaw         = 0, pitch = 0;
+let ammo        = MAG_SIZE;
+let reloading   = false, reloadTimer = 0;
+let firingHeld  = false, fireLoopTimer = null;
+let portraitMode= false;
+let adsActive   = false;
+let adsFovCurrent = CAM_FOV_NORMAL;
+let returnTimer = null;
 
-const player  = { hp: 100, maxHp: 100, hurtFlash: 0, alive: true };
-const joy     = { x: 0, y: 0 };
-const aim     = { lastX: 0, lastY: 0 };
-const moveVel = { x: 0, z: 0 };
+// ★★★ 修正: pendingBattle フラグ ★★★
+// startBattle() が呼ばれた時点でSocket未接続の場合に
+// 接続後即座にバトルを開始するためのフラグ
+let pendingBattle = false;
+
+const player  = { hp:100, maxHp:100, hurtFlash:0, alive:true };
+const joy     = { x:0, y:0 };
+const aim     = { lastX:0, lastY:0 };
+const moveVel = { x:0, z:0 };
 let joyTouchId = null, aimTouchId = null;
 
 // ═══════════════════════════════════════════════════════
 //  ONLINE MULTIPLAYER（Socket.io）
 // ═══════════════════════════════════════════════════════
-const remoteAvatars = new Map(); // socketId → THREE_.Group
+const remoteAvatars = new Map();
 const netGroup = new THREE_.Group();
 scene.add(netGroup);
-let socket = null;
+let socket   = null;
 let netOnline = false;
 
 function setNetBadge(state, text){
-  netBadge.className = state; // 'connecting' | 'online' | 'offline'
+  netBadge.className = state;
   netBadge.textContent = text;
   if(lobbyNetValue) lobbyNetValue.textContent =
-    state === 'online' ? 'ONLINE' : state === 'offline' ? 'OFFLINE' : '接続中...';
+    state==='online' ? 'ONLINE' : state==='offline' ? 'OFFLINE' : '接続中...';
 }
 
 function updateOnlineUI(){
@@ -1020,48 +870,27 @@ function updateOnlineUI(){
   onlineCountEl.textContent = '👥 オンライン: ' + count + '人';
 }
 
-// 青いカプセル型アバター（正面に赤突起付き）
 function makeRemoteAvatar(team){
   const g      = new THREE_.Group();
-  const isBlue = team === 'blue';
-  const bodyMat= new THREE_.MeshStandardMaterial({
-    color: isBlue ? 0x2f7dff : 0xd72626, roughness: 0.65,
-    emissive: isBlue ? new THREE_.Color(0x0a2080) : new THREE_.Color(0x440000),
-    emissiveIntensity: 0.22
-  });
-  const headMat= new THREE_.MeshStandardMaterial({
-    color: isBlue ? 0x64a4ff : 0xff4a4a, roughness: 0.45
-  });
-  // カプセルボディ
-  const body = new THREE_.Mesh(new THREE_.CapsuleGeometry(0.32, 0.88, 6, 12), bodyMat);
-  body.position.y = 1.05;
-  g.add(body);
-  // 球頭
-  const head = new THREE_.Mesh(new THREE_.SphereGeometry(0.22, 12, 10), headMat);
-  head.position.y = 1.72;
-  g.add(head);
-  // 正面向き目印（赤い突起）
-  const noseMat = new THREE_.MeshStandardMaterial({
-    color: 0xff2222, emissive: 0xff0000, emissiveIntensity: 1.0
-  });
-  const nose = new THREE_.Mesh(new THREE_.BoxGeometry(0.10, 0.10, 0.22), noseMat);
-  nose.position.set(0, 1.64, -0.35); // 頭の正面
-  g.add(nose);
-  // 足元リング
-  const ringMat = new THREE_.MeshStandardMaterial({
-    color: isBlue ? 0x72b4ff : 0xff6a6a,
-    emissive: isBlue ? 0x1e5dff : 0xa81818, emissiveIntensity: 0.5
-  });
-  const ring = new THREE_.Mesh(new THREE_.TorusGeometry(0.38, 0.03, 8, 16), ringMat);
-  ring.rotation.x = Math.PI / 2;
-  ring.position.y = 0.16;
-  g.add(ring);
+  const isBlue = team==='blue';
+  const bodyMat= new THREE_.MeshStandardMaterial({ color:isBlue?0x2f7dff:0xd72626,roughness:0.65,emissive:isBlue?new THREE_.Color(0x0a2080):new THREE_.Color(0x440000),emissiveIntensity:0.22 });
+  const headMat= new THREE_.MeshStandardMaterial({ color:isBlue?0x64a4ff:0xff4a4a,roughness:0.45 });
+  const body = new THREE_.Mesh(new THREE_.CapsuleGeometry(0.32,0.88,6,12),bodyMat);
+  body.position.y = 1.05; g.add(body);
+  const head = new THREE_.Mesh(new THREE_.SphereGeometry(0.22,12,10),headMat);
+  head.position.y = 1.72; g.add(head);
+  const noseMat = new THREE_.MeshStandardMaterial({ color:0xff2222,emissive:0xff0000,emissiveIntensity:1.0 });
+  const nose = new THREE_.Mesh(new THREE_.BoxGeometry(0.10,0.10,0.22),noseMat);
+  nose.position.set(0,1.64,-0.35); g.add(nose);
+  const ringMat = new THREE_.MeshStandardMaterial({ color:isBlue?0x72b4ff:0xff6a6a,emissive:isBlue?0x1e5dff:0xa81818,emissiveIntensity:0.5 });
+  const ring = new THREE_.Mesh(new THREE_.TorusGeometry(0.38,0.03,8,16),ringMat);
+  ring.rotation.x = Math.PI/2; ring.position.y=0.16; g.add(ring);
   return g;
 }
 
 function ensureAvatar(id, team){
   if(remoteAvatars.has(id)) return remoteAvatars.get(id);
-  const av = makeRemoteAvatar(team || 'blue');
+  const av = makeRemoteAvatar(team||'blue');
   netGroup.add(av);
   remoteAvatars.set(id, av);
   updateOnlineUI();
@@ -1072,9 +901,7 @@ function removeAvatar(id){
   const av = remoteAvatars.get(id);
   if(!av) return;
   netGroup.remove(av);
-  av.traverse(o => {
-    if(o.isMesh){ if(o.geometry) o.geometry.dispose(); if(o.material) o.material.dispose(); }
-  });
+  av.traverse(o => { if(o.isMesh){ if(o.geometry) o.geometry.dispose(); if(o.material) o.material.dispose(); } });
   remoteAvatars.delete(id);
   updateOnlineUI();
 }
@@ -1085,133 +912,163 @@ function clearAllAvatars(){
 
 function syncPlayersFromServer(players){
   const seen = new Set();
-  for(const [id, s] of Object.entries(players || {})){
-    if(!id || (socket && id === socket.id)) continue;
+  for(const [id, s] of Object.entries(players||{})){
+    if(!id || (socket && id===socket.id)) continue;
     seen.add(id);
-    const av = ensureAvatar(id, s.team || 'blue');
+    const av = ensureAvatar(id, s.team||'blue');
     av.position.set(Number(s.x)||0, 0, Number(s.z)||0);
     av.rotation.y = Number(s.ry)||0;
-    av.visible    = (gameMode === GAME_MODE.BATTLE);
-    av.scale.setScalar(s.alive === false ? 0 : 1);
+    av.visible    = (gameMode===GAME_MODE.BATTLE);
+    av.scale.setScalar(s.alive===false?0:1);
   }
-  for(const [id] of remoteAvatars){
-    if(!seen.has(id)) removeAvatar(id);
-  }
+  for(const [id] of remoteAvatars){ if(!seen.has(id)) removeAvatar(id); }
   updateOnlineUI();
 }
 
 function spawnRemoteShotFX(data){
-  // 他プレイヤーの銃声を再生
   playGunSound();
-  // トレーサー
   const dir = new THREE_.Vector3(Number(data.dx)||0, Number(data.dy)||0, Number(data.dz)||-1);
-  if(dir.lengthSq() < 1e-8) dir.set(0, 0, -1);
+  if(dir.lengthSq()<1e-8) dir.set(0,0,-1);
   dir.normalize();
   const origin = new THREE_.Vector3(Number(data.ox)||0, Number(data.oy)||1.6, Number(data.oz)||0);
   const len    = 1.0;
-  const geom   = new THREE_.CylinderGeometry(0.018, 0.018, len, 6);
-  const mat    = new THREE_.MeshStandardMaterial({
-    color: 0xffb1b1, emissive: 0xff4c4c, emissiveIntensity: 1.0,
-    transparent: true, opacity: 0.88
-  });
-  const mesh = new THREE_.Mesh(geom, mat);
-  mesh.position.copy(origin).addScaledVector(dir, len * 0.5);
-  mesh.quaternion.setFromUnitVectors(new THREE_.Vector3(0, 1, 0), dir);
+  const geom   = new THREE_.CylinderGeometry(0.018,0.018,len,6);
+  const mat    = new THREE_.MeshStandardMaterial({ color:0xffb1b1,emissive:0xff4c4c,emissiveIntensity:1.0,transparent:true,opacity:0.88 });
+  const mesh   = new THREE_.Mesh(geom,mat);
+  mesh.position.copy(origin).addScaledVector(dir,len*0.5);
+  mesh.quaternion.setFromUnitVectors(new THREE_.Vector3(0,1,0),dir);
   scene.add(mesh);
-  setTimeout(() => {
-    scene.remove(mesh);
-    geom.dispose(); mat.dispose();
-  }, 90);
+  setTimeout(() => { scene.remove(mesh); geom.dispose(); mat.dispose(); }, 90);
 }
 
+// ═══════════════════════════════════════════════════════
+//  ★★★ 修正: initSocket ★★★
+//  connectイベント発火時に即座にローディングを消してゲーム開始
+// ═══════════════════════════════════════════════════════
 function initSocket(){
   if(typeof io !== 'function'){
-    setNetBadge('offline', '🔴 Socket未接続');
-    console.warn('⚠️ socket.io クライアントが未検出です。CDN読み込みを確認してください。');
+    setNetBadge('offline','🔴 Socket未接続');
+    console.warn('⚠️ socket.io クライアントが未検出です。');
     return;
   }
-  setNetBadge('connecting', '🟡 接続中...');
-  // Renderのスリープ復帰を待つため長いタイムアウトと多めの再試行
+  setNetBadge('connecting','🟡 接続中...');
+
   socket = io(RENDER_SERVER_URL, {
-    reconnectionAttempts: 60,
-    reconnectionDelay: 2000,
-    reconnectionDelayMax: 8000,
-    timeout: 60000,
-    transports: ['websocket', 'polling']
+    reconnectionAttempts : 60,
+    reconnectionDelay    : 2000,
+    reconnectionDelayMax : 8000,
+    timeout              : 60000,
+    transports           : ['websocket','polling']
   });
 
+  // ─────────────────────────────────────────
+  // ★★★ 核心修正: connect イベントハンドラ ★★★
+  // 接続した瞬間にローディング画面を確実に非表示にし、
+  // pendingBattle が立っていれば即座にバトルへ遷移する
+  // ─────────────────────────────────────────
   socket.on('connect', () => {
+    console.log('✅ Connected to server! ID:', socket.id);
     netOnline = true;
-    setNetBadge('online', '🟢 ONLINE');
-    console.log('🟢 接続成功 ID:', socket.id);
+    setNetBadge('online','🟢 ONLINE');
+
+    // ★ loadingOverlay を確実に非表示にする
+    loadingOverlay.style.display = 'none';
+
+    // ★ pendingBattle フラグが立っていれば、ここでバトル開始
+    if(pendingBattle){
+      pendingBattle = false;
+      _startBattleImmediate();
+    }
+
     socket.emit('join-room', {
       room: ONLINE_ROOM, name: PLAYER_NAME, team: 'blue', matchMode
     });
   });
+
   socket.on('connect_error', (err) => {
-    setNetBadge('offline', '🔴 接続エラー');
-    console.warn('🔴 接続エラー:', err?.message || err, '─ 再試行中...');
+    setNetBadge('offline','🔴 接続エラー');
+    console.warn('🔴 接続エラー:', err?.message||err, '─ 再試行中...');
+    // ローディング中なら進行状況テキストを更新
+    if(gameMode === GAME_MODE.LOADING){
+      loadingSubEl.textContent = '再接続中... サーバーが起動するまでお待ちください';
+    }
   });
+
   socket.on('reconnect_attempt', (n) => {
-    setNetBadge('connecting', '🟡 再試行 #' + n);
+    setNetBadge('connecting','🟡 再試行 #' + n);
+    if(gameMode === GAME_MODE.LOADING){
+      loadingSubEl.textContent = 'サーバーに再接続中... (' + n + '回目)';
+    }
   });
-  socket.on('reconnect', (n) => {
+
+  socket.on('reconnect', () => {
     netOnline = true;
-    setNetBadge('online', '🟢 ONLINE');
-    socket.emit('join-room', { room: ONLINE_ROOM, name: PLAYER_NAME, team: 'blue', matchMode });
+    setNetBadge('online','🟢 ONLINE');
+    // ★ 再接続時も同様にローディングを消してバトルへ
+    loadingOverlay.style.display = 'none';
+    if(pendingBattle){
+      pendingBattle = false;
+      _startBattleImmediate();
+    }
+    socket.emit('join-room', { room:ONLINE_ROOM, name:PLAYER_NAME, team:'blue', matchMode });
   });
+
   socket.on('reconnect_failed', () => {
-    setNetBadge('offline', '🔴 接続失敗');
-    console.error('🔴 60回再試行後も接続失敗。ページを再読込してください。');
+    setNetBadge('offline','🔴 接続失敗');
+    console.error('🔴 60回再試行後も接続失敗。');
+    // ★★★ 接続失敗してもゲームはオフラインで続行 ★★★
+    loadingOverlay.style.display = 'none';
+    if(pendingBattle){
+      pendingBattle = false;
+      _startBattleImmediate();
+    }
   });
+
   socket.on('disconnect', (reason) => {
     netOnline = false;
     clearAllAvatars();
     updateOnlineUI();
-    setNetBadge('offline', '🔴 切断: ' + reason);
+    setNetBadge('offline','🔴 切断: ' + reason);
   });
-  socket.on('currentPlayers', (players) => {
-    syncPlayersFromServer(players);
-  });
+
+  socket.on('currentPlayers', (players) => { syncPlayersFromServer(players); });
+
   socket.on('newPlayer', (data) => {
-    if(!data || !data.id || (socket && data.id === socket.id)) return;
-    ensureAvatar(data.id, data.team || 'blue');
+    if(!data||!data.id||(socket&&data.id===socket.id)) return;
+    ensureAvatar(data.id, data.team||'blue');
   });
+
   socket.on('playerMoved', (data) => {
-    if(!data || !data.id || (socket && data.id === socket.id)) return;
-    const av = ensureAvatar(data.id, data.team || 'blue');
+    if(!data||!data.id||(socket&&data.id===socket.id)) return;
+    const av = ensureAvatar(data.id, data.team||'blue');
     av.position.set(Number(data.x)||0, 0, Number(data.z)||0);
     av.rotation.y = Number(data.ry)||0;
-    av.visible    = (gameMode === GAME_MODE.BATTLE);
+    av.visible    = (gameMode===GAME_MODE.BATTLE);
   });
+
   socket.on('playerShot', (data) => {
-    if(!data || !data.id || (socket && data.id === socket.id)) return;
+    if(!data||!data.id||(socket&&data.id===socket.id)) return;
     spawnRemoteShotFX(data);
   });
+
   socket.on('playerDisconnected', (data) => {
-    const id = data && (data.id || data);
+    const id = data&&(data.id||data);
     if(id) removeAvatar(id);
   });
+
   socket.on('room-state', (payload) => {
-    if(!payload || payload.room !== ONLINE_ROOM) return;
-    syncPlayersFromServer(payload.players || {});
+    if(!payload||payload.room!==ONLINE_ROOM) return;
+    syncPlayersFromServer(payload.players||{});
   });
 }
 
-// 自分の状態を定期送信（動いた瞬間も毎フレーム送信で滑らか）
 setInterval(() => {
-  if(!socket || !socket.connected) return;
+  if(!socket||!socket.connected) return;
   socket.emit('playerMovement', {
-    room: ONLINE_ROOM,
-    name: PLAYER_NAME,
-    x:  camera.position.x,
-    y:  camera.position.y,
-    z:  camera.position.z,
-    ry: yaw,
-    team: 'blue',
-    alive: player.alive,
-    mode: gameMode,
-    matchMode
+    room: ONLINE_ROOM, name: PLAYER_NAME,
+    x: camera.position.x, y: camera.position.y, z: camera.position.z,
+    ry: yaw, team: 'blue', alive: player.alive,
+    mode: gameMode, matchMode
   });
 }, SEND_HZ);
 
@@ -1220,13 +1077,12 @@ setInterval(() => {
 // ═══════════════════════════════════════════════════════
 function addKillFeed(text){
   const item = document.createElement('div');
-  item.className  = 'kfItem';
+  item.className   = 'kfItem';
   item.textContent = text;
   killFeedEl.appendChild(item);
   setTimeout(() => { if(item.parentNode) killFeedEl.removeChild(item); }, 2600);
 }
 
-// 💥 KILL! 演出（画面中央に大きく赤文字ポップアップ）
 function showKillAnnouncement(){
   announce.textContent = '💥 KILL!';
   announce.classList.remove('show');
@@ -1250,8 +1106,8 @@ function updateAmmoUI(){
   if(reloading){
     reloadIndicator.style.display = 'block';
     reloadBarEl.style.display     = 'block';
-    const pct = Math.max(0, Math.min(1, 1 - reloadTimer / RELOAD_TIME));
-    reloadBarFill.style.width     = (pct * 100) + '%';
+    const pct = Math.max(0,Math.min(1, 1-reloadTimer/RELOAD_TIME));
+    reloadBarFill.style.width = (pct*100)+'%';
   } else {
     reloadIndicator.style.display = 'none';
     reloadBarEl.style.display     = 'none';
@@ -1260,23 +1116,20 @@ function updateAmmoUI(){
 }
 
 function updatePlayerHPUI(){
-  const pct = Math.max(0, player.hp) / player.maxHp;
-  hpBarInner.style.width = (pct * 100) + '%';
-  hpTextEl.textContent   = Math.max(0, Math.round(player.hp)) + ' / ' + player.maxHp;
+  const pct = Math.max(0,player.hp)/player.maxHp;
+  hpBarInner.style.width = (pct*100)+'%';
+  hpTextEl.textContent   = Math.max(0,Math.round(player.hp))+' / '+player.maxHp;
   hpBarInner.style.background =
-    pct > 0.6  ? 'linear-gradient(90deg,#3cff7d,#29d65e)'
-    : pct > 0.3 ? 'linear-gradient(90deg,#ffd84d,#ffb51e)'
-                : 'linear-gradient(90deg,#ff6a6a,#d90c0c)';
+    pct>0.6  ? 'linear-gradient(90deg,#3cff7d,#29d65e)'
+    : pct>0.3 ? 'linear-gradient(90deg,#ffd84d,#ffb51e)'
+              : 'linear-gradient(90deg,#ff6a6a,#d90c0c)';
 }
 
 function updateScoreUI(){
   blueScoreEl.textContent = String(blueScore);
   redScoreEl.textContent  = String(redScore);
   roundTextEl.textContent = String(roundIndex);
-  if(blueScore >= WIN_SCORE){
-    matchOver = true;
-    showFinalResult(true);
-  }
+  if(blueScore >= WIN_SCORE){ matchOver=true; showFinalResult(true); }
 }
 
 function updateOrientationUI(){
@@ -1285,7 +1138,7 @@ function updateOrientationUI(){
 }
 
 function updateControlVisibility(){
-  const show = (gameMode === GAME_MODE.BATTLE);
+  const show = (gameMode===GAME_MODE.BATTLE);
   const d    = show ? '' : 'none';
   shootBtn.style.display    = d;
   reloadBtn.style.display   = d;
@@ -1293,67 +1146,90 @@ function updateControlVisibility(){
   joystickEl.style.display  = d;
   crosshairEl.style.display = d;
   if(gunRoot) gunRoot.visible = show;
-  // HP・スコアは戦闘中のみ表示
-  document.getElementById('hpBlock').style.display = show ? '' : 'none';
-  document.getElementById('status').style.display  = show ? '' : 'none';
-  killFeedEl.style.display  = show ? '' : 'none';
-  announce.style.display    = show ? '' : 'none';
-  // ネットバッジ
-  netBadge.style.display    = (gameMode === GAME_MODE.LOBBY) ? 'none' : '';
-  onlineCountEl.style.display = (gameMode === GAME_MODE.LOBBY) ? 'none' : '';
+  document.getElementById('hpBlock').style.display = show?'':'none';
+  document.getElementById('status').style.display  = show?'':'none';
+  killFeedEl.style.display  = show?'':'none';
+  announce.style.display    = show?'':'none';
+  netBadge.style.display    = (gameMode===GAME_MODE.LOBBY)?'none':'';
+  onlineCountEl.style.display = (gameMode===GAME_MODE.LOBBY)?'none':'';
 }
 
 function setModeUI(){
-  lobbyOverlay.style.display   = (gameMode === GAME_MODE.LOBBY)   ? 'flex' : 'none';
-  loadingOverlay.style.display = (gameMode === GAME_MODE.LOADING) ? 'flex' : 'none';
-  resultOverlay.style.display  = (gameMode === GAME_MODE.RESULT)  ? 'flex' : 'none';
+  lobbyOverlay.style.display   = (gameMode===GAME_MODE.LOBBY)   ? 'flex'  : 'none';
+  loadingOverlay.style.display = (gameMode===GAME_MODE.LOADING) ? 'flex'  : 'none';
+  resultOverlay.style.display  = (gameMode===GAME_MODE.RESULT)  ? 'flex'  : 'none';
   updateControlVisibility();
-  if(gameMode !== GAME_MODE.BATTLE) resetInputLocks();
-  netGroup.visible = (gameMode === GAME_MODE.BATTLE);
-  botGroup.visible = (gameMode === GAME_MODE.BATTLE);
+  if(gameMode!==GAME_MODE.BATTLE) resetInputLocks();
+  netGroup.visible = (gameMode===GAME_MODE.BATTLE);
+  botGroup.visible = (gameMode===GAME_MODE.BATTLE);
 }
 
 function updateModeButtonsUI(){
-  const isRanked = matchMode === 'ranked';
-  casualModeBtn.classList.toggle('active', !isRanked);
-  rankedModeBtn.classList.toggle('active',  isRanked);
-  lobbyModeValue.textContent = isRanked ? 'RANKED' : 'CASUAL';
+  const isRanked = matchMode==='ranked';
+  casualModeBtn.classList.toggle('active',!isRanked);
+  rankedModeBtn.classList.toggle('active', isRanked);
+  lobbyModeValue.textContent = isRanked?'RANKED':'CASUAL';
   modeDescEl.textContent = isRanked
     ? 'ランク戦はXP獲得。上位ランクほど難易度上昇。'
     : 'カジュアルはランク変動なし。気軽に遊べます。';
 }
 
 function setMatchMode(mode){
-  matchMode = mode === 'casual' ? 'casual' : 'ranked';
+  matchMode = mode==='casual'?'casual':'ranked';
   updateModeButtonsUI();
 }
 
 // ═══════════════════════════════════════════════════════
 //  GAME FLOW
 // ═══════════════════════════════════════════════════════
+
+// ★★★ 修正: _startBattleImmediate ★★★
+// ローディングを確実に閉じ、即座にバトルモードへ遷移する
+// （Socket接続後・または接続失敗後に呼ばれる）
+function _startBattleImmediate(){
+  blueScore=0; redScore=0; roundIndex=1;
+  matchOver=false;
+  player.hp=player.maxHp=100;
+  player.alive=true;
+  updatePlayerHPUI();
+  ammo=MAG_SIZE; reloading=false; reloadTimer=0;
+  initBots();
+  camera.position.set(0,1.6,8);
+  yaw=Math.PI; pitch=0;
+  syncCameraRotation();
+
+  // ★ ローディングオーバーレイを確実に非表示
+  loadingOverlay.style.display = 'none';
+
+  gameMode = GAME_MODE.BATTLE;
+  setModeUI();
+  updateScoreUI(); updateAmmoUI(); updatePlayerHPUI();
+  console.log('🎮 バトル開始！');
+}
+
+// ★★★ 修正: startBattle ★★★
+// ・ローディング画面を表示する
+// ・Socket接続済みなら即座にバトル開始
+// ・未接続なら pendingBattle フラグを立て、connectイベントを待つ
 function startBattle(){
-  if(loadingTimer) clearTimeout(loadingTimer);
   loadingTextEl.textContent = 'DEPLOYING';
   loadingSubEl.textContent  = '戦場へ向かっています...';
   gameMode = GAME_MODE.LOADING;
-  setModeUI();
-  loadingTimer = setTimeout(() => {
-    blueScore = 0; redScore = 0; roundIndex = 1;
-    matchOver = false;
-    player.hp = player.maxHp = 100;
-    player.alive = true;
-    updatePlayerHPUI();
-    ammo = MAG_SIZE; reloading = false; reloadTimer = 0;
-    initBots();
-    // カメラを射撃場プレイヤー位置へ
-    camera.position.set(0, 1.6, 8);
-    yaw = Math.PI; pitch = 0; // 奥向き
-    syncCameraRotation();
-    gameMode = GAME_MODE.BATTLE;
-    setModeUI();
-    updateScoreUI(); updateAmmoUI(); updatePlayerHPUI();
-    loadingTimer = null;
-  }, 1100);
+  setModeUI(); // この時点でloadingOverlayがflexになる
+
+  if(netOnline && socket && socket.connected){
+    // ★ 接続済み → 即座にバトル開始（最短遅延）
+    setTimeout(() => {
+      loadingOverlay.style.display = 'none';
+      _startBattleImmediate();
+    }, 400); // UIアニメのための最小遅延400ms
+  } else {
+    // ★ 未接続 → pendingBattleフラグを立てて接続を待つ
+    pendingBattle = true;
+    loadingSubEl.textContent = 'サーバーに接続中です... しばらくお待ちください';
+    console.log('⏳ Socket未接続。接続後に自動でバトル開始します。');
+    // ★★★ タイムアウト廃止: 接続失敗時は reconnect_failed イベントで処理 ★★★
+  }
 }
 
 function showFinalResult(won){
@@ -1361,7 +1237,7 @@ function showFinalResult(won){
   resultSubEl.textContent  = 'RETURNING TO THE HUB...';
   gameMode = GAME_MODE.RESULT;
   setModeUI();
-  addRankXp(matchMode === 'ranked' ? (won ? 80 : 20) : 0);
+  addRankXp(matchMode==='ranked'?(won?80:20):0);
   if(returnTimer) clearTimeout(returnTimer);
   returnTimer = setTimeout(() => {
     loadingTextEl.textContent = 'RETURNING';
@@ -1373,26 +1249,26 @@ function showFinalResult(won){
 }
 
 function returnToLobby(){
-  if(loadingTimer)  clearTimeout(loadingTimer);
-  if(returnTimer)   clearTimeout(returnTimer);
-  blueScore = 0; redScore = 0; roundIndex = 1;
-  matchOver = false;
+  if(returnTimer) clearTimeout(returnTimer);
+  blueScore=0; redScore=0; roundIndex=1;
+  matchOver=false;
+  pendingBattle=false;
   gameMode = GAME_MODE.LOBBY;
-  camera.position.set(0, 14, 30);
-  camera.lookAt(0, 0, 0);
+  camera.position.set(0,14,30);
+  camera.lookAt(0,0,0);
   resetInputLocks();
   setModeUI();
   updateScoreUI(); updateAmmoUI(); updatePlayerHPUI(); updateRankUI();
 }
 
 // ═══════════════════════════════════════════════════════
-//  PLAYER MOVEMENT（カメラ基準の正しい3D移動）
+//  PLAYER MOVEMENT
 // ═══════════════════════════════════════════════════════
 const MAP_BORDER = 29;
 
 function clampCamera(){
-  camera.position.x = THREE_.MathUtils.clamp(camera.position.x, -MAP_BORDER, MAP_BORDER);
-  camera.position.z = THREE_.MathUtils.clamp(camera.position.z, -MAP_BORDER, MAP_BORDER);
+  camera.position.x = THREE_.MathUtils.clamp(camera.position.x,-MAP_BORDER,MAP_BORDER);
+  camera.position.z = THREE_.MathUtils.clamp(camera.position.z,-MAP_BORDER,MAP_BORDER);
   camera.position.y = 1.6;
 }
 
@@ -1404,122 +1280,111 @@ function syncCameraRotation(){
 function movePlayer(dt){
   if(!player.alive) return;
   syncCameraRotation();
-  const inputX = THREE_.MathUtils.clamp(joy.x, -1, 1);
-  const inputY = THREE_.MathUtils.clamp(joy.y, -1, 1);
-  const magnitude = Math.min(1, Math.hypot(inputX, inputY));
-  // カメラの向きを基準にした前後左右ベクトル
+  const inputX  = THREE_.MathUtils.clamp(joy.x,-1,1);
+  const inputY  = THREE_.MathUtils.clamp(joy.y,-1,1);
+  const magnitude = Math.min(1, Math.hypot(inputX,inputY));
   const forward = new THREE_.Vector3();
   camera.getWorldDirection(forward);
   forward.y = 0;
-  if(forward.lengthSq() < 1e-8) forward.set(0, 0, -1);
+  if(forward.lengthSq()<1e-8) forward.set(0,0,-1);
   else forward.normalize();
-  // 右ベクトル（カメラの真横）
   const right = new THREE_.Vector3().crossVectors(forward, camera.up).normalize();
-  // 望む移動ベクトル（joystick右→カメラ右、joystick前→カメラ正面）
   const desired = new THREE_.Vector3()
-    .addScaledVector(forward, -inputY)   // 前(y負)→前進
-    .addScaledVector(right,   inputX);   // 右(x正)→右移動
-  const desiredSpeed = PLAYER_SPEED * magnitude;
-  if(desired.lengthSq() > 1e-8) desired.normalize();
+    .addScaledVector(forward,-inputY)
+    .addScaledVector(right,   inputX);
+  const desiredSpeed = PLAYER_SPEED*magnitude;
+  if(desired.lengthSq()>1e-8) desired.normalize();
   desired.multiplyScalar(desiredSpeed);
-  // 指を離したら強力なブレーキ（ピタッと止まる）
-  if(magnitude < 0.02){
-    const brake = Math.pow(0.02, dt);
-    moveVel.x *= brake;
-    moveVel.z *= brake;
-    if(Math.abs(moveVel.x) < 0.005) moveVel.x = 0;
-    if(Math.abs(moveVel.z) < 0.005) moveVel.z = 0;
+  if(magnitude<0.02){
+    const brake = Math.pow(0.02,dt);
+    moveVel.x *= brake; moveVel.z *= brake;
+    if(Math.abs(moveVel.x)<0.005) moveVel.x=0;
+    if(Math.abs(moveVel.z)<0.005) moveVel.z=0;
   } else {
-    const resp = 1 - Math.exp(-22 * dt);
-    moveVel.x = THREE_.MathUtils.lerp(moveVel.x, desired.x, resp);
-    moveVel.z = THREE_.MathUtils.lerp(moveVel.z, desired.z, resp);
+    const resp = 1-Math.exp(-22*dt);
+    moveVel.x = THREE_.MathUtils.lerp(moveVel.x,desired.x,resp);
+    moveVel.z = THREE_.MathUtils.lerp(moveVel.z,desired.z,resp);
   }
-  camera.position.x += moveVel.x * dt;
-  camera.position.z += moveVel.z * dt;
+  camera.position.x += moveVel.x*dt;
+  camera.position.z += moveVel.z*dt;
   clampCamera();
 }
 
 function setADS(active){
   adsActive = active;
-  adsBtn.classList.toggle('ads-active', active);
-  gunPosTarget.copy(active ? GUN_POS_ADS : GUN_POS_NORMAL);
+  adsBtn.classList.toggle('ads-active',active);
+  gunPosTarget.copy(active?GUN_POS_ADS:GUN_POS_NORMAL);
 }
 
 function resetInputLocks(){
-  firingHeld = false;
-  if(fireLoopTimer !== null){ clearInterval(fireLoopTimer); fireLoopTimer = null; }
-  joyTouchId = null; aimTouchId = null;
+  firingHeld=false;
+  if(fireLoopTimer!==null){ clearInterval(fireLoopTimer); fireLoopTimer=null; }
+  joyTouchId=null; aimTouchId=null;
   resetJoystickVisual();
   setADS(false);
 }
 
 function resetJoystickVisual(){
-  joy.x = 0; joy.y = 0;
-  knobEl.style.transform = 'translate(-50%, -50%)';
+  joy.x=0; joy.y=0;
+  knobEl.style.transform='translate(-50%, -50%)';
 }
 
 function setJoystickFromTouch(touch){
   const r  = joystickEl.getBoundingClientRect();
-  const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
-  let dx = touch.clientX - cx, dy = touch.clientY - cy;
-  const len = Math.hypot(dx, dy), max = r.width * 0.30;
-  if(len > max){ dx = dx / len * max; dy = dy / len * max; }
-  joy.x = dx / max; joy.y = dy / max;
-  knobEl.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+  const cx = r.left+r.width/2, cy = r.top+r.height/2;
+  let dx = touch.clientX-cx, dy = touch.clientY-cy;
+  const len = Math.hypot(dx,dy), max = r.width*0.30;
+  if(len>max){ dx=dx/len*max; dy=dy/len*max; }
+  joy.x=dx/max; joy.y=dy/max;
+  knobEl.style.transform=`translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
 }
 
-// ─── 射撃 ───
 function shootPlayer(){
-  if(gameMode !== GAME_MODE.BATTLE || portraitMode || reloading || matchOver || !player.alive) return;
-  if(ammo <= 0){ startReload(); return; }
+  if(gameMode!==GAME_MODE.BATTLE||portraitMode||reloading||matchOver||!player.alive) return;
+  if(ammo<=0){ startReload(); return; }
   unlockAudio();
   playGunSound();
   triggerRecoil();
   ammo--;
   updateAmmoUI();
   syncCameraRotation();
-  // Raycaster でボットとのヒット判定
-  const hit = checkBotHit();
-  // マズルフラッシュ
+  checkBotHit();
   createMuzzleFlash();
-  // サーバー送信
-  if(socket && socket.connected){
+  if(socket&&socket.connected){
     const dir = new THREE_.Vector3();
     camera.getWorldDirection(dir);
     const pos = camera.position;
     socket.emit('playerShoot', {
-      room: ONLINE_ROOM, name: PLAYER_NAME,
-      ox: pos.x, oy: pos.y, oz: pos.z,
-      dx: dir.x, dy: dir.y, dz: dir.z,
-      team: 'blue'
+      room:ONLINE_ROOM, name:PLAYER_NAME,
+      ox:pos.x, oy:pos.y, oz:pos.z,
+      dx:dir.x, dy:dir.y, dz:dir.z,
+      team:'blue'
     });
   }
-  if(ammo <= 0) startReload();
+  if(ammo<=0) startReload();
 }
 
 function setFiringHeld(state){
-  if(gameMode !== GAME_MODE.BATTLE){ firingHeld = false; if(fireLoopTimer !== null){ clearInterval(fireLoopTimer); fireLoopTimer = null; } return; }
-  firingHeld = state;
-  if(state && !reloading && !matchOver && player.alive && fireLoopTimer === null){
+  if(gameMode!==GAME_MODE.BATTLE){ firingHeld=false; if(fireLoopTimer!==null){ clearInterval(fireLoopTimer); fireLoopTimer=null; } return; }
+  firingHeld=state;
+  if(state&&!reloading&&!matchOver&&player.alive&&fireLoopTimer===null){
     shootPlayer();
     fireLoopTimer = setInterval(() => {
-      if(!firingHeld || reloading || matchOver || !player.alive){ clearInterval(fireLoopTimer); fireLoopTimer = null; return; }
+      if(!firingHeld||reloading||matchOver||!player.alive){ clearInterval(fireLoopTimer); fireLoopTimer=null; return; }
       shootPlayer();
-    }, FIRE_INTERVAL * 1000);
-  } else if(!state && fireLoopTimer !== null){
+    }, FIRE_INTERVAL*1000);
+  } else if(!state&&fireLoopTimer!==null){
     clearInterval(fireLoopTimer);
-    fireLoopTimer = null;
+    fireLoopTimer=null;
   }
 }
 
 function startReload(){
-  if(gameMode !== GAME_MODE.BATTLE || reloading || matchOver || !player.alive) return;
-  reloading = true;
-  firingHeld = false;
-  if(fireLoopTimer !== null){ clearInterval(fireLoopTimer); fireLoopTimer = null; }
-  reloadTimer = RELOAD_TIME;
-  gunState.reloadAnim   = true;
-  gunState.reloadAnimT  = 0;
+  if(gameMode!==GAME_MODE.BATTLE||reloading||matchOver||!player.alive) return;
+  reloading=true; firingHeld=false;
+  if(fireLoopTimer!==null){ clearInterval(fireLoopTimer); fireLoopTimer=null; }
+  reloadTimer=RELOAD_TIME;
+  gunState.reloadAnim=true; gunState.reloadAnimT=0;
   updateAmmoUI();
 }
 
@@ -1527,143 +1392,109 @@ function updateReload(dt){
   if(!reloading) return;
   reloadTimer -= dt;
   updateAmmoUI();
-  if(reloadTimer <= 0){
-    ammo = MAG_SIZE;
-    reloading = false;
-    gunState.reloadAnim = false;
-    gunState.reloadAnimT = 0;
+  if(reloadTimer<=0){
+    ammo=MAG_SIZE; reloading=false;
+    gunState.reloadAnim=false; gunState.reloadAnimT=0;
     updateAmmoUI();
   }
 }
 
 function updatePlayerDamageFlash(dt){
-  if(player.hurtFlash > 0){
-    player.hurtFlash = Math.max(0, player.hurtFlash - dt * 2.0);
-    document.body.style.boxShadow = `inset 0 0 0 9999px rgba(255,0,0,${player.hurtFlash * 0.14})`;
+  if(player.hurtFlash>0){
+    player.hurtFlash=Math.max(0,player.hurtFlash-dt*2.0);
+    document.body.style.boxShadow=`inset 0 0 0 9999px rgba(255,0,0,${player.hurtFlash*0.14})`;
   } else {
-    document.body.style.boxShadow = '';
+    document.body.style.boxShadow='';
   }
 }
 
 // ═══════════════════════════════════════════════════════
 //  INPUT EVENTS
 // ═══════════════════════════════════════════════════════
-shootBtn.addEventListener('touchstart', e => {
-  e.preventDefault(); e.stopPropagation();
-  unlockAudio();
-  if(gameMode === GAME_MODE.BATTLE) setFiringHeld(true);
-}, { passive: false });
-shootBtn.addEventListener('touchend',    e => { e.preventDefault(); setFiringHeld(false); }, { passive: false });
-shootBtn.addEventListener('touchcancel', e => { e.preventDefault(); setFiringHeld(false); }, { passive: false });
+shootBtn.addEventListener('touchstart', e => { e.preventDefault(); e.stopPropagation(); unlockAudio(); if(gameMode===GAME_MODE.BATTLE) setFiringHeld(true); }, { passive:false });
+shootBtn.addEventListener('touchend',    e => { e.preventDefault(); setFiringHeld(false); }, { passive:false });
+shootBtn.addEventListener('touchcancel', e => { e.preventDefault(); setFiringHeld(false); }, { passive:false });
 shootBtn.addEventListener('mousedown',   e => { e.preventDefault(); unlockAudio(); setFiringHeld(true); });
 document.addEventListener('mouseup', () => setFiringHeld(false));
 
-reloadBtn.addEventListener('touchstart', e => {
-  e.preventDefault(); e.stopPropagation(); unlockAudio();
-  if(gameMode === GAME_MODE.BATTLE && !reloading && ammo < MAG_SIZE && !matchOver && player.alive) startReload();
-}, { passive: false });
-reloadBtn.addEventListener('mousedown', e => {
-  e.preventDefault(); unlockAudio();
-  if(gameMode === GAME_MODE.BATTLE && !reloading && ammo < MAG_SIZE && !matchOver && player.alive) startReload();
-});
+reloadBtn.addEventListener('touchstart', e => { e.preventDefault(); e.stopPropagation(); unlockAudio(); if(gameMode===GAME_MODE.BATTLE&&!reloading&&ammo<MAG_SIZE&&!matchOver&&player.alive) startReload(); }, { passive:false });
+reloadBtn.addEventListener('mousedown', e => { e.preventDefault(); unlockAudio(); if(gameMode===GAME_MODE.BATTLE&&!reloading&&ammo<MAG_SIZE&&!matchOver&&player.alive) startReload(); });
 
-adsBtn.addEventListener('touchstart', e => {
-  e.preventDefault(); e.stopPropagation(); unlockAudio();
-  if(gameMode !== GAME_MODE.LOBBY) setADS(!adsActive);
-}, { passive: false });
-adsBtn.addEventListener('mousedown', e => {
-  e.preventDefault(); unlockAudio();
-  if(gameMode !== GAME_MODE.LOBBY) setADS(!adsActive);
-});
+adsBtn.addEventListener('touchstart', e => { e.preventDefault(); e.stopPropagation(); unlockAudio(); if(gameMode!==GAME_MODE.LOBBY) setADS(!adsActive); }, { passive:false });
+adsBtn.addEventListener('mousedown', e => { e.preventDefault(); unlockAudio(); if(gameMode!==GAME_MODE.LOBBY) setADS(!adsActive); });
 
 lobbyStartBtn.addEventListener('click',      e => { e.preventDefault(); unlockAudio(); startBattle(); });
-lobbyStartBtn.addEventListener('touchstart', e => { e.preventDefault(); unlockAudio(); startBattle(); }, { passive: false });
+lobbyStartBtn.addEventListener('touchstart', e => { e.preventDefault(); unlockAudio(); startBattle(); }, { passive:false });
 
 casualModeBtn.addEventListener('click',      () => setMatchMode('casual'));
-casualModeBtn.addEventListener('touchstart', e => { e.preventDefault(); setMatchMode('casual'); }, { passive: false });
+casualModeBtn.addEventListener('touchstart', e => { e.preventDefault(); setMatchMode('casual'); }, { passive:false });
 rankedModeBtn.addEventListener('click',      () => setMatchMode('ranked'));
-rankedModeBtn.addEventListener('touchstart', e => { e.preventDefault(); setMatchMode('ranked'); }, { passive: false });
+rankedModeBtn.addEventListener('touchstart', e => { e.preventDefault(); setMatchMode('ranked'); }, { passive:false });
 
 document.addEventListener('mousedown', () => unlockAudio());
 document.addEventListener('contextmenu', e => e.preventDefault());
 
-// ─── タッチ: ジョイスティック + エイム ───
 document.addEventListener('touchstart', e => {
   unlockAudio();
-  if(gameMode !== GAME_MODE.BATTLE || portraitMode) return;
+  if(gameMode!==GAME_MODE.BATTLE||portraitMode) return;
   for(const t of e.changedTouches){
-    const x = t.clientX, y = t.clientY;
-    const el = document.elementFromPoint(x, y);
-    if(shootBtn.contains(el) || reloadBtn.contains(el) || adsBtn.contains(el)) continue;
-    const jr = joystickEl.getBoundingClientRect();
-    const inJoy = x >= jr.left && x <= jr.right && y >= jr.top && y <= jr.bottom;
-    if(inJoy && joyTouchId === null){
-      joyTouchId = t.identifier;
-      setJoystickFromTouch(t);
-      continue;
-    }
-    if(x > window.innerWidth * 0.42 && aimTouchId === null){
-      aimTouchId  = t.identifier;
-      aim.lastX = x; aim.lastY = y;
-    }
+    const x=t.clientX, y=t.clientY;
+    const el=document.elementFromPoint(x,y);
+    if(shootBtn.contains(el)||reloadBtn.contains(el)||adsBtn.contains(el)) continue;
+    const jr=joystickEl.getBoundingClientRect();
+    const inJoy=x>=jr.left&&x<=jr.right&&y>=jr.top&&y<=jr.bottom;
+    if(inJoy&&joyTouchId===null){ joyTouchId=t.identifier; setJoystickFromTouch(t); continue; }
+    if(x>window.innerWidth*0.42&&aimTouchId===null){ aimTouchId=t.identifier; aim.lastX=x; aim.lastY=y; }
   }
-}, { passive: false });
+}, { passive:false });
 
 document.addEventListener('touchmove', e => {
-  if(gameMode !== GAME_MODE.BATTLE || portraitMode) return;
+  if(gameMode!==GAME_MODE.BATTLE||portraitMode) return;
   for(const t of e.changedTouches){
-    if(t.identifier === joyTouchId) setJoystickFromTouch(t);
-    if(t.identifier === aimTouchId){
-      const dx = t.clientX - aim.lastX;
-      const dy = t.clientY - aim.lastY;
-      aim.lastX = t.clientX; aim.lastY = t.clientY;
-      // 吸い付くようなスムーズなエイム
-      yaw   -= dx * 0.0038;
-      pitch -= dy * 0.0038;
-      pitch  = THREE_.MathUtils.clamp(pitch, -(Math.PI / 2 - 0.04), Math.PI / 2 - 0.04);
+    if(t.identifier===joyTouchId) setJoystickFromTouch(t);
+    if(t.identifier===aimTouchId){
+      const dx=t.clientX-aim.lastX, dy=t.clientY-aim.lastY;
+      aim.lastX=t.clientX; aim.lastY=t.clientY;
+      yaw  -= dx*0.0038;
+      pitch-= dy*0.0038;
+      pitch = THREE_.MathUtils.clamp(pitch,-(Math.PI/2-0.04),Math.PI/2-0.04);
     }
   }
-  if(joyTouchId !== null || aimTouchId !== null) e.preventDefault();
-}, { passive: false });
+  if(joyTouchId!==null||aimTouchId!==null) e.preventDefault();
+}, { passive:false });
 
 document.addEventListener('touchend', e => {
   for(const t of e.changedTouches){
-    if(t.identifier === joyTouchId){ joyTouchId = null; resetJoystickVisual(); }
-    if(t.identifier === aimTouchId) aimTouchId = null;
+    if(t.identifier===joyTouchId){ joyTouchId=null; resetJoystickVisual(); }
+    if(t.identifier===aimTouchId) aimTouchId=null;
   }
-}, { passive: false });
+}, { passive:false });
 
 document.addEventListener('touchcancel', e => {
   for(const t of e.changedTouches){
-    if(t.identifier === joyTouchId){ joyTouchId = null; resetJoystickVisual(); }
-    if(t.identifier === aimTouchId) aimTouchId = null;
+    if(t.identifier===joyTouchId){ joyTouchId=null; resetJoystickVisual(); }
+    if(t.identifier===aimTouchId) aimTouchId=null;
   }
-}, { passive: false });
+}, { passive:false });
 
-// ─── マウスでのエイム（PC） ───
 let mouseLocked = false;
-canvas.addEventListener('click', () => {
-  if(gameMode === GAME_MODE.BATTLE && !portraitMode) canvas.requestPointerLock();
-});
-document.addEventListener('pointerlockchange', () => {
-  mouseLocked = document.pointerLockElement === canvas;
-});
+canvas.addEventListener('click', () => { if(gameMode===GAME_MODE.BATTLE&&!portraitMode) canvas.requestPointerLock(); });
+document.addEventListener('pointerlockchange', () => { mouseLocked=document.pointerLockElement===canvas; });
 document.addEventListener('mousemove', e => {
-  if(!mouseLocked || gameMode !== GAME_MODE.BATTLE) return;
-  yaw   -= e.movementX * 0.0028;
-  pitch -= e.movementY * 0.0028;
-  pitch  = THREE_.MathUtils.clamp(pitch, -(Math.PI / 2 - 0.04), Math.PI / 2 - 0.04);
+  if(!mouseLocked||gameMode!==GAME_MODE.BATTLE) return;
+  yaw  -= e.movementX*0.0028;
+  pitch-= e.movementY*0.0028;
+  pitch = THREE_.MathUtils.clamp(pitch,-(Math.PI/2-0.04),Math.PI/2-0.04);
 });
 
-// ─── リサイズ ───
 function resize(){
-  const w = window.innerWidth, h = window.innerHeight;
-  renderer.setSize(w, h, false);
-  camera.aspect = w / h;
+  const w=window.innerWidth, h=window.innerHeight;
+  renderer.setSize(w,h,false);
+  camera.aspect=w/h;
   camera.updateProjectionMatrix();
   updateOrientationUI();
 }
-window.addEventListener('resize', resize);
+window.addEventListener('resize',            resize);
 window.addEventListener('orientationchange', resize);
 
 // ═══════════════════════════════════════════════════════
@@ -1672,18 +1503,18 @@ window.addEventListener('orientationchange', resize);
 const clock = new THREE_.Clock();
 
 function updateLobbyCamera(dt){
-  const desired = new THREE_.Vector3(0, 14, 30);
-  camera.position.lerp(desired, 1 - Math.exp(-2.5 * dt));
-  camera.lookAt(0, 0, 0);
+  const desired = new THREE_.Vector3(0,14,30);
+  camera.position.lerp(desired, 1-Math.exp(-2.5*dt));
+  camera.lookAt(0,0,0);
 }
 
 function animate(){
   requestAnimationFrame(animate);
   const dt = Math.min(clock.getDelta(), 0.034);
 
-  if(gameMode === GAME_MODE.LOBBY){
+  if(gameMode===GAME_MODE.LOBBY){
     updateLobbyCamera(dt);
-  } else if(gameMode === GAME_MODE.BATTLE){
+  } else if(gameMode===GAME_MODE.BATTLE){
     syncCameraRotation();
     movePlayer(dt);
     updateGun(dt);
@@ -1693,7 +1524,6 @@ function animate(){
     updatePlayerDamageFlash(dt);
   }
 
-  // 2パスレンダリング（メインシーン → UIシーン）
   renderer.autoClear = true;
   renderer.render(scene, camera);
   renderer.autoClear = false;
@@ -1714,14 +1544,17 @@ function init(){
   updateOrientationUI();
   initBots();
   gameMode = GAME_MODE.LOBBY;
-  camera.position.set(0, 14, 30);
-  camera.lookAt(0, 0, 0);
+  camera.position.set(0,14,30);
+  camera.lookAt(0,0,0);
   setModeUI();
   if(lobbyRoomValue) lobbyRoomValue.textContent = ONLINE_ROOM.toUpperCase();
   updateOnlineUI();
+  // ★ Socket接続を開始（非同期・バックグラウンドで接続試行）
   initSocket();
+  // ★ レンダーループは即座に開始（接続を待たない）
   animate();
-  console.log('🚀 NEON ARENA 起動 | room=' + ONLINE_ROOM + ' | player=' + PLAYER_NAME);
+  console.log('🚀 NEON ARENA 起動 | room='+ONLINE_ROOM+' | player='+PLAYER_NAME);
+  console.log('🔌 接続先: '+RENDER_SERVER_URL);
 }
 
 init();

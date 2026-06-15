@@ -83,52 +83,196 @@
       100% { opacity: 0; transform: translate(-50%, -50%) scale(0.92); }
     }
 
+
 #lobbyOverlay {
   position: absolute; inset: 0; display: flex;
-  align-items: center; justify-content: center; flex-direction: column;
-  background: radial-gradient(circle at center, rgba(16,24,36,0.72), rgba(4,8,14,0.95));
+  align-items: center; justify-content: center;
+  background:
+    radial-gradient(circle at 18% 18%, rgba(54,126,255,0.26), transparent 24%),
+    radial-gradient(circle at 82% 24%, rgba(168,92,255,0.20), transparent 22%),
+    radial-gradient(circle at center, rgba(10,16,28,0.58), rgba(3,6,12,0.96));
   z-index: 120; pointer-events: auto; color: #fff;
-  text-align: center; gap: 14px;
+  overflow: hidden;
+}
+#lobbyOverlay::before,
+#lobbyOverlay::after {
+  content: "";
+  position: absolute; inset: -20%;
+  background: linear-gradient(115deg, transparent 0 44%, rgba(255,255,255,0.07) 50%, transparent 56% 100%);
+  transform: rotate(-8deg);
+  pointer-events: none;
+}
+#lobbyOverlay::before { animation: lobbySweep 8s linear infinite; opacity: 0.55; }
+#lobbyOverlay::after  { animation: lobbySweep 12s linear infinite reverse; opacity: 0.28; }
+@keyframes lobbySweep {
+  from { transform: translateX(-12%) rotate(-8deg); }
+  to   { transform: translateX(12%) rotate(-8deg); }
+}
+#lobbyShell {
+  position: relative;
+  width: min(92vw, 1080px);
+  display: grid;
+  grid-template-columns: 1.25fr 0.9fr;
+  gap: 18px;
+  align-items: stretch;
+  z-index: 1;
+}
+#lobbyCard,
+#lobbySide {
+  border-radius: 28px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.12), rgba(255,255,255,0.05));
+  border: 1px solid rgba(255,255,255,0.14);
+  box-shadow: 0 24px 64px rgba(0,0,0,0.48), inset 0 0 30px rgba(255,255,255,0.04);
+  backdrop-filter: blur(12px);
 }
 #lobbyCard {
-  padding: 28px 26px 24px;
-  border-radius: 24px;
-  background: linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0.05));
-  border: 1px solid rgba(255,255,255,0.14);
-  box-shadow: 0 18px 48px rgba(0,0,0,0.42), inset 0 0 30px rgba(255,255,255,0.04);
-  backdrop-filter: blur(8px);
-  width: min(86vw, 460px);
+  padding: 28px 26px 86px;
+  min-height: 420px;
+  position: relative;
+}
+#lobbySide {
+  padding: 22px 22px 84px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 16px;
+}
+#lobbyBadge {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 8px 12px; border-radius: 999px;
+  background: rgba(120,190,255,0.14);
+  border: 1px solid rgba(120,190,255,0.26);
+  color: #9fe6ff; font-size: 12px; font-weight: 900; letter-spacing: 0.18em;
 }
 #lobbyTitle {
-  font-size: clamp(34px, 7vw, 58px);
+  margin-top: 16px;
+  font-size: clamp(36px, 7vw, 70px);
+  line-height: 0.95;
   font-weight: 1000;
-  letter-spacing: 0.10em;
-  text-shadow: 0 0 16px rgba(100,220,255,0.36), 0 4px 18px rgba(0,0,0,0.7);
-  margin-bottom: 10px;
+  letter-spacing: 0.12em;
+  text-shadow: 0 0 16px rgba(100,220,255,0.34), 0 8px 28px rgba(0,0,0,0.75);
 }
 #lobbySub {
-  font-size: clamp(14px, 3.2vw, 20px);
+  margin-top: 16px;
+  font-size: clamp(14px, 2.5vw, 18px);
   opacity: 0.9;
-  line-height: 1.6;
-  margin-bottom: 20px;
+  line-height: 1.7;
+  max-width: 42ch;
 }
+#rankPanel {
+  margin-top: 24px;
+  padding: 16px 16px 14px;
+  border-radius: 20px;
+  background: linear-gradient(180deg, rgba(0,0,0,0.18), rgba(255,255,255,0.05));
+  border: 1px solid rgba(255,255,255,0.10);
+}
+#rankRow {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 14px;
+  margin-bottom: 10px;
+}
+#rankName {
+  font-size: 20px; font-weight: 1000; letter-spacing: 0.12em;
+}
+#rankPct {
+  font-size: 15px; font-weight: 900; opacity: 0.95;
+}
+#rankBar {
+  width: 100%; height: 10px; border-radius: 999px;
+  overflow: hidden; background: rgba(255,255,255,0.12);
+  border: 1px solid rgba(255,255,255,0.12);
+}
+#rankFill {
+  width: 0%; height: 100%; border-radius: inherit;
+  background: linear-gradient(90deg, #68b7ff, #aa67ff);
+  box-shadow: 0 0 18px rgba(120,190,255,0.48);
+}
+#rankHint {
+  margin-top: 10px; font-size: 12px; opacity: 0.72; letter-spacing: 0.08em;
+}
+#lobbyStats {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.statCard {
+  padding: 14px 14px 12px;
+  border-radius: 18px;
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.10);
+}
+.statLabel { font-size: 11px; letter-spacing: 0.18em; opacity: 0.68; }
+.statValue { margin-top: 6px; font-size: 22px; font-weight: 1000; letter-spacing: 0.08em; }
+.statSub { margin-top: 4px; font-size: 12px; opacity: 0.7; }
 #lobbyStartBtn {
   position: absolute;
   right: 18px; bottom: 18px;
   border: none;
-  padding: 18px 22px;
+  padding: 18px 24px;
   border-radius: 18px;
-  min-width: 170px;
-  background: linear-gradient(135deg, #2a87ff, #8b5cff);
+  min-width: 190px;
+  background: linear-gradient(135deg, #32a1ff, #8b5cff 72%, #ff5bbd);
   color: white;
   font-size: clamp(16px, 3.6vw, 22px);
-  font-weight: 900;
-  letter-spacing: 0.08em;
-  box-shadow: 0 14px 34px rgba(64,100,255,0.36), inset 0 0 18px rgba(255,255,255,0.12);
+  font-weight: 1000;
+  letter-spacing: 0.10em;
+  box-shadow: 0 16px 36px rgba(70,110,255,0.36), inset 0 0 18px rgba(255,255,255,0.12);
   pointer-events: auto;
   touch-action: none; -webkit-tap-highlight-color: transparent;
 }
-#lobbyStartBtn:active { transform: scale(0.97); filter: brightness(1.1); }
+#lobbyStartBtn:active { transform: scale(0.97); filter: brightness(1.08); }
+#loadingOverlay {
+  position: absolute; inset: 0; display: none;
+  align-items: center; justify-content: center;
+  background: radial-gradient(circle at center, rgba(8,14,24,0.72), rgba(0,0,0,0.96));
+  z-index: 125; color: #fff; text-align: center;
+}
+#loadingCard {
+  width: min(86vw, 460px);
+  padding: 28px 24px;
+  border-radius: 26px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.11), rgba(255,255,255,0.05));
+  border: 1px solid rgba(255,255,255,0.14);
+  box-shadow: 0 22px 60px rgba(0,0,0,0.5), inset 0 0 30px rgba(255,255,255,0.03);
+  backdrop-filter: blur(12px);
+}
+#loadingSpinner {
+  width: 70px; height: 70px; margin: 0 auto 18px;
+  border-radius: 50%;
+  border: 4px solid rgba(255,255,255,0.15);
+  border-top-color: #6fd2ff;
+  border-right-color: #a569ff;
+  animation: spin 0.85s linear infinite;
+  box-shadow: 0 0 24px rgba(110,190,255,0.28);
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+#loadingText {
+  font-size: clamp(28px, 6vw, 46px);
+  font-weight: 1000;
+  letter-spacing: 0.14em;
+}
+#loadingSub {
+  margin-top: 10px;
+  font-size: clamp(14px, 3vw, 18px);
+  opacity: 0.84;
+}
+#loadingBar {
+  margin: 18px auto 0;
+  width: min(100%, 360px);
+  height: 8px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(255,255,255,0.10);
+  border: 1px solid rgba(255,255,255,0.12);
+}
+#loadingFill {
+  width: 35%; height: 100%; border-radius: inherit;
+  background: linear-gradient(90deg, #62e0ff, #6d7bff, #d06dff);
+  animation: loadingFlow 1.2s ease-in-out infinite;
+}
+@keyframes loadingFlow {
+  0% { transform: translateX(-70%); }
+  50% { transform: translateX(90%); }
+  100% { transform: translateX(-70%); }
+}
 #resultOverlay {
   position: absolute; inset: 0; display: none;
   align-items: center; justify-content: center; flex-direction: column;
@@ -153,7 +297,8 @@
   from { transform: scale(0.98); filter: brightness(1.0); }
   to   { transform: scale(1.03); filter: brightness(1.2); }
 }
-    #rotateOverlay {
+#rotateOverlay {
+
       position: absolute; inset: 0; display: none;
       align-items: center; justify-content: center; text-align: center;
       background: rgba(4,8,14,0.95); color: #ffffff;
@@ -372,15 +517,55 @@
         <textarea id="fileLogArea" readonly spellcheck="false" aria-label="ログ" placeholder="ju.glb / ju.mp3 の読み込み状況"></textarea>
       </div>
       <div id="lobbyOverlay">
-        <div id="lobbyCard">
-          <div id="lobbyTitle">ARENA LOBBY</div>
-          <div id="lobbySub">右下の「戦いにいく」を押すと出撃します。<br>倒れたら味方を観戦し、5点先取で自動的にロビーへ戻ります。</div>
+        <div id="lobbyShell">
+          <div id="lobbyCard">
+            <div id="lobbyBadge">NEON // DEPLOYMENT HUB</div>
+            <div id="lobbyTitle">NEON ARENA // RANKED</div>
+            <div id="lobbySub">右下の「戦いにいく」で出撃。倒れたら味方を観戦し、試合終了後はロビーへ帰還。ランク進行は端末に保存されます。</div>
+            <div id="rankPanel">
+              <div id="rankRow"><span id="rankName">BRONZE</span><span id="rankPct">0%</span></div>
+              <div id="rankBar"><div id="rankFill"></div></div>
+              <div id="rankHint">RANK PROGRESSION SAVED TO LOCAL STORAGE</div>
+            </div>
+          </div>
+          <div id="lobbySide">
+            <div id="lobbyStats">
+              <div class="statCard">
+                <div class="statLabel">MODE</div>
+                <div class="statValue">4V4</div>
+                <div class="statSub">SPECTATE ON DEATH</div>
+              </div>
+              <div class="statCard">
+                <div class="statLabel">GOAL</div>
+                <div class="statValue">5</div>
+                <div class="statSub">FIRST TO FIVE WINS</div>
+              </div>
+              <div class="statCard">
+                <div class="statLabel">AI</div>
+                <div class="statValue">ELITE</div>
+                <div class="statSub">HIGH AIM / FAST DECISION</div>
+              </div>
+              <div class="statCard">
+                <div class="statLabel">SAVE</div>
+                <div class="statValue">LOCAL</div>
+                <div class="statSub">RANK / PERCENT</div>
+              </div>
+            </div>
+          </div>
         </div>
         <button id="lobbyStartBtn">戦いにいく</button>
       </div>
+      <div id="loadingOverlay">
+        <div id="loadingCard">
+          <div id="loadingSpinner"></div>
+          <div id="loadingText">DEPLOYING</div>
+          <div id="loadingSub">戦場を同期しています...</div>
+          <div id="loadingBar"><div id="loadingFill"></div></div>
+        </div>
+      </div>
       <div id="resultOverlay">
         <div id="resultText">YOUR TEAM WON</div>
-        <div id="resultSub">Returning to lobby...</div>
+        <div id="resultSub">LOADING BACK TO THE HUB...</div>
       </div>
       <div id="rotateOverlay">画面を横向きにしてください</div>
     </div>
@@ -420,7 +605,13 @@
       const reloadBarFill   = document.getElementById('reloadBarFill');
       const lobbyOverlay    = document.getElementById('lobbyOverlay');
       const lobbyStartBtn   = document.getElementById('lobbyStartBtn');
+      const loadingOverlay  = document.getElementById('loadingOverlay');
       const resultOverlay   = document.getElementById('resultOverlay');
+      const rankNameEl      = document.getElementById('rankName');
+      const rankPctEl       = document.getElementById('rankPct');
+      const rankFillEl      = document.getElementById('rankFill');
+      const loadingTextEl   = document.getElementById('loadingText');
+      const loadingSubEl    = document.getElementById('loadingSub');
       const resultTextEl    = document.getElementById('resultText');
       const resultSubEl     = document.getElementById('resultSub');
 
@@ -455,6 +646,86 @@
           if (!r.ok) { logFileLine(`🔴 ${label}: ${r.status} ${r.statusText||'HTTP error'}`, 'error'); return false; }
           logFileLine(`🟢 ${label}: 事前チェック成功`); return true;
         } catch (err) { logFileLine(`🔴 ${label}: 通信エラー - ${describeError(err)}`, 'error'); return false; }
+      }
+      const RANK_STORAGE_KEY = 'arena_rank_v3';
+      const RANKS = [
+        'ブロンズ', 'シルバー', 'ゴールド', 'プラチナ', 'ダイヤ',
+        'ブラックダイヤ', 'マスター', '将軍', '神'
+      ];
+      const RANK_THRESHOLDS = [0, 100, 250, 450, 700, 1000, 1400, 1900, 2600, 3600];
+      let rankXp = 0;
+      let rankIndex = 0;
+      let rankPercent = 0;
+      let loadingTimer = null;
+      let loadingReason = 'LOADING';
+      let loadingSub = '戦場を同期しています...';
+
+      function clamp01(v) { return Math.max(0, Math.min(1, v)); }
+      function getRankStateFromXp(xp) {
+        let idx = 0;
+        for (let i = 0; i < RANK_THRESHOLDS.length - 1; i++) {
+          if (xp >= RANK_THRESHOLDS[i]) idx = i;
+        }
+        idx = Math.min(idx, RANKS.length - 1);
+        const base = RANK_THRESHOLDS[idx];
+        const next = RANK_THRESHOLDS[Math.min(idx + 1, RANK_THRESHOLDS.length - 1)] ?? base;
+        const pct = idx === RANKS.length - 1 || next === base ? 1 : clamp01((xp - base) / Math.max(1, next - base));
+        return { index: idx, name: RANKS[idx], percent: pct };
+      }
+      function saveRankState() {
+        try {
+          const st = getRankStateFromXp(rankXp);
+          localStorage.setItem(RANK_STORAGE_KEY, JSON.stringify({
+            xp: rankXp,
+            rankIndex: st.index,
+            rankPercent: st.percent
+          }));
+        } catch {}
+      }
+      function loadRankState() {
+        try {
+          const raw = localStorage.getItem(RANK_STORAGE_KEY);
+          if (raw) {
+            const data = JSON.parse(raw);
+            if (Number.isFinite(data?.xp)) rankXp = Math.max(0, Math.floor(data.xp));
+            if (Number.isFinite(data?.rankIndex)) rankIndex = Math.max(0, Math.min(RANKS.length - 1, Math.floor(data.rankIndex)));
+            if (Number.isFinite(data?.rankPercent)) rankPercent = clamp01(data.rankPercent);
+          }
+        } catch {}
+        const st = getRankStateFromXp(rankXp);
+        rankIndex = st.index;
+        rankPercent = st.percent;
+      }
+      function updateRankUI() {
+        const st = getRankStateFromXp(rankXp);
+        rankIndex = st.index;
+        rankPercent = st.percent;
+        if (rankNameEl) rankNameEl.textContent = st.name;
+        if (rankPctEl) rankPctEl.textContent = `${Math.round(st.percent * 100)}%`;
+        if (rankFillEl) rankFillEl.style.width = `${Math.max(4, st.percent * 100)}%`;
+      }
+      function addRankXp(amount) {
+        rankXp = Math.max(0, Math.min(999999, rankXp + Math.round(amount)));
+        saveRankState();
+        const before = rankIndex;
+        updateRankUI();
+        if (rankIndex > before) showAnnouncement('RANK UP!');
+      }
+      function setLoadingUI(text, sub) {
+        loadingReason = text || 'LOADING';
+        loadingSub = sub || '';
+        if (loadingTextEl) loadingTextEl.textContent = loadingReason;
+        if (loadingSubEl) loadingSubEl.textContent = loadingSub;
+      }
+      function beginLoading(nextFn, text, sub, duration = 1100) {
+        if (loadingTimer !== null) { clearTimeout(loadingTimer); loadingTimer = null; }
+        setLoadingUI(text, sub);
+        gameMode = GAME_MODE.LOADING;
+        setModeUI();
+        loadingTimer = setTimeout(() => {
+          loadingTimer = null;
+          nextFn?.();
+        }, duration);
       }
 
       /* ── レンダラー ────────────────────────────────── */
@@ -694,6 +965,7 @@
 
       const GAME_MODE = {
         LOBBY: 'lobby',
+        LOADING: 'loading',
         BATTLE: 'battle',
         SPECTATE: 'spectate',
         RESULT: 'result'
@@ -992,6 +1264,7 @@
 
       function setModeUI() {
         if (lobbyOverlay) lobbyOverlay.style.display = (gameMode === GAME_MODE.LOBBY) ? 'flex' : 'none';
+        if (loadingOverlay) loadingOverlay.style.display = (gameMode === GAME_MODE.LOADING) ? 'flex' : 'none';
         if (resultOverlay) resultOverlay.style.display = (gameMode === GAME_MODE.RESULT) ? 'flex' : 'none';
       }
 
@@ -1061,23 +1334,30 @@
       }
 
       function startBattle() {
+        if (loadingTimer !== null) { clearTimeout(loadingTimer); loadingTimer = null; }
         if (returnLobbyTimer !== null) { clearTimeout(returnLobbyTimer); returnLobbyTimer = null; }
-        blueScore = 0;
-        redScore = 0;
-        roundIndex = 1;
-        roundEnding = false;
-        matchOver = false;
-        roundResetTimer = 0;
-        resetArenaState({ resetLevels: true });
-        camera.position.set(getSpawnPoint(TEAM.BLUE, 0).x, 1.6, getSpawnPoint(TEAM.BLUE, 0).z);
-        yaw = 0;
-        pitch = 0;
-        syncCameraRotation();
-        gameMode = GAME_MODE.BATTLE;
-        setModeUI();
+        beginLoading(() => {
+          blueScore = 0;
+          redScore = 0;
+          roundIndex = 1;
+          roundEnding = false;
+          matchOver = false;
+          roundResetTimer = 0;
+          resetArenaState({ resetLevels: true });
+          camera.position.set(getSpawnPoint(TEAM.BLUE, 0).x, 1.6, getSpawnPoint(TEAM.BLUE, 0).z);
+          yaw = 0;
+          pitch = 0;
+          syncCameraRotation();
+          gameMode = GAME_MODE.BATTLE;
+          setModeUI();
+          updateScoreUI();
+          updateAmmoUI();
+          updatePlayerHPUI();
+        }, 'DEPLOYING', '戦場へ向かっています...', 1050);
       }
 
       function returnToLobby() {
+        if (loadingTimer !== null) { clearTimeout(loadingTimer); loadingTimer = null; }
         if (returnLobbyTimer !== null) { clearTimeout(returnLobbyTimer); returnLobbyTimer = null; }
         blueScore = 0;
         redScore = 0;
@@ -1091,16 +1371,23 @@
         camera.position.set(0, 14, 30);
         camera.lookAt(0, 0, 0);
         setModeUI();
+        updateScoreUI();
+        updateAmmoUI();
+        updatePlayerHPUI();
+        updateRankUI();
       }
 
       function showFinalResult(winnerTeam) {
         const won = winnerTeam === TEAM.BLUE;
         if (resultTextEl) resultTextEl.textContent = won ? 'YOUR TEAM WON' : 'YOUR TEAM LOST';
-        if (resultSubEl) resultSubEl.textContent = won ? 'Returning to lobby...' : 'Returning to lobby...';
+        if (resultSubEl) resultSubEl.textContent = won ? 'PREPARING RETURN TO LOBBY...' : 'PREPARING RETURN TO LOBBY...';
         gameMode = GAME_MODE.RESULT;
         setModeUI();
+        addRankXp(won ? 80 : 20);
         if (returnLobbyTimer !== null) clearTimeout(returnLobbyTimer);
-        returnLobbyTimer = setTimeout(() => returnToLobby(), 2200);
+        returnLobbyTimer = setTimeout(() => {
+          beginLoading(() => returnToLobby(), 'RETURNING', 'ロビーへ戻っています...', 1100);
+        }, 1200);
       }
 
       /* ── カメラ ────────────────────────────────────── */
@@ -1142,12 +1429,12 @@
           hp: 100, maxHp: 100, radius: 1.0,
           moveSpeed: 1.0, bulletDamage: 8, bulletSpeed: 16,
           fireMin: 0.35, fireMax: 1.2,
-          fireCooldown: THREE.MathUtils.randFloat(0.35, 1.2),
+          fireCooldown: THREE.MathUtils.randFloat(0.10, 0.55),
           aiState: 'wander',
           coverTarget: null,
           coverTimer: 0,
           strafeDir: 1,
-          strafeTimer: THREE.MathUtils.randFloat(0.4, 1.2),
+          strafeTimer: THREE.MathUtils.randFloat(0.15, 0.55),
           stuckTimer: 0,
           prevPos: new THREE.Vector3(),
           wanderDir: new THREE.Vector2(THREE.MathUtils.randFloat(-1,1), THREE.MathUtils.randFloat(-1,1)).normalize(),
@@ -1166,11 +1453,11 @@
         if (refillHp) unit.userData.hp = unit.userData.maxHp;
         else unit.userData.hp = Math.min(unit.userData.hp, unit.userData.maxHp);
         unit.userData.radius      = 1.0 + (lv-1)*0.02;
-        unit.userData.moveSpeed   = 1.0 + (lv-1)*0.06;
-        unit.userData.bulletDamage= 8   + (lv-1)*1.4;
-        unit.userData.bulletSpeed = 16  + (lv-1)*0.35;
-        unit.userData.fireMin     = Math.max(0.18, 0.35-(lv-1)*0.02);
-        unit.userData.fireMax     = Math.max(0.55, 1.2 -(lv-1)*0.05);
+        unit.userData.moveSpeed   = 1.12 + (lv-1)*0.08;
+        unit.userData.bulletDamage= 9   + (lv-1)*1.8;
+        unit.userData.bulletSpeed = 18  + (lv-1)*0.45;
+        unit.userData.fireMin     = Math.max(0.10, 0.28-(lv-1)*0.018);
+        unit.userData.fireMax     = Math.max(0.30, 0.95 -(lv-1)*0.05);
       }
 
       function growTeam(team, amount=1) {
@@ -1398,6 +1685,7 @@
         syncCameraRotation();
         const dirVec = new THREE.Vector3();
         camera.getWorldDirection(dirVec);
+        dirVec.normalize();
         const spawnPos = camera.position.clone().add(dirVec.clone().multiplyScalar(0.92));
         createTracerBullet(spawnPos, dirVec, TEAM.BLUE, 340, 0.06, DAMAGE_PER_BULLET);
         // マズルフラッシュ生成
@@ -1481,7 +1769,11 @@
         clampCamera();
       }
 
-      function updatePlayerUnit() { playerUnit.position.copy(camera.position); playerUnit.visible=false; }
+      function updatePlayerUnit() {
+        playerUnit.userData.prevPos.copy(playerUnit.position);
+        playerUnit.position.copy(camera.position);
+        playerUnit.visible=false;
+      }
       function updatePlayerDeathState() {
         player.alive = player.hp > 0;
         if (!player.alive) {
@@ -1490,6 +1782,7 @@
           setADS(false);
           gameMode = GAME_MODE.SPECTATE;
           spectateTarget = getSpectateTarget();
+          setModeUI();
         }
       }
 
@@ -1635,7 +1928,7 @@ function updateSpectatorCamera(dt) {
         gunRoot.quaternion.copy(camQuat).multiply(baseRotQuat).multiply(recoilPitchQuat);
       }
 
-      function triggerRecoil() { gunState.recoil = Math.min(1.0, gunState.recoil + 0.72); }
+      function triggerRecoil() { gunState.recoil = Math.min(1.0, gunState.recoil + (adsActive ? 0.03 : 0.10)); }
 
       loadGunModel();
 
@@ -1674,7 +1967,7 @@ function updateSpectatorCamera(dt) {
             ud.wanderTimer = THREE.MathUtils.randFloat(0.8, 2.5);
             ud.wanderDir.set(THREE.MathUtils.randFloat(-1,1), THREE.MathUtils.randFloat(-1,1)).normalize();
           }
-          moveEntityXZ(unit, ud.wanderDir.x*dt*1.5, ud.wanderDir.y*dt*1.5, 0.52);
+          moveEntityXZ(unit, ud.wanderDir.x*dt*1.8, ud.wanderDir.y*dt*1.8, 0.52);
           unit.position.y = Math.sin(time*2) * 0.05;
           return;
         }
@@ -1688,7 +1981,7 @@ function updateSpectatorCamera(dt) {
           ud.aiState = 'approach';
         } else if (hasSight && dist <= 22) {
           if (ud.coverTimer <= 0) {
-            if (Math.random() < 0.015 && ud.aiState==='combat') {
+            if (Math.random() < 0.08 && ud.aiState==='combat') {
               const cv = getNearestCoverFrom(unit.position, target.position, 20);
               if (cv) {
                 ud.coverTarget = cv;
@@ -1702,7 +1995,7 @@ function updateSpectatorCamera(dt) {
         }
 
         let vx=0, vz=0;
-        const unitSpeed = 3.25 * (ud.moveSpeed||1);
+        const unitSpeed = 4.85 * (ud.moveSpeed||1);
 
         if (ud.aiState==='wander') {
           ud.wanderTimer -= dt;
@@ -1710,7 +2003,7 @@ function updateSpectatorCamera(dt) {
             ud.wanderTimer=THREE.MathUtils.randFloat(0.8,2.5);
             ud.wanderDir.set(THREE.MathUtils.randFloat(-1,1),THREE.MathUtils.randFloat(-1,1)).normalize();
           }
-          vx=ud.wanderDir.x*0.7; vz=ud.wanderDir.y*0.7;
+          vx=ud.wanderDir.x*0.85; vz=ud.wanderDir.y*0.85;
 
         } else if (ud.aiState==='approach') {
           ud.wanderTimer-=dt;
@@ -1719,8 +2012,8 @@ function updateSpectatorCamera(dt) {
             ud.wanderDir.set(THREE.MathUtils.randFloat(-1,1),THREE.MathUtils.randFloat(-1,1)).normalize();
           }
           const chaseX=dx/Math.max(dist,0.001), chaseZ=dz/Math.max(dist,0.001);
-          vx=chaseX*1.1 + ud.wanderDir.x*0.3;
-          vz=chaseZ*1.1 + ud.wanderDir.y*0.3;
+          vx=chaseX*1.35 + ud.wanderDir.x*0.18;
+          vz=chaseZ*1.35 + ud.wanderDir.y*0.18;
 
         } else if (ud.aiState==='combat') {
           ud.strafeTimer -= dt;
@@ -1728,12 +2021,12 @@ function updateSpectatorCamera(dt) {
             ud.strafeDir *= -1;
             ud.strafeTimer = THREE.MathUtils.randFloat(0.18, 0.55);
           }
-          const keepDist = dist < 8 ? -1 : (dist > 18 ? 1 : 0);
+          const keepDist = dist < 13 ? -1 : (dist > 18 ? 1 : 0);
           const chaseX=dx/Math.max(dist,0.001), chaseZ=dz/Math.max(dist,0.001);
           const strafeX=-chaseZ * ud.strafeDir;
           const strafeZ= chaseX * ud.strafeDir;
-          vx = chaseX*keepDist*0.8 + strafeX*1.25;
-          vz = chaseZ*keepDist*0.8 + strafeZ*1.25;
+          vx = chaseX*keepDist*1.15 + strafeX*1.65;
+          vz = chaseZ*keepDist*1.15 + strafeZ*1.65;
 
         } else if (ud.aiState==='cover') {
           ud.coverTimer -= dt;
@@ -1769,16 +2062,16 @@ function updateSpectatorCamera(dt) {
         unit.lookAt(target.position.x, target.position.y+1.0, target.position.z);
 
         ud.fireCooldown -= dt;
-        const shootRange=48;
+        const shootRange=62;
         if (ud.fireCooldown<=0 && dist<shootRange && hasSight && !roundEnding && !matchOver) {
           const muzzlePos=new THREE.Vector3(unit.position.x, unit.position.y+1.55, unit.position.z);
-          const spread = ud.aiState==='combat' ? 0.008 : 0.02;
+          const spread = ud.aiState==='combat' ? 0.0016 : 0.0035;
           const aimPos = target.position.clone();
           const targetPrev = target.userData.prevPos ? target.userData.prevPos.clone() : target.position.clone();
           const targetVel = target.position.clone().sub(targetPrev).multiplyScalar(1 / Math.max(dt, 0.016));
-          const leadTime = THREE.MathUtils.clamp(dist / Math.max(unit.userData.bulletSpeed || 16, 1), 0.05, 0.22);
+          const leadTime = THREE.MathUtils.clamp(dist / Math.max(unit.userData.bulletSpeed || 20, 1), 0.10, 0.40);
           aimPos.y += 1.05;
-          aimPos.addScaledVector(targetVel, leadTime * 0.65);
+          aimPos.addScaledVector(targetVel, leadTime * 1.08);
           aimPos.x += THREE.MathUtils.randFloat(-spread, spread) * dist;
           aimPos.z += THREE.MathUtils.randFloat(-spread, spread) * dist;
           const shootDir = aimPos.sub(muzzlePos).normalize();
@@ -1788,7 +2081,7 @@ function updateSpectatorCamera(dt) {
             unit.userData.bulletSpeed||16, 4.0,
             unit.userData.bulletDamage||8
           );
-          ud.fireCooldown = THREE.MathUtils.randFloat(0.12, 0.46);
+          ud.fireCooldown = THREE.MathUtils.randFloat(0.035, 0.16);
         }
       }
 
@@ -1838,6 +2131,8 @@ function updateSpectatorCamera(dt) {
                 if (unit.userData.isPlayer) {
                   player.hp=0; updatePlayerHPUI(); updatePlayerDeathState();
                   showAnnouncement('YOU DOWN');
+                } else if (data.team === TEAM.BLUE) {
+                  addRankXp(14);
                 }
                 unit.visible=false;
                 growTeam(data.team, 1);
@@ -1871,6 +2166,7 @@ function updateSpectatorCamera(dt) {
         respawnRound();
         if (gameMode !== GAME_MODE.RESULT && gameMode !== GAME_MODE.LOBBY) gameMode = GAME_MODE.BATTLE;
         setModeUI();
+        updateRankUI();
       }
 
       function handlePlayerInput(dt) {
@@ -2018,6 +2314,14 @@ function updateSpectatorCamera(dt) {
           return;
         }
 
+        if (gameMode === GAME_MODE.LOADING) {
+          renderer.clear();
+          renderer.render(scene, camera);
+          renderer.clearDepth();
+          renderer.render(uiScene, camera);
+          return;
+        }
+
         if (gameMode === GAME_MODE.SPECTATE) {
           syncCameraRotation();
           handlePlayerInput(dt);
@@ -2057,6 +2361,8 @@ function updateSpectatorCamera(dt) {
 
       /* ── 初期化 ────────────────────────────────────── */
       function initGame() {
+        loadRankState();
+        updateRankUI();
         updateScoreUI(); updateAmmoUI(); updatePlayerHPUI(); updateOrientationUI();
         resetArenaState({ resetLevels: true });
         gameMode = GAME_MODE.LOBBY;

@@ -528,7 +528,6 @@
     @media (orientation: portrait) { #rotateOverlay { display: flex; } }
   </style>
 
-  <script src="https://socket.io"></script>
   <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
 </head>
 <body>
@@ -813,7 +812,14 @@
       uiScene.add(uiDirLight);
       uiScene.add(new THREE.HemisphereLight(0xffffff, 0xaaaaaa, 1.5));
 
-      const socket = io('https://onrender.com');
+      const ONLINE_URL = 'https://onrender.com';
+      const ONLINE_ROOM = 'public';
+      const PLAYER_NAME = 'iPad';
+      const socket = io(ONLINE_URL, {
+        transports: ['websocket', 'polling'],
+        reconnection: true,
+        timeout: 10000
+      });
       const remotePlayers = new Map();
       const remotePlayerGroup = new THREE.Group();
       scene.add(remotePlayerGroup);
@@ -920,6 +926,7 @@
         if (!moved && (now - lastNetMoveSentAt) < 40) return;
         lastNetMove.x = x; lastNetMove.y = y; lastNetMove.z = z; lastNetMove.ry = ry;
         lastNetMoveSentAt = now;
+        socket.emit('state', { x, y, z, yaw: ry, pitch, hp: player.hp, alive: player.alive, mode: gameMode, matchMode });
         socket.emit('playerMovement', { x, y, z, ry });
       }
       function playShootSoundAtPosition(x, y, z) {
@@ -948,11 +955,35 @@
 
       socket.on('connect', () => {
         logFileLine(`🟢 Socket connected: ${socket.id}`);
+        socket.emit('join-room', { room: ONLINE_ROOM, name: PLAYER_NAME, matchMode });
+        socket.emit('state', {
+          x: camera.position.x, y: camera.position.y, z: camera.position.z,
+          yaw, pitch, hp: player.hp, alive: player.alive, mode: gameMode, matchMode
+        });
         socket.emit('playerMovement', { x: camera.position.x, y: camera.position.y, z: camera.position.z, ry: yaw });
       });
-      socket.on('currentPlayers', (players) => {
-        syncRemotePlayers(players);
+      socket.on('connect_error', (err) => {
+        logFileLine(`🔴 Socket connect_error: ${describeError(err)}`, 'error');
       });
+      socket.on('reconnect', () => {
+        logFileLine('🟢 Socket reconnect');
+        socket.emit('join-room', { room: ONLINE_ROOM, name: PLAYER_NAME, matchMode });
+      });
+      socket.on('system', (msg) => {
+        logFileLine(`ℹ️ ${String(msg)}`);
+      });
+      socket.on('room-state', (payload) => {
+        if (!payload || payload.room !== ONLINE_ROOM) return;
+        syncRemotePlayers(payload.players);
+      });
+      socket.on('shot', (data) => {
+        const id = normalizeRemoteId(data, data?.id);
+        if (!id || (socket.id && id === socket.id)) return;
+        const avatar = remotePlayers.get(id);
+        const pos = avatar ? avatar.getWorldPosition(new THREE.Vector3()) : new THREE.Vector3(Number(data?.x) || 0, Number(data?.y) || 1.2, Number(data?.z) || 0);
+        playShootSoundAtPosition(pos.x, pos.y, pos.z);
+      });
+      socket.on('currentPlayers', (players) => { syncRemotePlayers(players); });
       socket.on('newPlayer', (data) => {
         const id = normalizeRemoteId(data, data?.id);
         if (!id || (socket.id && id === socket.id)) return;
@@ -1496,6 +1527,7 @@
       function setMatchMode(mode) {
         matchMode = mode === 'casual' ? 'casual' : 'ranked';
         updateModeButtonsUI();
+        if (socket && socket.connected) socket.emit('join-room', { room: ONLINE_ROOM, name: PLAYER_NAME, matchMode });
       }
 
       function getMatchAiProfile() {
@@ -1640,9 +1672,14 @@
       }
 
       function startBattle() {
+        if (!socket || !socket.connected) {
+          showAnnouncement('接続中...');
+          return;
+        }
         if (loadingTimer !== null) { clearTimeout(loadingTimer); loadingTimer = null; }
         if (returnLobbyTimer !== null) { clearTimeout(returnLobbyTimer); returnLobbyTimer = null; }
         beginLoading(() => {
+          socket.emit('join-room', { room: ONLINE_ROOM, name: PLAYER_NAME, matchMode });
           blueScore = 0;
           redScore = 0;
           roundIndex = 1;
@@ -2058,7 +2095,17 @@
         ammo--;
         updateAmmoUI();
         syncCameraRotation();
-        if (socket && socket.connected) socket.emit('playerShoot');
+        if (socket && socket.connected) {
+          const dirEmit = new THREE.Vector3();
+          camera.getWorldDirection(dirEmit);
+          dirEmit.normalize();
+          socket.emit('shoot', {
+            x: camera.position.x, y: camera.position.y, z: camera.position.z,
+            dx: dirEmit.x, dy: dirEmit.y, dz: dirEmit.z,
+            yaw, pitch, team: TEAM.BLUE
+          });
+          socket.emit('playerShoot');
+        }
         const dirVec = new THREE.Vector3();
         camera.getWorldDirection(dirVec);
         dirVec.normalize();

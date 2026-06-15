@@ -128,6 +128,58 @@
     }
     #shootBtn:active { transform: scale(0.96); filter: brightness(1.08); }
 
+
+    /* ADS ボタン（注視） */
+    #adsBtn {
+      position: absolute;
+      right: calc(14px + min(16vw, 96px) + 8px);
+      bottom: calc(120px + min(16vw, 96px) - min(13vw, 78px) + 8px);
+      width: min(13vw, 78px); height: min(13vw, 78px);
+      max-width: 78px; max-height: 78px;
+      min-width: 62px; min-height: 62px;
+      border: none; border-radius: 50%;
+      background: radial-gradient(circle at 35% 30%, rgba(255,255,255,0.16), rgba(255,255,255,0.02) 45%, rgba(0,0,0,0) 46%),
+                  linear-gradient(160deg, #1d2b3e, #0f1622);
+      border: 2px solid rgba(255,255,255,0.28);
+      box-shadow: 0 6px 20px rgba(0,0,0,0.45), inset 0 0 12px rgba(255,255,255,0.05);
+      pointer-events: auto; z-index: 9999;
+      touch-action: none; -webkit-tap-highlight-color: transparent;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      overflow: hidden;
+      transition: transform 0.1s, filter 0.1s;
+      color: rgba(255,255,255,0.92);
+    }
+    #adsBtn:active { transform: scale(0.93); filter: brightness(1.12); }
+    #adsBtn::before {
+      content: "";
+      position: absolute;
+      inset: 16%;
+      border: 2px solid currentColor;
+      border-radius: 50%;
+      box-shadow: 0 0 10px rgba(255,255,255,0.12), inset 0 0 8px rgba(255,255,255,0.06);
+      opacity: 0.95;
+    }
+    #adsBtn::after {
+      content: "";
+      position: absolute;
+      left: 50%; top: 50%;
+      width: 56%; height: 56%;
+      transform: translate(-50%, -50%);
+      background:
+        linear-gradient(currentColor, currentColor) center / 100% 2px no-repeat,
+        linear-gradient(currentColor, currentColor) center / 2px 100% no-repeat;
+      filter: drop-shadow(0 0 5px rgba(255,255,255,0.2));
+      opacity: 0.95;
+    }
+    #adsBtn .ads-ring {
+      position: absolute;
+      inset: 33%;
+      border: 2px solid currentColor;
+      border-radius: 50%;
+      opacity: 0.82;
+    }
+
     /* RELOAD ボタン（弾薬アイコン） */
     #reloadBtn {
       position: absolute;
@@ -219,6 +271,7 @@
       </div>
       <button id="shootBtn">FIRE</button>
       <button id="reloadBtn" aria-label="リロード"></button>
+      <button id="adsBtn" aria-label="ADS"></button>
       <div id="fileLogWrap">
         <div id="fileLogTitle">📁 ファイル読み込みログ</div>
         <textarea id="fileLogArea" readonly spellcheck="false" aria-label="ログ" placeholder="ju.glb / ju.mp3 の読み込み状況"></textarea>
@@ -244,6 +297,7 @@
       const canvas         = document.getElementById('c');
       const shootBtn       = document.getElementById('shootBtn');
       const reloadBtn      = document.getElementById('reloadBtn');
+      const adsBtn         = document.getElementById('adsBtn');
       const announce       = document.getElementById('announce');
       const blueScoreEl    = document.getElementById('blueScore');
       const redScoreEl     = document.getElementById('redScore');
@@ -261,6 +315,9 @@
 
       const GUN_MODEL_URL  = 'ju.glb';
       const SHOOT_AUDIO_URL= 'ju.mp3';
+
+      const CAMERA_DEFAULT_FOV = 75;
+      const CAMERA_ADS_FOV = CAMERA_DEFAULT_FOV / 1.25;
 
       const audioSupport = (() => { try { return typeof Audio !== 'undefined'; } catch { return false; } })();
 
@@ -308,7 +365,7 @@
       uiScene.add(new THREE.HemisphereLight(0xffffff, 0xaaaaaa, 1.5));
 
       /* ── カメラ ────────────────────────────────────── */
-      const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 200);
+      const camera = new THREE.PerspectiveCamera(CAMERA_DEFAULT_FOV, window.innerWidth / window.innerHeight, 0.1, 200);
       camera.rotation.order = 'YXZ';
       camera.position.set(-16, 1.6, 0);
 
@@ -521,12 +578,17 @@
       let reloading=false, reloadTimer=0;
       let ammo = MAG_SIZE;
 
+      let adsHeld=false;
+      let adsBlend=0;
+      const muzzleFlashes = [];
+
       const joy = { x:0, y:0 };
       const aim = { lastX:0, lastY:0 };
       const moveVelocity = { x:0, z:0 };
 
       /* ── 銃モデル管理 ──────────────────────────────── */
       const GUN_BASE_POS = new THREE.Vector3(0.3, -0.2, -0.5);
+      const GUN_ADS_POS  = new THREE.Vector3(0.0, -0.56, -0.46);
       const GUN_BASE_ROT = new THREE.Euler(0, Math.PI/2, 0, 'YXZ');
 
       const gunState = {
@@ -941,6 +1003,7 @@
         camera.getWorldDirection(dirVec);
         const spawnPos = camera.position.clone().add(dirVec.clone().multiplyScalar(0.92));
         createTracerBullet(spawnPos, dirVec, TEAM.BLUE, 340, 0.06, DAMAGE_PER_BULLET);
+        createMuzzleFlash(camera.position.clone().add(dirVec.clone().multiplyScalar(0.78)), dirVec);
         if (ammo <= 0) startReload();
       }
 
@@ -1103,10 +1166,11 @@
         camera.updateMatrixWorld();
         const camMat=camera.matrixWorld;
         const recoil=gunState.recoil;
+        const adsTarget = GUN_BASE_POS.clone().lerp(GUN_ADS_POS, adsBlend);
         const localOffset=new THREE.Vector3(
-          GUN_BASE_POS.x,
-          GUN_BASE_POS.y + recoil*0.06 + reloadOffsetY,
-          GUN_BASE_POS.z + recoil*0.12 + reloadOffsetZ
+          adsTarget.x,
+          adsTarget.y + recoil*0.06 + reloadOffsetY,
+          adsTarget.z + recoil*0.12 + reloadOffsetZ
         );
         const worldPos=localOffset.clone().applyMatrix4(camMat);
         gunRoot.position.copy(worldPos);
@@ -1115,10 +1179,121 @@
         camera.getWorldQuaternion(camQuat);
         const baseRotQuat=new THREE.Quaternion().setFromEuler(GUN_BASE_ROT);
         const recoilPitchQuat=new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0),-recoil*0.15);
-        gunRoot.quaternion.copy(camQuat).multiply(baseRotQuat).multiply(recoilPitchQuat);
+        const adsPitchQuat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0), THREE.MathUtils.lerp(0.0, 0.03, adsBlend));
+        gunRoot.quaternion.copy(camQuat).multiply(baseRotQuat).multiply(adsPitchQuat).multiply(recoilPitchQuat);
       }
 
       function triggerRecoil() { gunState.recoil=Math.min(1.0, gunState.recoil+0.72); }
+
+      function setAdsHeld(state) {
+        adsHeld = !!state;
+      }
+
+      function createMuzzleFlash(worldPosition, worldDirection) {
+        const flash = new THREE.Group();
+        const warm = 0xffc84a;
+        const hot = 0xff8a1e;
+        const coreMat = new THREE.MeshBasicMaterial({
+          color: 0xffffdd,
+          transparent: true,
+          opacity: 0.95,
+          depthWrite: false,
+          blending: THREE.AdditiveBlending,
+          side: THREE.DoubleSide
+        });
+        const glowMat = new THREE.MeshBasicMaterial({
+          color: warm,
+          transparent: true,
+          opacity: 0.85,
+          depthWrite: false,
+          blending: THREE.AdditiveBlending,
+          side: THREE.DoubleSide
+        });
+        const streakMat = new THREE.MeshBasicMaterial({
+          color: hot,
+          transparent: true,
+          opacity: 0.75,
+          depthWrite: false,
+          blending: THREE.AdditiveBlending,
+          side: THREE.DoubleSide
+        });
+
+        const core = new THREE.Mesh(new THREE.SphereGeometry(0.035, 10, 10), coreMat);
+        flash.add(core);
+
+        const planeGeo = new THREE.PlaneGeometry(0.22, 0.06);
+        for (const rotZ of [0, Math.PI / 2, Math.PI / 4, -Math.PI / 4]) {
+          const p = new THREE.Mesh(planeGeo, rotZ === 0 || rotZ === Math.PI / 2 ? glowMat : streakMat);
+          p.rotation.z = rotZ;
+          flash.add(p);
+        }
+
+        const tinyGeo = new THREE.SphereGeometry(0.012, 6, 6);
+        for (let i = 0; i < 4; i++) {
+          const s = new THREE.Mesh(tinyGeo, streakMat);
+          const ang = (Math.PI * 2 * i) / 4 + Math.random() * 0.35;
+          const r = 0.065 + Math.random() * 0.045;
+          s.position.set(Math.cos(ang) * r, Math.sin(ang) * r * 0.55, (Math.random() - 0.5) * 0.03);
+          flash.add(s);
+        }
+
+        flash.position.copy(worldPosition);
+        const q = new THREE.Quaternion();
+        q.setFromUnitVectors(new THREE.Vector3(0, 0, 1), worldDirection.clone().normalize());
+        flash.quaternion.copy(q);
+        flash.scale.setScalar(0.95);
+        flash.userData = {
+          ttl: 0.05,
+          maxT: 0.05,
+          materials: [coreMat, glowMat, streakMat]
+        };
+        uiScene.add(flash);
+        muzzleFlashes.push(flash);
+        return flash;
+      }
+
+      function updateMuzzleFlashes(dt) {
+        for (let i = muzzleFlashes.length - 1; i >= 0; i--) {
+          const flash = muzzleFlashes[i];
+          flash.userData.ttl -= dt;
+          const p = Math.max(0, flash.userData.ttl / flash.userData.maxT);
+          flash.scale.setScalar(0.95 + (1 - p) * 0.18);
+          flash.traverse((obj) => {
+            if (obj.isMesh && obj.material && 'opacity' in obj.material) {
+              obj.material.opacity = p;
+            }
+          });
+          if (flash.userData.ttl <= 0) {
+            uiScene.remove(flash);
+            const geometries = new Set();
+            const materials = new Set();
+            flash.traverse((obj) => {
+              if (obj.isMesh) {
+                if (obj.geometry) geometries.add(obj.geometry);
+                if (Array.isArray(obj.material)) {
+                  for (const m of obj.material) if (m) materials.add(m);
+                } else if (obj.material) {
+                  materials.add(obj.material);
+                }
+              }
+            });
+            for (const g of geometries) g.dispose();
+            for (const m of materials) m.dispose();
+            muzzleFlashes.splice(i, 1);
+          }
+        }
+      }
+
+      function updateADS(dt) {
+        const target = (adsHeld && !portraitMode && !roundEnding && !matchOver && player.alive) ? 1 : 0;
+        const rate = 1 - Math.exp(-18 * dt);
+        adsBlend = THREE.MathUtils.lerp(adsBlend, target, rate);
+        const desiredFov = THREE.MathUtils.lerp(CAMERA_DEFAULT_FOV, CAMERA_ADS_FOV, adsBlend);
+        if (Math.abs(camera.fov - desiredFov) > 0.01) {
+          camera.fov = desiredFov;
+          camera.updateProjectionMatrix();
+        }
+      }
 
       loadGunModel();
 
@@ -1385,6 +1560,24 @@
       reloadBtn.addEventListener('touchstart', (e)=>{ e.preventDefault(); e.stopPropagation(); unlockAudio(); if (!reloading && ammo<MAG_SIZE && !roundEnding && !matchOver && player.alive) startReload(); }, { passive:false });
       reloadBtn.addEventListener('mousedown',  (e)=>{ e.preventDefault(); unlockAudio(); if (!reloading && ammo<MAG_SIZE && !roundEnding && !matchOver && player.alive) startReload(); });
 
+      const startAdsHold = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        unlockAudio();
+        setAdsHeld(true);
+      };
+      const endAdsHold = (e) => {
+        if (e) { e.preventDefault(); e.stopPropagation(); }
+        setAdsHeld(false);
+      };
+
+      adsBtn.addEventListener('touchstart', startAdsHold, { passive:false });
+      adsBtn.addEventListener('touchend', endAdsHold, { passive:false });
+      adsBtn.addEventListener('touchcancel', endAdsHold, { passive:false });
+      adsBtn.addEventListener('mousedown', startAdsHold);
+      adsBtn.addEventListener('mouseup', endAdsHold);
+      adsBtn.addEventListener('mouseleave', endAdsHold);
+
       document.addEventListener('mouseup',     ()=>setFiringHeld(false));
       document.addEventListener('mousedown',   ()=>unlockAudio());
       document.addEventListener('contextmenu', (e)=>e.preventDefault());
@@ -1396,11 +1589,13 @@
           const x=touch.clientX, y=touch.clientY;
           const shootRect=shootBtn.getBoundingClientRect();
           const reloadRect=reloadBtn.getBoundingClientRect();
+          const adsRect=adsBtn.getBoundingClientRect();
           const joyRect=joystickEl.getBoundingClientRect();
           const inShoot=x>=shootRect.left&&x<=shootRect.right&&y>=shootRect.top&&y<=shootRect.bottom;
           const inReload=x>=reloadRect.left&&x<=reloadRect.right&&y>=reloadRect.top&&y<=reloadRect.bottom;
+          const inAds=x>=adsRect.left&&x<=adsRect.right&&y>=adsRect.top&&y<=adsRect.bottom;
           const inJoy=x>=joyRect.left&&x<=joyRect.right&&y>=joyRect.top&&y<=joyRect.bottom;
-          if (inShoot||inReload) continue;
+          if (inShoot||inReload||inAds) continue;
           if (inJoy && joystickTouchId===null) { joystickTouchId=touch.identifier; setJoystickFromTouch(touch); continue; }
           if (x>window.innerWidth*0.42 && aimTouchId===null) { aimTouchId=touch.identifier; aim.lastX=x; aim.lastY=y; }
         }
@@ -1453,6 +1648,7 @@
         const t=clock.elapsedTime;
 
         syncCameraRotation();
+        updateADS(dt);
 
         if (!matchOver) {
           if (!roundEnding) {
@@ -1471,6 +1667,8 @@
         } else {
           updateGun(dt);
         }
+
+        updateMuzzleFlashes(dt);
 
         renderer.clear();
         renderer.render(scene, camera);

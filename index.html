@@ -286,7 +286,6 @@
       </div>
       <div id="crosshair"></div>
       <div id="announce"></div>
-      <div id="victoryOverlay" aria-hidden="true"><div id="victoryText">YOUR TEAM WON</div></div>
       <div id="joystick">
         <div class="base"></div>
         <div class="knob" id="knob"></div>
@@ -325,8 +324,6 @@
       const reloadBtn       = document.getElementById('reloadBtn');
       const adsBtn          = document.getElementById('adsBtn');
       const announce        = document.getElementById('announce');
-      const victoryOverlay  = document.getElementById('victoryOverlay');
-      const victoryTextEl   = document.getElementById('victoryText');
       const blueScoreEl     = document.getElementById('blueScore');
       const redScoreEl      = document.getElementById('redScore');
       const roundTextEl     = document.getElementById('roundText');
@@ -881,19 +878,6 @@
         showAnnouncement._t = setTimeout(() => announce.classList.remove('show'), 540);
       }
 
-      function showVictorySequence(text) {
-        if (!victoryOverlay || !victoryTextEl) {
-          showAnnouncement(text);
-          return;
-        }
-        victoryTextEl.textContent = text;
-        victoryOverlay.classList.remove('show');
-        void victoryOverlay.offsetWidth;
-        victoryOverlay.classList.add('show');
-        clearTimeout(showVictorySequence._t);
-        showVictorySequence._t = setTimeout(() => victoryOverlay.classList.remove('show'), 2350);
-      }
-
       /* ── ADS 制御 ─────────────────────────────────── */
       function setADS(active) {
         adsActive = active;
@@ -904,6 +888,10 @@
         } else {
           gunPosTarget.copy(GUN_BASE_POS_NORMAL);
         }
+      }
+
+      function toggleADS() {
+        setADS(!adsActive);
       }
 
       /* ── カメラ ────────────────────────────────────── */
@@ -1076,11 +1064,9 @@
         if (fireLoopTimer!==null) { clearInterval(fireLoopTimer); fireLoopTimer=null; }
         if (blueScore>=WIN_SCORE || redScore>=WIN_SCORE) {
           matchOver=true; roundResetTimer=0;
-          const blueWon = blueScore>=WIN_SCORE;
-          setTimeout(() => showVictorySequence(blueWon ? 'YOUR TEAM WON' : 'ENEMY TEAM WON'), 40);
+          setTimeout(() => showAnnouncement(`${blueScore>=WIN_SCORE?'BLUE WIN':'RED WIN'}`), 40);
           return;
         }
-
         roundResetTimer=1.5;
       }
 
@@ -1349,8 +1335,12 @@
       function updateGun(dt) {
         if (!gunRoot) return;
 
-        // リコイル減衰
-        gunState.recoil = THREE.MathUtils.lerp(gunState.recoil, 0, 1 - Math.exp(-14 * dt));
+        // リコイル減衰（ADS時は少し早く収束）
+        gunState.recoil = THREE.MathUtils.lerp(
+          gunState.recoil,
+          0,
+          1 - Math.exp(-(adsActive ? 18 : 14) * dt)
+        );
 
         // ADS: カメラFOVを滑らかに変化
         const targetFov = adsActive ? CAMERA_FOV_ADS : CAMERA_FOV_NORMAL;
@@ -1382,12 +1372,15 @@
         // カメラのワールド行列に基づいて銃の位置・向きを計算
         camera.updateMatrixWorld();
         const camMat = camera.matrixWorld;
-        const recoil = 0;
+        const recoil = gunState.recoil;
+
+        const recoilY = recoil * (adsActive ? 0.008 : 0.022);
+        const recoilZ = recoil * (adsActive ? 0.022 : 0.05);
 
         const localOffset = new THREE.Vector3(
           gunPosCurrent.x,
-          gunPosCurrent.y + reloadOffsetY,
-          gunPosCurrent.z
+          gunPosCurrent.y + recoilY + reloadOffsetY,
+          gunPosCurrent.z + recoilZ
         );
 
         const worldPos = localOffset.clone().applyMatrix4(camMat);
@@ -1396,10 +1389,14 @@
         const camQuat = new THREE.Quaternion();
         camera.getWorldQuaternion(camQuat);
         const baseRotQuat = new THREE.Quaternion().setFromEuler(GUN_BASE_ROT);
-        gunRoot.quaternion.copy(camQuat).multiply(baseRotQuat);
+        const recoilPitchQuat = new THREE.Quaternion().setFromAxisAngle(
+          new THREE.Vector3(1, 0, 0),
+          -recoil * (adsActive ? 0.035 : 0.07)
+        );
+        gunRoot.quaternion.copy(camQuat).multiply(baseRotQuat).multiply(recoilPitchQuat);
       }
 
-      function triggerRecoil() { gunState.recoil = 0; }
+      function triggerRecoil() { gunState.recoil = Math.min(1.0, gunState.recoil + 0.72); }
 
       loadGunModel();
 
@@ -1654,41 +1651,23 @@
         if (!reloading && ammo<MAG_SIZE && !roundEnding && !matchOver && player.alive) startReload();
       });
 
-      // ADS ボタン: 押している間だけADSモード（touchstart/touchend）
+      // ADS ボタン: 押すたびにADSを切り替え（トグル）
       adsBtn.addEventListener('touchstart', (e) => {
         e.preventDefault(); e.stopPropagation();
-        if (adsTouchId === null) {
-          adsTouchId = e.changedTouches[0].identifier;
-          unlockAudio();
-          setADS(true);
-        }
+        unlockAudio();
+        toggleADS();
       }, { passive:false });
       adsBtn.addEventListener('touchend', (e) => {
-        e.preventDefault();
-        for (const t of e.changedTouches) {
-          if (t.identifier === adsTouchId) {
-            adsTouchId = null;
-            setADS(false);
-            break;
-          }
-        }
+        e.preventDefault(); e.stopPropagation();
       }, { passive:false });
       adsBtn.addEventListener('touchcancel', (e) => {
-        e.preventDefault();
-        for (const t of e.changedTouches) {
-          if (t.identifier === adsTouchId) {
-            adsTouchId = null;
-            setADS(false);
-            break;
-          }
-        }
+        e.preventDefault(); e.stopPropagation();
       }, { passive:false });
       // マウスでのADS（デスクトップテスト用）
       adsBtn.addEventListener('mousedown', (e) => {
-        e.preventDefault(); unlockAudio(); setADS(true);
-      });
-      document.addEventListener('mouseup', () => {
-        if (adsActive && adsTouchId === null) setADS(false);
+        e.preventDefault();
+        unlockAudio();
+        toggleADS();
       });
 
       document.addEventListener('mousedown', ()=>unlockAudio());

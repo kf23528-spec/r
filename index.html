@@ -110,7 +110,7 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 #modeDesc{margin-top:10px;font-size:12px;line-height:1.5;opacity:0.78}
 
 #waitingOverlay{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:radial-gradient(circle at center,rgba(5,12,24,0.72),rgba(0,0,0,0.96));z-index:122;pointer-events:auto;color:#fff;text-align:center;overflow:hidden}
-#waitingCard{width:min(90vw,500px);padding:32px 28px 28px;border-radius:28px;background:linear-gradient(180deg,rgba(255,255,255,0.12),rgba(255,255,255,0.05));border:1px solid rgba(255,255,255,0.16);box-shadow:0 24px 64px rgba(0,0,0,0.55),inset 0 0 30px rgba(255,255,255,0.03);backdrop-filter:blur(14px);display:flex;flex-direction:column}
+#waitingCard{width:min(90vw,500px);padding:32px 28px;border-radius:28px;background:linear-gradient(180deg,rgba(255,255,255,0.12),rgba(255,255,255,0.05));border:1px solid rgba(255,255,255,0.16);box-shadow:0 24px 64px rgba(0,0,0,0.55),inset 0 0 30px rgba(255,255,255,0.03);backdrop-filter:blur(14px)}
 #waitingRoomNum{font-size:11px;letter-spacing:0.22em;opacity:0.6;margin-bottom:6px}
 #waitingTitle{font-size:clamp(22px,5vw,34px);font-weight:1000;letter-spacing:0.10em;margin-bottom:4px}
 #waitingSubtitle{font-size:13px;opacity:0.7;margin-bottom:24px;letter-spacing:0.06em}
@@ -127,12 +127,13 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 #playerCountBadge{margin-bottom:16px;padding:8px 16px;border-radius:999px;display:inline-block;background:rgba(100,210,255,0.12);border:1px solid rgba(100,210,255,0.28);color:#9fe6ff;font-size:13px;font-weight:900;letter-spacing:0.10em}
 #waitingProgress{width:100%;height:6px;border-radius:999px;overflow:hidden;background:rgba(255,255,255,0.10);border:1px solid rgba(255,255,255,0.10);margin-bottom:20px}
 #waitingProgressFill{height:100%;width:0%;border-radius:inherit;background:linear-gradient(90deg,#32a1ff,#8b5cff,#ff5bbd);transition:width 0.4s ease;box-shadow:0 0 12px rgba(130,160,255,0.5)}
-#waitingHint{font-size:12px;opacity:0.55;margin-bottom:14px;letter-spacing:0.06em}
-#waitingCancelBtn{border:none;border-radius:14px;padding:12px 28px;background:rgba(255,255,255,0.08);border:1.5px solid rgba(255,255,255,0.16);color:rgba(255,255,255,0.7);font-size:14px;font-weight:800;letter-spacing:0.08em;cursor:pointer;pointer-events:auto;touch-action:none;-webkit-tap-highlight-color:transparent;width:100%}
+#waitingHint{font-size:12px;opacity:0.55;margin-bottom:20px;letter-spacing:0.06em}
+#waitingCancelBtn{border:none;border-radius:14px;padding:12px 28px;background:rgba(255,255,255,0.08);border:1.5px solid rgba(255,255,255,0.16);color:rgba(255,255,255,0.7);font-size:14px;font-weight:800;letter-spacing:0.08em;cursor:pointer;pointer-events:auto;touch-action:none;-webkit-tap-highlight-color:transparent}
 #waitingCancelBtn:active{filter:brightness(1.2)}
-#waitingStartBtn{display:block;width:100%;margin-top:12px;border:none;border-radius:16px;padding:14px 24px;background:linear-gradient(135deg,#32a1ff,#8b5cff 72%,#ff5bbd);color:white;font-size:18px;font-weight:1000;letter-spacing:0.10em;box-shadow:0 16px 36px rgba(70,110,255,0.26),inset 0 0 18px rgba(255,255,255,0.12);pointer-events:auto;touch-action:none;-webkit-tap-highlight-color:transparent;cursor:pointer}
-#waitingStartBtn:active{transform:scale(0.98);filter:brightness(1.08)}
-#waitingStartBtn:disabled{opacity:0.45;cursor:not-allowed;filter:grayscale(0.45)}
+#waitingActions{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+#matchStartBtn{border:none;border-radius:16px;padding:14px 30px;min-width:180px;background:linear-gradient(135deg,#32a1ff,#8b5cff 72%,#ff5bbd);color:#fff;font-size:16px;font-weight:1000;letter-spacing:0.12em;cursor:pointer;pointer-events:auto;touch-action:none;-webkit-tap-highlight-color:transparent;box-shadow:0 14px 32px rgba(70,110,255,0.34),inset 0 0 18px rgba(255,255,255,0.12)}
+#matchStartBtn:active{transform:scale(0.98);filter:brightness(1.08)}
+#matchStartBtn:disabled{opacity:0.38;cursor:not-allowed;filter:grayscale(0.5)}
 @keyframes fadeInRow{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 
 #loadingOverlay{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:radial-gradient(circle at center,rgba(8,14,24,0.72),rgba(0,0,0,0.96));z-index:125;color:#fff;text-align:center}
@@ -154,6 +155,186 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 @media (orientation:portrait){#rotateOverlay{display:flex}}
 
 input,button{-webkit-appearance:none;appearance:none}
+
+@media (max-width: 1100px){
+  #lobbyOverlay{
+    align-items:flex-start;
+    justify-content:flex-start;
+    padding:12px 0 18px;
+    overflow-y:auto;
+    overflow-x:hidden;
+  }
+  #lobbyShell{
+    width:min(94vw,760px);
+    grid-template-columns:1fr;
+    gap:12px;
+    margin:0 auto;
+  }
+  #lobbyCard,
+  #lobbySide{
+    border-radius:22px;
+  }
+  #lobbyCard{
+    padding:22px 18px 18px;
+    min-height:auto;
+  }
+  #lobbySide{
+    padding:18px 18px 18px;
+    gap:12px;
+  }
+  #lobbyTitle{
+    font-size:clamp(30px,9vw,56px);
+    letter-spacing:0.08em;
+  }
+  #lobbySub{
+    max-width:none;
+    margin-top:12px;
+    font-size:clamp(13px,3.4vw,17px);
+  }
+  #roomPanel{
+    margin-top:18px;
+    padding:14px 14px 12px;
+  }
+  #roomInputRow{
+    flex-wrap:wrap;
+  }
+  #roomInput{
+    width:100%;
+    min-width:0;
+    font-size:22px;
+    padding:12px 12px;
+    letter-spacing:0.18em;
+  }
+  #roomGenBtn{
+    width:56px;
+    height:56px;
+    padding:0;
+    border-radius:14px;
+    font-size:22px;
+  }
+  #rankPanel{
+    margin-top:12px;
+    padding:14px 14px 12px;
+  }
+  #rankName{
+    font-size:18px;
+  }
+  #lobbyStats{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:10px;
+  }
+  .statCard{
+    padding:12px 12px 10px;
+  }
+  .statValue{
+    font-size:18px;
+  }
+  #modePanel{
+    margin-top:12px;
+    padding:14px;
+  }
+  #modeButtons{
+    grid-template-columns:1fr 1fr;
+  }
+  .modeBtn{
+    padding:12px 10px;
+    font-size:14px;
+  }
+  #lobbyStartBtn{
+    position:static;
+    width:100%;
+    min-width:0;
+    margin-top:14px;
+    padding:16px 18px;
+    border-radius:16px;
+  }
+  #waitingOverlay{
+    overflow-y:auto;
+    overflow-x:hidden;
+    align-items:flex-start;
+    padding:12px 0 18px;
+  }
+  #waitingCard{
+    width:min(94vw,500px);
+    padding:24px 16px;
+    margin:0 auto;
+  }
+  #loadingOverlay{
+    overflow-y:auto;
+    overflow-x:hidden;
+    align-items:flex-start;
+    padding:12px 0 18px;
+  }
+  #loadingCard{
+    width:min(92vw,460px);
+    margin:0 auto;
+  }
+  #resultOverlay{
+    overflow:hidden;
+    padding:12px;
+  }
+  #hpBlock{
+    top:10px;
+    left:10px;
+    width:min(46vw,210px);
+  }
+  #netBadge{
+    top:10px;
+    right:10px;
+    font-size:11px;
+    padding:6px 10px;
+  }
+  #onlineCount{
+    top:50px;
+    right:10px;
+    font-size:11px;
+    padding:5px 10px;
+  }
+  #status{
+    top:70px;
+    left:10px;
+  }
+  #shootBtn{
+    right:8px;
+    bottom:10px;
+  }
+  #reloadBtn{
+    right:calc(8px + min(17vw,100px) + 10px);
+    bottom:20px;
+  }
+  #adsBtn{
+    right:calc(8px + min(17vw,100px) + 10px - 2px);
+    bottom:calc(20px + min(14vw,84px) + 8px);
+  }
+}
+
+@media (max-width: 680px){
+  #lobbyShell{
+    width:min(95vw,700px);
+  }
+  #lobbyStats{
+    grid-template-columns:1fr;
+  }
+  #modeButtons{
+    grid-template-columns:1fr;
+  }
+  #crosshair{
+    width:20px;
+    height:20px;
+  }
+  #crosshair::before{width:16px}
+  #crosshair::after{height:16px}
+}
+
+@media (max-width: 1100px) and (orientation: landscape){
+  #lobbyOverlay{
+    padding-top:8px;
+  }
+  #lobbyCard{
+    min-height:auto;
+  }
+}
+
 </style>
 </head>
 <body>
@@ -227,16 +408,16 @@ input,button{-webkit-appearance:none;appearance:none}
       <div id="waitingCard">
         <div id="waitingRoomNum">ROOM NUMBER</div>
         <div id="waitingTitle">WAITING FOR PLAYERS</div>
-        <div id="waitingSubtitle">2人以上そろうと、誰でも下の出発ボタンを押せます</div>
+        <div id="waitingSubtitle">同じ部屋の本物のプレイヤーを待っています</div>
         <div id="playerCountBadge">🟢 <span id="waitingCountText">あなたのみ</span></div>
         <div id="playerListWrap">
           <div id="playerListLabel">IN THIS ROOM</div>
           <div id="playerList"></div>
         </div>
         <div id="waitingProgress"><div id="waitingProgressFill"></div></div>
-        <div id="waitingHint">2人以上そろったら、誰でも下の出発ボタンを押せます</div>
+        <div id="waitingHint">2人以上で『出撃』が押せます。最大8人まで。</div>
+        <div id="waitingActions"><button id="matchStartBtn" disabled>出撃</button></div>
         <button id="waitingCancelBtn">← 戻る</button>
-        <button id="waitingStartBtn" disabled>出発する</button>
       </div>
     </div>
 
@@ -337,7 +518,7 @@ var playerCountBadge = document.getElementById('playerCountBadge');
 var playerListEl = document.getElementById('playerList');
 var waitingProgressFill = document.getElementById('waitingProgressFill');
 var waitingCancelBtn = document.getElementById('waitingCancelBtn');
-var waitingStartBtn = document.getElementById('waitingStartBtn');
+var matchStartBtn = document.getElementById('matchStartBtn');
 
 var T = window.THREE;
 var renderer = new T.WebGLRenderer({canvas:canvas,antialias:true,alpha:false,powerPreference:'high-performance'});
@@ -348,8 +529,8 @@ renderer.shadowMap.type = T.PCFSoftShadowMap;
 renderer.setClearColor(0x0b0f14,1);
 
 var scene = new T.Scene();
-scene.background = new T.Color(0x1a2540);
-scene.fog = new T.FogExp2(0x1a2540, 0.012);
+scene.background = new T.Color(0x30486f);
+scene.fog = new T.FogExp2(0x30486f, 0.0085);
 
 var camera = new T.PerspectiveCamera(CAM_FOV_NORMAL,window.innerWidth/window.innerHeight,0.05,300);
 camera.rotation.order = 'YXZ';
@@ -377,8 +558,7 @@ var GAME_MODE = {LOBBY:'lobby',WAITING:'waiting',LOADING:'loading',BATTLE:'battl
 var gameMode = GAME_MODE.LOBBY;
 var currentRoom = '';
 var roomPlayers = {};
-var roomHostId = '';
-var manualStartRequested = false;
+var roomTeamAssignments = {};
 var inWaiting = false;
 var matchMode = 'ranked';
 var rankXp = 0;
@@ -428,6 +608,47 @@ var BOT_PATROL_POINTS = [
 function clamp(v,min,max){return Math.max(min,Math.min(max,v));}
 function clamp01(v){return clamp(v,0,1);}
 
+function getCurrentPlayerIds(){
+  return Object.keys(roomPlayers||{}).slice(0,MATCH_PLAYER_MAX);
+}
+function seededRng(seed){
+  var s = seed >>> 0;
+  return function(){
+    s = (s * 1664525 + 1013904223) >>> 0;
+    return s / 4294967296;
+  };
+}
+function shuffleWithSeed(list, seed){
+  var arr = list.slice();
+  var rnd = seededRng(seed);
+  for(var i=arr.length-1;i>0;i--){
+    var j = Math.floor(rnd() * (i+1));
+    var tmp = arr[i]; arr[i] = arr[j]; arr[j] = tmp;
+  }
+  return arr;
+}
+function getMyTeam(){
+  return (roomPlayers && socket && socket.id && roomPlayers[socket.id] && roomPlayers[socket.id].team) || window.__myTeam || 'blue';
+}
+function assignBalancedTeams(ids){
+  var out = {};
+  var list = ids.slice(0,MATCH_PLAYER_MAX);
+  if(!list.length)return out;
+  var seedBase = 0;
+  var roomSeed = String(currentRoom || '0');
+  for(var i=0;i<roomSeed.length;i++)seedBase = (seedBase * 31 + roomSeed.charCodeAt(i)) >>> 0;
+  var shuffled = shuffleWithSeed(list, seedBase + list.length * 97);
+  var blueCount = Math.ceil(shuffled.length / 2);
+  shuffled.forEach(function(id, idx){ out[id] = idx < blueCount ? 'blue' : 'red'; });
+  if(socket && socket.id && out[socket.id]){
+    window.__myTeam = out[socket.id];
+  } else if(socket && socket.id && list.indexOf(socket.id) >= 0 && !out[socket.id]) {
+    window.__myTeam = (Math.random() < 0.5 ? 'blue' : 'red');
+    out[socket.id] = window.__myTeam;
+  }
+  return out;
+}
+
 function makeCapsuleMesh(radiusTop,radiusBot,height,mat){
   var cyl = new T.Mesh(new T.CylinderGeometry(radiusTop,radiusBot,height,16,1,false),mat);
   cyl.position.y = height/2;
@@ -444,73 +665,129 @@ function addColliderBox(x,y,z,w,h,d,mesh){
 }
 
 function buildMap(){
-  var floorMat = new T.MeshStandardMaterial({color:0x1e2a1e,roughness:0.95,metalness:0.0});
-  var floor = new T.Mesh(new T.PlaneGeometry(72,72),floorMat);
+  var floorMat = new T.MeshStandardMaterial({color:0x9ec5ff,roughness:0.98,metalness:0.0});
+  var floor = new T.Mesh(new T.PlaneGeometry(80,80),floorMat);
   floor.rotation.x = -Math.PI/2;
   floor.receiveShadow = true;
   scene.add(floor);
 
-  var grid = new T.GridHelper(72,36,0x00ff44,0x003311);
-  grid.position.y = 0.02;
-  grid.material.opacity = 0.35;
-  grid.material.transparent = true;
-  scene.add(grid);
+  var baseGrid = new T.GridHelper(80,40,0xd7f2ff,0x87a6c7);
+  baseGrid.position.y = 0.02;
+  baseGrid.material.opacity = 0.18;
+  baseGrid.material.transparent = true;
+  scene.add(baseGrid);
 
-  var wallMat = new T.MeshStandardMaterial({color:0x2a3040,roughness:0.85,metalness:0.15});
-  var wallData = [
-    {s:[72,10,1.2],p:[0,5,-35.4]},
-    {s:[72,10,1.2],p:[0,5,35.4]},
-    {s:[1.2,10,72],p:[-35.4,5,0]},
-    {s:[1.2,10,72],p:[35.4,5,0]}
+  var midMat = new T.MeshStandardMaterial({color:0x3a4a66,roughness:0.72,metalness:0.12});
+  var brightMat = new T.MeshStandardMaterial({color:0x607aa3,roughness:0.62,metalness:0.18,emissive:0x111a26,emissiveIntensity:0.18});
+  var neonMatA = new T.MeshStandardMaterial({color:0x39b7ff,emissive:0x39b7ff,emissiveIntensity:1.8,roughness:0.12,metalness:0.3});
+  var neonMatB = new T.MeshStandardMaterial({color:0xff5bbd,emissive:0xff5bbd,emissiveIntensity:1.8,roughness:0.12,metalness:0.3});
+
+  var borderData = [
+    {s:[80,10,1.2],p:[0,5,-39.4]},
+    {s:[80,10,1.2],p:[0,5,39.4]},
+    {s:[1.2,10,80],p:[-39.4,5,0]},
+    {s:[1.2,10,80],p:[39.4,5,0]}
   ];
-  wallData.forEach(function(w){
-    var m = new T.Mesh(new T.BoxGeometry(w.s[0],w.s[1],w.s[2]),wallMat);
+  borderData.forEach(function(w){
+    var m = new T.Mesh(new T.BoxGeometry(w.s[0],w.s[1],w.s[2]),brightMat);
     m.position.set(w.p[0],w.p[1],w.p[2]);
-    m.castShadow = true;
-    m.receiveShadow = true;
+    m.castShadow = true; m.receiveShadow = true;
     scene.add(m);
     addColliderBox(w.p[0],w.p[1],w.p[2],w.s[0],w.s[1],w.s[2],m);
   });
 
-  var concreteMat = new T.MeshStandardMaterial({color:0x3a4050,roughness:0.8,metalness:0.1});
-  var sideBoxes = [
-    {s:[6,2,2],p:[-18,1,-10]},{s:[6,2,2],p:[-18,1,8]},
-    {s:[6,2,2],p:[18,1,-10]},{s:[6,2,2],p:[18,1,8]},
-    {s:[2,3,6],p:[-10,1.5,-20]},{s:[2,3,6],p:[10,1.5,-20]},
-    {s:[2,3,6],p:[-10,1.5,14]},{s:[2,3,6],p:[10,1.5,14]}
+  var lightPylons = [
+    [-28,0,-28],[28,0,-28],[-28,0,28],[28,0,28],
+    [0,0,-30],[0,0,30],[-30,0,0],[30,0,0]
   ];
-  sideBoxes.forEach(function(c){
-    var m = new T.Mesh(new T.BoxGeometry(c.s[0],c.s[1],c.s[2]),concreteMat);
+  var pylonColors = [0x39b7ff,0xff5bbd,0x8dff6a,0xffd84d,0x39b7ff,0xff5bbd,0x8dff6a,0xffd84d];
+  lightPylons.forEach(function(p,i){
+    var pole = new T.Mesh(new T.CylinderGeometry(0.16,0.22,7.5,10),midMat);
+    pole.position.set(p[0],3.75,p[2]);
+    pole.castShadow = true;
+    scene.add(pole);
+    var cap = new T.Mesh(new T.BoxGeometry(0.42,0.12,0.42),i % 2 === 0 ? neonMatA : neonMatB);
+    cap.position.set(p[0],7.35,p[2]);
+    scene.add(cap);
+    var pl = new T.PointLight(pylonColors[i],2.7,28,2.0);
+    pl.position.set(p[0],7.1,p[2]);
+    scene.add(pl);
+  });
+
+  var obstacleSpecs = [
+    {s:[5,2.4,3],p:[-24,1.2,-18]}, {s:[5,2.4,3],p:[-24,1.2,18]},
+    {s:[5,2.4,3],p:[24,1.2,-18]},  {s:[5,2.4,3],p:[24,1.2,18]},
+    {s:[4,2.2,4],p:[-14,1.1,-26]},  {s:[4,2.2,4],p:[14,1.1,-26]},
+    {s:[4,2.2,4],p:[-14,1.1,26]},   {s:[4,2.2,4],p:[14,1.1,26]},
+    {s:[3,2.0,8],p:[0,1.0,-16]},    {s:[3,2.0,8],p:[0,1.0,16]},
+    {s:[8,2.0,3],p:[-11,1.0,0]},    {s:[8,2.0,3],p:[11,1.0,0]},
+    {s:[2.5,3.6,2.5],p:[-6,1.8,-8]}, {s:[2.5,3.6,2.5],p:[6,1.8,-8]},
+    {s:[2.5,3.6,2.5],p:[-6,1.8,8]},  {s:[2.5,3.6,2.5],p:[6,1.8,8]},
+    {s:[2.5,4.0,10],p:[-18,2.0,0]},  {s:[2.5,4.0,10],p:[18,2.0,0]},
+    {s:[10,2.4,2.5],p:[-2,1.2,-2]},   {s:[10,2.4,2.5],p:[2,1.2,2]}
+  ];
+  obstacleSpecs.forEach(function(c, idx){
+    var useBright = idx % 3 === 0;
+    var m = new T.Mesh(new T.BoxGeometry(c.s[0],c.s[1],c.s[2]), useBright ? brightMat : midMat);
     m.position.set(c.p[0],c.p[1],c.p[2]);
-    m.castShadow = true; m.receiveShadow = true;
+    m.castShadow = true;
+    m.receiveShadow = true;
+    scene.add(m);
+    addColliderBox(c.p[0],c.p[1],c.p[2],c.s[0],c.s[1],c.s[2],m);
+
+    if(idx % 4 === 0){
+      var neon = new T.Mesh(new T.BoxGeometry(Math.max(0.18,c.s[0]*0.15), Math.max(0.18,c.s[1]*0.18), Math.max(0.18,c.s[2]*0.7)), idx % 2 === 0 ? neonMatA : neonMatB);
+      neon.position.set(c.p[0],c.p[1]+c.s[1]*0.42,c.p[2]);
+      scene.add(neon);
+    }
+  });
+
+  var crates = [
+    [-30,0.7,-10],[-30,0.7,10],[30,0.7,-10],[30,0.7,10],
+    [-20,0.7,-2],[-20,0.7,2],[20,0.7,-2],[20,0.7,2],
+    [-8,0.7,-20],[8,0.7,-20],[-8,0.7,20],[8,0.7,20]
+  ];
+  crates.forEach(function(p, i){
+    var g = new T.Mesh(new T.BoxGeometry(1.8,1.4,1.8), i % 2 === 0 ? brightMat : midMat);
+    g.position.set(p[0],p[1],p[2]);
+    g.castShadow = true; g.receiveShadow = true;
+    scene.add(g);
+    addColliderBox(p[0],p[1],p[2],1.8,1.4,1.8,g);
+  });
+
+  var laneBars = [
+    {s:[14,1.4,1.2],p:[-21,0.7,-6]}, {s:[14,1.4,1.2],p:[21,0.7,-6]},
+    {s:[14,1.4,1.2],p:[-21,0.7,6]},  {s:[14,1.4,1.2],p:[21,0.7,6]},
+    {s:[1.2,1.4,14],p:[-6,0.7,-21]},  {s:[1.2,1.4,14],p:[6,0.7,-21]},
+    {s:[1.2,1.4,14],p:[-6,0.7,21]},   {s:[1.2,1.4,14],p:[6,0.7,21]}
+  ];
+  laneBars.forEach(function(c, idx){
+    var m = new T.Mesh(new T.BoxGeometry(c.s[0],c.s[1],c.s[2]), idx % 2 === 0 ? midMat : brightMat);
+    m.position.set(c.p[0],c.p[1],c.p[2]);
+    m.castShadow = true;
+    m.receiveShadow = true;
     scene.add(m);
     addColliderBox(c.p[0],c.p[1],c.p[2],c.s[0],c.s[1],c.s[2],m);
   });
 
-  var poles = [
-    [-24,0,-24],[-24,0,24],[24,0,-24],[24,0,24],[0,0,-28],[0,0,28]
-  ];
-  var colors=[0xff4400,0x44aaff,0x44ff88,0xff22aa,0xffbb00,0x00ccff];
-  var poleMat = new T.MeshStandardMaterial({color:0x333344,roughness:0.5,metalness:0.8});
-  poles.forEach(function(p,i){
-    var pole = new T.Mesh(new T.CylinderGeometry(0.12,0.12,7,8),poleMat);
-    pole.position.set(p[0],3.5,p[2]);
-    pole.castShadow = true;
-    scene.add(pole);
-    var lampMat = new T.MeshStandardMaterial({color:colors[i],emissive:colors[i],emissiveIntensity:4,transparent:true,opacity:0.9});
-    var lamp = new T.Mesh(new T.SphereGeometry(0.22,8,8),lampMat);
-    lamp.position.set(p[0],7.2,p[2]);
-    scene.add(lamp);
-    var pl = new T.PointLight(colors[i],3.0,22,2);
-    pl.position.set(p[0],7,p[2]);
-    scene.add(pl);
-  });
+  var centerRing = new T.Mesh(new T.TorusGeometry(5.5,0.45,10,24), neonMatA);
+  centerRing.rotation.x = Math.PI/2;
+  centerRing.position.set(0,2.8,0);
+  scene.add(centerRing);
 
-  var skyGrid = new T.GridHelper(72,8,0x224488,0x111133);
-  skyGrid.position.y = 9.8;
-  skyGrid.material.opacity = 0.22;
-  skyGrid.material.transparent = true;
-  scene.add(skyGrid);
+  var ceilingGlow = new T.GridHelper(80,10,0x9fd8ff,0x5378a0);
+  ceilingGlow.position.y = 11;
+  ceilingGlow.material.opacity = 0.14;
+  ceilingGlow.material.transparent = true;
+  scene.add(ceilingGlow);
+
+  scene.add(new T.HemisphereLight(0xbbe4ff,0x8692c9,1.9));
+  var fillLight = new T.DirectionalLight(0xffffff,1.6);
+  fillLight.position.set(15,24,18);
+  scene.add(fillLight);
+  var rimLight = new T.DirectionalLight(0x84b7ff,0.8);
+  rimLight.position.set(-18,18,-14);
+  scene.add(rimLight);
 }
 
 function buildProceduralGun(){
@@ -882,7 +1159,7 @@ function checkBotHit(){
   showKillAnnouncement();
   addKillFeed('💥 BOT KILL！');
   if(socket && socket.connected){
-    socket.emit('enemyKilled',{team:getMyTeam(),room:currentRoom,botIndex:botIndex});
+    socket.emit('enemyKilled', { team: 'blue' });
   }
   return true;
 }
@@ -1033,39 +1310,35 @@ function setRoomInputValid(){
   var v = getRoomInput();
   lobbyStartBtn.disabled = (v.length!==4);
   updateRoomUI();
+  if(matchStartBtn)matchStartBtn.disabled = true;
 }
 function genRoom(){roomInput.value = String(Math.floor(1000+Math.random()*9000));setRoomInputValid();}
-function getRandomTeam(){return Math.random()<0.5?'blue':'red';}
-function getMyTeam(){
-  if(socket && socket.id && roomPlayers && roomPlayers[socket.id] && roomPlayers[socket.id].team){
-    return roomPlayers[socket.id].team;
-  }
-  return 'blue';
-}
-function syncRoomHost(players){
-  var ids = Object.keys(players||{});
-  if(!ids.length){roomHostId='';return;}
-  if(!roomHostId || !players || !players[roomHostId])roomHostId = ids[0];
-}
 function updateWaitingUI(){
-  var ids = Object.keys(roomPlayers||{});
-  syncRoomHost(roomPlayers);
+  var ids = getCurrentPlayerIds();
+  roomTeamAssignments = assignBalancedTeams(ids);
+  if(socket && socket.id && roomTeamAssignments[socket.id])window.__myTeam = roomTeamAssignments[socket.id];
   var count = ids.length;
-  waitingCountText.textContent = count<=1 ? 'あなたのみ' : (count+'人');
+  waitingCountText.textContent = count <= 1 ? 'あなたのみ' : (count + '人 / ' + MATCH_PLAYER_MAX + '人');
   playerCountBadge.textContent = '🟢 ' + waitingCountText.textContent;
   waitingProgressFill.style.width = Math.min(100, count / MATCH_PLAYER_MAX * 100) + '%';
-  var canStart = !!(socket && socket.connected && currentRoom && count>=MATCH_PLAYER_MIN && count<=MATCH_PLAYER_MAX);
-  if(waitingStartBtn){
-    waitingStartBtn.disabled = !canStart;
-    waitingStartBtn.textContent = canStart ? '出発する' : (count < MATCH_PLAYER_MIN ? '2人以上必要' : (count > MATCH_PLAYER_MAX ? '満員' : '出発待ち'));
+  if(count < MATCH_PLAYER_MIN){
+    waitingHint.textContent = '2人以上で「出撃」が押せます。';
+  }else if(count >= MATCH_PLAYER_MAX){
+    waitingHint.textContent = '満員です。これ以上は入れません。';
+  }else{
+    waitingHint.textContent = '誰でも「出撃」を押せます。最大8人まで。';
+  }
+  if(matchStartBtn){
+    matchStartBtn.disabled = !(count >= MATCH_PLAYER_MIN && count <= MATCH_PLAYER_MAX && currentRoom);
+    matchStartBtn.textContent = count >= MATCH_PLAYER_MIN ? '出撃' : '待機中';
   }
   playerListEl.innerHTML = '';
-  ids.slice(0,MATCH_PLAYER_MAX).forEach(function(id){
+  ids.forEach(function(id){
     var p = roomPlayers[id] || {};
+    var team = p.team || roomTeamAssignments[id] || ((Math.random() < 0.5) ? 'blue' : 'red');
     var row = document.createElement('div');
     row.className = 'playerItem' + (socket && id===socket.id ? ' me' : '');
-    var isHost = id === roomHostId;
-    row.innerHTML = '<div class="playerAvatar '+((p.team||'blue')==='blue'?'blue':'red')+'">'+(((p.team||'blue')==='blue')?'B':'R')+'</div><div class="playerName">'+escapeHtml(p.name||'???')+'</div><div class="playerTag">'+(socket && id===socket.id ? 'YOU' : 'READY')+'</div>';
+    row.innerHTML = '<div class="playerAvatar '+(team==='blue'?'blue':'red')+'">'+(team==='blue'?'B':'R')+'</div><div class="playerName">'+escapeHtml(p.name||'???')+'</div><div class="playerTag">'+(socket && id===socket.id ? 'YOU' : 'READY')+'</div>';
     playerListEl.appendChild(row);
   });
 }
@@ -1169,6 +1442,7 @@ function fireOnce(){
   if(socket && socket.connected){
     socket.emit('playerShot',{
       room:currentRoom,
+      team:getMyTeam(),
       x:camera.position.x,
       y:camera.position.y,
       z:camera.position.z,
@@ -1178,7 +1452,7 @@ function fireOnce(){
       dz:-Math.cos(yaw)*Math.cos(pitch)
     });
     if(hit){
-      socket.emit('enemyKilled',{team:'blue',room:currentRoom});
+      socket.emit('enemyKilled', { team: 'blue' });
     }
   }
   if(ammo<=0 && !reloading)startReload();
@@ -1197,14 +1471,10 @@ function showFinalResultByServer(data){
   resultLock = true;
   matchOver = true;
   resultShown = true;
-  var myTeam = getMyTeam();
   var won = false;
   if(data && typeof data.won === 'boolean')won = data.won;
-  else if(data && data.winnerTeam){
-    won = String(data.winnerTeam).toLowerCase() === String(myTeam).toLowerCase();
-  } else if(data && data.winner){
-    var w = String(data.winner).toLowerCase();
-    won = (w === String(myTeam).toLowerCase()) || (myTeam === 'blue' && (w === 'team-blue' || w === 'blue')) || (myTeam === 'red' && (w === 'team-red' || w === 'red'));
+  else if(data && data.winner){
+    won = String(data.winner).toLowerCase() === 'blue' || String(data.winner).toLowerCase() === 'team-blue';
   }
   resultTextEl.textContent = won ? 'YOUR TEAM WON!' : 'YOUR TEAM LOST';
   resultSubEl.textContent = 'RETURNING TO THE HUB...';
@@ -1228,11 +1498,10 @@ function returnToLobby(){
   matchOver = false;
   resultLock = false;
   inWaiting = false;
-  roomHostId = '';
-  manualStartRequested = false;
   if(socket && socket.connected && currentRoom)socket.emit('leave-room',{room:currentRoom,name:PLAYER_NAME});
   currentRoom = '';
   roomPlayers = {};
+  roomTeamAssignments = {};
   gameMode = GAME_MODE.LOBBY;
   camera.position.set(0,14,30);
   camera.lookAt(0,0,0);
@@ -1248,8 +1517,7 @@ function returnToLobby(){
 function leaveWaiting(){
   inWaiting = false;
   roomPlayers = {};
-  roomHostId = '';
-  manualStartRequested = false;
+  roomTeamAssignments = {};
   if(socket && socket.connected && currentRoom)socket.emit('leave-room',{room:currentRoom,name:PLAYER_NAME});
   currentRoom = '';
   gameMode = GAME_MODE.LOBBY;
@@ -1263,23 +1531,33 @@ function enterRoom(){
   unlockAudio();
   currentRoom = num;
   roomPlayers = {};
-  roomHostId = '';
-  manualStartRequested = false;
-  if(socket && socket.id)roomPlayers[socket.id] = {name:PLAYER_NAME,team:getRandomTeam(),alive:true};
+  window.__myTeam = Math.random() < 0.5 ? 'blue' : 'red';
+  if(socket && socket.id)roomPlayers[socket.id] = {name:PLAYER_NAME,team:window.__myTeam,alive:true};
   inWaiting = true;
   gameMode = GAME_MODE.WAITING;
   waitingRoomNum.textContent = 'ROOM  #' + num;
   waitingTitle.textContent = 'WAITING FOR PLAYERS';
-  waitingSubtitle.textContent = '2人以上そろうと、誰でも出発できます';
+  waitingSubtitle.textContent = '2人以上で誰でも出撃できます。最大8人まで。';
   setModeUI();
   updateWaitingUI();
   if(netOnline && socket && socket.connected){
-    socket.emit('join-room',{room:currentRoom,name:PLAYER_NAME,team:((roomPlayers && socket && roomPlayers[socket.id] && roomPlayers[socket.id].team) || getRandomTeam()),matchMode:matchMode});
+    socket.emit('join-room',{room:currentRoom,name:PLAYER_NAME,team:'blue',matchMode:matchMode});
     socket.emit('request-room-players',{room:currentRoom});
     setTimeout(function(){ if(socket && socket.connected)socket.emit('request-room-players',{room:currentRoom}); },800);
   }
 }
 
+function requestBattleStart(){
+  var ids = getCurrentPlayerIds();
+  if(ids.length < MATCH_PLAYER_MIN || ids.length > MATCH_PLAYER_MAX || !currentRoom)return;
+  roomTeamAssignments = assignBalancedTeams(ids);
+  if(socket && socket.connected){
+    socket.emit('start-match',{room:currentRoom,name:PLAYER_NAME,requester:PLAYER_NAME,players:ids,teams:roomTeamAssignments});
+    socket.emit('start-game',{room:currentRoom,name:PLAYER_NAME,players:ids});
+    socket.emit('launch-match',{room:currentRoom,name:PLAYER_NAME,players:ids});
+  }
+  _launchBattle();
+}
 function _launchBattle(){
   if(gameMode===GAME_MODE.BATTLE)return;
   inWaiting = false;
@@ -1310,6 +1588,7 @@ function _startBattleImmediate(){
   updateAmmoUI();
   updateScoreUI();
   for(var i=0;i<BOT_COUNT;i++)spawnBot(i);
+  if(socket && socket.id && roomTeamAssignments[socket.id])window.__myTeam = roomTeamAssignments[socket.id];
   gameMode = GAME_MODE.BATTLE;
   setModeUI();
 }
@@ -1387,7 +1666,7 @@ function initSocket(){
     setNetBadge('online','🟢 ONLINE');
     loadingOverlay.style.display = 'none';
     if(inWaiting && currentRoom){
-      socket.emit('join-room',{room:currentRoom,name:PLAYER_NAME,team:((roomPlayers && socket && roomPlayers[socket.id] && roomPlayers[socket.id].team) || getRandomTeam()),matchMode:matchMode});
+      socket.emit('join-room',{room:currentRoom,name:PLAYER_NAME,team:getMyTeam(),matchMode:matchMode});
       socket.emit('request-room-players',{room:currentRoom});
     }
   });
@@ -1397,7 +1676,7 @@ function initSocket(){
     netOnline = true;
     setNetBadge('online','🟢 ONLINE');
     loadingOverlay.style.display='none';
-    if(inWaiting && currentRoom)socket.emit('join-room',{room:currentRoom,name:PLAYER_NAME,team:((roomPlayers && socket && roomPlayers[socket.id] && roomPlayers[socket.id].team) || getRandomTeam()),matchMode:matchMode});
+    if(inWaiting && currentRoom)socket.emit('join-room',{room:currentRoom,name:PLAYER_NAME,team:getMyTeam(),matchMode:matchMode});
   });
   socket.on('reconnect_failed',function(){setNetBadge('offline','🔴 接続失敗');loadingOverlay.style.display='none';});
   socket.on('disconnect',function(reason){
@@ -1416,6 +1695,7 @@ function initSocket(){
       });
       if(Object.keys(filtered).length===0)filtered = p||{};
       roomPlayers = filtered;
+      roomTeamAssignments = assignBalancedTeams(Object.keys(roomPlayers||{}));
       updateWaitingUI();
     }
     if(gameMode===GAME_MODE.BATTLE){
@@ -1442,16 +1722,14 @@ function initSocket(){
     }
   });
 
-  function applyRemoteMovement(d){
+  socket.on('playerMoved',function(d){
     if(!d || !d.id || (socket && d.id===socket.id))return;
     if(gameMode!==GAME_MODE.BATTLE)return;
     var av = ensureAvatar(d.id,d.team||'blue');
     av.position.set(Number(d.x)||0,0,Number(d.z)||0);
     av.rotation.y = Number(d.ry)||0;
     av.visible = true;
-  }
-  socket.on('playerMoved',applyRemoteMovement);
-  socket.on('playerMovement',applyRemoteMovement);
+  });
 
   socket.on('playerShot',function(d){
     if(!d || !d.id || (socket && d.id===socket.id))return;
@@ -1470,6 +1748,7 @@ function initSocket(){
     if(!pl || pl.room!==currentRoom)return;
     if(inWaiting){
       roomPlayers = pl.players || {};
+      roomTeamAssignments = assignBalancedTeams(Object.keys(roomPlayers||{}));
       updateWaitingUI();
     }else{
       Object.keys(pl.players||{}).forEach(function(id){
@@ -1481,17 +1760,11 @@ function initSocket(){
       });
     }
   });
-  function handleBattleStart(data){
+  socket.on('game-start',function(data){
     if(data && data.room && data.room!==currentRoom)return;
-    if(inWaiting && gameMode===GAME_MODE.WAITING){
-      manualStartRequested = false;
-      _launchBattle();
-    }
-  }
-  socket.on('game-start',handleBattleStart);
-  socket.on('matchStarted',handleBattleStart);
-  socket.on('gameStarted',handleBattleStart);
-  socket.on('startMatch',handleBattleStart);
+    if(data && data.players && Array.isArray(data.players))roomTeamAssignments = assignBalancedTeams(data.players);
+    if(inWaiting && gameMode===GAME_MODE.WAITING)_launchBattle();
+  });
 
   socket.on('scoreUpdate',function(data){
     if(data && data.room && currentRoom && data.room!==currentRoom)return;
@@ -1562,31 +1835,12 @@ adsBtn.addEventListener('mousedown',function(e){e.preventDefault();unlockAudio()
 lobbyStartBtn.addEventListener('click',function(e){e.preventDefault();if(!lobbyStartBtn.disabled)enterRoom();});
 lobbyStartBtn.addEventListener('touchstart',function(e){e.preventDefault();if(!lobbyStartBtn.disabled)enterRoom();},{passive:false});
 
-if(waitingStartBtn){
-  function requestBattleStart(e){
-    if(e)e.preventDefault();
-    if(!socket || !socket.connected || !currentRoom) return;
-    var ids = Object.keys(roomPlayers||{});
-    if(!(ids.length>=MATCH_PLAYER_MIN && ids.length<=MATCH_PLAYER_MAX)) return;
-    manualStartRequested = true;
-    var myTeam = (roomPlayers && socket && roomPlayers[socket.id] && roomPlayers[socket.id].team) || getRandomTeam();
-    var startPayload = {room:currentRoom,name:PLAYER_NAME,hostId:socket.id,matchMode:matchMode,team:myTeam};
-    socket.emit('request-start',startPayload);
-    socket.emit('start-game',startPayload);
-    socket.emit('startMatch',startPayload);
-    socket.emit('beginMatch',startPayload);
-    socket.emit('manualStart',startPayload);
-    setTimeout(function(){
-      if(manualStartRequested && inWaiting && gameMode===GAME_MODE.WAITING){
-        updateWaitingUI();
-      }
-    },450);
-  }
-  waitingStartBtn.addEventListener('click',requestBattleStart);
-  waitingStartBtn.addEventListener('touchstart',function(e){requestBattleStart(e);},{passive:false});
-}
 waitingCancelBtn.addEventListener('click',function(e){e.preventDefault();leaveWaiting();});
 waitingCancelBtn.addEventListener('touchstart',function(e){e.preventDefault();leaveWaiting();},{passive:false});
+if(matchStartBtn){
+  matchStartBtn.addEventListener('click',function(e){e.preventDefault();requestBattleStart();});
+  matchStartBtn.addEventListener('touchstart',function(e){e.preventDefault();requestBattleStart();},{passive:false});
+}
 
 casualModeBtn.addEventListener('click',function(){setMatchMode('casual');});
 casualModeBtn.addEventListener('touchstart',function(e){e.preventDefault();setMatchMode('casual');},{passive:false});
@@ -1705,18 +1959,15 @@ function updateSendLoop(dt){
   sendTimer += dt*1000;
   if(sendTimer >= SEND_HZ){
     sendTimer = 0;
-    var myTeam = getMyTeam();
-    var movementPayload = {
+    socket.emit('playerMoved',{
       room:currentRoom,
       name:PLAYER_NAME,
-      team:myTeam,
+      team:getMyTeam(),
       x:camera.position.x,
       y:camera.position.y,
       z:camera.position.z,
       ry:yaw
-    };
-    socket.emit('playerMovement', movementPayload);
-    socket.emit('playerMoved', movementPayload);
+    });
   }
 }
 

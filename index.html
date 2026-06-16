@@ -1150,7 +1150,7 @@ function fireOnce(){
       dz:-Math.cos(yaw)*Math.cos(pitch)
     });
     if(hit){
-      socket.emit('enemyKilled', { team: 'blue' });
+      socket.emit('enemyKilled',{team:'blue',room:currentRoom});
     }
   }
   if(ammo<=0 && !reloading)startReload();
@@ -1232,7 +1232,7 @@ function enterRoom(){
   gameMode = GAME_MODE.WAITING;
   waitingRoomNum.textContent = 'ROOM  #' + num;
   waitingTitle.textContent = 'WAITING FOR PLAYERS';
-  waitingSubtitle.textContent = '同じ部屋の本物のプレイヤーを待っています';
+  waitingSubtitle.textContent = '最初に入ったホストが、2人以上そろった時だけ開始できます';
   setModeUI();
   updateWaitingUI();
   if(netOnline && socket && socket.connected){

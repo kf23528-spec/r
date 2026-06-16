@@ -11,6 +11,14 @@ const io = require('socket.io')(http, {
 const PORT = process.env.PORT || 3000;
 const players = {};
 
+// 👇 【ここを追加！】同じ階層にあるHTMLや.glb、.mp3ファイルをブラウザからアクセスできるようにする設定
+app.use(express.static(__dirname));
+
+// 👇 【ここを追加！】トップページ（/）にアクセスされたら index.html を画面に返す設定
+app.get('/', (req, res) => {
+    res.sendFile(__dirname + '/index.html');
+});
+
 // プレイヤーが接続してきたときの処理
 io.on('connection', (socket) => {
     console.log(`🟢 プレイヤー接続: ${socket.id}`);

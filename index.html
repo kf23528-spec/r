@@ -176,6 +176,14 @@ input,button{-webkit-appearance:none;appearance:none}
   #roomInput{font-size:22px}
 }
 @media (max-width:620px){
+  #lobbyOverlay{
+    align-items:flex-start;
+    justify-content:flex-start;
+    overflow-y:auto;
+    -webkit-overflow-scrolling:touch;
+    touch-action:pan-y;
+  }
+  #lobbyShell{margin:0 auto}
   #hpBlock{width:min(52vw,220px);top:12px;left:12px}
   #onlineCount{top:54px;right:12px}
   #status{top:72px;left:12px}

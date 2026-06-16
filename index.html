@@ -176,14 +176,6 @@ input,button{-webkit-appearance:none;appearance:none}
   #roomInput{font-size:22px}
 }
 @media (max-width:620px){
-  #lobbyOverlay{
-    align-items:flex-start;
-    justify-content:flex-start;
-    overflow-y:auto;
-    -webkit-overflow-scrolling:touch;
-    touch-action:pan-y;
-  }
-  #lobbyShell{margin:0 auto}
   #hpBlock{width:min(52vw,220px);top:12px;left:12px}
   #onlineCount{top:54px;right:12px}
   #status{top:72px;left:12px}
@@ -191,6 +183,19 @@ input,button{-webkit-appearance:none;appearance:none}
   #shootButton{right:10px;bottom:12px;z-index:100}
   #reloadButton{right:calc(10px + min(17vw,100px) + 10px);bottom:22px;z-index:100}
   #adsButton{right:calc(10px + min(17vw,100px) + 10px - 2px);bottom:calc(22px + min(14vw,84px) + 8px);z-index:100}
+}
+@media (max-width:620px){
+  html,body{
+    overflow-x:hidden;
+    overflow-y:auto;
+    touch-action:pan-y;
+    -webkit-overflow-scrolling:touch;
+  }
+  #game{overflow:visible}
+  #lobbyOverlay{
+    touch-action:pan-y;
+    -webkit-overflow-scrolling:touch;
+  }
 }
 </style>
 </head>

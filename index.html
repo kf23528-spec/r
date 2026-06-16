@@ -17,8 +17,6 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#0b0f14;
 #game{position:fixed;inset:0;width:100%;height:100%;overflow:hidden;touch-action:none}
 canvas{display:block;width:100%;height:100%;touch-action:none}
 #hud{position:absolute;inset:0;pointer-events:none}
-
-/* ─── HP ─── */
 #hpBlock{position:absolute;top:14px;left:14px;z-index:50;width:210px;max-width:48vw;pointer-events:none}
 #hpLabel{display:flex;justify-content:space-between;align-items:center;
   font-size:13px;font-weight:800;color:#fff;margin-bottom:5px;
@@ -29,8 +27,6 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 #hpBarInner{width:100%;height:100%;
   background:linear-gradient(90deg,#3cff7d,#29d65e);border-radius:999px;
   transition:width 0.08s linear}
-
-/* ─── NET BADGE ─── */
 #netBadge{position:absolute;top:14px;right:14px;z-index:160;
   padding:7px 14px;border-radius:999px;font-size:12px;font-weight:900;
   letter-spacing:0.10em;backdrop-filter:blur(4px);
@@ -43,8 +39,6 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
   padding:5px 12px;border-radius:999px;font-size:12px;font-weight:800;
   letter-spacing:0.08em;background:rgba(0,0,0,0.55);
   border:1px solid rgba(255,255,255,0.14);color:rgba(255,255,255,0.88);pointer-events:none}
-
-/* ─── GAME STATUS ─── */
 #status{position:absolute;top:74px;left:14px;z-index:50;color:#fff;
   font-weight:800;letter-spacing:0.04em;text-shadow:0 2px 8px rgba(0,0,0,0.7);line-height:1.6}
 #scoreBoard{font-size:17px;margin-bottom:3px}
@@ -53,8 +47,6 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 #reloadIndicator{display:none;font-size:13px;color:#ffd84d;margin-top:3px;text-shadow:0 0 8px rgba(255,216,77,0.7)}
 #reloadBar{display:none;margin-top:5px;width:140px;height:4px;background:rgba(255,255,255,0.15);border-radius:2px;overflow:hidden}
 #reloadBarFill{height:100%;width:0%;background:linear-gradient(90deg,#ffd84d,#ffb51e);border-radius:2px}
-
-/* ─── CROSSHAIR ─── */
 #crosshair{position:absolute;left:50%;top:50%;width:22px;height:22px;
   transform:translate(-50%,-50%);z-index:10;pointer-events:none}
 #crosshair::before,#crosshair::after{content:"";position:absolute;left:50%;top:50%;
@@ -62,8 +54,6 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
   transform:translate(-50%,-50%);border-radius:2px}
 #crosshair::before{width:22px;height:2px}
 #crosshair::after{width:2px;height:22px}
-
-/* ─── ANNOUNCE ─── */
 #announce{position:absolute;left:50%;top:38%;
   transform:translate(-50%,-50%) scale(0.6);opacity:0;
   color:#ff3b3b;font-size:clamp(38px,9vw,88px);font-weight:900;
@@ -76,8 +66,6 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
   18%{opacity:1;transform:translate(-50%,-50%) scale(1.14)}
   55%{opacity:1;transform:translate(-50%,-50%) scale(1.00)}
   100%{opacity:0;transform:translate(-50%,-50%) scale(0.90)}}
-
-/* ─── KILL FEED ─── */
 #killFeed{position:absolute;top:98px;right:14px;z-index:50;
   pointer-events:none;display:flex;flex-direction:column;gap:5px;align-items:flex-end}
 .kfItem{padding:4px 10px;border-radius:8px;
@@ -85,8 +73,6 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
   font-size:12px;font-weight:700;color:#ff9090;
   animation:kfFade 2.6s ease-out forwards}
 @keyframes kfFade{0%{opacity:1;transform:translateX(0)}80%{opacity:1}100%{opacity:0;transform:translateX(22px)}}
-
-/* ─── CONTROLS ─── */
 #joystick{position:absolute;left:18px;bottom:18px;
   width:min(34vw,170px);height:min(34vw,170px);
   max-width:170px;max-height:170px;min-width:120px;min-height:120px;
@@ -137,10 +123,6 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 #adsBtn:active{transform:scale(0.92);filter:brightness(1.16)}
 #adsBtn.ads-active{border-color:rgba(100,220,255,0.9);box-shadow:0 0 18px rgba(100,200,255,0.5),inset 0 0 12px rgba(100,200,255,0.2)}
 #adsBtn::before{content:"◎";font-size:20px;color:rgba(130,210,255,0.9);text-shadow:0 0 6px rgba(100,200,255,0.6)}
-
-/* ════════════════════════════════════════
-   ★ LOBBY — メインロビー画面
-   ════════════════════════════════════════ */
 #lobbyOverlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
   background:radial-gradient(circle at 18% 18%,rgba(54,126,255,0.26),transparent 24%),
              radial-gradient(circle at 82% 24%,rgba(168,92,255,0.20),transparent 22%),
@@ -152,7 +134,6 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 #lobbyOverlay::before{animation:lobbySweep 8s linear infinite;opacity:0.55}
 #lobbyOverlay::after{animation:lobbySweep 12s linear infinite reverse;opacity:0.28}
 @keyframes lobbySweep{from{transform:translateX(-12%) rotate(-8deg)}to{transform:translateX(12%) rotate(-8deg)}}
-
 #lobbyShell{position:relative;width:min(92vw,1080px);display:grid;
   grid-template-columns:1.25fr 0.9fr;gap:18px;align-items:stretch;z-index:1}
 #lobbyCard,#lobbySide{border-radius:28px;
@@ -162,7 +143,6 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
   backdrop-filter:blur(12px)}
 #lobbyCard{padding:28px 26px 86px;min-height:420px;position:relative}
 #lobbySide{padding:22px 22px 84px;display:flex;flex-direction:column;justify-content:space-between;gap:16px}
-
 #lobbyBadge{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;
   border-radius:999px;background:rgba(120,190,255,0.14);
   border:1px solid rgba(120,190,255,0.26);color:#9fe6ff;
@@ -171,8 +151,6 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
   font-weight:1000;letter-spacing:0.12em;
   text-shadow:0 0 16px rgba(100,220,255,0.34),0 8px 28px rgba(0,0,0,0.75)}
 #lobbySub{margin-top:16px;font-size:clamp(14px,2.5vw,18px);opacity:0.9;line-height:1.7;max-width:42ch}
-
-/* ★ ルーム入力パネル */
 #roomPanel{margin-top:24px;padding:18px 18px 14px;border-radius:20px;
   background:linear-gradient(180deg,rgba(0,0,0,0.22),rgba(255,255,255,0.04));
   border:1px solid rgba(255,255,255,0.12)}
@@ -193,8 +171,6 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
   -webkit-tap-highlight-color:transparent}
 #roomGenBtn:active{filter:brightness(1.3)}
 #roomHint{margin-top:8px;font-size:12px;opacity:0.6;letter-spacing:0.06em}
-
-/* ランクパネル */
 #rankPanel{margin-top:16px;padding:16px 16px 14px;border-radius:20px;
   background:linear-gradient(180deg,rgba(0,0,0,0.18),rgba(255,255,255,0.05));
   border:1px solid rgba(255,255,255,0.10)}
@@ -206,15 +182,12 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 #rankFill{width:0%;height:100%;border-radius:inherit;
   background:linear-gradient(90deg,#68b7ff,#aa67ff);box-shadow:0 0 18px rgba(120,190,255,0.48)}
 #rankHint{margin-top:10px;font-size:12px;opacity:0.72;letter-spacing:0.08em}
-
-/* STATS */
 #lobbyStats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
 .statCard{padding:14px 14px 12px;border-radius:18px;
   background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.10)}
 .statLabel{font-size:11px;letter-spacing:0.18em;opacity:0.68}
 .statValue{margin-top:6px;font-size:22px;font-weight:1000;letter-spacing:0.08em}
 .statSub{margin-top:4px;font-size:12px;opacity:0.7}
-
 #lobbyStartBtn{position:absolute;right:18px;bottom:18px;border:none;
   padding:18px 24px;border-radius:18px;min-width:190px;
   background:linear-gradient(135deg,#32a1ff,#8b5cff 72%,#ff5bbd);
@@ -224,7 +197,6 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
   -webkit-tap-highlight-color:transparent}
 #lobbyStartBtn:active{transform:scale(0.97);filter:brightness(1.08)}
 #lobbyStartBtn:disabled{opacity:0.45;cursor:not-allowed;filter:grayscale(0.4)}
-
 #modePanel{margin-top:18px;padding:16px;border-radius:18px;
   background:linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.04));
   border:1px solid rgba(255,255,255,0.10)}
@@ -239,10 +211,6 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
   border-color:rgba(255,255,255,0.16);
   box-shadow:0 10px 28px rgba(70,110,255,0.22),inset 0 0 14px rgba(255,255,255,0.10)}
 #modeDesc{margin-top:10px;font-size:12px;line-height:1.5;opacity:0.78}
-
-/* ════════════════════════════════════════
-   ★ 待合室オーバーレイ
-   ════════════════════════════════════════ */
 #waitingOverlay{position:absolute;inset:0;display:none;align-items:center;justify-content:center;
   background:radial-gradient(circle at center,rgba(5,12,24,0.72),rgba(0,0,0,0.96));
   z-index:122;pointer-events:auto;color:#fff;text-align:center;overflow:hidden}
@@ -285,8 +253,6 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
   cursor:pointer;pointer-events:auto;touch-action:none;-webkit-tap-highlight-color:transparent}
 #waitingCancelBtn:active{filter:brightness(1.2)}
 @keyframes fadeInRow{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
-
-/* ─── LOADING ─── */
 #loadingOverlay{position:absolute;inset:0;display:none;align-items:center;justify-content:center;
   background:radial-gradient(circle at center,rgba(8,14,24,0.72),rgba(0,0,0,0.96));
   z-index:125;color:#fff;text-align:center}
@@ -307,8 +273,6 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
   background:linear-gradient(90deg,#62e0ff,#6d7bff,#d06dff);
   animation:loadingFlow 1.2s ease-in-out infinite}
 @keyframes loadingFlow{0%{transform:translateX(-70%)}50%{transform:translateX(90%)}100%{transform:translateX(-70%)}}
-
-/* ─── RESULT ─── */
 #resultOverlay{position:absolute;inset:0;display:none;align-items:center;justify-content:center;
   flex-direction:column;
   background:radial-gradient(circle at center,rgba(15,20,33,0.58),rgba(0,0,0,0.94));
@@ -318,16 +282,12 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
   animation:resultPop 0.95s ease-out infinite alternate}
 #resultSub{margin-top:14px;font-size:clamp(14px,3vw,20px);opacity:0.88;letter-spacing:0.08em}
 @keyframes resultPop{from{transform:scale(0.98);filter:brightness(1.0)}to{transform:scale(1.03);filter:brightness(1.2)}}
-
-/* ─── ROTATE ─── */
 #rotateOverlay{position:absolute;inset:0;display:none;align-items:center;
   justify-content:center;text-align:center;
   background:rgba(4,8,14,0.96);color:#ffffff;z-index:200;pointer-events:all;
   padding:24px;box-sizing:border-box;
   font-size:clamp(18px,4.5vw,30px);font-weight:800;letter-spacing:0.05em;line-height:1.6}
 @media (orientation:portrait){#rotateOverlay{display:flex}}
-
-/* ─── フォーカス除去（iOS向け） ─── */
 input,button{-webkit-appearance:none;appearance:none}
 </style>
 </head>
@@ -335,7 +295,6 @@ input,button{-webkit-appearance:none;appearance:none}
 <div id="game">
   <canvas id="c"></canvas>
   <div id="hud">
-    <!-- ゲーム中HUD -->
     <div id="hpBlock">
       <div id="hpLabel"><span>💚 HP</span><span id="hpText">100 / 100</span></div>
       <div id="hpBarOuter"><div id="hpBarInner"></div></div>
@@ -357,15 +316,12 @@ input,button{-webkit-appearance:none;appearance:none}
     <button id="reloadBtn" aria-label="リロード"></button>
     <button id="adsBtn" aria-label="ADS"></button>
 
-    <!-- ★ ロビー -->
     <div id="lobbyOverlay">
       <div id="lobbyShell">
         <div id="lobbyCard">
           <div id="lobbyBadge">NEON // ONLINE ARENA</div>
           <div id="lobbyTitle">NEON ARENA<br>ONLINE</div>
           <div id="lobbySub">部屋番号を入力して、同じ番号の本物のプレイヤーとマッチング。</div>
-
-          <!-- ★ルーム番号入力 -->
           <div id="roomPanel">
             <div id="roomPanelLabel">ROOM NUMBER（4桁）</div>
             <div id="roomInputRow">
@@ -376,7 +332,6 @@ input,button{-webkit-appearance:none;appearance:none}
             </div>
             <div id="roomHint">同じ番号の相手が入室するとマッチング開始</div>
           </div>
-
           <div id="rankPanel">
             <div id="rankRow"><span id="rankName">ブロンズ I</span><span id="rankPct">0%</span></div>
             <div id="rankBar"><div id="rankFill"></div></div>
@@ -384,7 +339,6 @@ input,button{-webkit-appearance:none;appearance:none}
           </div>
           <button id="lobbyStartBtn" disabled>部屋に入る</button>
         </div>
-
         <div id="lobbySide">
           <div id="lobbyStats">
             <div class="statCard"><div class="statLabel">MODE</div><div class="statValue" id="lobbyModeValue">RANKED</div><div class="statSub">CASUAL / RANKED</div></div>
@@ -404,7 +358,6 @@ input,button{-webkit-appearance:none;appearance:none}
       </div>
     </div>
 
-    <!-- ★ 待合室 -->
     <div id="waitingOverlay">
       <div id="waitingCard">
         <div id="waitingRoomNum">ROOM NUMBER</div>
@@ -416,12 +369,11 @@ input,button{-webkit-appearance:none;appearance:none}
           <div id="playerList"></div>
         </div>
         <div id="waitingProgress"><div id="waitingProgressFill"></div></div>
-        <div id="waitingHint" id="waitingHint">人数が揃ったら自動でゲーム開始</div>
+        <div id="waitingHint">人数が揃ったら自動でゲーム開始</div>
         <button id="waitingCancelBtn">← 戻る</button>
       </div>
     </div>
 
-    <!-- ローディング -->
     <div id="loadingOverlay">
       <div id="loadingCard">
         <div id="loadingSpinner"></div>
@@ -430,7 +382,6 @@ input,button{-webkit-appearance:none;appearance:none}
         <div id="loadingBar"><div id="loadingFill"></div></div>
       </div>
     </div>
-    <!-- リザルト -->
     <div id="resultOverlay">
       <div id="resultText">YOUR TEAM WON</div>
       <div id="resultSub">LOADING BACK TO THE HUB...</div>
@@ -443,9 +394,6 @@ input,button{-webkit-appearance:none;appearance:none}
 (function(){
 'use strict';
 
-// ══════════════════════════════════════════
-//  CONFIG
-// ══════════════════════════════════════════
 var RENDER_SERVER_URL  = 'https://r-cjyh.onrender.com';
 var PLAYER_NAME        = new URLSearchParams(location.search).get('name') || ('P'+Math.floor(Math.random()*9000+1000));
 var WIN_SCORE          = 5;
@@ -461,12 +409,8 @@ var SEND_HZ            = 50;
 var BOT_COUNT          = 5;
 var BOT_HP             = 100;
 var BOT_MOVE           = 2.2;
-// ★ 部屋内プレイヤー数（この人数で自動スタート）
 var MATCH_PLAYER_MIN   = 2;
 
-// ══════════════════════════════════════════
-//  DOM REFS
-// ══════════════════════════════════════════
 var canvas            = document.getElementById('c');
 var shootBtn          = document.getElementById('shootBtn');
 var reloadBtn         = document.getElementById('reloadBtn');
@@ -505,7 +449,6 @@ var onlineCountEl     = document.getElementById('onlineCount');
 var lobbyNetValue     = document.getElementById('lobbyNetValue');
 var lobbyRoomValue    = document.getElementById('lobbyRoomValue');
 var killFeedEl        = document.getElementById('killFeed');
-// ★ 新規
 var roomInput         = document.getElementById('roomInput');
 var roomGenBtn        = document.getElementById('roomGenBtn');
 var waitingOverlay    = document.getElementById('waitingOverlay');
@@ -518,9 +461,6 @@ var playerListEl      = document.getElementById('playerList');
 var waitingProgressFill = document.getElementById('waitingProgressFill');
 var waitingCancelBtn  = document.getElementById('waitingCancelBtn');
 
-// ══════════════════════════════════════════
-//  THREE.JS r128
-// ══════════════════════════════════════════
 var T = window.THREE;
 
 var renderer = new T.WebGLRenderer({canvas:canvas,antialias:true,alpha:false,powerPreference:'high-performance'});
@@ -587,9 +527,6 @@ function makeCapsuleMesh(radiusTop,radiusBot,height,mat){
   return group;
 }
 
-// ══════════════════════════════════════════
-//  RANK
-// ══════════════════════════════════════════
 var BASE_RANKS = ['ブロンズ','シルバー','ゴールド','プラチナ','ダイヤ','マスター','神'];
 var RANK_STEPS = ['I','II','III','IV','V'];
 var RANKS = [];
@@ -599,14 +536,12 @@ var matchMode = 'ranked';
 var rankXp    = 0;
 
 function clamp01(v){ return Math.max(0,Math.min(1,v)); }
-
 function getRankState(xp){
   var xpPer = 100;
   var idx = Math.min(Math.floor(xp/xpPer), RANKS.length-1);
   var pct = idx===RANKS.length-1?1:clamp01((xp-idx*xpPer)/xpPer);
   return {index:idx,name:RANKS[idx],percent:pct};
 }
-
 function saveRank(){ try{localStorage.setItem(RANK_KEY,JSON.stringify({xp:rankXp}));}catch(e){} }
 function loadRank(){
   try{
@@ -614,14 +549,12 @@ function loadRank(){
     if(Number.isFinite(d&&d.xp)) rankXp=Math.max(0,d.xp);
   }catch(e){}
 }
-
 function updateRankUI(){
   var st=getRankState(rankXp);
   if(rankNameEl) rankNameEl.textContent=st.name;
   if(rankPctEl)  rankPctEl.textContent=Math.round(st.percent*100)+'%';
   if(rankFillEl) rankFillEl.style.width=Math.max(4,st.percent*100)+'%';
 }
-
 function addRankXp(amount){
   if(matchMode!=='ranked') return;
   var before=getRankState(rankXp).index;
@@ -630,19 +563,14 @@ function addRankXp(amount){
   if(getRankState(rankXp).index>before) showAnnouncement('RANK UP! 🎉');
 }
 
-// ══════════════════════════════════════════
-//  AUDIO
-// ══════════════════════════════════════════
 var audioCtx   = null;
 var audioReady = false;
 var gunAudio   = null;
-
 function unlockAudio(){
   if(audioReady) return;
   audioReady=true;
   try{audioCtx=new(window.AudioContext||window.webkitAudioContext)();}catch(e){}
 }
-
 function playGunSound(){
   if(gunAudio){ try{gunAudio.currentTime=0;gunAudio.play().catch(function(){});}catch(e){} return; }
   if(!audioCtx) return;
@@ -662,16 +590,12 @@ function playGunSound(){
     src.start();
   }catch(e){}
 }
-
 (function(){
   var a=new Audio('ju.mp3');
   a.addEventListener('canplaythrough',function(){gunAudio=a;},{once:true});
   a.load();
 })();
 
-// ══════════════════════════════════════════
-//  GUN
-// ══════════════════════════════════════════
 var gunRoot       = null;
 var gunPosCurrent = new T.Vector3(0.25,-0.22,-0.45);
 var gunPosTarget  = new T.Vector3(0.25,-0.22,-0.45);
@@ -699,7 +623,6 @@ function buildProceduralGun(){
   dot.position.set(0,0.054,-0.12);g.add(dot);
   return g;
 }
-
 (function(){
   if(typeof T.GLTFLoader!=='undefined'){
     var loader=new T.GLTFLoader();
@@ -727,7 +650,6 @@ function buildProceduralGun(){
 })();
 
 var muzzleFlashes=[];
-
 function createMuzzleFlash(){
   var fg=new T.Group();
   var cm=new T.MeshStandardMaterial({color:0xffffff,emissive:0xffffff,emissiveIntensity:12,transparent:true,opacity:1.0,roughness:0});
@@ -737,7 +659,6 @@ function createMuzzleFlash(){
   uiScene.add(fg);
   muzzleFlashes.push({group:fg,life:0.06,maxLife:0.06});
 }
-
 function updateMuzzleFlashes(dt){
   for(var i=muzzleFlashes.length-1;i>=0;i--){
     var f=muzzleFlashes[i]; f.life-=dt;
@@ -755,7 +676,6 @@ function updateMuzzleFlashes(dt){
     var q=new T.Quaternion();camera.getWorldQuaternion(q);f.group.quaternion.copy(q);
   }
 }
-
 function updateGun(dt){
   if(!gunRoot) return;
   gunState.recoil=T.MathUtils.lerp(gunState.recoil,0,1-Math.exp(-(adsActive?20:15)*dt));
@@ -777,21 +697,15 @@ function updateGun(dt){
   var qp=new T.Quaternion().setFromAxisAngle(new T.Vector3(1,0,0),-r*0.08);
   gunRoot.quaternion.copy(qc).multiply(qp);
 }
-
 function triggerRecoil(){ gunState.recoil=Math.min(1.0,gunState.recoil+(adsActive?0.04:0.12)); }
 
-// ══════════════════════════════════════════
-//  BOTS
-// ══════════════════════════════════════════
 var botMeshes=[], botGroup=new T.Group();
 scene.add(botGroup);
 var botHPs=[], botAlive=[];
-
 var BOT_POSITIONS=[
   new T.Vector3(-12,0,-18),new T.Vector3(-6,0,-22),
   new T.Vector3(0,0,-24),new T.Vector3(6,0,-22),new T.Vector3(12,0,-18)
 ];
-
 function createBotMesh(index){
   var g=new T.Group();
   var bodyMat=new T.MeshStandardMaterial({color:0xcc2222,roughness:0.65,metalness:0.05,emissive:new T.Color(0x440000),emissiveIntensity:0.3});
@@ -806,7 +720,6 @@ function createBotMesh(index){
   g.userData.botIndex=index;
   return g;
 }
-
 function spawnBot(index){
   if(botMeshes[index]) botGroup.remove(botMeshes[index]);
   var mesh=createBotMesh(index);
@@ -814,12 +727,10 @@ function spawnBot(index){
   mesh.position.set(basePos.x+(Math.random()-0.5)*8,0,Math.max(basePos.z-5,-27)+(Math.random()-0.5)*4);
   botGroup.add(mesh); botMeshes[index]=mesh; botHPs[index]=BOT_HP; botAlive[index]=true;
 }
-
 function initBots(){ for(var i=0;i<BOT_COUNT;i++) spawnBot(i); }
 
 var botMoveTimers=[], botMoveDirs=[];
 for(var bi=0;bi<BOT_COUNT;bi++){botMoveTimers[bi]=Math.random()*2;botMoveDirs[bi]=(Math.random()<0.5?1:-1);}
-
 function updateBots(dt){
   for(var i=0;i<BOT_COUNT;i++){
     if(!botAlive[i]) continue;
@@ -836,9 +747,7 @@ function updateBots(dt){
     }
   }
 }
-
 var raycaster=new T.Raycaster();
-
 function checkBotHit(){
   raycaster.setFromCamera(new T.Vector2(0,0),camera);
   var all=[]; botGroup.traverse(function(obj){if(obj.isMesh)all.push(obj);});
@@ -861,9 +770,6 @@ function checkBotHit(){
   return false;
 }
 
-// ══════════════════════════════════════════
-//  GAME STATE
-// ══════════════════════════════════════════
 var GAME_MODE={LOBBY:'lobby',WAITING:'waiting',LOADING:'loading',BATTLE:'battle',RESULT:'result'};
 var gameMode     = GAME_MODE.LOBBY;
 var blueScore    = 0, redScore = 0, roundIndex = 1;
@@ -874,7 +780,6 @@ var reloading    = false, reloadTimer = 0;
 var firingHeld   = false, fireLoopTimer = null;
 var portraitMode = false;
 var returnTimer  = null;
-
 var player  = {hp:100,maxHp:100,hurtFlash:0,alive:true};
 var joy     = {x:0,y:0};
 var aim     = {lastX:0,lastY:0};
@@ -882,16 +787,19 @@ var moveVel = {x:0,z:0};
 var joyTouchId=null, aimTouchId=null;
 
 // ══════════════════════════════════════════
-//  ★ ROOM SYSTEM
+// ★ ROOM SYSTEM
 // ══════════════════════════════════════════
 var currentRoom     = '';
-var roomPlayers     = {};   // { socketId: {name, team, alive} }
+// ★ FIX: roomPlayers は ID→info の Map として管理
+// キー: socketId, 値: {name, team, alive}
+var roomPlayers     = {};
 var inWaiting       = false;
+// ★ FIX: ゲーム開始済みフラグ（二重起動防止）
+var battleLaunched  = false;
 
 function getRoomInput(){
   return (roomInput.value||'').replace(/[^0-9]/g,'').slice(0,4);
 }
-
 function setRoomInputValid(){
   var v = getRoomInput();
   var ok = v.length===4;
@@ -905,7 +813,6 @@ roomInput.addEventListener('input',function(){
 });
 roomInput.addEventListener('touchstart',function(e){ e.stopPropagation(); },{passive:true});
 roomInput.addEventListener('click',function(e){ e.stopPropagation(); });
-
 roomGenBtn.addEventListener('touchstart',function(e){
   e.preventDefault(); e.stopPropagation();
   roomInput.value = String(Math.floor(Math.random()*9000)+1000);
@@ -917,49 +824,54 @@ roomGenBtn.addEventListener('click',function(e){
   setRoomInputValid();
 });
 
-// 待合室プレイヤーリスト更新
+// ★ 待合室プレイヤーリスト更新
 function updateWaitingUI(){
+  var myId = socket && socket.id;
   var ids = Object.keys(roomPlayers);
-  // 自分を先頭に
-  var myId = socket&&socket.id;
+
+  // 自分を先頭にソート
   ids.sort(function(a,b){
-    if(a===myId) return -1; if(b===myId) return 1; return 0;
+    if(a===myId) return -1;
+    if(b===myId) return 1;
+    return 0;
   });
+
   var count = ids.length;
   waitingCountText.textContent = count > 1
-    ? (count+'人が入室中')
+    ? (count + '人が入室中')
     : 'あなたのみ';
+
   var pct = Math.min(1, count / MATCH_PLAYER_MIN);
-  waitingProgressFill.style.width = (pct*100)+'%';
+  waitingProgressFill.style.width = (pct * 100) + '%';
 
   // リスト描画
   playerListEl.innerHTML = '';
   ids.forEach(function(id){
     var p = roomPlayers[id];
-    var isMe = (id===myId);
+    var isMe = (id === myId);
     var div = document.createElement('div');
-    div.className = 'playerItem'+(isMe?' me':'');
-    var team = p.team||'blue';
+    div.className = 'playerItem' + (isMe ? ' me' : '');
+    var team = (p && p.team) || 'blue';
     div.innerHTML =
-      '<div class="playerAvatar '+team+'">'+
-        (team==='blue'?'🔵':'🔴')+
-      '</div>'+
-      '<span class="playerName">'+(p.name||'??')+'</span>'+
-      '<span class="playerTag">'+(isMe?'YOU':'')+'</span>';
+      '<div class="playerAvatar ' + team + '">' +
+        (team === 'blue' ? '🔵' : '🔴') +
+      '</div>' +
+      '<span class="playerName">' + ((p && p.name) || '??') + '</span>' +
+      '<span class="playerTag">' + (isMe ? 'YOU' : '') + '</span>';
     playerListEl.appendChild(div);
   });
 
-  onlineCountEl.textContent = '👥 同室: '+count+'人';
+  onlineCountEl.textContent = '👥 同室: ' + count + '人';
 
-  // MATCH_PLAYER_MIN 人揃ったら自動スタート
-  if(count >= MATCH_PLAYER_MIN && inWaiting && gameMode===GAME_MODE.WAITING){
-    console.log('🎉 '+count+'人揃った！ゲーム開始！');
+  // ★ MATCH_PLAYER_MIN 人揃ったら自動スタート
+  if(count >= MATCH_PLAYER_MIN && inWaiting && gameMode === GAME_MODE.WAITING && !battleLaunched){
+    console.log('🎉 ' + count + '人揃った！ゲーム開始！');
     _launchBattle();
   }
 }
 
 // ══════════════════════════════════════════
-//  SOCKET
+// SOCKET
 // ══════════════════════════════════════════
 var remoteAvatars = new Map();
 var netGroup = new T.Group();
@@ -972,7 +884,6 @@ function setNetBadge(state,text){
   if(lobbyNetValue) lobbyNetValue.textContent=
     state==='online'?'ONLINE':state==='offline'?'OFFLINE':'接続中...';
 }
-
 function makeRemoteAvatar(team){
   var g=new T.Group();
   var isB=team==='blue';
@@ -982,21 +893,18 @@ function makeRemoteAvatar(team){
   var hd=new T.Mesh(new T.SphereGeometry(0.22,12,10),hm); hd.position.y=1.45; g.add(hd);
   return g;
 }
-
 function ensureAvatar(id,team){
   if(remoteAvatars.has(id)) return remoteAvatars.get(id);
   var av=makeRemoteAvatar(team||'blue');
   netGroup.add(av); remoteAvatars.set(id,av);
   return av;
 }
-
 function removeAvatar(id){
   var av=remoteAvatars.get(id); if(!av) return;
   netGroup.remove(av);
   av.traverse(function(o){if(o.isMesh){if(o.geometry)o.geometry.dispose();if(o.material)o.material.dispose();}});
   remoteAvatars.delete(id);
 }
-
 function clearAllAvatars(){ remoteAvatars.forEach(function(_,id){removeAvatar(id);}); }
 
 function spawnRemoteShotFX(data){
@@ -1013,12 +921,38 @@ function spawnRemoteShotFX(data){
   setTimeout(function(){scene.remove(mesh);geom.dispose();mat.dispose();},90);
 }
 
-// ★ サーバーから room-players イベントを受け取る
-// （サーバー側で対応してない場合はフォールバック currentPlayers を流用）
-function handleRoomPlayers(data){
-  if(!data||!data.room||data.room!==currentRoom) return;
-  roomPlayers = data.players||{};
-  if(inWaiting&&gameMode===GAME_MODE.WAITING) updateWaitingUI();
+// ★ FIX: currentPlayers のフィルタリングロジックを修正
+// サーバーが room フィールドを返さない場合でも全員受け取れるように
+function applyCurrentPlayers(players){
+  if(!players || !inWaiting) return;
+
+  var myId = socket && socket.id;
+  var newPlayers = {};
+
+  // ★ 自分は必ず追加（socket.id が確定している場合）
+  if(myId && roomPlayers[myId]){
+    newPlayers[myId] = roomPlayers[myId];
+  }
+
+  Object.keys(players).forEach(function(id){
+    if(id === myId) return; // 自分はスキップ（上で追加済み）
+    var p = players[id];
+    if(!p) return;
+
+    // ★ FIX: room フィールドがある場合のみ部屋チェック、なければ全員受け入れ
+    var playerRoom = p.room || p.roomId || null;
+    if(playerRoom && playerRoom !== currentRoom) return; // 違う部屋は除外
+
+    // room フィールドがない（古いサーバー）場合は全員受け入れ
+    newPlayers[id] = {
+      name: p.name || p.playerId || id,
+      team: p.team || 'blue',
+      alive: p.alive !== false
+    };
+  });
+
+  roomPlayers = newPlayers;
+  updateWaitingUI();
 }
 
 function initSocket(){
@@ -1039,66 +973,87 @@ function initSocket(){
     netOnline=true;
     setNetBadge('online','🟢 ONLINE');
     loadingOverlay.style.display='none';
-    // 待合室中なら再入室
-    if(inWaiting&&currentRoom){
-      socket.emit('join-room',{room:currentRoom,name:PLAYER_NAME,team:'blue',matchMode:matchMode});
-      socket.emit('request-room-players',{room:currentRoom});
+    console.log('✅ socket connected: id=' + socket.id);
+
+    // ★ FIX: 接続確立後に join-room を送信（待合室中の場合）
+    if(inWaiting && currentRoom){
+      console.log('🔄 再接続後 join-room 送信: room=' + currentRoom);
+
+      // ★ 自分を roomPlayers に確実に追加
+      if(socket.id){
+        roomPlayers[socket.id] = {name: PLAYER_NAME, team: 'blue', alive: true};
+      }
+
+      socket.emit('join-room', {
+        room: currentRoom,
+        name: PLAYER_NAME,
+        team: 'blue',
+        matchMode: matchMode
+      });
+      // 少し待ってから部屋情報をリクエスト
+      setTimeout(function(){
+        if(socket && socket.connected){
+          socket.emit('request-room-players', {room: currentRoom});
+          socket.emit('get-room', {room: currentRoom});
+        }
+      }, 300);
+
+      updateWaitingUI();
     }
   });
 
   socket.on('connect_error',function(err){
     setNetBadge('offline','🔴 接続エラー');
-    console.warn('connect_error:',err&&err.message);
+    console.warn('connect_error:', err && err.message);
   });
-
   socket.on('reconnect_attempt',function(n){
     setNetBadge('connecting','🟡 再試行 #'+n);
   });
-
   socket.on('reconnect',function(){
     netOnline=true; setNetBadge('online','🟢 ONLINE');
     loadingOverlay.style.display='none';
-    if(inWaiting&&currentRoom){
-      socket.emit('join-room',{room:currentRoom,name:PLAYER_NAME,team:'blue',matchMode:matchMode});
-    }
   });
-
   socket.on('reconnect_failed',function(){
     setNetBadge('offline','🔴 接続失敗');
     loadingOverlay.style.display='none';
   });
-
   socket.on('disconnect',function(reason){
     netOnline=false; clearAllAvatars();
     setNetBadge('offline','🔴 切断: '+reason);
-    if(inWaiting){ roomPlayers={}; updateWaitingUI(); }
   });
 
-  // ── 既存イベント ──
+  // ─── 既存イベント ───
+  // ★ FIX: currentPlayers は修正済み applyCurrentPlayers で処理
   socket.on('currentPlayers',function(p){
-    // 待合室中は roomPlayers に流し込む
-    if(inWaiting&&currentRoom){
-      // サーバーが room-players を送らない場合のフォールバック
-      // 同じroom nameのプレイヤーだけに絞る
-      var filtered={};
-      Object.keys(p||{}).forEach(function(id){
-        if((p[id].room||p[id].name)&&(p[id].room===currentRoom)){
-          filtered[id]=p[id];
-        }
-      });
-      // room情報がない古いサーバーの場合は全員表示
-      if(Object.keys(filtered).length===0) filtered=p||{};
-      roomPlayers=filtered;
-      updateWaitingUI();
+    console.log('📋 currentPlayers received:', Object.keys(p||{}).length, '人');
+    if(inWaiting && currentRoom){
+      applyCurrentPlayers(p);
     }
   });
 
+  // ★ FIX: newPlayer — 同じ部屋の人だけ roomPlayers に追加
   socket.on('newPlayer',function(d){
-    if(!d||!d.id||(socket&&d.id===socket.id)) return;
-    if(d.room&&d.room!==currentRoom) return;
-    ensureAvatar(d.id,d.team||'blue');
+    if(!d || !d.id) return;
+    var myId = socket && socket.id;
+    if(d.id === myId) return; // 自分は除外
+
+    console.log('👤 newPlayer:', d.id, d.name, 'room:', d.room);
+
+    // ★ FIX: room チェック — room フィールドがない場合は受け入れる
+    if(d.room && d.room !== currentRoom){
+      console.log('❌ 違う部屋のプレイヤー:', d.room, '≠', currentRoom);
+      return;
+    }
+
+    ensureAvatar(d.id, d.team || 'blue');
+
     if(inWaiting){
-      if(!roomPlayers[d.id]) roomPlayers[d.id]={name:d.name||'??',team:d.team||'blue',alive:true};
+      roomPlayers[d.id] = {
+        name: d.name || '??',
+        team: d.team || 'blue',
+        alive: true
+      };
+      console.log('✅ roomPlayers に追加:', d.id, '合計:', Object.keys(roomPlayers).length, '人');
       updateWaitingUI();
     }
   });
@@ -1111,39 +1066,73 @@ function initSocket(){
     av.rotation.y=Number(d.ry)||0;
     av.visible=(gameMode===GAME_MODE.BATTLE);
   });
-
   socket.on('playerShot',function(d){
     if(!d||!d.id||(socket&&d.id===socket.id)) return;
     spawnRemoteShotFX(d);
   });
 
+  // ★ FIX: playerDisconnected — roomPlayers からも削除
   socket.on('playerDisconnected',function(d){
     var id=d&&(d.id||d); if(!id) return;
     removeAvatar(id);
-    if(roomPlayers[id]){ delete roomPlayers[id]; if(inWaiting) updateWaitingUI(); }
-  });
-
-  // ★ サーバーが対応していれば room-players / room-state を受け取る
-  socket.on('room-players',function(data){ handleRoomPlayers(data); });
-  socket.on('room-state',function(pl){
-    if(!pl||pl.room!==currentRoom) return;
-    if(inWaiting){ roomPlayers=pl.players||{}; updateWaitingUI(); }
-    else {
-      Object.keys(pl.players||{}).forEach(function(id){
-        if(socket&&id===socket.id) return;
-        var s=pl.players[id];
-        var av=ensureAvatar(id,s.team||'blue');
-        av.position.set(Number(s.x)||0,0,Number(s.z)||0);
-        av.rotation.y=Number(s.ry)||0;
-      });
+    if(roomPlayers[id]){
+      console.log('👋 プレイヤー退室:', id);
+      delete roomPlayers[id];
+      if(inWaiting) updateWaitingUI();
     }
   });
 
-  // ★ サーバーが "game-start" を送れる場合の対応
+  // ★ サーバーが room-players を送る場合
+  socket.on('room-players',function(data){
+    if(!data) return;
+    console.log('🏠 room-players received:', data.room, Object.keys(data.players||{}).length, '人');
+    if(data.room && data.room !== currentRoom) return;
+    if(!inWaiting || gameMode !== GAME_MODE.WAITING) return;
+
+    var myId = socket && socket.id;
+    var newPlayers = {};
+
+    // 自分を確実に追加
+    if(myId){
+      newPlayers[myId] = roomPlayers[myId] || {name: PLAYER_NAME, team: 'blue', alive: true};
+    }
+
+    Object.keys(data.players || {}).forEach(function(id){
+      if(id === myId) return;
+      var p = data.players[id];
+      newPlayers[id] = {name: p.name || '??', team: p.team || 'blue', alive: p.alive !== false};
+    });
+
+    roomPlayers = newPlayers;
+    updateWaitingUI();
+  });
+
+  socket.on('room-state',function(pl){
+    if(!pl || pl.room !== currentRoom) return;
+    if(inWaiting){
+      var myId = socket && socket.id;
+      var newPlayers = {};
+      if(myId){
+        newPlayers[myId] = roomPlayers[myId] || {name: PLAYER_NAME, team: 'blue', alive: true};
+      }
+      Object.keys(pl.players||{}).forEach(function(id){
+        if(id === myId) return;
+        var s = pl.players[id];
+        newPlayers[id] = {name: s.name || '??', team: s.team || 'blue', alive: true};
+        var av = ensureAvatar(id, s.team || 'blue');
+        av.position.set(Number(s.x)||0, 0, Number(s.z)||0);
+        av.rotation.y = Number(s.ry)||0;
+      });
+      roomPlayers = newPlayers;
+      updateWaitingUI();
+    }
+  });
+
+  // ★ サーバーが game-start を送る場合
   socket.on('game-start',function(data){
-    if(data&&data.room&&data.room!==currentRoom) return;
-    if(inWaiting&&gameMode===GAME_MODE.WAITING){
-      console.log('📡 game-start received from server');
+    if(data && data.room && data.room !== currentRoom) return;
+    console.log('📡 game-start received');
+    if(inWaiting && gameMode === GAME_MODE.WAITING && !battleLaunched){
       _launchBattle();
     }
   });
@@ -1160,58 +1149,85 @@ setInterval(function(){
 },SEND_HZ);
 
 // ══════════════════════════════════════════
-//  GAME FLOW
+// GAME FLOW
 // ══════════════════════════════════════════
 
-// ★ 部屋に入る
+// ★ 部屋に入る（FIX版）
 function enterRoom(){
   var num = getRoomInput();
-  if(num.length!==4){ return; }
+  if(num.length !== 4){ return; }
   unlockAudio();
   currentRoom = num;
+  battleLaunched = false;
 
-  // 自分を roomPlayers に追加
+  // ★ FIX: roomPlayers は空にリセット（自分は connect 後に追加）
   roomPlayers = {};
-  if(socket&&socket.id){
-    roomPlayers[socket.id] = {name:PLAYER_NAME,team:'blue',alive:true};
-  }
 
   inWaiting = true;
   gameMode  = GAME_MODE.WAITING;
 
-  // 待合室UI設定
-  waitingRoomNum.textContent  = 'ROOM  #'+num;
+  waitingRoomNum.textContent  = 'ROOM  #' + num;
   waitingTitle.textContent    = 'WAITING FOR PLAYERS';
   waitingSubtitle.textContent = '同じ部屋の本物のプレイヤーを待っています';
 
   setModeUI();
-  updateWaitingUI();
 
-  // ソケット接続＋部屋参加
-  if(netOnline&&socket&&socket.connected){
-    socket.emit('join-room',{room:currentRoom,name:PLAYER_NAME,team:'blue',matchMode:matchMode});
-    socket.emit('request-room-players',{room:currentRoom});
+  // ★ FIX: socket が既に接続済みかどうかで分岐
+  if(socket && socket.connected){
+    // 接続済みの場合はすぐに自分を追加して join-room 送信
+    var myId = socket.id;
+    if(myId){
+      roomPlayers[myId] = {name: PLAYER_NAME, team: 'blue', alive: true};
+    }
+
+    console.log('🚪 join-room 送信: room=' + currentRoom + ' myId=' + myId);
+    socket.emit('join-room', {
+      room: currentRoom,
+      name: PLAYER_NAME,
+      team: 'blue',
+      matchMode: matchMode
+    });
+
+    // 部屋の既存プレイヤーを取得
     setTimeout(function(){
-      if(socket&&socket.connected){
-        socket.emit('request-room-players',{room:currentRoom});
+      if(socket && socket.connected){
+        socket.emit('request-room-players', {room: currentRoom});
+        socket.emit('get-room', {room: currentRoom});
       }
-    },800);
+    }, 200);
+
+    // ★ 追加のポーリング（サーバーが遅い場合対策）
+    setTimeout(function(){
+      if(socket && socket.connected && inWaiting){
+        socket.emit('request-room-players', {room: currentRoom});
+        console.log('🔄 2回目のリクエスト送信');
+      }
+    }, 1500);
+
+    updateWaitingUI();
   } else {
-    console.log('⏳ socket未接続 — 接続待ち');
+    // ★ FIX: 未接続の場合は接続を試みる（connect イベントで自動的に join-room が送られる）
+    console.log('⏳ socket未接続 — 接続待ち。接続後に join-room が送られます');
+    if(!socket){
+      initSocket();
+    }
+    // socket が null（initSocket 未呼び出し）の場合は接続を開始
+    // connect イベントハンドラー内で join-room が送信される
+    updateWaitingUI();
   }
 
-  console.log('🚪 部屋に入りました: room='+currentRoom);
+  console.log('🚪 部屋に入りました: room=' + currentRoom);
 }
 
-// ★ バトル開始
 function _launchBattle(){
-  if(gameMode===GAME_MODE.BATTLE) return;
-  inWaiting=false;
-  loadingTextEl.textContent='DEPLOYING';
-  loadingSubEl.textContent='戦場を同期しています...';
-  gameMode=GAME_MODE.LOADING;
+  if(gameMode === GAME_MODE.BATTLE || battleLaunched) return;
+  battleLaunched = true;
+  inWaiting = false;
+  loadingTextEl.textContent = 'DEPLOYING';
+  loadingSubEl.textContent  = '戦場を同期しています...';
+  gameMode = GAME_MODE.LOADING;
   setModeUI();
-  setTimeout(function(){ _startBattleImmediate(); },600);
+  setTimeout(function(){ _startBattleImmediate(); }, 600);
 }
 
 function _startBattleImmediate(){
@@ -1248,8 +1264,11 @@ function showFinalResult(won){
 function returnToLobby(){
   if(returnTimer) clearTimeout(returnTimer);
   blueScore=0;redScore=0;roundIndex=1;
-  matchOver=false;inWaiting=false;currentRoom='';roomPlayers={};
-  if(socket&&socket.connected) socket.emit('leave-room',{room:currentRoom,name:PLAYER_NAME});
+  matchOver=false;inWaiting=false;battleLaunched=false;
+  if(socket&&socket.connected&&currentRoom){
+    socket.emit('leave-room',{room:currentRoom,name:PLAYER_NAME});
+  }
+  currentRoom='';roomPlayers={};
   gameMode=GAME_MODE.LOBBY;
   camera.position.set(0,14,30);camera.lookAt(0,0,0);
   resetInputLocks();setModeUI();
@@ -1258,27 +1277,24 @@ function returnToLobby(){
 }
 
 function leaveWaiting(){
-  inWaiting=false;roomPlayers={};
+  inWaiting=false;battleLaunched=false;
   if(socket&&socket.connected&&currentRoom){
     socket.emit('leave-room',{room:currentRoom,name:PLAYER_NAME});
   }
-  currentRoom='';
+  roomPlayers={};currentRoom='';
   gameMode=GAME_MODE.LOBBY;setModeUI();
 }
 
 // ══════════════════════════════════════════
-//  PLAYER MOVEMENT
+// PLAYER MOVEMENT
 // ══════════════════════════════════════════
 var MAP_BORDER=29;
-
 function clampCamera(){
   camera.position.x=T.MathUtils.clamp(camera.position.x,-MAP_BORDER,MAP_BORDER);
   camera.position.z=T.MathUtils.clamp(camera.position.z,-MAP_BORDER,MAP_BORDER);
   camera.position.y=1.6;
 }
-
 function syncCameraRotation(){camera.rotation.x=pitch;camera.rotation.y=yaw;}
-
 function movePlayer(dt){
   if(!player.alive) return;
   syncCameraRotation();
@@ -1301,24 +1317,20 @@ function movePlayer(dt){
   camera.position.x+=moveVel.x*dt;camera.position.z+=moveVel.z*dt;
   clampCamera();
 }
-
 function setADS(a){
   adsActive=a;
   adsBtn.classList.toggle('ads-active',a);
   gunPosTarget.copy(a?GUN_POS_ADS:GUN_POS_NORMAL);
 }
-
 function resetInputLocks(){
   firingHeld=false;
   if(fireLoopTimer!==null){clearInterval(fireLoopTimer);fireLoopTimer=null;}
   joyTouchId=null;aimTouchId=null;
   resetJoystickVisual();setADS(false);
 }
-
 function resetJoystickVisual(){
   joy.x=0;joy.y=0;knobEl.style.transform='translate(-50%, -50%)';
 }
-
 function setJoystickFromTouch(t){
   var r=joystickEl.getBoundingClientRect();
   var cx=r.left+r.width/2,cy=r.top+r.height/2;
@@ -1328,7 +1340,6 @@ function setJoystickFromTouch(t){
   joy.x=dx/max;joy.y=dy/max;
   knobEl.style.transform='translate(calc(-50% + '+dx+'px), calc(-50% + '+dy+'px))';
 }
-
 function shootPlayer(){
   if(gameMode!==GAME_MODE.BATTLE||portraitMode||reloading||matchOver||!player.alive) return;
   if(ammo<=0){startReload();return;}
@@ -1341,7 +1352,6 @@ function shootPlayer(){
   }
   if(ammo<=0)startReload();
 }
-
 function setFiringHeld(state){
   if(gameMode!==GAME_MODE.BATTLE){firingHeld=false;if(fireLoopTimer!==null){clearInterval(fireLoopTimer);fireLoopTimer=null;}return;}
   firingHeld=state;
@@ -1353,7 +1363,6 @@ function setFiringHeld(state){
     },FIRE_INTERVAL*1000);
   } else if(!state&&fireLoopTimer!==null){clearInterval(fireLoopTimer);fireLoopTimer=null;}
 }
-
 function startReload(){
   if(gameMode!==GAME_MODE.BATTLE||reloading||matchOver||!player.alive)return;
   reloading=true;firingHeld=false;
@@ -1361,13 +1370,11 @@ function startReload(){
   reloadTimer=RELOAD_TIME;gunState.reloadAnim=true;gunState.reloadAnimT=0;
   updateAmmoUI();
 }
-
 function updateReload(dt){
   if(!reloading)return;
   reloadTimer-=dt;updateAmmoUI();
   if(reloadTimer<=0){ammo=MAG_SIZE;reloading=false;gunState.reloadAnim=false;gunState.reloadAnimT=0;updateAmmoUI();}
 }
-
 function updatePlayerDamageFlash(dt){
   if(player.hurtFlash>0){
     player.hurtFlash=Math.max(0,player.hurtFlash-dt*2.0);
@@ -1376,28 +1383,25 @@ function updatePlayerDamageFlash(dt){
 }
 
 // ══════════════════════════════════════════
-//  UI HELPERS
+// UI HELPERS
 // ══════════════════════════════════════════
 function addKillFeed(text){
   var item=document.createElement('div'); item.className='kfItem'; item.textContent=text;
   killFeedEl.appendChild(item);
   setTimeout(function(){if(item.parentNode)killFeedEl.removeChild(item);},2600);
 }
-
 function showKillAnnouncement(){
   announceEl.textContent='💥 KILL!';
   announceEl.classList.remove('show');void announceEl.offsetWidth;announceEl.classList.add('show');
   clearTimeout(showKillAnnouncement._t);
   showKillAnnouncement._t=setTimeout(function(){announceEl.classList.remove('show');},600);
 }
-
 function showAnnouncement(text){
   announceEl.textContent=text;
   announceEl.classList.remove('show');void announceEl.offsetWidth;announceEl.classList.add('show');
   clearTimeout(showAnnouncement._t);
   showAnnouncement._t=setTimeout(function(){announceEl.classList.remove('show');},600);
 }
-
 function updateAmmoUI(){
   ammoCountEl.textContent=String(ammo);
   if(reloading){
@@ -1407,26 +1411,22 @@ function updateAmmoUI(){
     reloadIndicator.style.display='none';reloadBarEl.style.display='none';reloadBarFill.style.width='0%';
   }
 }
-
 function updatePlayerHPUI(){
   var pct=Math.max(0,player.hp)/player.maxHp;
   hpBarInner.style.width=(pct*100)+'%';
   hpTextEl.textContent=Math.max(0,Math.round(player.hp))+' / '+player.maxHp;
   hpBarInner.style.background=pct>0.6?'linear-gradient(90deg,#3cff7d,#29d65e)':pct>0.3?'linear-gradient(90deg,#ffd84d,#ffb51e)':'linear-gradient(90deg,#ff6a6a,#d90c0c)';
 }
-
 function updateScoreUI(){
   blueScoreEl.textContent=String(blueScore);
   redScoreEl.textContent=String(redScore);
   roundTextEl.textContent=String(roundIndex);
   if(blueScore>=WIN_SCORE){matchOver=true;showFinalResult(true);}
 }
-
 function updateOrientationUI(){
   portraitMode=window.innerHeight>window.innerWidth;
   rotateOverlay.style.display=portraitMode?'flex':'none';
 }
-
 function updateControlVisibility(){
   var show=(gameMode===GAME_MODE.BATTLE);
   var d=show?'':'none';
@@ -1440,7 +1440,6 @@ function updateControlVisibility(){
   netBadge.style.display=(gameMode===GAME_MODE.LOBBY||gameMode===GAME_MODE.WAITING)?'none':'';
   onlineCountEl.style.display=(gameMode===GAME_MODE.LOBBY)?'none':'';
 }
-
 function setModeUI(){
   lobbyOverlay.style.display   =(gameMode===GAME_MODE.LOBBY)   ?'flex':'none';
   waitingOverlay.style.display =(gameMode===GAME_MODE.WAITING) ?'flex':'none';
@@ -1451,7 +1450,6 @@ function setModeUI(){
   netGroup.visible=(gameMode===GAME_MODE.BATTLE);
   botGroup.visible=(gameMode===GAME_MODE.BATTLE);
 }
-
 function updateModeButtonsUI(){
   var isR=matchMode==='ranked';
   casualModeBtn.classList.toggle('active',!isR);
@@ -1459,14 +1457,13 @@ function updateModeButtonsUI(){
   lobbyModeValue.textContent=isR?'RANKED':'CASUAL';
   modeDescEl.textContent=isR?'ランク戦はXP獲得。上位ランクほど難易度上昇。':'カジュアルはランク変動なし。気軽に遊べます。';
 }
-
 function setMatchMode(mode){
   matchMode=(mode==='casual'?'casual':'ranked');
   updateModeButtonsUI();
 }
 
 // ══════════════════════════════════════════
-//  INPUT EVENTS
+// INPUT EVENTS
 // ══════════════════════════════════════════
 shootBtn.addEventListener('touchstart',function(e){e.preventDefault();e.stopPropagation();unlockAudio();if(gameMode===GAME_MODE.BATTLE)setFiringHeld(true);},{passive:false});
 shootBtn.addEventListener('touchend',  function(e){e.preventDefault();setFiringHeld(false);},{passive:false});
@@ -1480,11 +1477,9 @@ reloadBtn.addEventListener('mousedown', function(e){e.preventDefault();unlockAud
 adsBtn.addEventListener('touchstart',function(e){e.preventDefault();e.stopPropagation();unlockAudio();if(gameMode!==GAME_MODE.LOBBY)setADS(!adsActive);},{passive:false});
 adsBtn.addEventListener('mousedown', function(e){e.preventDefault();unlockAudio();if(gameMode!==GAME_MODE.LOBBY)setADS(!adsActive);});
 
-// ★ 「部屋に入る」ボタン
 lobbyStartBtn.addEventListener('click',    function(e){e.preventDefault();if(!lobbyStartBtn.disabled)enterRoom();});
 lobbyStartBtn.addEventListener('touchstart',function(e){e.preventDefault();if(!lobbyStartBtn.disabled)enterRoom();},{passive:false});
 
-// ★ 「戻る」ボタン（待合室）
 waitingCancelBtn.addEventListener('click',    function(e){e.preventDefault();leaveWaiting();});
 waitingCancelBtn.addEventListener('touchstart',function(e){e.preventDefault();leaveWaiting();},{passive:false});
 
@@ -1513,7 +1508,6 @@ document.addEventListener('touchstart',function(e){
     }
   }
 },{passive:false});
-
 document.addEventListener('touchmove',function(e){
   if(gameMode!==GAME_MODE.BATTLE||portraitMode) return;
   for(var ti=0;ti<e.changedTouches.length;ti++){
@@ -1528,7 +1522,6 @@ document.addEventListener('touchmove',function(e){
   }
   if(joyTouchId!==null||aimTouchId!==null)e.preventDefault();
 },{passive:false});
-
 document.addEventListener('touchend',function(e){
   for(var ti=0;ti<e.changedTouches.length;ti++){
     var t=e.changedTouches[ti];
@@ -1536,7 +1529,6 @@ document.addEventListener('touchend',function(e){
     if(t.identifier===aimTouchId) aimTouchId=null;
   }
 },{passive:false});
-
 document.addEventListener('touchcancel',function(e){
   for(var ti=0;ti<e.changedTouches.length;ti++){
     var t=e.changedTouches[ti];
@@ -1544,7 +1536,6 @@ document.addEventListener('touchcancel',function(e){
     if(t.identifier===aimTouchId) aimTouchId=null;
   }
 },{passive:false});
-
 var mouseLocked=false;
 canvas.addEventListener('click',function(){if(gameMode===GAME_MODE.BATTLE&&!portraitMode)canvas.requestPointerLock();});
 document.addEventListener('pointerlockchange',function(){mouseLocked=(document.pointerLockElement===canvas);});
@@ -1553,7 +1544,6 @@ document.addEventListener('mousemove',function(e){
   yaw-=e.movementX*0.0028;pitch-=e.movementY*0.0028;
   pitch=T.MathUtils.clamp(pitch,-(Math.PI/2-0.04),Math.PI/2-0.04);
 });
-
 function resize(){
   var w=window.innerWidth,h=window.innerHeight;
   renderer.setSize(w,h,false);
@@ -1564,15 +1554,13 @@ window.addEventListener('resize',resize);
 window.addEventListener('orientationchange',resize);
 
 // ══════════════════════════════════════════
-//  MAIN LOOP
+// MAIN LOOP
 // ══════════════════════════════════════════
 var clock=new T.Clock();
-
 function updateLobbyCamera(dt){
   camera.position.lerp(new T.Vector3(0,14,30),1-Math.exp(-2.5*dt));
   camera.lookAt(0,0,0);
 }
-
 function animate(){
   requestAnimationFrame(animate);
   var dt=Math.min(clock.getDelta(),0.034);
@@ -1591,7 +1579,7 @@ function animate(){
 }
 
 // ══════════════════════════════════════════
-//  INIT
+// INIT
 // ══════════════════════════════════════════
 function init(){
   loadRank();setMatchMode('ranked');
@@ -1600,15 +1588,10 @@ function init(){
   gameMode=GAME_MODE.LOBBY;
   camera.position.set(0,14,30);camera.lookAt(0,0,0);
   setModeUI();setRoomInputValid();
-  updateOnlineCount();
   initSocket();
   animate();
-  console.log('🚀 NEON ARENA | player='+PLAYER_NAME);
-  console.log('🔌 server='+RENDER_SERVER_URL);
-}
-
-function updateOnlineCount(){
-  onlineCountEl.textContent='👥 同室: '+(Object.keys(roomPlayers).length||1)+'人';
+  console.log('🚀 NEON ARENA | player=' + PLAYER_NAME);
+  console.log('🔌 server=' + RENDER_SERVER_URL);
 }
 
 init();

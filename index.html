@@ -634,6 +634,7 @@ function buildProceduralGun(){
   var scopeBody=new T.Mesh(new T.CylinderGeometry(0.018,0.018,0.08,12),bodyMat); scopeBody.rotation.x=Math.PI/2; scopeBody.position.set(0,0.052,-0.06); g.add(scopeBody);
   var glLine=new T.Mesh(new T.BoxGeometry(0.003,0.003,0.08),glowMat); glLine.position.set(-0.028,0.010,-0.06); g.add(glLine);
   g.scale.setScalar(1.0);
+  g.userData.forceScale = 5;
   return g;
 }
 
@@ -643,7 +644,8 @@ function attachGunToCamera(obj){
   camera.add(gunRoot);
   gunRoot.position.set(0.25,-0.22,-0.50);
   gunRoot.rotation.set(0,0,0);
-  gunRoot.scale.set(5,5,5);
+  var forceScale = (gunRoot.userData && Number.isFinite(gunRoot.userData.forceScale)) ? gunRoot.userData.forceScale : 1;
+  gunRoot.scale.set(forceScale, forceScale, forceScale);
   gunRoot.traverse(function(child){
     if(child.isMesh){
       child.castShadow = true;
@@ -669,8 +671,31 @@ function attachGunToCamera(obj){
 
 (function(){
   var loader = new T.GLTFLoader();
-  loader.load('ju.glb', function(gltf){
-    var model = gltf.scene;
+  var loaded = false;
+  function finalizeGun(model){
+    if(loaded || !model) return;
+    loaded = true;
+
+    try{
+      var box = new T.Box3().setFromObject(model);
+      if(box && isFinite(box.min.x) && isFinite(box.max.x)){
+        var size = new T.Vector3();
+        var center = new T.Vector3();
+        box.getSize(size);
+        box.getCenter(center);
+        model.position.sub(center);
+        var maxDim = Math.max(size.x, size.y, size.z) || 1;
+        var fit = 1.2 / maxDim;
+        if(!isFinite(fit) || fit <= 0) fit = 1;
+        model.scale.multiplyScalar(fit * 5);
+      }else{
+        model.scale.set(5,5,5);
+      }
+    }catch(err){
+      model.scale.set(5,5,5);
+    }
+
+    model.userData.forceScale = 1;
     model.traverse(function(obj){
       if(obj.isMesh){
         obj.castShadow = true;
@@ -691,12 +716,29 @@ function attachGunToCamera(obj){
         }
       }
     });
-    model.scale.set(5,5,5);
-    model.position.set(0.25,-0.22,-0.50);
     attachGunToCamera(model);
-  }, undefined, function(){
-    attachGunToCamera(buildProceduralGun());
-  });
+  }
+
+  var candidates = ['ju.glb', './ju.glb', 'assets/ju.glb', './assets/ju.glb'];
+  var i = 0;
+  function tryNext(){
+    if(loaded) return;
+    if(i >= candidates.length){
+      finalizeGun(buildProceduralGun());
+      return;
+    }
+    loader.load(
+      candidates[i++],
+      function(gltf){ finalizeGun(gltf && gltf.scene); },
+      undefined,
+      function(){ tryNext(); }
+    );
+  }
+
+  tryNext();
+  setTimeout(function(){
+    if(!loaded) finalizeGun(buildProceduralGun());
+  }, 5000);
 })();
 
 function createMuzzleFlash(){
@@ -734,14 +776,17 @@ function updateMuzzleFlashes(dt){
 
 var gunSoundPool = [];
 var gunSoundReady = false;
+var gunSoundCursor = 0;
 function unlockAudio(){
   if(gunSoundReady) return;
   gunSoundReady = true;
   gunSoundPool = [];
-  for(var i=0;i<4;i++){
+  gunSoundCursor = 0;
+  for(var i=0;i<6;i++){
     var a = new Audio('ju.mp3');
     a.preload = 'auto';
     a.volume = 0.95;
+    a.load();
     gunSoundPool.push(a);
   }
   try{
@@ -757,25 +802,23 @@ function unlockAudio(){
     }
   }catch(e){}
 }
-(function(){
-  var a = new Audio('ju.mp3');
-  a.preload = 'auto';
-  a.load();
-})();
 
 function playGunSound(isBot){
   if(!gunSoundReady) return;
   try{
-    var audio = null;
-    for(var i=0;i<gunSoundPool.length;i++){
-      if(gunSoundPool[i].paused || gunSoundPool[i].ended){ audio = gunSoundPool[i]; break; }
+    if(!gunSoundPool.length){
+      var fallback = new Audio('ju.mp3');
+      fallback.preload = 'auto';
+      fallback.volume = isBot ? 0.7 : 0.95;
+      fallback.load();
+      var fp = fallback.play();
+      if(fp && typeof fp.catch === 'function') fp.catch(function(){});
+      return;
     }
-    if(!audio){
-      audio = new Audio('ju.mp3');
-      audio.preload = 'auto';
-      audio.volume = 0.95;
-      gunSoundPool.push(audio);
-    }
+    var audio = gunSoundPool[gunSoundCursor % gunSoundPool.length];
+    gunSoundCursor = (gunSoundCursor + 1) % gunSoundPool.length;
+    if(!audio) return;
+    audio.pause();
     audio.currentTime = 0;
     audio.volume = isBot ? 0.7 : 0.95;
     var p = audio.play();
@@ -1556,7 +1599,7 @@ function checkLocalShotHit(origin, dir){
     var hit = raySegmentHitsBox(origin, end, c);
     if(hit){
       var dist = hit.distanceTo(origin);
-      if(dist < nearestDist){ nearestDist = dist; nearest = {type:'obstacle', point:hit, collider:c}; }
+      if(dist < nearestDist){ nearestDist = dist; nearest = {type:'obstacle', kind:'obstacle', point:hit, collider:c}; }
     }
   }
   Object.keys(roomPlayers||{}).forEach(function(id){
@@ -1567,7 +1610,7 @@ function checkLocalShotHit(origin, dir){
     var hit = bulletHitsAvatar(origin, end, av.position.clone());
     if(hit){
       var dist = hit.distanceTo(origin);
-      if(dist < nearestDist){ nearestDist = dist; nearest = {type:'player', id:id, point:hit, team:p.team||TEAM_RED}; }
+      if(dist < nearestDist){ nearestDist = dist; nearest = {type:'player', kind:'player', id:id, point:hit, team:p.team||TEAM_RED}; }
     }
   });
   return nearest;
@@ -1589,11 +1632,20 @@ function fireOnce(){
   makeBulletFxLine(origin, dir, 0xffffff, 70);
 
   var hitInfo = checkLocalShotHit(origin, dir);
-  if(hitInfo && hitInfo.kind==='obstacle'){
+  var hitKind = hitInfo && (hitInfo.kind || hitInfo.type || '');
+  if(hitKind === 'obstacle'){
     flashKillFx(hitInfo.point);
-    return; // 障害物に当たったら弾はここで消える
+    if(socket && socket.connected){
+      socket.emit('playerShot', {
+        room: currentRoom,
+        ox: origin.x, oy: origin.y, oz: origin.z,
+        dx: dir.x, dy: dir.y, dz: dir.z,
+        team: player.team || TEAM_BLUE
+      });
+    }
+    return;
   }
-  if(hitInfo && hitInfo.kind==='player'){
+  if(hitKind === 'player'){
     if(socket && socket.connected){
       socket.emit('playerShoot', {
         room: currentRoom,

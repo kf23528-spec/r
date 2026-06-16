@@ -1578,13 +1578,644 @@ function animate(){
   renderer.render(uiScene,camera);
 }
 
+/* ================================
+   BATTLE UPGRADE PATCH (map/gun/AI)
+   ================================ */
+var GUN_MODEL_URL = 'ju.glb';
+var GUN_ROT_X = 0;
+var GUN_ROT_Y = 0;
+var GUN_ROT_Z = 0;
+
+var spawnPoints = {
+  blue: [
+    { x: -26, z: -20 }, { x: -26, z: -6 }, { x: -26, z: 6 }, { x: -26, z: 20 }
+  ],
+  red: [
+    { x: 26, z: -20 }, { x: 26, z: -6 }, { x: 26, z: 6 }, { x: 26, z: 20 }
+  ]
+};
+
+var enemyBullets = [];
+var botBrains = [];
+var BOT_POSITIONS = [
+  new T.Vector3(-22, 0, -18),
+  new T.Vector3(-14, 0, -22),
+  new T.Vector3(-6, 0, -24),
+  new T.Vector3(6, 0, -22),
+  new T.Vector3(14, 0, -18)
+];
+
+function clearGroup(group){
+  if(!group) return;
+  while(group.children && group.children.length){
+    var child = group.children[0];
+    group.remove(child);
+    if(child.traverse){
+      child.traverse(function(obj){
+        if(obj.isMesh){
+          if(obj.geometry) obj.geometry.dispose();
+          if(obj.material){
+            if(Array.isArray(obj.material)) obj.material.forEach(function(m){ if(m&&m.dispose) m.dispose(); });
+            else if(obj.material.dispose) obj.material.dispose();
+          }
+        }
+      });
+    }
+  }
+}
+
+function rectIntersectsCircle(minX, maxX, minZ, maxZ, cx, cz, radius) {
+  var nx = T.MathUtils.clamp(cx, minX, maxX);
+  var nz = T.MathUtils.clamp(cz, minZ, maxZ);
+  var dx = cx - nx, dz = cz - nz;
+  return (dx*dx + dz*dz) <= radius*radius;
+}
+
+function addObstacle(x, z, sx, sy, sz, matKey, yOffset){
+  matKey = matKey || 'wall';
+  yOffset = yOffset || 0;
+  var minX = x - sx/2, maxX = x + sx/2;
+  var minZ = z - sz/2, maxZ = z + sz/2;
+
+  for(var i=0;i<spawnPoints.blue.length;i++){
+    var p = spawnPoints.blue[i];
+    if(rectIntersectsCircle(minX, maxX, minZ, maxZ, p.x, p.z, 5.0)) return null;
+  }
+  for(var j=0;j<spawnPoints.red.length;j++){
+    var q = spawnPoints.red[j];
+    if(rectIntersectsCircle(minX, maxX, minZ, maxZ, q.x, q.z, 5.0)) return null;
+  }
+
+  var mats = {
+    wall:  new T.MeshStandardMaterial({ color: 0xa7b2bf, roughness: 0.92, metalness: 0.03 }),
+    crate: new T.MeshStandardMaterial({ color: 0xb07a45, roughness: 0.96, metalness: 0.0 }),
+    metal: new T.MeshStandardMaterial({ color: 0x7a8795, roughness: 0.62, metalness: 0.18 }),
+    dark:  new T.MeshStandardMaterial({ color: 0x4e5964, roughness: 0.88, metalness: 0.04 })
+  };
+  var mesh = new T.Mesh(new T.BoxGeometry(sx, sy, sz), mats[matKey] || mats.wall);
+  mesh.position.set(x, sy/2 + yOffset, z);
+  obstacleGroup.add(mesh);
+  obstacleData.push({ minX:minX, maxX:maxX, minZ:minZ, maxZ:maxZ });
+  if (sx * sz > 2.0) coverPositions.push(new T.Vector3(x, 0, z));
+  return mesh;
+}
+
+function createMapStructures() {
+  clearGroup(obstacleGroup);
+  obstacleData.length = 0;
+  coverPositions.length = 0;
+
+  if (scene) {
+    try { scene.remove(floor); } catch(e) {}
+    try { scene.remove(redGrid); } catch(e) {}
+    try { scene.remove(backWall); } catch(e) {}
+    try { scene.remove(leftWall); } catch(e) {}
+    try { scene.remove(rightWall); } catch(e) {}
+  }
+
+  obstacleGroup = new T.Group();
+  scene.add(obstacleGroup);
+
+  // 強化版マップ（中央障害物＋左右カバー）
+  addObstacle(-30,  0, 1.2, 4.0, 58, 'wall');
+  addObstacle( 30,  0, 1.2, 4.0, 58, 'wall');
+  addObstacle(  0,-30, 58,  4.0, 1.2,'wall');
+  addObstacle(  0, 30, 58,  4.0, 1.2,'wall');
+  addObstacle(  0,  0, 9.2, 2.6, 9.2,'metal');
+  addObstacle(-2.8, 0, 2.0, 4.8, 2.0,'crate');
+  addObstacle( 2.8, 0, 2.0, 4.8, 2.0,'crate');
+
+  addObstacle(-20,-18, 6.5, 2.2, 1.4,'dark');
+  addObstacle(-20,-10, 1.4, 2.8, 7.5,'wall');
+  addObstacle(-24, -2, 7.5, 1.8, 1.4,'crate');
+  addObstacle(-18,  6, 1.4, 3.2, 7.4,'metal');
+  addObstacle(-24, 14, 7.5, 2.2, 1.4,'dark');
+  addObstacle(-17, 18, 1.4, 2.6, 6.0,'crate');
+
+  addObstacle( 20, 18, 6.5, 2.2, 1.4,'dark');
+  addObstacle( 20, 10, 1.4, 2.8, 7.5,'wall');
+  addObstacle( 24,  2, 7.5, 1.8, 1.4,'crate');
+  addObstacle( 18, -6, 1.4, 3.2, 7.4,'metal');
+  addObstacle( 24,-14, 7.5, 2.2, 1.4,'dark');
+  addObstacle( 17,-18, 1.4, 2.6, 6.0,'crate');
+
+  addObstacle( -8,-22, 1.4, 3.0, 9.0,'crate');
+  addObstacle(  8,-22, 1.4, 3.0, 9.0,'crate');
+  addObstacle( -8, 22, 1.4, 3.0, 9.0,'crate');
+  addObstacle(  8, 22, 1.4, 3.0, 9.0,'crate');
+
+  addObstacle(-12, -6, 8.0, 2.2, 1.4,'wall');
+  addObstacle(-12,  6, 1.4, 2.2, 8.0,'wall');
+  addObstacle( 12,  6, 8.0, 2.2, 1.4,'wall');
+  addObstacle( 12, -6, 1.4, 2.2, 8.0,'wall');
+
+  addObstacle( -6,-14, 1.4, 2.0, 6.8,'metal');
+  addObstacle(  6, 14, 1.4, 2.0, 6.8,'metal');
+
+  addObstacle(-26, -4, 4.0, 2.6, 1.2,'crate');
+  addObstacle(-26,  4, 4.0, 2.6, 1.2,'crate');
+  addObstacle( 26, -4, 4.0, 2.6, 1.2,'crate');
+  addObstacle( 26,  4, 4.0, 2.6, 1.2,'crate');
+
+  addObstacle( -4,-26, 1.2, 2.6, 4.0,'metal');
+  addObstacle(  4,-26, 1.2, 2.6, 4.0,'metal');
+  addObstacle( -4, 26, 1.2, 2.6, 4.0,'metal');
+  addObstacle(  4, 26, 1.2, 2.6, 4.0,'metal');
+
+  var pillars = [
+    [-22,-22],[-14,-22],[-6,-22],[6,-22],[14,-22],[22,-22],
+    [-22, 22],[-14, 22],[-6, 22],[6, 22],[14, 22],[22, 22],
+    [-22,-14],[-22,-6],[-22,6],[-22,14],
+    [ 22,-14],[ 22,-6],[ 22,6],[ 22,14],
+    [-10,-10],[10,10],[-10,10],[10,-10],
+    [0,-18],[0,18],[-18,0],[18,0]
+  ];
+  for (var k=0;k<pillars.length;k++) {
+    var px = pillars[k][0], pz = pillars[k][1];
+    addObstacle(px, pz, 1.1, 3.4, 1.1, (Math.abs(px)+Math.abs(pz)) % 2 === 0 ? 'crate' : 'metal');
+  }
+
+  addObstacle(-15, 0, 4.0, 1.0, 1.2,'dark');
+  addObstacle( 15, 0, 4.0, 1.0, 1.2,'dark');
+  addObstacle(  0,-15, 1.2, 1.0, 4.0,'dark');
+  addObstacle(  0, 15, 1.2, 1.0, 4.0,'dark');
+}
+
+function isBlocked(x, z, radius){
+  radius = radius || 0.48;
+  for (var i=0;i<obstacleData.length;i++) {
+    var o = obstacleData[i];
+    var cx = T.MathUtils.clamp(x, o.minX, o.maxX);
+    var cz = T.MathUtils.clamp(z, o.minZ, o.maxZ);
+    var dx = x - cx, dz = z - cz;
+    if ((dx*dx + dz*dz) < radius*radius) return true;
+  }
+  return false;
+}
+
+function moveEntityXZ(entity, dx, dz, radius){
+  radius = radius || 0.48;
+  var pos = entity.position;
+  var nx = pos.x + dx, nz = pos.z + dz;
+  var inBounds = Math.abs(nx) <= 34 && Math.abs(nz) <= 34;
+  if (inBounds && !isBlocked(nx, nz, radius)) { pos.x = nx; pos.z = nz; return true; }
+  var moved = false;
+  var xO = pos.x + dx;
+  if (Math.abs(xO) <= 34 && !isBlocked(xO, pos.z, radius)) { pos.x = xO; moved = true; }
+  var zO = pos.z + dz;
+  if (Math.abs(zO) <= 34 && !isBlocked(pos.x, zO, radius)) { pos.z = zO; moved = true; }
+  return moved;
+}
+
+function segmentIntersectsRect2D(x1, z1, x2, z2, minX, maxX, minZ, maxZ, radius) {
+  radius = radius || 0.05;
+  var left = minX - radius, right = maxX + radius, top = minZ - radius, bottom = maxZ + radius;
+  var t0 = 0, t1 = 1;
+  var dx = x2 - x1, dz = z2 - z1;
+  var arr = [[-dx, x1-left], [dx, right-x1], [-dz, z1-top], [dz, bottom-z1]];
+  for (var i=0;i<arr.length;i++) {
+    var p = arr[i][0], q = arr[i][1];
+    if (Math.abs(p) < 1e-8) { if (q < 0) return false; }
+    else {
+      var r = q / p;
+      if (p < 0) { if (r > t1) return false; if (r > t0) t0 = r; }
+      else { if (r < t0) return false; if (r < t1) t1 = r; }
+    }
+  }
+  return true;
+}
+
+function bulletHitsAnyObstacle(prev, next) {
+  for (var i=0;i<obstacleData.length;i++) {
+    var o = obstacleData[i];
+    if (segmentIntersectsRect2D(prev.x, prev.z, next.x, next.z, o.minX, o.maxX, o.minZ, o.maxZ, 0.06)) return true;
+  }
+  return false;
+}
+
+function hasLineOfSight(ax, az, bx, bz) {
+  for (var i=0;i<obstacleData.length;i++) {
+    var o = obstacleData[i];
+    if (segmentIntersectsRect2D(ax, az, bx, bz, o.minX, o.maxX, o.minZ, o.maxZ, 0.12)) return false;
+  }
+  return true;
+}
+
+function installGunModel(gltf) {
+  if (gunRoot && gunRoot.parent) {
+    gunRoot.parent.remove(gunRoot);
+    gunRoot = null;
+  }
+  var root = gltf.scene || (gltf.scenes && gltf.scenes[0]);
+  if (!root) {
+    gunState.error = 'シーンなし';
+    return;
+  }
+
+  root.traverse(function(obj){
+    if (!obj.isMesh) return;
+    obj.castShadow = false;
+    obj.receiveShadow = false;
+    var applyMat = function(mat){
+      if (!mat) return new T.MeshStandardMaterial({ color:0xcccccc });
+      var std = new T.MeshStandardMaterial({
+        color: mat.color ? mat.color.clone() : new T.Color(0xcccccc),
+        roughness: 0.45,
+        metalness: 0.25
+      });
+      if (mat.map) { std.map = mat.map; std.map.colorSpace = T.SRGBColorSpace; }
+      if (mat.normalMap) std.normalMap = mat.normalMap;
+      if (mat.transparent) { std.transparent = true; std.opacity = mat.opacity ?? 1.0; }
+      std.needsUpdate = true;
+      return std;
+    };
+    if (Array.isArray(obj.material)) obj.material = obj.material.map(applyMat);
+    else obj.material = applyMat(obj.material);
+  });
+
+  var box = new T.Box3().setFromObject(root);
+  var size = new T.Vector3(), center = new T.Vector3();
+  box.getSize(size); box.getCenter(center);
+  if (!Number.isFinite(size.x) || size.lengthSq() < 1e-8) {
+    gunState.error = 'バウンディングボックス無効';
+    return;
+  }
+
+  root.position.sub(center);
+  var maxDim = Math.max(size.x, size.y, size.z);
+  root.scale.setScalar(0.95 / maxDim);
+  root.position.copy(GUN_POS_NORMAL);
+  root.rotation.set(
+    T.MathUtils.degToRad(GUN_ROT_X),
+    T.MathUtils.degToRad(GUN_ROT_Y),
+    T.MathUtils.degToRad(GUN_ROT_Z)
+  );
+  uiScene.add(root);
+  gunRoot = root;
+  gunState.modelReady = true;
+  gunPosCurrent.copy(GUN_POS_NORMAL);
+  gunPosTarget.copy(GUN_POS_NORMAL);
+}
+
+function loadGunModel() {
+  var loader = new GLTFLoader();
+  loader.load(GUN_MODEL_URL, function(gltf){
+    try { installGunModel(gltf); }
+    catch(e){ gunState.error = String(e && e.message ? e.message : e); }
+  }, undefined, function(){
+    gunRoot = buildProceduralGun();
+    uiScene.add(gunRoot);
+  });
+}
+
+function buildProceduralGun() {
+  var g = new T.Group();
+  var mat = new T.MeshStandardMaterial({ color:0x2a2a2a, roughness:0.5, metalness:0.6, emissive:new T.Color(0x1a1a1a), emissiveIntensity:0.15 });
+  var acc = new T.MeshStandardMaterial({ color:0x1a1a2e, roughness:0.7, metalness:0.3, emissive:new T.Color(0x111122), emissiveIntensity:0.12 });
+  var body = new T.Mesh(new T.BoxGeometry(0.06, 0.07, 0.32), mat); g.add(body);
+  var bar = new T.Mesh(new T.CylinderGeometry(0.013, 0.013, 0.24, 8), mat);
+  bar.rotation.x = Math.PI / 2; bar.position.set(0, 0.01, -0.22); g.add(bar);
+  var grip = new T.Mesh(new T.BoxGeometry(0.044, 0.09, 0.055), acc);
+  grip.position.set(0, -0.07, 0.06); grip.rotation.x = -0.18; g.add(grip);
+  var mag = new T.Mesh(new T.BoxGeometry(0.036, 0.07, 0.04), acc);
+  mag.position.set(0, -0.065, -0.01); g.add(mag);
+  var rail = new T.Mesh(new T.BoxGeometry(0.038, 0.012, 0.16), mat);
+  rail.position.set(0, 0.041, -0.02); g.add(rail);
+  var dotM = new T.MeshStandardMaterial({ color:0xff2200, emissive:0xff2200, emissiveIntensity:5.0 });
+  var dot = new T.Mesh(new T.SphereGeometry(0.003, 6, 6), dotM);
+  dot.position.set(0, 0.054, -0.12); g.add(dot);
+  return g;
+}
+
+function createMuzzleFlash() {
+  var fg = new T.Group();
+  var cm = new T.MeshStandardMaterial({ color:0xffffff, emissive:0xffffff, emissiveIntensity:12, transparent:true, opacity:1.0, roughness:0 });
+  var om = new T.MeshStandardMaterial({ color:0xffcc00, emissive:0xff8800, emissiveIntensity:6, transparent:true, opacity:0.88, roughness:0 });
+  fg.add(new T.Mesh(new T.SphereGeometry(0.030, 8, 8), cm));
+  fg.add(new T.Mesh(new T.SphereGeometry(0.062, 8, 8), om));
+  uiScene.add(fg);
+  muzzleFlashes.push({ group:fg, life:0.06, maxLife:0.06 });
+}
+
+function updateMuzzleFlashes(dt) {
+  for (var i=muzzleFlashes.length-1; i>=0; i--) {
+    var f = muzzleFlashes[i];
+    f.life -= dt;
+    if (f.life <= 0) {
+      uiScene.remove(f.group);
+      f.group.traverse(function(o){
+        if (o.isMesh) {
+          if (o.geometry) o.geometry.dispose();
+          if (o.material) o.material.dispose();
+        }
+      });
+      muzzleFlashes.splice(i, 1);
+      continue;
+    }
+    var t = f.life / f.maxLife;
+    f.group.traverse(function(o){ if (o.isMesh && o.material) o.material.opacity = t; });
+    f.group.scale.setScalar(1 + (1 - t) * 2.0);
+    camera.updateMatrixWorld();
+    var loc = new T.Vector3(gunPosCurrent.x, gunPosCurrent.y + 0.04, gunPosCurrent.z - 0.25);
+    f.group.position.copy(loc.applyMatrix4(camera.matrixWorld));
+    var q = new T.Quaternion();
+    camera.getWorldQuaternion(q);
+    f.group.quaternion.copy(q);
+  }
+}
+
+function updateGun(dt) {
+  if (!gunRoot) return;
+  gunState.recoil = T.MathUtils.lerp(gunState.recoil, 0, 1 - Math.exp(-(adsActive ? 20 : 15) * dt));
+  var targetFov = adsActive ? CAM_FOV_ADS : CAM_FOV_NORMAL;
+  CAM_FOV_ADS = 56;
+  adsFovCurrent = T.MathUtils.lerp(adsFovCurrent, targetFov, 1 - Math.exp(-12 * dt));
+  if (Math.abs(adsFovCurrent - camera.fov) > 0.05) {
+    camera.fov = adsFovCurrent;
+    camera.updateProjectionMatrix();
+  }
+  gunPosCurrent.lerp(gunPosTarget, 1 - Math.exp(-15 * dt));
+  var reloadOffY = 0;
+  if (gunState.reloadAnim) {
+    gunState.reloadAnimT = Math.min(gunState.reloadAnimT + dt, gunState.reloadAnimDur);
+    var p = gunState.reloadAnimT / gunState.reloadAnimDur;
+    reloadOffY = p < 0.5 ? -0.28 * Math.pow(p / 0.5, 2) : -0.28 * (1 - Math.pow(1 - 2 * (p - 0.5), 2));
+  }
+  camera.updateMatrixWorld();
+  var r = gunState.recoil;
+  var localOffset = new T.Vector3(gunPosCurrent.x, gunPosCurrent.y + r * 0.020 + reloadOffY, gunPosCurrent.z + r * 0.055);
+  var worldPos = localOffset.applyMatrix4(camera.matrixWorld);
+  gunRoot.position.copy(worldPos);
+  var qc = new T.Quaternion(); camera.getWorldQuaternion(qc);
+  var baseRotQuat = new T.Quaternion().setFromEuler(new T.Euler(T.MathUtils.degToRad(GUN_ROT_X), T.MathUtils.degToRad(GUN_ROT_Y), T.MathUtils.degToRad(GUN_ROT_Z), 'YXZ'));
+  var recoilPitchQuat = new T.Quaternion().setFromAxisAngle(new T.Vector3(1,0,0), -r * 0.08);
+  gunRoot.quaternion.copy(qc).multiply(baseRotQuat).multiply(recoilPitchQuat);
+}
+
+function triggerRecoil(){
+  gunState.recoil = Math.min(1.0, gunState.recoil + (adsActive ? 0.04 : 0.12));
+}
+
+function makeEnemyBotMesh(index) {
+  var g = new T.Group();
+  var bodyMat = new T.MeshStandardMaterial({ color:0xcc2222, roughness:0.65, metalness:0.05, emissive:new T.Color(0x440000), emissiveIntensity:0.3 });
+  var headMat = new T.MeshStandardMaterial({ color:0xff4444, roughness:0.45, emissive:new T.Color(0x550000), emissiveIntensity:0.25 });
+  var body = makeCapsuleMesh(0.35, 0.35, 0.90, bodyMat); body.position.y = 0.20; g.add(body);
+  var head = new T.Mesh(new T.SphereGeometry(0.25, 12, 10), headMat); head.position.y = 1.55; g.add(head);
+  var hpBarMat = new T.MeshStandardMaterial({ color:0x00ff44, emissive:0x00ff44, emissiveIntensity:1.5, transparent:true, opacity:0.9, side:T.DoubleSide });
+  var hpBar = new T.Mesh(new T.PlaneGeometry(0.8, 0.08), hpBarMat); hpBar.position.y = 2.00; hpBar.name = 'hpBar'; g.add(hpBar);
+  var hitMat = new T.MeshStandardMaterial({ color:0xff0000, transparent:true, opacity:0.0 });
+  var hitbox = new T.Mesh(new T.CylinderGeometry(0.38, 0.38, 1.60, 8), hitMat); hitbox.position.y = 0.80;
+  hitbox.userData.isBotHitbox = true;
+  hitbox.userData.botIndex = index;
+  g.add(hitbox);
+  g.userData.botIndex = index;
+  return g;
+}
+
+function getBotBrain(index){
+  if (!botBrains[index]) botBrains[index] = {
+    strafeDir: Math.random() < 0.5 ? 1 : -1,
+    strafeTimer: Math.random() * 0.8 + 0.2,
+    wanderDir: new T.Vector3(Math.random()-0.5, 0, Math.random()-0.5).normalize(),
+    wanderTimer: Math.random() * 1.2 + 0.4,
+    fireCooldown: Math.random() * 0.6,
+    lastPos: new T.Vector3(),
+    stuckTimer: 0
+  };
+  return botBrains[index];
+}
+
+function spawnBot(index){
+  if (botMeshes[index]) {
+    botGroup.remove(botMeshes[index]);
+  }
+  var mesh = makeEnemyBotMesh(index);
+  var basePos = BOT_POSITIONS[index % BOT_POSITIONS.length];
+  mesh.position.set(basePos.x + (Math.random() - 0.5) * 8, 0, Math.max(basePos.z - 5, -27) + (Math.random() - 0.5) * 4);
+  botGroup.add(mesh);
+  botMeshes[index] = mesh;
+  botHPs[index] = BOT_HP;
+  botAlive[index] = true;
+  botMoveTimers[index] = Math.random() * 2;
+  botMoveDirs[index] = Math.random() < 0.5 ? 1 : -1;
+  botBrains[index] = null;
+}
+
+function initBots(){
+  botMoveTimers = [];
+  botMoveDirs = [];
+  botBrains = [];
+  for (var i=0; i<BOT_COUNT; i++) spawnBot(i);
+}
+
+var enemyTracerMat = new T.MeshStandardMaterial({ color:0xffb1b1, emissive:0xff4c4c, emissiveIntensity:1.0, transparent:true, opacity:0.88 });
+function spawnEnemyBullet(origin, dir, speed, damage){
+  var geom = new T.CylinderGeometry(0.018, 0.018, 0.8, 6);
+  var mesh = new T.Mesh(geom, enemyTracerMat.clone());
+  mesh.position.copy(origin).addScaledVector(dir, 0.4);
+  mesh.quaternion.setFromUnitVectors(new T.Vector3(0,1,0), dir.clone().normalize());
+  scene.add(mesh);
+  enemyBullets.push({
+    mesh: mesh,
+    prev: origin.clone(),
+    dir: dir.clone().normalize(),
+    speed: speed || 14,
+    life: 1.2,
+    damage: damage || 10
+  });
+  playGunSound();
+}
+
+function updateEnemyBullets(dt){
+  for (var i=enemyBullets.length-1; i>=0; i--) {
+    var b = enemyBullets[i];
+    b.prev.copy(b.mesh.position);
+    b.mesh.position.addScaledVector(b.dir, b.speed * dt);
+    b.life -= dt;
+
+    if (b.life <= 0 || bulletHitsAnyObstacle(b.prev, b.mesh.position)) {
+      scene.remove(b.mesh);
+      if (b.mesh.geometry) b.mesh.geometry.dispose();
+      if (b.mesh.material) b.mesh.material.dispose();
+      enemyBullets.splice(i, 1);
+      continue;
+    }
+
+    var dist = distancePointToSegment(camera.position, b.prev, b.mesh.position);
+    if (dist < 0.45) {
+      player.hp = Math.max(0, player.hp - b.damage);
+      player.hurtFlash = 1;
+      updatePlayerHPUI();
+      if (player.hp <= 0) {
+        player.alive = false;
+        matchOver = true;
+        showFinalResult(false);
+      }
+      scene.remove(b.mesh);
+      if (b.mesh.geometry) b.mesh.geometry.dispose();
+      if (b.mesh.material) b.mesh.material.dispose();
+      enemyBullets.splice(i, 1);
+    }
+  }
+}
+
+function distancePointToSegment(p, a, b){
+  var ab = new T.Vector3().subVectors(b, a);
+  var ap = new T.Vector3().subVectors(p, a);
+  var denom = ab.lengthSq();
+  if (denom < 1e-8) return p.distanceTo(a);
+  var t = T.MathUtils.clamp(ap.dot(ab) / denom, 0, 1);
+  var c = a.clone().addScaledVector(ab, t);
+  return p.distanceTo(c);
+}
+
+function updateBots(dt){
+  for (var i=0; i<BOT_COUNT; i++) {
+    if (!botAlive[i]) continue;
+    var mesh = botMeshes[i];
+    if (!mesh) continue;
+    var brain = getBotBrain(i);
+    var prev = brain.lastPos;
+    if (!prev || !prev.isVector3) prev = brain.lastPos = mesh.position.clone();
+
+    var moved = mesh.position.distanceTo(prev);
+    if (moved < 0.01) brain.stuckTimer += dt;
+    else {
+      brain.stuckTimer = 0;
+      prev.copy(mesh.position);
+    }
+
+    if (brain.stuckTimer > 0.9) {
+      brain.stuckTimer = 0;
+      brain.strafeDir *= -1;
+      brain.wanderDir.set(Math.random()-0.5, 0, Math.random()-0.5).normalize();
+      brain.wanderTimer = 0.8 + Math.random() * 0.8;
+    }
+
+    var target = camera.position.clone();
+    var dx = target.x - mesh.position.x;
+    var dz = target.z - mesh.position.z;
+    var dist = Math.hypot(dx, dz);
+    var hasSight = hasLineOfSight(mesh.position.x, mesh.position.z, target.x, target.z);
+
+    var tx = dx / Math.max(dist, 0.001);
+    var tz = dz / Math.max(dist, 0.001);
+    var sideX = -tz;
+    var sideZ = tx;
+
+    var moveX = 0, moveZ = 0;
+    var speed = 2.4;
+    if (!hasSight || dist > 22) {
+      brain.wanderTimer -= dt;
+      if (brain.wanderTimer <= 0) {
+        brain.wanderTimer = 0.8 + Math.random() * 1.4;
+        brain.wanderDir.set(Math.random() - 0.5, 0, Math.random() - 0.5).normalize();
+      }
+      moveX = brain.wanderDir.x;
+      moveZ = brain.wanderDir.z;
+      speed = 1.8;
+    } else if (dist > 13) {
+      moveX = tx * 0.95 + sideX * brain.strafeDir * 0.25;
+      moveZ = tz * 0.95 + sideZ * brain.strafeDir * 0.25;
+      speed = 2.8;
+    } else {
+      brain.strafeTimer -= dt;
+      if (brain.strafeTimer <= 0) {
+        brain.strafeDir *= -1;
+        brain.strafeTimer = 0.25 + Math.random() * 0.5;
+      }
+      moveX = tx * -0.15 + sideX * brain.strafeDir * 0.9;
+      moveZ = tz * -0.15 + sideZ * brain.strafeDir * 0.9;
+      speed = 3.0;
+    }
+
+    var len = Math.hypot(moveX, moveZ);
+    if (len > 0.001) { moveX /= len; moveZ /= len; }
+    moveEntityXZ(mesh, moveX * speed * dt, moveZ * speed * dt, 0.52);
+
+    mesh.lookAt(target.x, mesh.position.y + 1.0, target.z);
+
+    // HPバー
+    var hpBar = mesh.getObjectByName('hpBar');
+    if (hpBar) {
+      var pct = botHPs[i] / BOT_HP;
+      hpBar.scale.x = Math.max(0.01, pct);
+      hpBar.material.color.setHex(pct > 0.5 ? 0x00ff44 : pct > 0.25 ? 0xffcc00 : 0xff2222);
+      hpBar.material.emissive.setHex(pct > 0.5 ? 0x00ff44 : pct > 0.25 ? 0xffcc00 : 0xff2222);
+      hpBar.lookAt(camera.position);
+    }
+
+    // 射撃
+    brain.fireCooldown -= dt;
+    if (brain.fireCooldown <= 0 && dist < 60 && hasSight && !matchOver && player.alive) {
+      var muzzlePos = new T.Vector3(mesh.position.x, mesh.position.y + 1.55, mesh.position.z);
+      var aimPos = target.clone();
+      aimPos.y += 1.05;
+      aimPos.addScaledVector(new T.Vector3(), 0);
+      aimPos.x += (Math.random() - 0.5) * 0.14 * dist * 0.02;
+      aimPos.z += (Math.random() - 0.5) * 0.14 * dist * 0.02;
+      var shootDir = aimPos.sub(muzzlePos).normalize();
+      spawnEnemyBullet(muzzlePos.clone().add(shootDir.clone().multiplyScalar(0.25)), shootDir, 16, 8);
+      brain.fireCooldown = 0.45 + Math.random() * 0.65;
+      brain.strafeDir *= Math.random() < 0.5 ? 1 : -1;
+    }
+  }
+}
+
+function checkBotHit(){
+  raycaster.setFromCamera(new T.Vector2(0,0), camera);
+  var all = [];
+  botGroup.traverse(function(obj){ if(obj.isMesh) all.push(obj); });
+  var hits = raycaster.intersectObjects(all, false);
+  if (!hits.length) return false;
+
+  var obj = hits[0].object;
+  var botIndex = -1;
+  if (obj.userData.isBotHitbox) {
+    botIndex = obj.userData.botIndex;
+  } else {
+    var par = obj.parent;
+    while (par) {
+      if (typeof par.userData.botIndex === 'number') { botIndex = par.userData.botIndex; break; }
+      par = par.parent;
+    }
+  }
+  if (botIndex < 0 || !botAlive[botIndex]) return false;
+
+  botHPs[botIndex] -= DAMAGE_PER_BULLET;
+  if (botHPs[botIndex] <= 0) {
+    botAlive[botIndex] = false;
+    if (botMeshes[botIndex]) botGroup.remove(botMeshes[botIndex]);
+    showKillAnnouncement();
+    addKillFeed('💥 BOT KILL！');
+    addRankXp(matchMode === 'ranked' ? 14 : 0);
+    blueScore++;
+    updateScoreUI();
+    setTimeout(function(){ spawnBot(botIndex); }, 1200);
+    return true;
+  }
+  return false;
+}
+
+// 画面比率・スケール調整のアップデート
+CAM_FOV_NORMAL = 70;
+CAM_FOV_ADS = 56;
+GUN_POS_NORMAL = new T.Vector3(0.30, -0.12, -0.45);
+GUN_POS_ADS    = new T.Vector3(0.00, -0.15, -0.45);
+adsFovCurrent = CAM_FOV_NORMAL;
+
+
 // ══════════════════════════════════════════
 // INIT
 // ══════════════════════════════════════════
 function init(){
   loadRank();setMatchMode('ranked');
   updateRankUI();updateScoreUI();updateAmmoUI();updatePlayerHPUI();
-  updateOrientationUI();initBots();
+  updateOrientationUI();
+  createMapStructures();
+  loadGunModel();
+  initBots();
   gameMode=GAME_MODE.LOBBY;
   camera.position.set(0,14,30);camera.lookAt(0,0,0);
   setModeUI();setRoomInputValid();

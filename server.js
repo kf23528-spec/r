@@ -14,10 +14,8 @@ const io = new Server(server, {
 
 const PORT = process.env.PORT || 3000;
 
-// 静的ファイル配信
 app.use(express.static(__dirname));
 
-// トップページ
 app.get('/', (req, res) => {
   res.sendFile(__dirname + '/index.html');
 });
@@ -31,26 +29,36 @@ function normalizeRoom(room) {
     .slice(0, 4);
 }
 
+/**
+ * ルーム内の全プレイヤーをフラット形式で返す
+ * クライアントは d.x / d.y / d.z / d.ry / d.id / d.name / d.team を直接参照する
+ */
 function getRoomPlayers(room) {
   const result = Object.create(null);
   for (const [id, p] of Object.entries(players)) {
     if (p && p.room === room) {
-      result[id] = {
-        id,
-        name: p.name || id,
-        team: p.team || 'blue',
-        room: p.room,
-        roomId: p.room,
-        x: Number.isFinite(p.x) ? p.x : 0,
-        y: Number.isFinite(p.y) ? p.y : 1.6,
-        z: Number.isFinite(p.z) ? p.z : 5,
-        ry: Number.isFinite(p.ry) ? p.ry : 0,
-        alive: p.alive !== false,
-        matchMode: p.matchMode || 'ranked'
-      };
+      result[id] = flatPlayer(id, p);
     }
   }
   return result;
+}
+
+/** プレイヤーデータをクライアントが期待するフラット形式に変換 */
+function flatPlayer(id, p) {
+  return {
+    id,
+    playerId: id,        // 互換用
+    name:      p.name      || id,
+    team:      p.team      || 'blue',
+    room:      p.room      || '',
+    roomId:    p.room      || '',
+    x:   Number.isFinite(p.x)  ? p.x  : 0,
+    y:   Number.isFinite(p.y)  ? p.y  : 1.6,
+    z:   Number.isFinite(p.z)  ? p.z  : 5,
+    ry:  Number.isFinite(p.ry) ? p.ry : 0,
+    alive:     p.alive !== false,
+    matchMode: p.matchMode || 'ranked'
+  };
 }
 
 function getRoomCount(room) {
@@ -83,14 +91,11 @@ function leaveRoom(socket) {
   const room = p.room;
   if (room) {
     socket.leave(room);
-
-    // ルーム内の他人に通知
     socket.to(room).emit('playerDisconnected', socket.id);
     socket.to(room).emit('room-players', {
       room,
       players: getRoomPlayers(room)
     });
-
     emitRoomState(room);
   }
 
@@ -100,26 +105,21 @@ function leaveRoom(socket) {
 io.on('connection', (socket) => {
   console.log(`🟢 接続: ${socket.id}`);
 
-  // まずは未入室の状態
   players[socket.id] = {
     id: socket.id,
     name: socket.id,
     team: 'blue',
     room: '',
-    roomId: '',
-    x: 0,
-    y: 1.6,
-    z: 5,
-    ry: 0,
+    x: 0, y: 1.6, z: 5, ry: 0,
     alive: true,
     matchMode: 'ranked'
   };
 
-  // 部屋に入る
+  // ── 部屋に入る ──
   socket.on('join-room', (data = {}) => {
-    const room = normalizeRoom(data.room);
-    const name = (data.name || socket.id).toString().slice(0, 20);
-    const team = (data.team === 'red' ? 'red' : 'blue');
+    const room      = normalizeRoom(data.room);
+    const name      = (data.name || socket.id).toString().slice(0, 20);
+    const team      = data.team === 'red' ? 'red' : 'blue';
     const matchMode = data.matchMode || 'ranked';
 
     if (!room) {
@@ -127,7 +127,7 @@ io.on('connection', (socket) => {
       return;
     }
 
-    // 既存の部屋があれば抜ける
+    // 前の部屋から抜ける
     const prev = players[socket.id];
     if (prev && prev.room && prev.room !== room) {
       socket.leave(prev.room);
@@ -139,72 +139,52 @@ io.on('connection', (socket) => {
       emitRoomState(prev.room);
     }
 
-    // 登録
     players[socket.id] = {
       id: socket.id,
       name,
       team,
       room,
-      roomId: room,
-      x: Number.isFinite(data.x) ? data.x : 0,
-      y: Number.isFinite(data.y) ? data.y : 1.6,
-      z: Number.isFinite(data.z) ? data.z : 5,
-      ry: Number.isFinite(data.ry) ? data.ry : 0,
+      x:   Number.isFinite(data.x)  ? data.x  : 0,
+      y:   Number.isFinite(data.y)  ? data.y  : 1.6,
+      z:   Number.isFinite(data.z)  ? data.z  : 5,
+      ry:  Number.isFinite(data.ry) ? data.ry : 0,
       alive: true,
       matchMode
     };
 
     socket.join(room);
-
     console.log(`📦 join-room: ${socket.id} -> room ${room} (${name})`);
 
-    // 自分へ現在の部屋情報を送る
+    // 自分に現在の部屋情報を送る
     emitCurrentPlayers(socket, room);
 
-    // 部屋の他人へ新規参加を通知
-    socket.to(room).emit('newPlayer', {
-      id: socket.id,
-      playerId: socket.id,
-      name,
-      team,
-      room,
-      roomId: room,
-      alive: true,
-      playerInfo: {
-        id: socket.id,
-        name,
-        team,
-        room,
-        roomId: room,
-        x: players[socket.id].x,
-        y: players[socket.id].y,
-        z: players[socket.id].z,
-        ry: players[socket.id].ry,
-        alive: true,
-        matchMode
-      }
-    });
+    // ── newPlayer: クライアントは d.id / d.name / d.team / d.x / d.z / d.ry を直接参照 ──
+    const fp = flatPlayer(socket.id, players[socket.id]);
+    socket.to(room).emit('newPlayer', fp);
 
-    // 部屋全体へ最新一覧を送る
+    // 全員に最新一覧
     socket.to(room).emit('room-players', {
       room,
       players: getRoomPlayers(room)
     });
 
-    // room-state も送る
     emitRoomState(room);
   });
 
-  // 部屋メンバー一覧を要求されたら返す
+  // ── 部屋メンバー要求 ──
   socket.on('request-room-players', (data = {}) => {
-    const room = normalizeRoom(data.room || (players[socket.id] && players[socket.id].room));
+    const room = normalizeRoom(
+      data.room || (players[socket.id] && players[socket.id].room)
+    );
     if (!room) return;
     emitCurrentPlayers(socket, room);
   });
 
-  // 互換用
+  // ── 互換用 ──
   socket.on('get-room', (data = {}) => {
-    const room = normalizeRoom(data.room || (players[socket.id] && players[socket.id].room));
+    const room = normalizeRoom(
+      data.room || (players[socket.id] && players[socket.id].room)
+    );
     if (!room) return;
     socket.emit('room-state', {
       room,
@@ -213,101 +193,67 @@ io.on('connection', (socket) => {
     });
   });
 
-  // 移動同期
+  // ── 移動同期（最重要）──
+  // クライアントは playerMoved で d.id / d.x / d.y / d.z / d.ry を直接参照する
+  // → フラット形式で転送する
   socket.on('playerMovement', (movementData = {}) => {
     const p = players[socket.id];
     if (!p || !p.room) return;
 
-    if (Number.isFinite(movementData.x)) p.x = movementData.x;
-    if (Number.isFinite(movementData.y)) p.y = movementData.y;
-    if (Number.isFinite(movementData.z)) p.z = movementData.z;
+    // サーバー側の座標を更新
+    if (Number.isFinite(movementData.x))  p.x  = movementData.x;
+    if (Number.isFinite(movementData.y))  p.y  = movementData.y;
+    if (Number.isFinite(movementData.z))  p.z  = movementData.z;
     if (Number.isFinite(movementData.ry)) p.ry = movementData.ry;
 
-    socket.to(p.room).emit('playerMoved', {
-      playerId: socket.id,
-      playerInfo: {
-        id: socket.id,
-        name: p.name,
-        team: p.team,
-        room: p.room,
-        roomId: p.room,
-        x: p.x,
-        y: p.y,
-        z: p.z,
-        ry: p.ry,
-        alive: p.alive !== false,
-        matchMode: p.matchMode || 'ranked'
-      }
-    });
+    // ── フラット形式で送信 ──
+    // クライアントの playerMoved ハンドラが d.x / d.z / d.ry / d.id を使う
+    socket.to(p.room).emit('playerMoved', flatPlayer(socket.id, p));
   });
 
-  // 射撃同期
+  // ── 射撃同期 ──
+  // クライアントの playerShot ハンドラ: spawnRemoteShotFX(d) → d.ox/d.oy/d.oz/d.dx/d.dy/d.dz を使う
   socket.on('playerShoot', (shotData = {}) => {
     const p = players[socket.id];
     if (!p || !p.room) return;
 
-    socket.to(p.room).emit('playerShot', {
+    // shotData に ox/oy/oz/dx/dy/dz が入っているのでそのまま転送 + id を付与
+    const payload = Object.assign({}, shotData, {
+      id:       socket.id,
       playerId: socket.id,
-      playerInfo: {
-        id: socket.id,
-        name: p.name,
-        team: p.team,
-        room: p.room,
-        roomId: p.room,
-        x: p.x,
-        y: p.y,
-        z: p.z,
-        ry: p.ry,
-        alive: p.alive !== false,
-        matchMode: p.matchMode || 'ranked'
-      },
-      shotData
+      name:     p.name,
+      team:     p.team
     });
 
-    // client 側が playerShot / playerShotFX のどちらを見ても大丈夫なように
-    socket.to(p.room).emit('playerShotFX', {
-      playerId: socket.id,
-      shotData
-    });
+    socket.to(p.room).emit('playerShot',   payload);
+    socket.to(p.room).emit('playerShotFX', payload);
   });
 
-  // 任意: 生存状態などを更新したい時用
+  // ── 生存状態更新 ──
   socket.on('playerState', (stateData = {}) => {
     const p = players[socket.id];
     if (!p || !p.room) return;
 
     if (typeof stateData.alive === 'boolean') p.alive = stateData.alive;
-    socket.to(p.room).emit('playerState', {
-      playerId: socket.id,
-      playerInfo: {
-        id: socket.id,
-        name: p.name,
-        team: p.team,
-        room: p.room,
-        roomId: p.room,
-        x: p.x,
-        y: p.y,
-        z: p.z,
-        ry: p.ry,
-        alive: p.alive !== false,
-        matchMode: p.matchMode || 'ranked'
-      }
-    });
+
+    socket.to(p.room).emit('playerState', Object.assign(
+      flatPlayer(socket.id, p),
+      { playerId: socket.id }
+    ));
   });
 
-  // 明示的に部屋を抜ける
+  // ── 明示的に部屋を抜ける ──
   socket.on('leave-room', () => {
     leaveRoom(socket);
   });
 
-  // 切断
+  // ── 切断 ──
   socket.on('disconnect', () => {
     console.log(`❌ 切断: ${socket.id}`);
     leaveRoom(socket);
   });
 });
 
-// 起動
 server.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
 });

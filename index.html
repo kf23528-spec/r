@@ -168,12 +168,30 @@ radial-gradient(circle at center,rgba(10,16,28,0.54),rgba(3,6,12,0.96));z-index:
 @media (orientation:portrait){#rotateOverlay{display:flex}}
 input,button{-webkit-appearance:none;appearance:none}
 @media (max-width:900px){
-  #lobbyShell{width:min(92vw,720px);grid-template-columns:1fr;gap:0}
-  #lobbyCard{padding:24px 18px 92px;min-height:unset;border-radius:24px}
-  #lobbySide{display:none}
+  #lobbyOverlay{align-items:flex-start;justify-content:flex-start;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 0 24px}
+  #lobbyShell{width:min(94vw,1080px);grid-template-columns:1fr;gap:12px;margin:0 auto;padding-bottom:18px}
+  #lobbyCard,#lobbySide{padding-left:18px;padding-right:18px}
+  #lobbyCard{padding-bottom:88px}
   #lobbyStartBtn{left:18px;right:18px;min-width:unset}
   #lobbyTitle{font-size:clamp(30px,11vw,56px)}
   #roomInput{font-size:22px}
+  #lobbyCard,#lobbySide,#roomPanel,#rankPanel,#modePanel,#waitingCard,#loadingCard,#playerListWrap,#lobbyStartBtn,#battleLaunchBtn,#waitingCancelBtn,#roomGenBtn,.modeBtn,.statCard{
+    background:transparent !important;
+    box-shadow:none !important;
+    backdrop-filter:none !important;
+    -webkit-backdrop-filter:none !important;
+    border-color:rgba(255,255,255,0.16) !important;
+    text-shadow:none !important;
+  }
+  #lobbyCard,#lobbySide,#roomPanel,#rankPanel,#modePanel,#waitingCard,#loadingCard,#playerListWrap{
+    border-width:1px !important;
+  }
+}
+
+/* Common frame cleanup: remove haze/blur from panel shells and buttons */
+#lobbyCard,#lobbySide,#roomPanel,#rankPanel,#modePanel,#waitingCard,#loadingCard,#playerListWrap,#lobbyStartBtn,#battleLaunchBtn,#waitingCancelBtn,#roomGenBtn,.modeBtn,.statCard{
+  -webkit-backdrop-filter:none !important;
+  backdrop-filter:none !important;
 }
 @media (max-width:620px){
   #hpBlock{width:min(52vw,220px);top:12px;left:12px}

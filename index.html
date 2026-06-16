@@ -468,8 +468,8 @@ var aiSpawnPoints = {
 };
 var gunRoot = null;
 var gunLoaded = false;
-var gunPosNormal = new T.Vector3(0.25,-0.22,-0.50);
-var gunPosAds = new T.Vector3(0.08,-0.16,-0.44);
+var gunPosNormal = new T.Vector3(0.48,-0.40,-0.70);
+var gunPosAds = new T.Vector3(0.18,-0.28,-0.58);
 var gunPosCurrent = gunPosNormal.clone();
 var gunPosTarget = gunPosNormal.clone();
 var gunFovCurrent = CAM_FOV_NORMAL;
@@ -580,9 +580,9 @@ function attachGunToCamera(obj){
   if(gunRoot && gunRoot.parent)gunRoot.parent.remove(gunRoot);
   gunRoot = obj;
   camera.add(gunRoot);
-  gunRoot.position.set(0.25,-0.22,-0.50);
+  gunRoot.position.set(0.48,-0.40,-0.70);
   gunRoot.rotation.set(0,0,0);
-  gunRoot.scale.set(1.5,1.5,1.5);
+  gunRoot.scale.set(0.28,0.28,0.28);
   gunRoot.traverse(function(child){
     if(child.isMesh){
       child.castShadow = true;

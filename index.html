@@ -184,21 +184,6 @@ input,button{-webkit-appearance:none;appearance:none}
   #reloadButton{right:calc(10px + min(17vw,100px) + 10px);bottom:22px;z-index:100}
   #adsButton{right:calc(10px + min(17vw,100px) + 10px - 2px);bottom:calc(22px + min(14vw,84px) + 8px);z-index:100}
 }
-@media (max-width:620px){
-  html,body{
-    overflow:hidden;
-  }
-  #game{overflow:hidden}
-  #lobbyOverlay{
-    overflow-y:auto;
-    -webkit-overflow-scrolling:touch;
-    overscroll-behavior:contain;
-    touch-action:pan-y;
-    align-items:flex-start;
-    justify-content:flex-start;
-    padding:12px 0 30px;
-  }
-}
 </style>
 </head>
 <body>
@@ -428,6 +413,7 @@ var fillLight = new T.PointLight(0x69d0ff,1.4,60,2);
 fillLight.position.set(0,8,0);
 scene.add(fillLight);
 
+var raycaster = new T.Raycaster();
 var clock = new T.Clock();
 var socket = null;
 var netOnline = false;
@@ -504,25 +490,11 @@ function escapeHtml(s){return String(s).replace(/[&<>"']/g,function(ch){return {
 function getRoomInput(){return (roomInput.value||'').replace(/[^0-9]/g,'').slice(0,4);}
 function normalizeRoom(room){return String(room||'').replace(/\D/g,'').slice(0,4);}
 function clampVecToMap(v){v.x = clamp(v.x,-MAP_BORDER,MAP_BORDER);v.z = clamp(v.z,-MAP_BORDER,MAP_BORDER);return v;}
-function setLobbyScrollEnabled(on){
-  var enabled = !!on;
-  var overflow = enabled ? 'auto' : 'hidden';
-  document.documentElement.style.overflowX = 'hidden';
-  document.documentElement.style.overflowY = overflow;
-  document.body.style.overflowX = 'hidden';
-  document.body.style.overflowY = overflow;
-  document.documentElement.style.touchAction = enabled ? 'pan-y' : 'none';
-  document.body.style.touchAction = enabled ? 'pan-y' : 'none';
-  lobbyOverlay.style.overflowY = enabled ? 'auto' : 'hidden';
-  lobbyOverlay.style.touchAction = enabled ? 'pan-y' : 'none';
-  lobbyOverlay.style.webkitOverflowScrolling = enabled ? 'touch' : 'auto';
-  lobbyOverlay.style.overscrollBehavior = enabled ? 'contain' : 'none';
-}
 function randChoice(arr){return arr[Math.floor(Math.random()*arr.length)];}
 function isInteractiveTarget(el){
   return !!(el && el.closest && el.closest('button,input,textarea,select,label,a,#lobbyOverlay,#waitingOverlay,#loadingOverlay,#resultOverlay'));
 }
-function addColliderBox(x,y,z,w,h,d,mesh){ colliders.push({x:x,y:y,z:z,w:w,h:h,d:d,mesh:mesh||null}); }
+function addColliderBox(x,y,z,w,h,d,mesh){ if(mesh){ mesh.userData = mesh.userData || {}; mesh.userData.isCollider = true; mesh.userData.colliderBox = {x:x,y:y,z:z,w:w,h:h,d:d}; } colliders.push({x:x,y:y,z:z,w:w,h:h,d:d,mesh:mesh||null}); }
 
 function makeCapsuleMesh(radiusTop,radiusBot,height,mat){
   var cyl = new T.Mesh(new T.CylinderGeometry(radiusTop,radiusBot,height,16,1,false),mat);
@@ -610,7 +582,7 @@ function attachGunToCamera(obj){
   camera.add(gunRoot);
   gunRoot.position.set(0.25,-0.22,-0.50);
   gunRoot.rotation.set(0,0,0);
-  gunRoot.scale.set(5,5,5);
+  gunRoot.scale.set(1.5,1.5,1.5);
   gunRoot.traverse(function(child){
     if(child.isMesh){
       child.castShadow = true;
@@ -832,7 +804,6 @@ function setModeUI(){
   announceEl.style.display = show ? '' : 'none';
   netBadge.style.display = (gameMode===GAME_MODE.LOBBY||gameMode===GAME_MODE.WAITING) ? 'none' : '';
   onlineCountEl.style.display = (gameMode===GAME_MODE.LOBBY) ? 'none' : '';
-  setLobbyScrollEnabled(gameMode===GAME_MODE.LOBBY);
 }
 function updateModeButtonsUI(){
   var isR = matchMode==='ranked';
@@ -954,7 +925,7 @@ function makeBullet(origin, dir, ownerId, ownerTeam, isRemote){
   m.position.copy(origin); scene.add(m);
   return {mesh:m,pos:origin.clone(),prev:origin.clone(),dir:dir.clone().normalize(),speed:BULLET_SPEED,life:BULLET_LIFE,ownerId:ownerId||'',ownerTeam:ownerTeam||TEAM_BLUE,isRemote:!!isRemote,dead:false};
 }
-function addBullet(origin, dir, ownerId, ownerTeam, isRemote){ bullets.push(makeBullet(origin, dir, ownerId, ownerTeam, isRemote)); }
+function addBullet(origin, dir, ownerId, ownerTeam, isRemote){ var b = makeBullet(origin, dir, ownerId, ownerTeam, isRemote); bullets.push(b); return b; }
 function hitPointInBox(point, box){ return Math.abs(point.x-box.x)<=box.w/2 && Math.abs(point.y-box.y)<=box.h/2 && Math.abs(point.z-box.z)<=box.d/2; }
 function raySegmentHitsBox(prev, next, box){
   var steps = 8;
@@ -1077,7 +1048,26 @@ function makeRemoteAvatar(team, name){
   g.userData.name = name || '';
   return g;
 }
-function ensureAvatar(id, team, name){ if(remoteAvatars.has(id)) return remoteAvatars.get(id); var av = makeRemoteAvatar(team||TEAM_BLUE, name||id); scene.add(av); remoteAvatars.set(id,av); return av; }
+function ensureAvatar(id, team, name){
+  if(remoteAvatars.has(id)){
+    var existing = remoteAvatars.get(id);
+    if(existing){
+      existing.userData = existing.userData || {};
+      existing.userData.entityId = id;
+      existing.userData.entityType = 'human';
+      existing.userData.team = team || TEAM_BLUE;
+    }
+    return existing;
+  }
+  var av = makeRemoteAvatar(team||TEAM_BLUE, name||id);
+  av.userData = av.userData || {};
+  av.userData.entityId = id;
+  av.userData.entityType = 'human';
+  av.userData.team = team || TEAM_BLUE;
+  scene.add(av);
+  remoteAvatars.set(id,av);
+  return av;
+}
 function removeAvatar(id){ var av = remoteAvatars.get(id); if(!av) return; scene.remove(av); remoteAvatars.delete(id); }
 function clearAllAvatars(){ remoteAvatars.forEach(function(_,id){ removeAvatar(id); }); }
 
@@ -1111,6 +1101,9 @@ function makeAIUnit(team, index){
   var rng = mulberry32(seed);
   var avatar = makeRemoteAvatar(teamKey, teamKey === 'red' ? ('ENEMY AI ' + (index + 1)) : ('ALLY AI ' + (index + 1)));
   avatar.userData.isAI = true;
+  avatar.userData.entityId = 'ai-' + teamKey + '-' + index;
+  avatar.userData.entityType = 'ai';
+  avatar.userData.team = teamKey;
   avatar.visible = false;
   scene.add(avatar);
 
@@ -1601,41 +1594,56 @@ function fireOnce(){
   playGunSound(false);
   triggerRecoil();
   createMuzzleFlash();
-  var origin = camera.position.clone().add(getForwardVectorFromCamera().clone().multiplyScalar(0.6));
-  origin.y = camera.position.y - 0.05;
-  var dir = getForwardVectorFromCamera();
-  addBullet(origin, dir, socket && socket.id ? socket.id : 'local', player.team || TEAM_BLUE, false);
-  makeBulletFxLine(origin, dir, 0xffffff, 70);
 
-  var hitInfo = checkLocalShotHit(origin, dir);
-  /* FIX #3: hitInfo.kind → hitInfo.type に統一 */
-  if(hitInfo && hitInfo.type==='obstacle'){
-    flashKillFx(hitInfo.point);
-    return;
-  }
-  if(hitInfo && hitInfo.type==='player'){
-    if(socket && socket.connected){
-      socket.emit('playerShoot', {
-        room: currentRoom,
-        ox: origin.x, oy: origin.y, oz: origin.z,
-        dx: dir.x, dy: dir.y, dz: dir.z,
-        targetId: hitInfo.id,
-        team: player.team || TEAM_BLUE
-      });
-      roomPlayers[hitInfo.id] = roomPlayers[hitInfo.id] || {team:hitInfo.team,alive:true,name:hitInfo.id,room:currentRoom};
-      roomPlayers[hitInfo.id].alive = false;
-      roomPlayers[hitInfo.id].hp = 0;
-      applyRemoteState(hitInfo.id, roomPlayers[hitInfo.id]);
-      updatePlayerStateToRoom({targetId:hitInfo.id,alive:false,hp:0});
+  var dir = getForwardVectorFromCamera();
+  var rayOrigin = camera.position.clone();
+  var muzzleOrigin = camera.position.clone().add(dir.clone().multiplyScalar(0.6));
+  muzzleOrigin.y = camera.position.y - 0.05;
+
+  var hitInfo = checkLocalShotHit(rayOrigin, dir);
+  var shotBullet = addBullet(muzzleOrigin, dir, socket && socket.id ? socket.id : 'local', player.team || TEAM_BLUE, false);
+  makeBulletFxLine(muzzleOrigin, dir, 0xffffff, 70);
+
+  if(hitInfo){
+    if(shotBullet){
+      shotBullet.pos.copy(hitInfo.point);
+      shotBullet.prev.copy(hitInfo.point);
+      if(shotBullet.mesh) shotBullet.mesh.position.copy(hitInfo.point);
+      shotBullet.life = 0.08;
+    }
+    if(hitInfo.type==='obstacle'){
       flashKillFx(hitInfo.point);
-      addKillFeed('💥 KILL!');
-      showKillAnnouncement('HIT!');
-      clearRoundIfNeededFromStates();
+      return;
+    }
+    if(hitInfo.type==='human'){
+      if(socket && socket.connected){
+        socket.emit('playerShoot', {
+          room: currentRoom,
+          ox: rayOrigin.x, oy: rayOrigin.y, oz: rayOrigin.z,
+          dx: dir.x, dy: dir.y, dz: dir.z,
+          targetId: hitInfo.id,
+          team: player.team || TEAM_BLUE
+        });
+        roomPlayers[hitInfo.id] = roomPlayers[hitInfo.id] || {team:hitInfo.team,alive:true,name:hitInfo.id,room:currentRoom};
+        roomPlayers[hitInfo.id].alive = false;
+        roomPlayers[hitInfo.id].hp = 0;
+        applyRemoteState(hitInfo.id, roomPlayers[hitInfo.id]);
+        updatePlayerStateToRoom({targetId:hitInfo.id,alive:false,hp:0});
+        flashKillFx(hitInfo.point);
+        addKillFeed('💥 KILL!');
+        showKillAnnouncement('HIT!');
+        clearRoundIfNeededFromStates();
+      }
+      return;
+    }
+    if(hitInfo.type==='ai'){
+      applyLocalShotHit(hitInfo, hitInfo.point);
+      return;
     }
   }else if(socket && socket.connected){
     socket.emit('playerShot', {
       room: currentRoom,
-      ox: origin.x, oy: origin.y, oz: origin.z,
+      ox: rayOrigin.x, oy: rayOrigin.y, oz: rayOrigin.z,
       dx: dir.x, dy: dir.y, dz: dir.z,
       team: player.team || TEAM_BLUE
     });

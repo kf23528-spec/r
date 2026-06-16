@@ -186,15 +186,17 @@ input,button{-webkit-appearance:none;appearance:none}
 }
 @media (max-width:620px){
   html,body{
-    overflow-x:hidden;
-    overflow-y:auto;
-    touch-action:pan-y;
-    -webkit-overflow-scrolling:touch;
+    overflow:hidden;
   }
-  #game{overflow:visible}
+  #game{overflow:hidden}
   #lobbyOverlay{
-    touch-action:pan-y;
+    overflow-y:auto;
     -webkit-overflow-scrolling:touch;
+    overscroll-behavior:contain;
+    touch-action:pan-y;
+    align-items:flex-start;
+    justify-content:flex-start;
+    padding:12px 0 30px;
   }
 }
 </style>
@@ -502,6 +504,20 @@ function escapeHtml(s){return String(s).replace(/[&<>"']/g,function(ch){return {
 function getRoomInput(){return (roomInput.value||'').replace(/[^0-9]/g,'').slice(0,4);}
 function normalizeRoom(room){return String(room||'').replace(/\D/g,'').slice(0,4);}
 function clampVecToMap(v){v.x = clamp(v.x,-MAP_BORDER,MAP_BORDER);v.z = clamp(v.z,-MAP_BORDER,MAP_BORDER);return v;}
+function setLobbyScrollEnabled(on){
+  var enabled = !!on;
+  var overflow = enabled ? 'auto' : 'hidden';
+  document.documentElement.style.overflowX = 'hidden';
+  document.documentElement.style.overflowY = overflow;
+  document.body.style.overflowX = 'hidden';
+  document.body.style.overflowY = overflow;
+  document.documentElement.style.touchAction = enabled ? 'pan-y' : 'none';
+  document.body.style.touchAction = enabled ? 'pan-y' : 'none';
+  lobbyOverlay.style.overflowY = enabled ? 'auto' : 'hidden';
+  lobbyOverlay.style.touchAction = enabled ? 'pan-y' : 'none';
+  lobbyOverlay.style.webkitOverflowScrolling = enabled ? 'touch' : 'auto';
+  lobbyOverlay.style.overscrollBehavior = enabled ? 'contain' : 'none';
+}
 function randChoice(arr){return arr[Math.floor(Math.random()*arr.length)];}
 function isInteractiveTarget(el){
   return !!(el && el.closest && el.closest('button,input,textarea,select,label,a,#lobbyOverlay,#waitingOverlay,#loadingOverlay,#resultOverlay'));
@@ -816,6 +832,7 @@ function setModeUI(){
   announceEl.style.display = show ? '' : 'none';
   netBadge.style.display = (gameMode===GAME_MODE.LOBBY||gameMode===GAME_MODE.WAITING) ? 'none' : '';
   onlineCountEl.style.display = (gameMode===GAME_MODE.LOBBY) ? 'none' : '';
+  setLobbyScrollEnabled(gameMode===GAME_MODE.LOBBY);
 }
 function updateModeButtonsUI(){
   var isR = matchMode==='ranked';

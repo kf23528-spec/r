@@ -110,7 +110,7 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 #modeDesc{margin-top:10px;font-size:12px;line-height:1.5;opacity:0.78}
 
 #waitingOverlay{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:radial-gradient(circle at center,rgba(5,12,24,0.72),rgba(0,0,0,0.96));z-index:122;pointer-events:auto;color:#fff;text-align:center;overflow:hidden}
-#waitingCard{width:min(90vw,500px);padding:32px 28px;border-radius:28px;background:linear-gradient(180deg,rgba(255,255,255,0.12),rgba(255,255,255,0.05));border:1px solid rgba(255,255,255,0.16);box-shadow:0 24px 64px rgba(0,0,0,0.55),inset 0 0 30px rgba(255,255,255,0.03);backdrop-filter:blur(14px)}
+#waitingCard{width:min(90vw,500px);padding:32px 28px 28px;border-radius:28px;background:linear-gradient(180deg,rgba(255,255,255,0.12),rgba(255,255,255,0.05));border:1px solid rgba(255,255,255,0.16);box-shadow:0 24px 64px rgba(0,0,0,0.55),inset 0 0 30px rgba(255,255,255,0.03);backdrop-filter:blur(14px);display:flex;flex-direction:column}
 #waitingRoomNum{font-size:11px;letter-spacing:0.22em;opacity:0.6;margin-bottom:6px}
 #waitingTitle{font-size:clamp(22px,5vw,34px);font-weight:1000;letter-spacing:0.10em;margin-bottom:4px}
 #waitingSubtitle{font-size:13px;opacity:0.7;margin-bottom:24px;letter-spacing:0.06em}
@@ -127,7 +127,7 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 #playerCountBadge{margin-bottom:16px;padding:8px 16px;border-radius:999px;display:inline-block;background:rgba(100,210,255,0.12);border:1px solid rgba(100,210,255,0.28);color:#9fe6ff;font-size:13px;font-weight:900;letter-spacing:0.10em}
 #waitingProgress{width:100%;height:6px;border-radius:999px;overflow:hidden;background:rgba(255,255,255,0.10);border:1px solid rgba(255,255,255,0.10);margin-bottom:20px}
 #waitingProgressFill{height:100%;width:0%;border-radius:inherit;background:linear-gradient(90deg,#32a1ff,#8b5cff,#ff5bbd);transition:width 0.4s ease;box-shadow:0 0 12px rgba(130,160,255,0.5)}
-#waitingHint{font-size:12px;opacity:0.55;margin-bottom:20px;letter-spacing:0.06em}
+#waitingHint{font-size:12px;opacity:0.55;margin-bottom:14px;letter-spacing:0.06em}
 #waitingCancelBtn{border:none;border-radius:14px;padding:12px 28px;background:rgba(255,255,255,0.08);border:1.5px solid rgba(255,255,255,0.16);color:rgba(255,255,255,0.7);font-size:14px;font-weight:800;letter-spacing:0.08em;cursor:pointer;pointer-events:auto;touch-action:none;-webkit-tap-highlight-color:transparent;width:100%}
 #waitingCancelBtn:active{filter:brightness(1.2)}
 #waitingStartBtn{display:block;width:100%;margin-top:12px;border:none;border-radius:16px;padding:14px 24px;background:linear-gradient(135deg,#32a1ff,#8b5cff 72%,#ff5bbd);color:white;font-size:18px;font-weight:1000;letter-spacing:0.10em;box-shadow:0 16px 36px rgba(70,110,255,0.26),inset 0 0 18px rgba(255,255,255,0.12);pointer-events:auto;touch-action:none;-webkit-tap-highlight-color:transparent;cursor:pointer}
@@ -227,7 +227,7 @@ input,button{-webkit-appearance:none;appearance:none}
       <div id="waitingCard">
         <div id="waitingRoomNum">ROOM NUMBER</div>
         <div id="waitingTitle">WAITING FOR PLAYERS</div>
-        <div id="waitingSubtitle">同じ部屋の本物のプレイヤーを待っています</div>
+        <div id="waitingSubtitle">2人以上そろうと、誰でも下の出発ボタンを押せます</div>
         <div id="playerCountBadge">🟢 <span id="waitingCountText">あなたのみ</span></div>
         <div id="playerListWrap">
           <div id="playerListLabel">IN THIS ROOM</div>
@@ -282,6 +282,7 @@ var BOT_FIRE_INTERVAL = 0.9;
 var BOT_DAMAGE = 12;
 var BOT_SIGHT_ANGLE = Math.PI * 0.72;
 var MATCH_PLAYER_MIN = 2;
+var MATCH_PLAYER_MAX = 8;
 var MAP_BORDER = 35.2;
 var PLAYER_RADIUS = 0.42;
 var PLAYER_HEIGHT = 1.6;
@@ -1058,7 +1059,7 @@ function updateWaitingUI(){
     var row = document.createElement('div');
     row.className = 'playerItem' + (socket && id===socket.id ? ' me' : '');
     var isHost = id === roomHostId;
-    row.innerHTML = '<div class="playerAvatar '+((p.team||'blue')==='blue'?'blue':'red')+'">'+(((p.team||'blue')==='blue')?'B':'R')+'</div><div class="playerName">'+escapeHtml(p.name||'???')+'</div><div class="playerTag">'+(socket && id===socket.id ? 'YOU' : (isHost ? 'HOST' : 'READY'))+'</div>';
+    row.innerHTML = '<div class="playerAvatar '+((p.team||'blue')==='blue'?'blue':'red')+'">'+(((p.team||'blue')==='blue')?'B':'R')+'</div><div class="playerName">'+escapeHtml(p.name||'???')+'</div><div class="playerTag">'+(socket && id===socket.id ? 'YOU' : 'READY')+'</div>';
     playerListEl.appendChild(row);
   });
 }
@@ -1550,12 +1551,11 @@ if(waitingStartBtn){
     if(e)e.preventDefault();
     if(!socket || !socket.connected || !currentRoom) return;
     var ids = Object.keys(roomPlayers||{});
-    syncRoomHost(roomPlayers);
     if(!(ids.length>=MATCH_PLAYER_MIN && ids.length<=MATCH_PLAYER_MAX)) return;
     manualStartRequested = true;
     var myTeam = (roomPlayers && socket && roomPlayers[socket.id] && roomPlayers[socket.id].team) || getRandomTeam();
-    socket.emit('start-game',{room:currentRoom,name:PLAYER_NAME,hostId:socket.id,matchMode:matchMode,team:myTeam});
     socket.emit('request-start',{room:currentRoom,name:PLAYER_NAME,hostId:socket.id,matchMode:matchMode,team:myTeam});
+    socket.emit('start-game',{room:currentRoom,name:PLAYER_NAME,hostId:socket.id,matchMode:matchMode,team:myTeam});
     setTimeout(function(){
       if(manualStartRequested && inWaiting && gameMode===GAME_MODE.WAITING){
         updateWaitingUI();

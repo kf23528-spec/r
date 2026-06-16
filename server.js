@@ -78,7 +78,7 @@ function getRoomPlayers(room) {
 function flatPlayer(id, p) {
   return {
     id,
-    playerId: id,        // 互換用
+    playerId: id, // 互換用
     name: p.name || id,
     team: p.team || 'blue',
     room: p.room || '',
@@ -273,6 +273,7 @@ function beginMatch(room, starterId) {
   io.to(room).emit('matchStarted', payload);
   io.to(room).emit('gameStarted', payload);
   io.to(room).emit('startMatch', payload);
+  io.to(room).emit('game-start', payload);
 
   emitScoreUpdate(room);
   emitRoomState(room);
@@ -288,7 +289,10 @@ io.on('connection', (socket) => {
     name: socket.id,
     team: 'blue',
     room: '',
-    x: 0, y: 1.6, z: 5, ry: 0,
+    x: 0,
+    y: 1.6,
+    z: 5,
+    ry: 0,
     alive: true,
     matchMode: 'ranked'
   };
@@ -334,6 +338,9 @@ io.on('connection', (socket) => {
       }
     }
 
+    // 既存部屋を作成
+    ensureRoom(room);
+
     players[socket.id] = {
       id: socket.id,
       name,
@@ -348,8 +355,6 @@ io.on('connection', (socket) => {
     };
 
     socket.join(room);
-    ensureRoom(room);
-
     console.log(`📦 join-room: ${socket.id} -> room ${room} (${name})`);
 
     // 自分に現在の部屋情報を送る
@@ -369,7 +374,6 @@ io.on('connection', (socket) => {
   });
 
   // ── 手動開始要求 ──
-  // クライアント側の emit 名がズレても拾えるように複数登録
   const startRequestHandler = () => {
     const p = players[socket.id];
     if (!p || !p.room) {
@@ -411,14 +415,15 @@ io.on('connection', (socket) => {
       data.room || (players[socket.id] && players[socket.id].room)
     );
     if (!room) return;
+    const r = ensureRoom(room);
     socket.emit('room-state', {
       room,
       count: getRoomCount(room),
-      started: ensureRoom(room).started,
-      finished: ensureRoom(room).finished,
-      canStart: !ensureRoom(room).started && getRoomCount(room) >= MIN_PLAYERS_TO_START && getRoomCount(room) <= MAX_PLAYERS_PER_ROOM,
-      starterId: ensureRoom(room).starterId,
-      scores: ensureRoom(room).scores,
+      started: r.started,
+      finished: r.finished,
+      canStart: !r.started && getRoomCount(room) >= MIN_PLAYERS_TO_START && getRoomCount(room) <= MAX_PLAYERS_PER_ROOM,
+      starterId: r.starterId,
+      scores: r.scores,
       players: getRoomPlayers(room)
     });
   });

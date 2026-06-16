@@ -882,7 +882,7 @@ function checkBotHit(){
   showKillAnnouncement();
   addKillFeed('💥 BOT KILL！');
   if(socket && socket.connected){
-    socket.emit('enemyKilled',{team:'blue',room:currentRoom,botIndex:botIndex});
+    socket.emit('enemyKilled',{team:getMyTeam(),room:currentRoom,botIndex:botIndex});
   }
   return true;
 }
@@ -1036,6 +1036,12 @@ function setRoomInputValid(){
 }
 function genRoom(){roomInput.value = String(Math.floor(1000+Math.random()*9000));setRoomInputValid();}
 function getRandomTeam(){return Math.random()<0.5?'blue':'red';}
+function getMyTeam(){
+  if(socket && socket.id && roomPlayers && roomPlayers[socket.id] && roomPlayers[socket.id].team){
+    return roomPlayers[socket.id].team;
+  }
+  return 'blue';
+}
 function syncRoomHost(players){
   var ids = Object.keys(players||{});
   if(!ids.length){roomHostId='';return;}
@@ -1191,10 +1197,14 @@ function showFinalResultByServer(data){
   resultLock = true;
   matchOver = true;
   resultShown = true;
+  var myTeam = getMyTeam();
   var won = false;
   if(data && typeof data.won === 'boolean')won = data.won;
-  else if(data && data.winner){
-    won = String(data.winner).toLowerCase() === 'blue' || String(data.winner).toLowerCase() === 'team-blue';
+  else if(data && data.winnerTeam){
+    won = String(data.winnerTeam).toLowerCase() === String(myTeam).toLowerCase();
+  } else if(data && data.winner){
+    var w = String(data.winner).toLowerCase();
+    won = (w === String(myTeam).toLowerCase()) || (myTeam === 'blue' && (w === 'team-blue' || w === 'blue')) || (myTeam === 'red' && (w === 'team-red' || w === 'red'));
   }
   resultTextEl.textContent = won ? 'YOUR TEAM WON!' : 'YOUR TEAM LOST';
   resultSubEl.textContent = 'RETURNING TO THE HUB...';
@@ -1432,14 +1442,16 @@ function initSocket(){
     }
   });
 
-  socket.on('playerMoved',function(d){
+  function applyRemoteMovement(d){
     if(!d || !d.id || (socket && d.id===socket.id))return;
     if(gameMode!==GAME_MODE.BATTLE)return;
     var av = ensureAvatar(d.id,d.team||'blue');
     av.position.set(Number(d.x)||0,0,Number(d.z)||0);
     av.rotation.y = Number(d.ry)||0;
     av.visible = true;
-  });
+  }
+  socket.on('playerMoved',applyRemoteMovement);
+  socket.on('playerMovement',applyRemoteMovement);
 
   socket.on('playerShot',function(d){
     if(!d || !d.id || (socket && d.id===socket.id))return;
@@ -1469,13 +1481,17 @@ function initSocket(){
       });
     }
   });
-  socket.on('game-start',function(data){
+  function handleBattleStart(data){
     if(data && data.room && data.room!==currentRoom)return;
     if(inWaiting && gameMode===GAME_MODE.WAITING){
       manualStartRequested = false;
       _launchBattle();
     }
-  });
+  }
+  socket.on('game-start',handleBattleStart);
+  socket.on('matchStarted',handleBattleStart);
+  socket.on('gameStarted',handleBattleStart);
+  socket.on('startMatch',handleBattleStart);
 
   socket.on('scoreUpdate',function(data){
     if(data && data.room && currentRoom && data.room!==currentRoom)return;
@@ -1554,8 +1570,12 @@ if(waitingStartBtn){
     if(!(ids.length>=MATCH_PLAYER_MIN && ids.length<=MATCH_PLAYER_MAX)) return;
     manualStartRequested = true;
     var myTeam = (roomPlayers && socket && roomPlayers[socket.id] && roomPlayers[socket.id].team) || getRandomTeam();
-    socket.emit('request-start',{room:currentRoom,name:PLAYER_NAME,hostId:socket.id,matchMode:matchMode,team:myTeam});
-    socket.emit('start-game',{room:currentRoom,name:PLAYER_NAME,hostId:socket.id,matchMode:matchMode,team:myTeam});
+    var startPayload = {room:currentRoom,name:PLAYER_NAME,hostId:socket.id,matchMode:matchMode,team:myTeam};
+    socket.emit('request-start',startPayload);
+    socket.emit('start-game',startPayload);
+    socket.emit('startMatch',startPayload);
+    socket.emit('beginMatch',startPayload);
+    socket.emit('manualStart',startPayload);
     setTimeout(function(){
       if(manualStartRequested && inWaiting && gameMode===GAME_MODE.WAITING){
         updateWaitingUI();
@@ -1685,15 +1705,18 @@ function updateSendLoop(dt){
   sendTimer += dt*1000;
   if(sendTimer >= SEND_HZ){
     sendTimer = 0;
-    socket.emit('playerMoved',{
+    var myTeam = getMyTeam();
+    var movementPayload = {
       room:currentRoom,
       name:PLAYER_NAME,
-      team:'blue',
+      team:myTeam,
       x:camera.position.x,
       y:camera.position.y,
       z:camera.position.z,
       ry:yaw
-    });
+    };
+    socket.emit('playerMovement', movementPayload);
+    socket.emit('playerMoved', movementPayload);
   }
 }
 

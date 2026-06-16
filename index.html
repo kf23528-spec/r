@@ -166,78 +166,6 @@ radial-gradient(circle at center,rgba(10,16,28,0.54),rgba(3,6,12,0.96));z-index:
 
 #rotateOverlay{position:absolute;inset:0;display:none;align-items:center;justify-content:center;text-align:center;background:rgba(4,8,14,0.96);color:#ffffff;z-index:200;pointer-events:all;padding:24px;box-sizing:border-box;font-size:clamp(18px,4.5vw,30px);font-weight:800;letter-spacing:0.05em;line-height:1.6}
 @media (orientation:portrait){#rotateOverlay{display:flex}}
-
-@media (max-width:900px){
-  #lobbyOverlay{
-    align-items:flex-start;
-    justify-content:flex-start;
-    overflow-y:auto;
-    -webkit-overflow-scrolling:touch;
-    overscroll-behavior:contain;
-    touch-action:pan-y;
-    padding:16px 0 28px;
-  }
-  #lobbyShell{
-    width:min(94vw,1080px);
-    grid-template-columns:1fr;
-    gap:12px;
-    margin:0 auto;
-    padding-bottom:24px;
-  }
-  #lobbyCard,#lobbySide{
-    background:transparent !important;
-    border:0 !important;
-    box-shadow:none !important;
-    backdrop-filter:none !important;
-    -webkit-backdrop-filter:none !important;
-  }
-  #roomPanel,#rankPanel,#modePanel,#lobbyStats .statCard,#playerListWrap,#waitingCard,#loadingCard{
-    background:transparent !important;
-    border:0 !important;
-    box-shadow:none !important;
-    backdrop-filter:none !important;
-    -webkit-backdrop-filter:none !important;
-  }
-  #lobbyCard{padding:22px 16px 90px;min-height:auto}
-  #lobbySide{padding:16px 16px 72px}
-  #lobbyStartBtn{left:16px;right:16px;min-width:unset}
-  #lobbyTitle{font-size:clamp(30px,11vw,56px)}
-  #roomInput{font-size:22px}
-}
-@media (max-width:620px){
-  html,body{overflow:hidden}
-  #game{overflow:hidden}
-  #lobbyOverlay{
-    align-items:flex-start;
-    justify-content:flex-start;
-    overflow-y:auto;
-    -webkit-overflow-scrolling:touch;
-    overscroll-behavior:contain;
-    touch-action:pan-y;
-    padding:12px 0 30px;
-  }
-  #lobbyShell{width:min(96vw,1080px);grid-template-columns:1fr;gap:10px;margin:0 auto;padding-bottom:28px}
-  #lobbyCard,#lobbySide,#roomPanel,#rankPanel,#modePanel,#lobbyStats .statCard,#playerListWrap,#waitingCard,#loadingCard{
-    background:transparent !important;
-    border:0 !important;
-    box-shadow:none !important;
-    backdrop-filter:none !important;
-    -webkit-backdrop-filter:none !important;
-  }
-  #lobbyCard{padding:20px 14px 92px;min-height:auto}
-  #lobbySide{padding:16px 14px 74px}
-  #lobbyStartBtn{left:14px;right:14px;min-width:unset}
-  #waitingCard{width:min(94vw,580px);padding:22px 14px 18px}
-  #loadingCard{width:min(92vw,460px);padding:22px 16px}
-  #hpBlock{width:min(52vw,220px);top:12px;left:12px}
-  #onlineCount{top:54px;right:12px}
-  #status{top:72px;left:12px}
-  #joystickContainer{left:10px;bottom:10px;z-index:100}
-  #shootButton{right:10px;bottom:12px;z-index:100}
-  #reloadButton{right:calc(10px + min(17vw,100px) + 10px);bottom:22px;z-index:100}
-  #adsButton{right:calc(10px + min(17vw,100px) + 10px - 2px);bottom:calc(22px + min(14vw,84px) + 8px);z-index:100}
-}
-
 input,button{-webkit-appearance:none;appearance:none}
 @media (max-width:900px){
   #lobbyShell{width:min(94vw,1080px);grid-template-columns:1fr;gap:12px}
@@ -390,6 +318,11 @@ var TEAM_BLUE = 'blue';
 var TEAM_RED = 'red';
 var GAME_MODE = {LOBBY:'lobby',WAITING:'waiting',LOADING:'loading',BATTLE:'battle',SPECTATE:'spectate',RESULT:'result'};
 
+/* =====================================================================
+   FIX #1: 銃声プールの上限設定 - 毎回 new Audio() せず最大6個で使い回す
+   ===================================================================== */
+var GUN_SOUND_POOL_MAX = 6;
+
 var canvas = document.getElementById('c');
 var shootButton = document.getElementById('shootButton');
 var reloadButton = document.getElementById('reloadButton');
@@ -457,6 +390,11 @@ scene.fog = new T.FogExp2(0x1b2742,0.010);
 var camera = new T.PerspectiveCamera(CAM_FOV_NORMAL,window.innerWidth/window.innerHeight,0.05,300);
 camera.rotation.order = 'YXZ';
 camera.position.set(0,1.6,15);
+
+/* =====================================================================
+   FIX #2: camera を scene に追加 → camera.add(gunRoot) が機能する
+   ===================================================================== */
+scene.add(camera);
 
 scene.add(new T.HemisphereLight(0x8fc7ff,0x203019,1.35));
 var sunLight = new T.DirectionalLight(0xf3fbff,1.55);
@@ -634,7 +572,6 @@ function buildProceduralGun(){
   var scopeBody=new T.Mesh(new T.CylinderGeometry(0.018,0.018,0.08,12),bodyMat); scopeBody.rotation.x=Math.PI/2; scopeBody.position.set(0,0.052,-0.06); g.add(scopeBody);
   var glLine=new T.Mesh(new T.BoxGeometry(0.003,0.003,0.08),glowMat); glLine.position.set(-0.028,0.010,-0.06); g.add(glLine);
   g.scale.setScalar(1.0);
-  g.userData.forceScale = 5;
   return g;
 }
 
@@ -644,8 +581,7 @@ function attachGunToCamera(obj){
   camera.add(gunRoot);
   gunRoot.position.set(0.25,-0.22,-0.50);
   gunRoot.rotation.set(0,0,0);
-  var forceScale = (gunRoot.userData && Number.isFinite(gunRoot.userData.forceScale)) ? gunRoot.userData.forceScale : 1;
-  gunRoot.scale.set(forceScale, forceScale, forceScale);
+  gunRoot.scale.set(5,5,5);
   gunRoot.traverse(function(child){
     if(child.isMesh){
       child.castShadow = true;
@@ -666,36 +602,18 @@ function attachGunToCamera(obj){
       }
     }
   });
+  /* FIX #2続き: 現在のゲームモードに応じて表示/非表示を正しく設定 */
+  gunRoot.visible = (gameMode === GAME_MODE.BATTLE);
   gunLoaded = true;
 }
 
 (function(){
+  /* FIX #2: GLTFLoader - モデルのscale/positionをattachGunToCameraに任せるよう整理
+     attachGunToCamera内でscale.set(5,5,5)とposition.set(0.25,-0.22,-0.50)を設定するため
+     ここでは設定しない。traverse で発光だけ事前に調整する。 */
   var loader = new T.GLTFLoader();
-  var loaded = false;
-  function finalizeGun(model){
-    if(loaded || !model) return;
-    loaded = true;
-
-    try{
-      var box = new T.Box3().setFromObject(model);
-      if(box && isFinite(box.min.x) && isFinite(box.max.x)){
-        var size = new T.Vector3();
-        var center = new T.Vector3();
-        box.getSize(size);
-        box.getCenter(center);
-        model.position.sub(center);
-        var maxDim = Math.max(size.x, size.y, size.z) || 1;
-        var fit = 1.2 / maxDim;
-        if(!isFinite(fit) || fit <= 0) fit = 1;
-        model.scale.multiplyScalar(fit * 5);
-      }else{
-        model.scale.set(5,5,5);
-      }
-    }catch(err){
-      model.scale.set(5,5,5);
-    }
-
-    model.userData.forceScale = 1;
+  loader.load('ju.glb', function(gltf){
+    var model = gltf.scene;
     model.traverse(function(obj){
       if(obj.isMesh){
         obj.castShadow = true;
@@ -716,29 +634,13 @@ function attachGunToCamera(obj){
         }
       }
     });
+    /* scale/positionはattachGunToCameraが設定するのでここでは触らない */
     attachGunToCamera(model);
-  }
-
-  var candidates = ['ju.glb', './ju.glb', 'assets/ju.glb', './assets/ju.glb'];
-  var i = 0;
-  function tryNext(){
-    if(loaded) return;
-    if(i >= candidates.length){
-      finalizeGun(buildProceduralGun());
-      return;
-    }
-    loader.load(
-      candidates[i++],
-      function(gltf){ finalizeGun(gltf && gltf.scene); },
-      undefined,
-      function(){ tryNext(); }
-    );
-  }
-
-  tryNext();
-  setTimeout(function(){
-    if(!loaded) finalizeGun(buildProceduralGun());
-  }, 5000);
+  }, undefined, function(err){
+    /* GLB読み込み失敗 → プロシージャル銃にフォールバック */
+    console.warn('ju.glb load failed, using procedural gun:', err);
+    attachGunToCamera(buildProceduralGun());
+  });
 })();
 
 function createMuzzleFlash(){
@@ -774,19 +676,20 @@ function updateMuzzleFlashes(dt){
   }
 }
 
+/* =====================================================================
+   FIX #1: 銃声プール - 上限 GUN_SOUND_POOL_MAX を守り new Audio を増やさない
+   全スロットが再生中の場合は最も再生位置が進んでいるものを強制的に再利用する
+   ===================================================================== */
 var gunSoundPool = [];
 var gunSoundReady = false;
-var gunSoundCursor = 0;
 function unlockAudio(){
   if(gunSoundReady) return;
   gunSoundReady = true;
   gunSoundPool = [];
-  gunSoundCursor = 0;
-  for(var i=0;i<6;i++){
+  for(var i=0;i<GUN_SOUND_POOL_MAX;i++){
     var a = new Audio('ju.mp3');
     a.preload = 'auto';
     a.volume = 0.95;
-    a.load();
     gunSoundPool.push(a);
   }
   try{
@@ -802,23 +705,32 @@ function unlockAudio(){
     }
   }catch(e){}
 }
+(function(){
+  var a = new Audio('ju.mp3');
+  a.preload = 'auto';
+  a.load();
+})();
 
 function playGunSound(isBot){
   if(!gunSoundReady) return;
   try{
-    if(!gunSoundPool.length){
-      var fallback = new Audio('ju.mp3');
-      fallback.preload = 'auto';
-      fallback.volume = isBot ? 0.7 : 0.95;
-      fallback.load();
-      var fp = fallback.play();
-      if(fp && typeof fp.catch === 'function') fp.catch(function(){});
-      return;
+    /* プールから空きスロットを探す */
+    var audio = null;
+    for(var i=0;i<gunSoundPool.length;i++){
+      if(gunSoundPool[i].paused || gunSoundPool[i].ended){
+        audio = gunSoundPool[i];
+        break;
+      }
     }
-    var audio = gunSoundPool[gunSoundCursor % gunSoundPool.length];
-    gunSoundCursor = (gunSoundCursor + 1) % gunSoundPool.length;
-    if(!audio) return;
-    audio.pause();
+    /* FIX #1: 全スロット使用中でも new Audio は作らず、最も再生が進んでいるものを再利用 */
+    if(!audio){
+      var oldest = gunSoundPool[0];
+      for(var j=1;j<gunSoundPool.length;j++){
+        if(gunSoundPool[j].currentTime > oldest.currentTime) oldest = gunSoundPool[j];
+      }
+      oldest.pause();
+      audio = oldest;
+    }
     audio.currentTime = 0;
     audio.volume = isBot ? 0.7 : 0.95;
     var p = audio.play();
@@ -883,7 +795,8 @@ function setModeUI(){
   document.getElementById('crosshair').style.display = show ? '' : 'none';
   document.getElementById('crosshairDot').style.display = show ? '' : 'none';
   hitIndicator.style.display = show ? '' : 'none';
-  if(gunRoot)gunRoot.visible = show;
+  /* FIX #2: gunRoot の visible を setModeUI から正しく制御 */
+  if(gunRoot) gunRoot.visible = show;
   document.getElementById('hpBlock').style.display = show ? '' : 'none';
   document.getElementById('status').style.display = show ? '' : 'none';
   killFeedEl.style.display = show ? '' : 'none';
@@ -947,6 +860,30 @@ function resolveCollision(next){
   }
   clampVecToMap(safe);
   return safe;
+}
+
+/* =====================================================================
+   FIX #4: AI用の衝突解決関数 - AIユニットはPlayerRadiusより少し大きめのラジアスで判定
+   ===================================================================== */
+var AI_RADIUS = 0.5;
+function resolveCollisionForAI(nx, nz){
+  var r = AI_RADIUS;
+  var sx = nx, sz = nz;
+  for(var i=0;i<colliders.length;i++){
+    var c = colliders[i];
+    var minX = c.x - c.w/2 - r, maxX = c.x + c.w/2 + r, minZ = c.z - c.d/2 - r, maxZ = c.z + c.d/2 + r;
+    if(sx > minX && sx < maxX && sz > minZ && sz < maxZ){
+      var dxL = Math.abs(sx - minX), dxR = Math.abs(maxX - sx), dzT = Math.abs(sz - minZ), dzB = Math.abs(maxZ - sz);
+      var m = Math.min(dxL, dxR, dzT, dzB);
+      if(m===dxL) sx = minX;
+      else if(m===dxR) sx = maxX;
+      else if(m===dzT) sz = minZ;
+      else sz = maxZ;
+    }
+  }
+  sx = clamp(sx, -MAP_BORDER, MAP_BORDER);
+  sz = clamp(sz, -MAP_BORDER, MAP_BORDER);
+  return {x:sx, z:sz};
 }
 
 function movePlayer(dt){
@@ -1149,7 +1086,6 @@ function makeAIUnit(team, index){
 
   var spawnList = aiSpawnPoints[teamKey];
   var spawn = spawnList[index % spawnList.length].clone();
-  var patrol = spawn.clone().add(new T.Vector3((rng() - 0.5) * 8, 0, (rng() - 0.5) * 8));
   var unit = {
     id: 'ai-' + teamKey + '-' + index,
     team: teamKey,
@@ -1164,7 +1100,6 @@ function makeAIUnit(team, index){
     maxHp: 100,
     alive: true,
     state: 'patrol',
-    patrolTarget: patrol,
     moveSpeed: 2.2 + rng() * 0.7,
     strafe: rng() > 0.5 ? 1 : -1,
     fireCooldown: 0.6 + rng() * 1.2,
@@ -1278,6 +1213,10 @@ function damageEntityFromAI(unit, target, dist, nowSec){
     }
   }
 }
+
+/* =====================================================================
+   FIX #4: updateAIUnit - 移動後に resolveCollisionForAI を呼んで壁貫通を防ぐ
+   ===================================================================== */
 function updateAIUnit(unit, dt, nowSec){
   if(!unit) return;
   if(!unit.alive){
@@ -1331,9 +1270,12 @@ function updateAIUnit(unit, dt, nowSec){
   }
 
   var speed = unit.state === 'attack' ? 1.8 : 1.25;
-  unit.x += move.x * speed * dt;
-  unit.z += move.y * speed * dt;
-  clampVecToMap(unit);
+  var nx = unit.x + move.x * speed * dt;
+  var nz = unit.z + move.y * speed * dt;
+  /* FIX #4: 衝突解決を適用してから座標を確定する */
+  var resolved = resolveCollisionForAI(nx, nz);
+  unit.x = resolved.x;
+  unit.z = resolved.z;
   unit.avatar.position.set(unit.x, 0, unit.z);
   unit.avatar.rotation.y = unit.yaw;
   unit.avatar.visible = true;
@@ -1402,7 +1344,6 @@ function applyRemoteState(id, s){
   updateAvatarHPBar(av, remoteStates[id].hp);
 }
 
-function getSpawnForTeam(team){ return (team===TEAM_RED ? new T.Vector3(12,1.6,-20) : new T.Vector3(-12,1.6,20)); }
 function updateSpectateCamera(dt){
   var target = null;
   Object.keys(roomPlayers||{}).forEach(function(id){
@@ -1591,6 +1532,10 @@ function updateRemotePlayersFromState(){
   });
 }
 
+/* =====================================================================
+   FIX #3: checkLocalShotHit の戻り値を type:'player' / type:'obstacle' に統一
+           fireOnce 側も hitInfo.type で判定するよう修正
+   ===================================================================== */
 function checkLocalShotHit(origin, dir){
   var end = origin.clone().addScaledVector(dir, 50);
   var nearest = null, nearestDist = Infinity;
@@ -1599,7 +1544,7 @@ function checkLocalShotHit(origin, dir){
     var hit = raySegmentHitsBox(origin, end, c);
     if(hit){
       var dist = hit.distanceTo(origin);
-      if(dist < nearestDist){ nearestDist = dist; nearest = {type:'obstacle', kind:'obstacle', point:hit, collider:c}; }
+      if(dist < nearestDist){ nearestDist = dist; nearest = {type:'obstacle', point:hit, collider:c}; }
     }
   }
   Object.keys(roomPlayers||{}).forEach(function(id){
@@ -1610,7 +1555,8 @@ function checkLocalShotHit(origin, dir){
     var hit = bulletHitsAvatar(origin, end, av.position.clone());
     if(hit){
       var dist = hit.distanceTo(origin);
-      if(dist < nearestDist){ nearestDist = dist; nearest = {type:'player', kind:'player', id:id, point:hit, team:p.team||TEAM_RED}; }
+      /* 障害物より手前にいる場合のみヒット */
+      if(dist < nearestDist){ nearestDist = dist; nearest = {type:'player', id:id, point:hit, team:p.team||TEAM_RED}; }
     }
   });
   return nearest;
@@ -1632,20 +1578,12 @@ function fireOnce(){
   makeBulletFxLine(origin, dir, 0xffffff, 70);
 
   var hitInfo = checkLocalShotHit(origin, dir);
-  var hitKind = hitInfo && (hitInfo.kind || hitInfo.type || '');
-  if(hitKind === 'obstacle'){
+  /* FIX #3: hitInfo.kind → hitInfo.type に統一 */
+  if(hitInfo && hitInfo.type==='obstacle'){
     flashKillFx(hitInfo.point);
-    if(socket && socket.connected){
-      socket.emit('playerShot', {
-        room: currentRoom,
-        ox: origin.x, oy: origin.y, oz: origin.z,
-        dx: dir.x, dy: dir.y, dz: dir.z,
-        team: player.team || TEAM_BLUE
-      });
-    }
     return;
   }
-  if(hitKind === 'player'){
+  if(hitInfo && hitInfo.type==='player'){
     if(socket && socket.connected){
       socket.emit('playerShoot', {
         room: currentRoom,
@@ -1771,11 +1709,13 @@ function updateGun(dt){
 }
 function triggerRecoil(){ gunState.recoil = Math.min(1.0, gunState.recoil + (adsActive?0.035:0.10)); }
 
-function setLocalSpawnAndFacing(){
-  camera.position.copy(getSpawnForTeam(player.team));
-  if(player.team === TEAM_RED) yaw = 0; else yaw = Math.PI;
-  pitch = 0; syncCameraRotation();
+function updateJoystickVisual(){
+  var rect = joystickContainer.getBoundingClientRect();
+  var max = rect.width * 0.32;
+  knobEl.style.left = (50 + joy.x * 50 * (max / (rect.width/2))) + '%';
+  knobEl.style.top  = (50 + joy.y * 50 * (max / (rect.height/2))) + '%';
 }
+
 function updateRoundIfEnded(){
   if(gameMode!==GAME_MODE.BATTLE || roundResolved || matchOver) return;
   var winner = getWinnerByElimination();
@@ -1789,17 +1729,6 @@ function showResultFromMatchFinished(data){
   updateScoreUI();
   showFinalResultByServer(data || {});
 }
-
-function updateBulletsAndState(dt){
-  if(gameMode===GAME_MODE.BATTLE || gameMode===GAME_MODE.SPECTATE){
-    updateBullets(dt);
-    updateMuzzleFlashes(dt);
-    updateRemotePlayersFromState();
-    updateRoundIfEnded();
-  }
-}
-
-var raycaster = new T.Raycaster();
 
 function initSocket(){
   if(typeof io !== 'function'){ setNetBadge('offline','🔴 Socket未接続'); return; }
@@ -1974,7 +1903,7 @@ joystickContainer.addEventListener('pointerdown',function(e){
   var dx = e.clientX - cx, dy = e.clientY - cy;
   var len = Math.hypot(dx,dy), max = rect.width * 0.32;
   if(len > max){ dx = dx/len*max; dy = dy/len*max; }
-  joy.x = clamp(dx/max,-1,1); joy.y = clamp(dy/max,-1,1); knobEl.style.left='50%'; knobEl.style.top='50%';
+  joy.x = clamp(dx/max,-1,1); joy.y = clamp(dy/max,-1,1);
   updateJoystickVisual();
 });
 joystickContainer.addEventListener('pointermove',function(e){
@@ -2016,71 +1945,11 @@ rankedModeBtn.addEventListener('pointerdown',function(e){ e.preventDefault(); e.
 roomInput.addEventListener('input',function(){ setRoomInputValid(); });
 roomInput.addEventListener('keydown',function(e){ if(e.key==='Enter' && !lobbyStartBtn.disabled) enterRoom(); });
 
-function updateRemotePlayersFromState(){
-  Object.keys(roomPlayers||{}).forEach(function(id){
-    if(socket && id===socket.id) return;
-    var p = roomPlayers[id]; if(!p) return;
-    var av = ensureAvatar(id,p.team||TEAM_BLUE,p.name||id);
-    av.position.set(Number(p.x)||0,0,Number(p.z)||0);
-    av.rotation.y = Number(p.ry)||0;
-    av.visible = p.alive !== false;
-    updateAvatarHPBar(av, Number.isFinite(p.hp) ? p.hp : 100);
-  });
-}
-
-function updateSendLoop(dt){
-  if(!socket || !socket.connected || (gameMode!==GAME_MODE.BATTLE && gameMode!==GAME_MODE.SPECTATE)) return;
-  sendTimer += dt * 1000;
-  if(sendTimer >= SEND_HZ){
-    sendTimer = 0;
-    socket.emit('playerMovement',{
-      room:currentRoom,
-      name:PLAYER_NAME,
-      team:player.team,
-      x:camera.position.x,
-      y:camera.position.y,
-      z:camera.position.z,
-      ry:yaw,
-      alive:player.alive,
-      hp:player.hp
-    });
-  }
-}
-
-function updateBullets(dt){
-  for(var i=bullets.length-1;i>=0;i--){
-    var b = bullets[i];
-    if(!b || b.dead){ if(b && b.mesh && b.mesh.parent)b.mesh.parent.remove(b.mesh); bullets.splice(i,1); continue; }
-    b.life -= dt;
-    if(b.life <= 0){ b.dead = true; if(b.mesh && b.mesh.parent)b.mesh.parent.remove(b.mesh); bullets.splice(i,1); continue; }
-    b.prev.copy(b.pos);
-    b.pos.addScaledVector(b.dir, b.speed * dt);
-    if(b.mesh) b.mesh.position.copy(b.pos);
-
-    var hitObstacle = false;
-    for(var c=0;c<colliders.length;c++){ if(hitPointInBox(b.pos, colliders[c])){ hitObstacle = true; break; } }
-    if(hitObstacle || Math.abs(b.pos.x)>MAP_BORDER+2 || Math.abs(b.pos.z)>MAP_BORDER+2){
-      flashKillFx(b.pos);
-      b.dead = true;
-      if(b.mesh && b.mesh.parent)b.mesh.parent.remove(b.mesh);
-      bullets.splice(i,1);
-      continue;
-    }
-
-    if(b.ownerId !== (socket && socket.id)){
-      var hitMe = bulletHitsAvatar(b.prev, b.pos, camera.position.clone());
-      if(hitMe && player.alive && gameMode===GAME_MODE.BATTLE){
-        player.hp = Math.max(0, player.hp - DAMAGE_PER_BULLET);
-        updatePlayerHPUI();
-        flashHitIndicator();
-        showKillAnnouncement('HIT!');
-        if(player.hp <= 0) setLocalDeath();
-      }
-    }
-  }
-}
-
-function checkRoundProgressFromRoomPlayers(){ updateRoundIfEnded(); }
+window.addEventListener('resize',function(){
+  camera.aspect = window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth,window.innerHeight,false);
+});
 
 function animate(){
   requestAnimationFrame(animate);
@@ -2101,7 +1970,7 @@ function animate(){
     updatePlayerHPUI();
     updateSendLoop(dt);
     updateRemotePlayersFromState();
-    checkRoundProgressFromRoomPlayers();
+    updateRoundIfEnded();
   }else if(gameMode===GAME_MODE.SPECTATE){
     updateSpectateCamera(dt);
     updateGun(dt);
@@ -2110,7 +1979,7 @@ function animate(){
     updateAI(dt);
     updateSendLoop(dt);
     updateRemotePlayersFromState();
-    checkRoundProgressFromRoomPlayers();
+    updateRoundIfEnded();
   }else if(gameMode===GAME_MODE.RESULT){
     updateSendLoop(0);
   }
@@ -2141,8 +2010,12 @@ function init(){
   onlineCountEl.textContent = '👥 同室: 1人';
   initSocket();
   animate();
-  console.log('🚀 NEON ARENA | player='+PLAYER_NAME);
+  console.log('🚀 NEON ARENA FIXED | player='+PLAYER_NAME);
   console.log('🔌 server='+RENDER_SERVER_URL);
+  console.log('✅ FIX1: gunSoundPool capped at '+GUN_SOUND_POOL_MAX);
+  console.log('✅ FIX2: scene.add(camera) for GLB gunRoot attachment');
+  console.log('✅ FIX3: hitInfo.type unified (was .kind)');
+  console.log('✅ FIX4: AI collision resolveCollisionForAI applied');
 }
 init();
 

@@ -1351,7 +1351,7 @@ function startRandomCountdown(){
 function stopRandomCountdown(){clearInterval(randomCountdownTimer);randomCountdownTimer=null;randomCountdownWrap.style.display='none';}
 function forceStartRandomBattle(){
   if(socket&&socket.connected&&currentRoom) socket.emit('request-start-match',{room:currentRoom});
-  // サーバーの match-started を待つ。ここで先に beginBattle() すると端末ごとに開始がズレる。
+  // サーバーの match-started だけで開始する。ここで beginBattle() は呼ばない。
 }
 
 function enterRoom(){
@@ -1365,14 +1365,14 @@ function enterRoom(){
 }
 function enterRandomRoom(){
   unlockAudio();
-  var randId=String(Math.floor(1000+Math.random()*8999));
-  currentRoom='R'+randId;
+  // ランダム戦用の共有キュー部屋。各端末が別々の部屋を作らないように固定化する。
+  currentRoom='R0001';
   roomPlayers={}; inWaiting=true; roomStarted=false; isRandomMatch=true; battleBeginLock=false;
   gameMode=GAME_MODE.WAITING;
-  waitingRoomNum.textContent='RANDOM ROOM #'+randId;
+  waitingRoomNum.textContent='RANDOM QUEUE #0001';
   if(socket&&socket.id)roomPlayers[socket.id]={name:PLAYER_NAME,team:TEAM_BLUE,alive:true,room:currentRoom};
   setModeUI();updateWaitingUI();startRandomCountdown();
-  if(netOnline&&socket&&socket.connected){socket.emit('join-room',Object.assign({},buildLocalPlayerStateForJoin(),{matchMode:'casual',isRandom:true}));socket.emit('request-room-players',{room:currentRoom});}
+  if(netOnline&&socket&&socket.connected){socket.emit('join-room',Object.assign({},buildLocalPlayerStateForJoin(),{room:currentRoom,matchMode:'casual',isRandom:true}));socket.emit('request-room-players',{room:currentRoom});}
 }
 function leaveWaiting(){
   stopRandomCountdown();

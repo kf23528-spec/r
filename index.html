@@ -301,7 +301,7 @@ var WIN_SCORE = 5;
 var MAG_SIZE = 30;
 var FIRE_INTERVAL = 0.10;
 var RELOAD_TIME = 1.4;
-var DAMAGE_PER_BULLET = 25;
+var DAMAGE_PER_BULLET = 4;
 var PLAYER_SPEED = 5.5;
 var CAM_FOV_NORMAL = 70;
 var CAM_FOV_ADS = 50;
@@ -582,7 +582,7 @@ function attachGunToCamera(obj){
   camera.add(gunRoot);
   gunRoot.position.set(0.48,-0.40,-0.70);
   gunRoot.rotation.set(0,0,0);
-  gunRoot.scale.set(0.28,0.28,0.28);
+  gunRoot.scale.set(0.84,0.84,0.84);
   gunRoot.traverse(function(child){
     if(child.isMesh){
       child.castShadow = true;
@@ -1804,7 +1804,7 @@ function initSocket(){
       socket.emit('request-room-players',{room:currentRoom});
     }
   });
-  socket.on('connect_error',function(err){ setNetBadge('offline','🔴 接続エラー'); });
+  socket.on('connect_error',function(err){ setNetBadge('offline','🔴 接続エラー'); console.warn('connect_error:',err&&err.message); });
   socket.on('reconnect_attempt',function(n){ setNetBadge('connecting','🟡 再試行 #'+n); });
   socket.on('reconnect',function(){
     netOnline = true;
@@ -2085,6 +2085,9 @@ function init(){
   onlineCountEl.textContent = '👥 同室: 1人';
   initSocket();
   animate();
+  console.log('🔌 server='+RENDER_SERVER_URL);
+  console.log('✅ FIX2: scene.add(camera) for GLB gunRoot attachment');
+  console.log('✅ FIX4: AI collision resolveCollisionForAI applied');
 }
 init();
 

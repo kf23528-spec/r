@@ -314,8 +314,8 @@ var TEAM_RED = 'red';
 var GAME_MODE = {LOBBY:'lobby',WAITING:'waiting',LOADING:'loading',BATTLE:'battle',SPECTATE:'spectate',RESULT:'result'};
 
 /* ---- FIX: AI ヒットボックス定数 (avatar.position.y=0 基準) ---- */
-var AI_HIT_BOX_HEIGHT = 1.8; /* アバター全高 */
-var AI_HIT_BOX_HALF_W = 0.5; /* 横幅の半分 */
+var AI_HIT_BOX_HEIGHT = 2.2; /* アバター全高 */
+var AI_HIT_BOX_HALF_W = 0.7; /* 横幅の半分 */
 
 /* DOM */
 var canvas = document.getElementById('c');
@@ -440,7 +440,7 @@ var aiSpawnPoints = {
 };
 var gunRoot = null, gunLoaded = false;
 var gunPosNormal = new T.Vector3(0.48,-0.55,-0.70);
-var gunPosAds    = new T.Vector3(0.00,-0.28,-0.30);
+var gunPosAds    = new T.Vector3(0.00,-0.20,-0.30);
 var gunPosCurrent = gunPosNormal.clone();
 var gunPosTarget  = gunPosNormal.clone();
 var gunFovCurrent = CAM_FOV_NORMAL;
@@ -611,7 +611,7 @@ function buildMap(){
 function buildProceduralGun(){
   var g=new T.Group();
   /* FIX: プロシージャル銃のサイズを少し大きく */
-  var s = 1.18;
+  var s = 1.14;
   var bm=new T.MeshStandardMaterial({color:0x1e1e28,roughness:0.35,metalness:0.78,emissive:new T.Color(0x111111),emissiveIntensity:0.2});
   var am=new T.MeshStandardMaterial({color:0x2a1a1a,roughness:0.7,metalness:0.2,emissive:new T.Color(0x111111),emissiveIntensity:0.1});
   var gm=new T.MeshStandardMaterial({color:0x00ccff,emissive:0x00ccff,emissiveIntensity:3.0,roughness:0});
@@ -632,7 +632,7 @@ function attachGunToCamera(obj){
   gunRoot.position.set(0.40,-0.34,-0.62);
   gunRoot.rotation.set(0,0,0);
   /* FIX: 銃のサイズを少し大きく (1.0 → 1.18) */
-  gunRoot.scale.set(1.18,1.18,1.18);
+  gunRoot.scale.set(1.14,1.14,1.14);
   gunRoot.traverse(function(c){
     if(!c.isMesh) return;
     c.castShadow=true; c.receiveShadow=true; c.frustumCulled=false;
@@ -640,10 +640,6 @@ function attachGunToCamera(obj){
     mats.forEach(function(m){
       if(!m) return;
       try{
-        if(m.isMeshStandardMaterial||m.isMeshPhongMaterial||m.isMeshLambertMaterial||m.isMeshBasicMaterial){
-          m.emissive=new T.Color(0x333333);
-          if(typeof m.emissiveIntensity==='number') m.emissiveIntensity=Math.max(0.4,m.emissiveIntensity);
-        }
         m.needsUpdate=true;
       }catch(e){}
     });
@@ -662,9 +658,6 @@ function attachGunToCamera(obj){
       mats.forEach(function(m){
         if(!m) return;
         try{
-          if(m.isMeshStandardMaterial||m.isMeshPhongMaterial||m.isMeshLambertMaterial||m.isMeshBasicMaterial){
-            m.emissive=new T.Color(0x333333); m.emissiveIntensity=0.85;
-          }
           m.needsUpdate=true;
         }catch(e){}
       });
@@ -856,10 +849,10 @@ function makeBullet(origin,dir,ownerId,ownerTeam,isRemote){
 function addBullet(origin,dir,ownerId,ownerTeam,isRemote){var b=makeBullet(origin,dir,ownerId,ownerTeam,isRemote);bullets.push(b);return b;}
 function hitPointInBox(p,b){return Math.abs(p.x-b.x)<=b.w/2&&Math.abs(p.y-b.y)<=b.h/2&&Math.abs(p.z-b.z)<=b.d/2;}
 function raySegmentHitsBox(prev,next,box){
-  for(var i=1;i<=8;i++){var t=i/8;var p=new T.Vector3(lerp(prev.x,next.x,t),lerp(prev.y,next.y,t),lerp(prev.z,next.z,t));if(hitPointInBox(p,box))return p;}
+  for(var i=1;i<=16;i++){var t=i/16;var p=new T.Vector3(lerp(prev.x,next.x,t),lerp(prev.y,next.y,t),lerp(prev.z,next.z,t));if(hitPointInBox(p,box))return p;}
   return null;
 }
-function bulletHitsAvatar(prev,next,ap){return raySegmentHitsBox(prev,next,{x:ap.x,y:ap.y+0.8,z:ap.z,w:0.9,h:1.9,d:0.9});}
+function bulletHitsAvatar(prev,next,ap){return raySegmentHitsBox(prev,next,{x:ap.x,y:ap.y+0.85,z:ap.z,w:1.05,h:2.05,d:1.05});}
 
 /* ============================================================
    FIX: AIへのヒット判定 (avatar.position.y=0 基準で正しいboxを使用)
@@ -1023,19 +1016,19 @@ function getNearestTarget(unit){
 }
 function aiCanSee(unit,targetPos){
   var from=new T.Vector3(unit.x,PLAYER_HEIGHT,unit.z),to=new T.Vector3(targetPos.x,PLAYER_HEIGHT,targetPos.z);
-  if(from.distanceTo(to)>36)return false;
+  if(from.distanceTo(to)>44)return false;
   for(var i=0;i<colliders.length;i++){if(raySegmentHitsBox(from,to,colliders[i]))return false;}
   return true;
 }
 function damageEntityFromAI(unit,target,dist,nowSec){
-  if(nowSec<unit.lastShotAt+0.55)return;
+  if(nowSec<unit.lastShotAt+0.45)return;
   unit.lastShotAt=nowSec; unit.fireCooldown=nowSec+0.7+unit.rng()*1.1;
   var origin=new T.Vector3(unit.x,PLAYER_HEIGHT,unit.z).add(new T.Vector3(Math.sin(unit.yaw)*0.55,0.22,Math.cos(unit.yaw)*0.55));
   var tPos=new T.Vector3(target.pos.x,PLAYER_HEIGHT,target.pos.z);
   var dir=tPos.clone().sub(origin).normalize();
   playGunSound(true); makeBulletFxLine(origin,dir,unit.team===TEAM_RED?0xffa0a0:0xa0cfff,90);
   addBullet(origin,dir,unit.id,unit.team,true);
-  var acc=clamp01(1-(dist/28))*0.72+0.18; if(unit.rng()>acc)return;
+  var acc=clamp01(1-(dist/34))*0.85+0.10; if(unit.rng()>acc && dist>10)return;
   var myId=socket&&socket.id?socket.id:'__local__';
   if(target.type==='human'){
     if(target.id===myId){
@@ -1092,7 +1085,8 @@ function updateAIUnit(unit,dt,nowSec){
     /* FIX: attack / chase 判定を修正 - distが0でも安全に処理 */
     if(dist < 0.01) dist = 0.01;
 
-    if(canSee && dist < 9){
+    var closeEnoughToFight = canSee || dist < 12;
+    if(closeEnoughToFight && dist < 18){
       unit.state='attack';
       /* 攻撃中は横ストレイフ + 少し前後移動 */
       var toT_x = dx / dist;
@@ -1100,18 +1094,18 @@ function updateAIUnit(unit,dt,nowSec){
       var perp_x = -toT_z * unit.strafe;
       var perp_z =  toT_x * unit.strafe;
       /* 近すぎる場合は少し後退 */
-      if(dist < 4.0){
-        move.x = perp_x * 0.9 - toT_x * 0.3;
-        move.y = perp_z * 0.9 - toT_z * 0.3;
+      if(dist < 4.8){
+        move.x = perp_x * 0.95 - toT_x * 0.35;
+        move.y = perp_z * 0.95 - toT_z * 0.35;
       } else {
-        move.x = perp_x * 0.8 + toT_x * 0.2;
-        move.y = perp_z * 0.8 + toT_z * 0.2;
+        move.x = perp_x * 0.85 + toT_x * 0.18;
+        move.y = perp_z * 0.85 + toT_z * 0.18;
       }
       /* FIX: 射撃クールダウンチェックを nowSec で行う */
-      if(nowSec >= unit.fireCooldown && dist < 26){
+      if(nowSec >= unit.fireCooldown && dist < 32){
         damageEntityFromAI(unit, t, dist, nowSec);
       }
-    } else if(canSee){
+    } else if(canSee || dist < 28){
       unit.state='chase';
       move.x = dx / dist;
       move.y = dz / dist;
@@ -1253,7 +1247,7 @@ function applyLocalShotHit(hitInfo,point){
     u.alive=false; u.avatar.visible=false;
     /* FIX: respawnAt を aiClock ベースで正しく設定 */
     var nowSec = (Date.now() - aiMatchStart) / 1000;
-    u.respawnAt = nowSec + 5.0 + Math.random() * 2.0;
+    u.respawnAt = nowSec + 4.5 + Math.random() * 1.5;
     flashKillFx(point);
     addKillFeed('💀 AI KILL!');
     showKillAnnouncement('AI KILL!');

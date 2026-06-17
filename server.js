@@ -22,9 +22,14 @@ app.get('/', (req, res) => {
   res.sendFile(__dirname + '/index.html');
 });
 
-// socket.id => player data
+/**
+ * socket.id => player data
+ */
 const players = Object.create(null);
-// room => meta
+
+/**
+ * room => meta
+ */
 const roomMeta = Object.create(null);
 
 function normalizeRoom(room) {
@@ -40,27 +45,16 @@ function ensureRoomMeta(room) {
       starting: false,
       matchStarted: false,
       startedAt: 0,
-      lastStarter: ''
+      lastStarter: '',
+      blueScore: 0,
+      redScore: 0,
+      round: 1,
+      winner: ''
     };
   }
   return roomMeta[r];
 }
 
-/**
- * ルーム内の全プレイヤーをフラット形式で返す
- * クライアントは d.x / d.y / d.z / d.ry / d.id / d.name / d.team を直接参照する
- */
-function getRoomPlayers(room) {
-  const result = Object.create(null);
-  for (const [id, p] of Object.entries(players)) {
-    if (p && p.room === room) {
-      result[id] = flatPlayer(id, p);
-    }
-  }
-  return result;
-}
-
-/** プレイヤーデータをクライアントが期待するフラット形式に変換 */
 function flatPlayer(id, p) {
   return {
     id,
@@ -74,8 +68,19 @@ function flatPlayer(id, p) {
     z: Number.isFinite(p.z) ? p.z : 5,
     ry: Number.isFinite(p.ry) ? p.ry : 0,
     alive: p.alive !== false,
+    hp: Number.isFinite(p.hp) ? p.hp : 100,
     matchMode: p.matchMode || 'ranked'
   };
+}
+
+function getRoomPlayers(room) {
+  const result = Object.create(null);
+  for (const [id, p] of Object.entries(players)) {
+    if (p && p.room === room) {
+      result[id] = flatPlayer(id, p);
+    }
+  }
+  return result;
 }
 
 function getRoomCount(room) {
@@ -99,7 +104,7 @@ function emitRoomState(room) {
   const meta = ensureRoomMeta(roomId);
   const count = getRoomCount(roomId);
 
-  if (count < START_MIN_PLAYERS) {
+  if (count < START_MIN_PLAYERS && meta.starting) {
     meta.starting = false;
   }
 
@@ -110,6 +115,11 @@ function emitRoomState(room) {
     canStart: count >= START_MIN_PLAYERS && count <= MAX_PLAYERS && !meta.starting,
     starting: meta.starting,
     matchStarted: meta.matchStarted,
+    startedAt: meta.startedAt,
+    blueScore: meta.blueScore,
+    redScore: meta.redScore,
+    round: meta.round,
+    winner: meta.winner,
     players: getRoomPlayers(roomId)
   });
 }
@@ -156,15 +166,13 @@ function assignRandomTeams(room) {
   shuffleArray(ids);
 
   const blueCount = Math.ceil(ids.length / 2);
-  const redCount = ids.length - blueCount;
-
   ids.forEach((id, index) => {
     players[id].team = index < blueCount ? 'blue' : 'red';
   });
 
   return {
     blue: ids.slice(0, blueCount),
-    red: ids.slice(blueCount, blueCount + redCount)
+    red: ids.slice(blueCount)
   };
 }
 
@@ -181,6 +189,9 @@ function startMatchInRoom(room, starterId) {
   }
   if (meta.starting) {
     return { ok: false, message: 'Match already starting' };
+  }
+  if (meta.matchStarted) {
+    return { ok: false, message: 'Match already started' };
   }
 
   meta.starting = true;
@@ -211,16 +222,22 @@ function startMatchInRoom(room, starterId) {
     meta.starting = false;
     meta.matchStarted = true;
     meta.startedAt = Date.now();
+    meta.blueScore = 0;
+    meta.redScore = 0;
+    meta.round = 1;
+    meta.winner = '';
 
     const payload = {
       room: roomId,
       teams,
       players: getRoomPlayers(roomId),
       startedBy: starterId || '',
-      startedAt: meta.startedAt
+      startedAt: meta.startedAt,
+      blueScore: meta.blueScore,
+      redScore: meta.redScore,
+      round: meta.round
     };
 
-    // 互換性のため複数イベントを送る
     io.to(roomId).emit('match-started', payload);
     io.to(roomId).emit('start-match', payload);
     io.to(roomId).emit('game-start', payload);
@@ -230,6 +247,29 @@ function startMatchInRoom(room, starterId) {
   }, 1800);
 
   return { ok: true };
+}
+
+function updateRoomScore(room, data = {}) {
+  const roomId = normalizeRoom(room);
+  if (!roomId) return;
+
+  const meta = ensureRoomMeta(roomId);
+
+  if (Number.isFinite(data.blue)) meta.blueScore = data.blue;
+  if (Number.isFinite(data.red)) meta.redScore = data.red;
+  if (Number.isFinite(data.round)) meta.round = data.round;
+  if (typeof data.winner === 'string') meta.winner = data.winner;
+
+  io.to(roomId).emit('scoreUpdate', {
+    room: roomId,
+    blue: meta.blueScore,
+    red: meta.redScore,
+    round: meta.round,
+    winner: meta.winner,
+    source: data.source || 'client'
+  });
+
+  emitRoomState(roomId);
 }
 
 io.on('connection', (socket) => {
@@ -245,10 +285,10 @@ io.on('connection', (socket) => {
     z: 5,
     ry: 0,
     alive: true,
+    hp: 100,
     matchMode: 'ranked'
   };
 
-  // ── 部屋に入る ──
   socket.on('join-room', (data = {}) => {
     const room = normalizeRoom(data.room);
     const name = (data.name || socket.id).toString().slice(0, 20);
@@ -259,21 +299,20 @@ io.on('connection', (socket) => {
       return;
     }
 
-    const countNow = getRoomCount(room);
     const prev = players[socket.id];
+    const prevRoom = prev && prev.room ? prev.room : '';
 
-    // 前の部屋から抜ける
-    if (prev && prev.room && prev.room !== room) {
-      socket.leave(prev.room);
-      socket.to(prev.room).emit('playerDisconnected', socket.id);
-      socket.to(prev.room).emit('room-players', {
-        room: prev.room,
-        players: getRoomPlayers(prev.room)
+    if (prevRoom && prevRoom !== room) {
+      socket.leave(prevRoom);
+      socket.to(prevRoom).emit('playerDisconnected', socket.id);
+      socket.to(prevRoom).emit('room-players', {
+        room: prevRoom,
+        players: getRoomPlayers(prevRoom)
       });
-      emitRoomState(prev.room);
+      emitRoomState(prevRoom);
     }
 
-    // 最大8人制限
+    const countNow = getRoomCount(room);
     if ((!prev || prev.room !== room) && countNow >= MAX_PLAYERS) {
       socket.emit('join-room-error', {
         message: 'Room is full (max 8 players)'
@@ -281,7 +320,6 @@ io.on('connection', (socket) => {
       return;
     }
 
-    // room初期化
     ensureRoomMeta(room);
 
     players[socket.id] = {
@@ -294,26 +332,22 @@ io.on('connection', (socket) => {
       z: Number.isFinite(data.z) ? data.z : 5,
       ry: Number.isFinite(data.ry) ? data.ry : 0,
       alive: true,
+      hp: Number.isFinite(data.hp) ? data.hp : 100,
       matchMode
     };
 
     socket.join(room);
     console.log(`📦 join-room: ${socket.id} -> room ${room} (${name})`);
 
-    // 自分に現在の部屋情報を送る
     emitCurrentPlayers(socket, room);
 
-    // 新規プレイヤー通知
     const fp = flatPlayer(socket.id, players[socket.id]);
     socket.to(room).emit('newPlayer', fp);
 
-    // 全員に最新一覧
     broadcastRoomPlayers(room);
-
     emitRoomState(room);
   });
 
-  // ── 部屋メンバー要求 ──
   socket.on('request-room-players', (data = {}) => {
     const room = normalizeRoom(
       data.room || (players[socket.id] && players[socket.id].room)
@@ -322,25 +356,29 @@ io.on('connection', (socket) => {
     emitCurrentPlayers(socket, room);
   });
 
-  // ── 互換用 ──
   socket.on('get-room', (data = {}) => {
     const room = normalizeRoom(
       data.room || (players[socket.id] && players[socket.id].room)
     );
     if (!room) return;
+
+    const meta = ensureRoomMeta(room);
     socket.emit('room-state', {
       room,
       count: getRoomCount(room),
       maxPlayers: MAX_PLAYERS,
-      canStart: getRoomCount(room) >= START_MIN_PLAYERS,
-      starting: ensureRoomMeta(room).starting,
-      matchStarted: ensureRoomMeta(room).matchStarted,
+      canStart: getRoomCount(room) >= START_MIN_PLAYERS && !meta.starting,
+      starting: meta.starting,
+      matchStarted: meta.matchStarted,
+      startedAt: meta.startedAt,
+      blueScore: meta.blueScore,
+      redScore: meta.redScore,
+      round: meta.round,
+      winner: meta.winner,
       players: getRoomPlayers(room)
     });
   });
 
-  // ── 出撃ボタン押下 ──
-  // 誰が押してもOK
   socket.on('request-start-match', (data = {}) => {
     const room = normalizeRoom(
       data.room || (players[socket.id] && players[socket.id].room)
@@ -356,7 +394,6 @@ io.on('connection', (socket) => {
     }
   });
 
-  // ── 旧イベント名互換 ──
   socket.on('start-match', (data = {}) => {
     const room = normalizeRoom(
       data.room || (players[socket.id] && players[socket.id].room)
@@ -372,7 +409,6 @@ io.on('connection', (socket) => {
     }
   });
 
-  // ── 移動同期（最重要）──
   socket.on('playerMovement', (movementData = {}) => {
     const p = players[socket.id];
     if (!p || !p.room) return;
@@ -381,11 +417,12 @@ io.on('connection', (socket) => {
     if (Number.isFinite(movementData.y)) p.y = movementData.y;
     if (Number.isFinite(movementData.z)) p.z = movementData.z;
     if (Number.isFinite(movementData.ry)) p.ry = movementData.ry;
+    if (typeof movementData.alive === 'boolean') p.alive = movementData.alive;
+    if (Number.isFinite(movementData.hp)) p.hp = movementData.hp;
 
     socket.to(p.room).emit('playerMoved', flatPlayer(socket.id, p));
   });
 
-  // ── 射撃同期 ──
   socket.on('playerShoot', (shotData = {}) => {
     const p = players[socket.id];
     if (!p || !p.room) return;
@@ -394,34 +431,102 @@ io.on('connection', (socket) => {
       id: socket.id,
       playerId: socket.id,
       name: p.name,
-      team: p.team
+      team: p.team,
+      room: p.room
     });
 
     socket.to(p.room).emit('playerShot', payload);
     socket.to(p.room).emit('playerShotFX', payload);
   });
 
-  // ── 生存状態更新 ──
   socket.on('playerState', (stateData = {}) => {
     const p = players[socket.id];
     if (!p || !p.room) return;
 
-    if (typeof stateData.alive === 'boolean') p.alive = stateData.alive;
+    const room = p.room;
 
-    socket.to(p.room).emit(
-      'playerState',
-      Object.assign(flatPlayer(socket.id, p), {
-        playerId: socket.id
-      })
-    );
+    if (stateData.targetId) {
+      const target = players[stateData.targetId];
+      if (target && target.room === room) {
+        if (typeof stateData.alive === 'boolean') target.alive = stateData.alive;
+        if (Number.isFinite(stateData.hp)) target.hp = stateData.hp;
+        if (Number.isFinite(stateData.x)) target.x = stateData.x;
+        if (Number.isFinite(stateData.y)) target.y = stateData.y;
+        if (Number.isFinite(stateData.z)) target.z = stateData.z;
+        if (Number.isFinite(stateData.ry)) target.ry = stateData.ry;
+
+        const payload = Object.assign(flatPlayer(stateData.targetId, target), {
+          targetId: stateData.targetId,
+          sourceId: socket.id,
+          fromAI: !!stateData.fromAI
+        });
+
+        io.to(room).emit('playerState', payload);
+        broadcastRoomPlayers(room);
+        emitRoomState(room);
+      }
+      return;
+    }
+
+    if (typeof stateData.alive === 'boolean') p.alive = stateData.alive;
+    if (Number.isFinite(stateData.hp)) p.hp = stateData.hp;
+    if (Number.isFinite(stateData.x)) p.x = stateData.x;
+    if (Number.isFinite(stateData.y)) p.y = stateData.y;
+    if (Number.isFinite(stateData.z)) p.z = stateData.z;
+    if (Number.isFinite(stateData.ry)) p.ry = stateData.ry;
+
+    const payload = Object.assign(flatPlayer(socket.id, p), {
+      playerId: socket.id,
+      sourceId: socket.id
+    });
+
+    io.to(room).emit('playerState', payload);
+    broadcastRoomPlayers(room);
+    emitRoomState(room);
   });
 
-  // ── 明示的に部屋を抜ける ──
+  socket.on('scoreUpdate', (data = {}) => {
+    const room = normalizeRoom(
+      data.room || (players[socket.id] && players[socket.id].room)
+    );
+    if (!room) return;
+    updateRoomScore(room, data);
+  });
+
+  socket.on('enemyKilledAck', (data = {}) => {
+    const room = normalizeRoom(
+      data.room || (players[socket.id] && players[socket.id].room)
+    );
+    if (!room) return;
+    updateRoomScore(room, data);
+  });
+
+  socket.on('matchFinished', (data = {}) => {
+    const room = normalizeRoom(
+      data.room || (players[socket.id] && players[socket.id].room)
+    );
+    if (!room) return;
+
+    const meta = ensureRoomMeta(room);
+    if (data.winner) meta.winner = data.winner;
+    meta.matchStarted = false;
+    meta.starting = false;
+
+    io.to(room).emit('matchFinished', {
+      room,
+      blue: Number.isFinite(data.blue) ? data.blue : meta.blueScore,
+      red: Number.isFinite(data.red) ? data.red : meta.redScore,
+      round: Number.isFinite(data.round) ? data.round : meta.round,
+      winner: data.winner || meta.winner || ''
+    });
+
+    emitRoomState(room);
+  });
+
   socket.on('leave-room', () => {
     leaveRoom(socket);
   });
 
-  // ── 切断 ──
   socket.on('disconnect', () => {
     console.log(`❌ 切断: ${socket.id}`);
     leaveRoom(socket);

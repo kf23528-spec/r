@@ -449,6 +449,7 @@ var gunState = {recoil:0,reloadAnim:false,reloadAnimT:0,reloadAnimDur:RELOAD_TIM
 var adsActive = false, gunBobT = 0, gunBobAmt = 0;
 var muzzleFlashes = [];
 var roomStarted = false, spectateTargetId = '';
+var battleBeginLock = false;
 var lastShotTime = 0;
 
 /* ============================================================
@@ -1350,12 +1351,12 @@ function startRandomCountdown(){
 function stopRandomCountdown(){clearInterval(randomCountdownTimer);randomCountdownTimer=null;randomCountdownWrap.style.display='none';}
 function forceStartRandomBattle(){
   if(socket&&socket.connected&&currentRoom) socket.emit('request-start-match',{room:currentRoom});
-  beginBattle({});
+  // サーバーの match-started を待つ。ここで先に beginBattle() すると端末ごとに開始がズレる。
 }
 
 function enterRoom(){
   var num=getRoomInput(); if(num.length!==4)return;
-  unlockAudio(); currentRoom=num; roomPlayers={};inWaiting=true;roomStarted=false;isRandomMatch=false;
+  unlockAudio(); currentRoom=num; roomPlayers={};inWaiting=true;roomStarted=false;isRandomMatch=false;battleBeginLock=false;
   gameMode=GAME_MODE.WAITING;
   waitingHint.textContent='2人以上で出撃ボタンが表示されます';
   if(socket&&socket.id)roomPlayers[socket.id]={name:PLAYER_NAME,team:TEAM_BLUE,alive:true,room:currentRoom};
@@ -1366,7 +1367,7 @@ function enterRandomRoom(){
   unlockAudio();
   var randId=String(Math.floor(1000+Math.random()*8999));
   currentRoom='R'+randId;
-  roomPlayers={}; inWaiting=true; roomStarted=false; isRandomMatch=true;
+  roomPlayers={}; inWaiting=true; roomStarted=false; isRandomMatch=true; battleBeginLock=false;
   gameMode=GAME_MODE.WAITING;
   waitingRoomNum.textContent='RANDOM ROOM #'+randId;
   if(socket&&socket.id)roomPlayers[socket.id]={name:PLAYER_NAME,team:TEAM_BLUE,alive:true,room:currentRoom};
@@ -1375,13 +1376,15 @@ function enterRandomRoom(){
 }
 function leaveWaiting(){
   stopRandomCountdown();
-  inWaiting=false;roomStarted=false;isRandomMatch=false;roomPlayers={};
+  inWaiting=false;roomStarted=false;isRandomMatch=false;roomPlayers={};battleBeginLock=false;
   if(socket&&socket.connected&&currentRoom)socket.emit('leave-room',{room:currentRoom,name:PLAYER_NAME});
   currentRoom='';gameMode=GAME_MODE.LOBBY;setModeUI();setRoomInputValid();
 }
 function startBattleFromLobby(){if(!socket||!socket.connected||!currentRoom)return;socket.emit('request-start-match',{room:currentRoom});}
 
 function beginBattle(data){
+  if(battleBeginLock)return;
+  battleBeginLock=true;
   stopRandomCountdown();
   roomStarted=true;inWaiting=false;gameMode=GAME_MODE.LOADING;setModeUI();
   loadingTextEl.textContent='DEPLOYING';loadingSubEl.textContent='戦場を同期しています...';loadingOverlay.style.display='flex';
@@ -1413,7 +1416,7 @@ function showFinalResultByServer(data){
   resultSubEl.textContent='LOADING BACK TO THE HUB...';
   setTimeout(function(){
     if(socket&&socket.connected&&currentRoom)socket.emit('leave-room',{room:currentRoom,name:PLAYER_NAME});
-    currentRoom='';inWaiting=false;roomStarted=false;isRandomMatch=false;gameMode=GAME_MODE.LOBBY;
+    currentRoom='';inWaiting=false;roomStarted=false;isRandomMatch=false;battleBeginLock=false;gameMode=GAME_MODE.LOBBY;
     player.alive=true;player.spectating=false;player.hp=player.maxHp;roomPlayers={};
     setModeUI();setRoomInputValid();
   },2500);
@@ -1526,7 +1529,7 @@ function initSocket(){
   socket.on('scoreUpdate',function(data){if(data&&data.room&&currentRoom&&data.room!==currentRoom)return;setServerScore(data);});
   socket.on('enemyKilledAck',function(data){if(data&&data.room&&currentRoom&&data.room!==currentRoom)return;setServerScore(data);});
   socket.on('matchFinished',function(data){if(data&&data.room&&currentRoom&&data.room!==currentRoom)return;showResultFromMatchFinished(data||{});});
-  socket.on('match-start-cancelled',function(data){if(data&&data.room&&currentRoom&&data.room!==currentRoom)return;roomStarted=false;if(inWaiting){gameMode=GAME_MODE.WAITING;setModeUI();updateWaitingUI();}});
+  socket.on('match-start-cancelled',function(data){if(data&&data.room&&currentRoom&&data.room!==currentRoom)return;battleBeginLock=false;roomStarted=false;if(inWaiting){gameMode=GAME_MODE.WAITING;setModeUI();updateWaitingUI();}});
 }
 
 /* ============================================================

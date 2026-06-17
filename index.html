@@ -651,6 +651,7 @@ function attachGunToCamera(obj){
   var loader=new T.GLTFLoader();
   loader.load('ju.glb',function(gltf){
     var model=gltf.scene;
+    model.name = 'gun-glb';
     model.traverse(function(obj){
       if(!obj.isMesh) return;
       obj.castShadow=true; obj.receiveShadow=true; obj.frustumCulled=false;
@@ -663,7 +664,10 @@ function attachGunToCamera(obj){
       });
     });
     attachGunToCamera(model);
-  },undefined,function(){ attachGunToCamera(buildProceduralGun()); });
+  },undefined,function(err){
+    console.warn('ju.glb load failed, falling back to procedural gun:', err);
+    attachGunToCamera(buildProceduralGun());
+  });
 })();
 
 /* マズルフラッシュ */
@@ -1042,7 +1046,7 @@ function damageEntityFromAI(unit,target,dist,nowSec){
     for(var k=0;k<aiUnits.length;k++){
       var tu=aiUnits[k]; if(!tu||tu.id!==target.id||!tu.alive)continue;
       tu.hp=Math.max(0,tu.hp-40); updateAvatarHPBar(tu.avatar,tu.hp);
-      if(tu.hp<=0){tu.alive=false;tu.respawnAt=nowSec+5.0+unit.rng()*2.0;tu.avatar.visible=false;flashKillFx(new T.Vector3(tu.x,1.0,tu.z));}
+      if(tu.hp<=0){tu.alive=false;tu.respawnAt=AI_RESPAWN_ENABLED ? (nowSec+5.0+unit.rng()*2.0) : Infinity;tu.avatar.visible=false;flashKillFx(new T.Vector3(tu.x,1.0,tu.z));}
       break;
     }
   }
@@ -1054,7 +1058,7 @@ function damageEntityFromAI(unit,target,dist,nowSec){
 function updateAIUnit(unit,dt,nowSec){
   if(!unit)return;
   if(!unit.alive){
-    if(nowSec>=unit.respawnAt){
+    if(AI_RESPAWN_ENABLED && Number.isFinite(unit.respawnAt) && nowSec>=unit.respawnAt){
       unit.alive=true;unit.hp=unit.maxHp;
       unit.x=unit.spawn.x;unit.z=unit.spawn.z;
       unit.yaw=unit.team===TEAM_RED?Math.PI:0;
@@ -1247,7 +1251,7 @@ function applyLocalShotHit(hitInfo,point){
     u.alive=false; u.avatar.visible=false;
     /* FIX: respawnAt を aiClock ベースで正しく設定 */
     var nowSec = (Date.now() - aiMatchStart) / 1000;
-    u.respawnAt = nowSec + 4.5 + Math.random() * 1.5;
+    u.respawnAt = AI_RESPAWN_ENABLED ? (nowSec + 4.5 + Math.random() * 1.5) : Infinity;
     flashKillFx(point);
     addKillFeed('💀 AI KILL!');
     showKillAnnouncement('AI KILL!');

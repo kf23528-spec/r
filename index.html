@@ -582,7 +582,7 @@ function attachGunToCamera(obj){
   camera.add(gunRoot);
   gunRoot.position.set(0.48,-0.40,-0.70);
   gunRoot.rotation.set(0,0,0);
-  gunRoot.scale.set(0.84,0.84,0.84);
+  gunRoot.scale.set(1.0,1.0,1.0);
   gunRoot.traverse(function(child){
     if(child.isMesh){
       child.castShadow = true;
@@ -699,6 +699,7 @@ function updateMuzzleFlashes(dt){
   }
 }
 
+var audioUnlocked = false;
 const myShootSound = new Audio('ju.mp3');
 const enemyShootSound = new Audio('ju.mp3');
 myShootSound.preload = 'auto';
@@ -709,6 +710,8 @@ try{ myShootSound.load(); }catch(e){}
 try{ enemyShootSound.load(); }catch(e){}
 
 function unlockAudio(){
+  if(audioUnlocked) return;
+  audioUnlocked = true;
   try{
     myShootSound.currentTime = 0;
     enemyShootSound.currentTime = 0;
@@ -2085,9 +2088,6 @@ function init(){
   onlineCountEl.textContent = '👥 同室: 1人';
   initSocket();
   animate();
-  console.log('🔌 server='+RENDER_SERVER_URL);
-  console.log('✅ FIX2: scene.add(camera) for GLB gunRoot attachment');
-  console.log('✅ FIX4: AI collision resolveCollisionForAI applied');
 }
 init();
 

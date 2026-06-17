@@ -189,7 +189,7 @@ input,button{-webkit-appearance:none;appearance:none}
     <div id="onlineCount">👥 同室: 1人</div>
     <div id="status">
       <div id="scoreBoard">BLUE <span id="blueScore">0</span> / RED <span id="redScore">0</span></div>
-      <div id="roundState">ROUND: <span id="roundText">1</span> | TIME: <span id="roundTimeText">180</span>s | 先に5点で勝利</div>
+      <div id="roundState">ROUND: <span id="roundText">1</span> | 先に5点で勝利</div>
       <span id="ammo">AMMO: <span id="ammoCount">30</span> / ∞</span>
       <span id="reloadIndicator">⟳ RELOADING...</span>
       <div id="reloadBar"><div id="reloadBarFill"></div></div>
@@ -310,7 +310,6 @@ var PLAYER_HEIGHT = 1.6;
 var BULLET_SPEED = 28;
 var BULLET_LIFE = 0.70;
 var RANDOM_MATCH_WAIT = 30;
-var ROUND_TIME_LIMIT = 180;
 var TEAM_BLUE = 'blue';
 var TEAM_RED = 'red';
 var GAME_MODE = {LOBBY:'lobby',WAITING:'waiting',LOADING:'loading',BATTLE:'battle',SPECTATE:'spectate',RESULT:'result'};
@@ -329,7 +328,6 @@ var announceEl = document.getElementById('announce');
 var blueScoreEl = document.getElementById('blueScore');
 var redScoreEl = document.getElementById('redScore');
 var roundTextEl = document.getElementById('roundText');
-var roundTimeTextEl = document.getElementById('roundTimeText');
 var ammoCountEl = document.getElementById('ammoCount');
 var hpTextEl = document.getElementById('hpText');
 var hpBarInner = document.getElementById('hpBarInner');
@@ -421,7 +419,6 @@ var randomCountdownTimer = null;
 var randomCountdownSec = RANDOM_MATCH_WAIT;
 var rankXp = 0;
 var blueScore = 0, redScore = 0, roundIndex = 1;
-var roundStartAt = 0, roundTimeLeft = ROUND_TIME_LIMIT;
 var matchOver = false, roundResolved = false, resultShown = false;
 var portraitMode = false;
 var ammo = MAG_SIZE, reloading = false, reloadTimer = 0;
@@ -717,17 +714,7 @@ function updateRankUI(){
 function saveRank(){try{localStorage.setItem('arena_rank_v8',JSON.stringify({xp:rankXp}));}catch(e){}}
 function loadRank(){try{var d=JSON.parse(localStorage.getItem('arena_rank_v8')||'{}');if(Number.isFinite(d&&d.xp))rankXp=Math.max(0,d.xp);}catch(e){}}
 function addRankXp(amt){if(matchMode!=='ranked')return;rankXp=Math.max(0,Math.min(999999,rankXp+Math.round(amt)));saveRank();updateRankUI();}
-function updateScoreUI(){blueScoreEl.textContent=String(blueScore);redScoreEl.textContent=String(redScore);roundTextEl.textContent=String(roundIndex);if(roundTimeTextEl)roundTimeTextEl.textContent=String(Math.max(0,Math.ceil(roundTimeLeft)));}
-function updateRoundTimerUI(){
-  if(gameMode!==GAME_MODE.BATTLE||roundResolved||matchOver){return;}
-  if(!roundStartAt) roundStartAt = Date.now();
-  roundTimeLeft = Math.max(0, ROUND_TIME_LIMIT - ((Date.now()-roundStartAt)/1000));
-  if(roundTimeTextEl) roundTimeTextEl.textContent = String(Math.ceil(roundTimeLeft));
-  if(roundTimeLeft <= 0){
-    var w = getWinnerByTimeout();
-    if(w) endRoundByWinner(w, 'timeout');
-  }
-}
+function updateScoreUI(){blueScoreEl.textContent=String(blueScore);redScoreEl.textContent=String(redScore);roundTextEl.textContent=String(roundIndex);}
 function updateAmmoUI(){
   ammoCountEl.textContent=String(ammo);
   if(reloading){reloadIndicator.style.display='block';reloadBarEl.style.display='block';reloadBarFill.style.width=(Math.max(0,Math.min(1,1-reloadTimer/RELOAD_TIME))*100)+'%';}
@@ -914,24 +901,11 @@ function getAliveCounts(){
   return c;
 }
 function getWinnerByElimination(){var c=getAliveCounts();if(c.blue===0&&c.red===0)return'';if(c.blue===0)return TEAM_RED;if(c.red===0)return TEAM_BLUE;return'';}
-function getAliveHpTotals(){
-  var t={blue:0,red:0};
-  Object.keys(roomPlayers||{}).forEach(function(id){var p=roomPlayers[id];if(!p||p.alive===false)return;var team=(p.team||TEAM_BLUE);t[team]+=Math.max(0,Number(p.hp)||0);});
-  for(var i=0;i<aiUnits.length;i++){var u=aiUnits[i];if(!u||!u.alive)continue;t[u.team===TEAM_RED?'red':'blue']+=Math.max(0,Number(u.hp)||0);}
-  return t;
-}
-function getWinnerByTimeout(){
-  var c=getAliveCounts();
-  if(c.blue!==c.red) return c.blue>c.red ? TEAM_BLUE : TEAM_RED;
-  var h=getAliveHpTotals();
-  if(h.blue!==h.red) return h.blue>h.red ? TEAM_BLUE : TEAM_RED;
-  return blueScore===redScore ? TEAM_BLUE : (blueScore>redScore ? TEAM_BLUE : TEAM_RED);
-}
 function resetRoundState(){
-  roundResolved=false;matchOver=false;player.alive=true;player.spectating=false;
+  roundResolved=false;matchOver=false;player.alive=true;player.spectating=false;spectateTargetId='';
   player.hp=player.maxHp=100;ammo=MAG_SIZE;reloading=false;reloadTimer=0;
   gunState.reloadAnim=false;gunState.reloadAnimT=0;gunState.recoil=0;moveVel.set(0,0);
-  roundStartAt = Date.now(); roundTimeLeft = ROUND_TIME_LIMIT;
+  reviveHumansForNewRound();
   resetAIForRound();updatePlayerHPUI();updateAmmoUI();if(gunRoot)gunRoot.visible=true;spectateOverlay.style.display='none';
 }
 function showResult(wt){if(resultShown)return;resultShown=true;matchOver=true;gameMode=GAME_MODE.RESULT;setModeUI();resultOverlay.style.display='flex';resultTextEl.textContent=wt===TEAM_BLUE?'BLUE WINS':'RED WINS';resultSubEl.textContent='LOADING BACK TO THE HUB...';}
@@ -966,87 +940,102 @@ function endRoundByWinner(wt,src){
 }
 function clearRoundIfNeededFromStates(){if(gameMode!==GAME_MODE.BATTLE||roundResolved||matchOver)return;var w=getWinnerByElimination();if(w)endRoundByWinner(w,'state-check');}
 
-
-function makeNameTagTexture(name, team){
-  var canvas = document.createElement('canvas');
-  canvas.width = 512; canvas.height = 128;
-  var ctx = canvas.getContext('2d');
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  ctx.font = '900 44px system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  var txt = String(name || '');
-  var tw = ctx.measureText(txt).width;
-  var padX = 34;
-  var boxW = Math.min(canvas.width - 20, tw + padX * 2);
-  var boxH = 74;
-  var x = (canvas.width - boxW) / 2, y = (canvas.height - boxH) / 2;
-  var isBlue = team === TEAM_BLUE;
-  ctx.fillStyle = isBlue ? 'rgba(47,125,255,0.72)' : 'rgba(215,38,38,0.72)';
-  roundRect(ctx, x, y, boxW, boxH, 18, true, false);
-  ctx.strokeStyle = 'rgba(255,255,255,0.55)';
-  ctx.lineWidth = 4;
-  roundRect(ctx, x, y, boxW, boxH, 18, false, true);
-  ctx.fillStyle = '#ffffff';
-  ctx.shadowColor = 'rgba(0,0,0,0.85)';
-  ctx.shadowBlur = 10;
-  ctx.fillText(txt, canvas.width / 2, canvas.height / 2 + 1);
-  var tex = new T.CanvasTexture(canvas);
-  tex.needsUpdate = true;
-  tex.minFilter = T.LinearFilter;
-  tex.magFilter = T.LinearFilter;
-  tex.generateMipmaps = false;
-  return tex;
-}
-function roundRect(ctx, x, y, w, h, r, fill, stroke){
-  if (typeof r === 'number') r = {tl:r,tr:r,br:r,bl:r};
-  ctx.beginPath();
-  ctx.moveTo(x + r.tl, y);
-  ctx.lineTo(x + w - r.tr, y);
-  ctx.quadraticCurveTo(x + w, y, x + w, y + r.tr);
-  ctx.lineTo(x + w, y + h - r.br);
-  ctx.quadraticCurveTo(x + w, y + h, x + w - r.br, y + h);
-  ctx.lineTo(x + r.bl, y + h);
-  ctx.quadraticCurveTo(x, y + h, x, y + h - r.bl);
-  ctx.lineTo(x, y + r.tl);
-  ctx.quadraticCurveTo(x, y, x + r.tl, y);
-  ctx.closePath();
-  if (fill) ctx.fill();
-  if (stroke) ctx.stroke();
-}
-function ensureNameTag(av, name, team){
-  if(!av) return;
-  var actualName = String(name || '');
-  var actualTeam = team || TEAM_BLUE;
-  var state = av.userData.nameTagState || {};
-  if(!av.userData.nameTag || state.name !== actualName || state.team !== actualTeam){
-    if(av.userData.nameTag && av.userData.nameTag.parent) av.remove(av.userData.nameTag);
-    if(av.userData.nameTagTexture && av.userData.nameTagTexture.dispose) av.userData.nameTagTexture.dispose();
-    var tex = makeNameTagTexture(actualName, actualTeam);
-    var mat = new T.MeshBasicMaterial({map:tex, transparent:true, depthWrite:false, depthTest:false, side:T.DoubleSide});
-    var plane = new T.Mesh(new T.PlaneGeometry(1.62, 0.40), mat);
-    plane.position.set(0, 2.68, 0);
-    plane.renderOrder = 999;
-    plane.name = 'nameTag';
-    av.add(plane);
-    av.userData.nameTag = plane;
-    av.userData.nameTagTexture = tex;
-    av.userData.nameTagState = {name:actualName, team:actualTeam};
-  }
-  if(av.userData.nameTag) av.userData.nameTag.lookAt(camera.position);
-}
-function updateAvatarBillboard(av){
-  if(!av) return;
-  var hpBar = av.getObjectByName('hpBar');
-  var hpBg = av.getObjectByName('hpBarBg');
-  if(hpBar) hpBar.lookAt(camera.position);
-  if(hpBg) hpBg.lookAt(camera.position);
-  if(av.userData && av.userData.nameTag) av.userData.nameTag.lookAt(camera.position);
-}
-
 /* ============================================================
    アバター管理
    ============================================================ */
+function canvasRoundRect(ctx,x,y,w,h,r,fill,stroke){
+  if(typeof r==='number') r={tl:r,tr:r,br:r,bl:r};
+  else r=r||{};
+  var tl=r.tl||0,tr=r.tr||0,br=r.br||0,bl=r.bl||0;
+  ctx.beginPath();
+  ctx.moveTo(x+tl,y);
+  ctx.lineTo(x+w-tr,y);
+  ctx.quadraticCurveTo(x+w,y,x+w,y+tr);
+  ctx.lineTo(x+w,y+h-br);
+  ctx.quadraticCurveTo(x+w,y+h,x+w-br,y+h);
+  ctx.lineTo(x+bl,y+h);
+  ctx.quadraticCurveTo(x,y+h,x,y+h-bl);
+  ctx.lineTo(x,y+tl);
+  ctx.quadraticCurveTo(x,y,x+tl,y);
+  ctx.closePath();
+  if(fill)ctx.fill();
+  if(stroke)ctx.stroke();
+}
+function makeNameTagTexture(name, team){
+  var canvas=document.createElement('canvas');
+  canvas.width=512; canvas.height=128;
+  var ctx=canvas.getContext('2d');
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  var label=String(name||'AI').trim()||'AI';
+  ctx.font='900 48px system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif';
+  ctx.textAlign='center';
+  ctx.textBaseline='middle';
+  var tw=ctx.measureText(label).width;
+  var boxW=Math.min(440, tw+88);
+  var boxH=72;
+  var x=(canvas.width-boxW)/2, y=(canvas.height-boxH)/2;
+  ctx.fillStyle=team===TEAM_BLUE?'rgba(47,125,255,0.80)':'rgba(215,38,38,0.80)';
+  ctx.strokeStyle='rgba(255,255,255,0.55)';
+  ctx.lineWidth=4;
+  canvasRoundRect(ctx,x,y,boxW,boxH,18,true,true);
+  ctx.fillStyle='#ffffff';
+  ctx.shadowColor='rgba(0,0,0,0.75)';
+  ctx.shadowBlur=8;
+  ctx.fillText(label,canvas.width/2,canvas.height/2+1);
+  var tex=new T.CanvasTexture(canvas);
+  tex.needsUpdate=true;
+  return {canvas:canvas,texture:tex};
+}
+function ensureNameTag(av,name,team){
+  if(!av)return null;
+  var label=String(name||'AI').trim()||'AI';
+  var tag=av.userData&&av.userData.nameTag;
+  if(!tag){
+    var data=makeNameTagTexture(label,team||TEAM_BLUE);
+    var mat=new T.SpriteMaterial({map:data.texture,transparent:true,depthTest:false,depthWrite:false});
+    tag=new T.Sprite(mat);
+    tag.name='nameTag';
+    tag.position.set(0,2.72,0);
+    tag.scale.set(2.6,0.65,1);
+    tag.renderOrder=999;
+    av.add(tag);
+    av.userData.nameTag=tag;
+    av.userData.nameTagCanvas=data.canvas;
+    av.userData.nameTagTexture=data.texture;
+    av.userData.nameTagText=label;
+    av.userData.nameTagTeam=team||TEAM_BLUE;
+  }else if(av.userData.nameTagText!==label || av.userData.nameTagTeam!==(team||TEAM_BLUE)){
+    var ctx=av.userData.nameTagCanvas.getContext('2d');
+    ctx.clearRect(0,0,av.userData.nameTagCanvas.width,av.userData.nameTagCanvas.height);
+    ctx.font='900 48px system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif';
+    ctx.textAlign='center';
+    ctx.textBaseline='middle';
+    var tw2=ctx.measureText(label).width;
+    var boxW2=Math.min(440, tw2+88);
+    var boxH2=72;
+    var x2=(av.userData.nameTagCanvas.width-boxW2)/2, y2=(av.userData.nameTagCanvas.height-boxH2)/2;
+    ctx.fillStyle=team===TEAM_BLUE?'rgba(47,125,255,0.80)':'rgba(215,38,38,0.80)';
+    ctx.strokeStyle='rgba(255,255,255,0.55)';
+    ctx.lineWidth=4;
+    canvasRoundRect(ctx,x2,y2,boxW2,boxH2,18,true,true);
+    ctx.fillStyle='#ffffff';
+    ctx.shadowColor='rgba(0,0,0,0.75)';
+    ctx.shadowBlur=8;
+    ctx.fillText(label,av.userData.nameTagCanvas.width/2,av.userData.nameTagCanvas.height/2+1);
+    av.userData.nameTagTexture.needsUpdate=true;
+    av.userData.nameTagText=label;
+    av.userData.nameTagTeam=team||TEAM_BLUE;
+  }
+  return tag;
+}
+function updateAvatarBillboard(av){
+  if(!av)return;
+  var tag=av.userData&&av.userData.nameTag;
+  var hpBar=av.getObjectByName('hpBar'); var hpBg=av.getObjectByName('hpBarBg');
+  if(tag)tag.lookAt(camera.position);
+  if(hpBar)hpBar.lookAt(camera.position);
+  if(hpBg)hpBg.lookAt(camera.position);
+}
 function makeRemoteAvatar(team,name){
   var g=new T.Group(); var isB=team===TEAM_BLUE;
   var bm=new T.MeshStandardMaterial({color:isB?0x2f7dff:0xd72626,roughness:0.62,metalness:0.08,emissive:isB?new T.Color(0x0b1e70):new T.Color(0x440000),emissiveIntensity:0.24});
@@ -1059,8 +1048,8 @@ function makeRemoteAvatar(team,name){
   var hpBg=new T.Mesh(new T.PlaneGeometry(0.8,0.09),new T.MeshStandardMaterial({color:0x222222,transparent:true,opacity:0.72,side:T.DoubleSide})); hpBg.position.y=2.1; hpBg.name='hpBarBg'; g.add(hpBg);
   var hpMat=new T.MeshStandardMaterial({color:0x00ff44,emissive:0x00ff44,emissiveIntensity:1.4,transparent:true,opacity:0.95,side:T.DoubleSide});
   var hpBar=new T.Mesh(new T.PlaneGeometry(0.8,0.07),hpMat); hpBar.position.y=2.1; hpBar.name='hpBar'; g.add(hpBar);
-  g.userData={isRemoteAvatar:true,team:team,name:name||'',nameTag:null,nameTagTexture:null,nameTagState:null};
-  ensureNameTag(g,name||'',team);
+  g.userData={isRemoteAvatar:true,team:team,name:name||''};
+  ensureNameTag(g,name||'AI',team||TEAM_BLUE);
   return g;
 }
 function ensureAvatar(id,team,name){
@@ -1077,6 +1066,7 @@ function updateAvatarHPBar(av,hp){
   hpBar.scale.x=Math.max(0.001,pct);
   var col=pct>0.5?0x00ff44:pct>0.25?0xffcc00:0xff2222;
   hpBar.material.color.setHex(col); hpBar.material.emissive.setHex(col);
+  ensureNameTag(av,av.userData&&av.userData.nameTagText||av.userData.name||'',av.userData&&av.userData.team||TEAM_BLUE);
   updateAvatarBillboard(av);
 }
 
@@ -1255,7 +1245,6 @@ function updateAIUnit(unit,dt,nowSec){
   unit.avatar.position.set(unit.x, 0, unit.z);
   unit.avatar.rotation.y = unit.yaw;
   unit.avatar.visible = true;
-  ensureNameTag(unit.avatar,'AI',unit.team);
   updateAvatarHPBar(unit.avatar, unit.hp);
 }
 
@@ -1270,11 +1259,30 @@ function updateAI(dt){
   for(var i=0;i<aiUnits.length;i++) updateAIUnit(aiUnits[i], dt, aiClock);
 }
 
+function reviveHumansForNewRound(){
+  var ids={};
+  Object.keys(roomPlayers||{}).forEach(function(id){ids[id]=true;});
+  Object.keys(remoteStates||{}).forEach(function(id){ids[id]=true;});
+  Object.keys(ids).forEach(function(id){
+    if(socket&&id===socket.id)return;
+    var p=roomPlayers[id]||remoteStates[id];
+    if(!p)return;
+    var revived=Object.assign({},p,{alive:true,hp:100});
+    roomPlayers[id]=roomPlayers[id]||{};
+    Object.assign(roomPlayers[id],revived);
+    remoteStates[id]=remoteStates[id]||{};
+    Object.assign(remoteStates[id],revived);
+    applyRemoteState(id,roomPlayers[id]);
+    var av=remoteAvatars.get(id);
+    if(av){av.visible=true;ensureNameTag(av,roomPlayers[id].name||id,roomPlayers[id].team||TEAM_BLUE);updateAvatarHPBar(av,100);}
+  });
+  updateRemotePlayersFromState();
+}
 function resetAIForRound(){
   for(var i=0;i<aiUnits.length;i++){
     var u=aiUnits[i];if(!u)continue;
     u.alive=true;u.hp=u.maxHp;u.x=u.spawn.x;u.z=u.spawn.z;u.yaw=u.team===TEAM_RED?Math.PI:0;u.state='patrol';u.fireCooldown=0.8+u.rng()*0.8;u.lastShotAt=0;
-    if(u.avatar){u.avatar.visible=true;u.avatar.position.set(u.x,0,u.z);u.avatar.rotation.y=u.yaw;updateAvatarHPBar(u.avatar,u.hp);}
+    if(u.avatar){u.avatar.visible=true;u.avatar.position.set(u.x,0,u.z);u.avatar.rotation.y=u.yaw;ensureNameTag(u.avatar,'AI',u.team);updateAvatarHPBar(u.avatar,u.hp);}
   }
   /* FIX: battleStartStamp は維持し、ラウンドごとのズレを作らない */
   aiClock = 0;
@@ -1318,6 +1326,7 @@ function applyRemoteState(id,s){
   av.position.set(normalized.x,0,normalized.z);
   av.rotation.y=normalized.ry;
   av.visible=normalized.alive!==false;
+  ensureNameTag(av,normalized.name,normalized.team);
   updateAvatarHPBar(av,normalized.hp);
 }
 function updateRemotePlayersFromState(){
@@ -1466,23 +1475,40 @@ function updateBullets(dt){
    ============================================================ */
 function setLocalDeath(){if(!player.alive)return;player.alive=false;player.hp=0;updatePlayerHPUI();addKillFeed('💀 YOU DIED');flashHitIndicator();updatePlayerStateToRoom({alive:false,hp:0});enterSpectate();}
 function enterSpectate(){player.spectating=true;gameMode=GAME_MODE.SPECTATE;setModeUI();spectateOverlay.style.display='block';}
-function getSpectateTarget(){
-  var candidates=[];
-  Object.keys(roomPlayers||{}).forEach(function(id){if(socket&&id===socket.id)return;var p=roomPlayers[id];if(!p||p.alive===false)return;candidates.push({kind:'human',id:id,team:p.team||TEAM_BLUE,pos:new T.Vector3(Number(p.x)||0,PLAYER_HEIGHT,Number(p.z)||0),yaw:Number(p.ry)||0});});
-  for(var i=0;i<aiUnits.length;i++){var u=aiUnits[i];if(!u||!u.alive)continue;candidates.push({kind:'ai',id:u.id,team:u.team,pos:new T.Vector3(u.x,PLAYER_HEIGHT,u.z),yaw:u.yaw||0,avatar:u.avatar});}
-  if(!candidates.length) return null;
-  var camPos = camera.position.clone();
-  function nearest(list){
-    var best=null,bestD=1e9;
-    for(var i=0;i<list.length;i++){var d=camPos.distanceTo(list[i].pos);if(d<bestD){bestD=d;best=list[i];}}
+function getSpectateTargetState(){
+  var sid = spectateTargetId;
+  function alivePlayer(p){return p&&p.alive!==false;}
+  function pickFromPlayers(preferTeam){
+    var best=null;
+    Object.keys(roomPlayers||{}).forEach(function(id){
+      if(socket&&id===socket.id)return;
+      var p=roomPlayers[id];
+      if(!alivePlayer(p))return;
+      if(preferTeam && player.team && p.team!==player.team)return;
+      if(!best) best={kind:'player',id:id,x:Number(p.x)||0,z:Number(p.z)||0,ry:Number(p.ry)||0,name:p.name||id,team:p.team||TEAM_BLUE};
+    });
     return best;
   }
-  var preferred = candidates.filter(function(c){return player.team&&c.team===player.team;});
-  return preferred.length ? nearest(preferred) : nearest(candidates);
+  function pickFromAI(preferTeam){
+    var best=null;
+    for(var i=0;i<aiUnits.length;i++){
+      var u=aiUnits[i];
+      if(!u||!u.alive)continue;
+      if(preferTeam && player.team && u.team!==player.team)continue;
+      if(!best) best={kind:'ai',id:u.id,x:u.x,z:u.z,ry:u.yaw||0,name:'AI',team:u.team};
+    }
+    return best;
+  }
+  if(sid){
+    var rp=roomPlayers[sid];
+    if(rp&&alivePlayer(rp))return {kind:'player',id:sid,x:Number(rp.x)||0,z:Number(rp.z)||0,ry:Number(rp.ry)||0,name:rp.name||sid,team:rp.team||TEAM_BLUE};
+    for(var i=0;i<aiUnits.length;i++){var su=aiUnits[i];if(su&&su.id===sid&&su.alive)return {kind:'ai',id:sid,x:su.x,z:su.z,ry:su.yaw||0,name:'AI',team:su.team};}
+  }
+  return pickFromPlayers(true) || pickFromPlayers(false) || pickFromAI(true) || pickFromAI(false) || null;
 }
 function updateSpectateCamera(dt){
-  var tgt=getSpectateTarget();
-  if(tgt){var pos=tgt.pos.clone();var behindYaw=tgt.yaw||0;var behind=new T.Vector3(Math.sin(behindYaw),0,Math.cos(behindYaw)).multiplyScalar(-4.2);camera.position.lerp(pos.clone().add(behind).add(new T.Vector3(0,2.2,0)),1-Math.exp(-4*dt));camera.lookAt(pos.clone().add(new T.Vector3(0,1.0,0)));}
+  var tgt=getSpectateTargetState();
+  if(tgt){spectateTargetId=tgt.id;var pos=new T.Vector3(Number(tgt.x)||0,PLAYER_HEIGHT,Number(tgt.z)||0);var ang=Number.isFinite(tgt.ry)?tgt.ry:(tgt.kind==='ai'&&typeof tgt.ry==='number'?tgt.ry:0);var behind=new T.Vector3(Math.sin(ang),0,Math.cos(ang)).multiplyScalar(-4.2);camera.position.lerp(pos.clone().add(behind).add(new T.Vector3(0,2.2,0)),1-Math.exp(-4*dt));camera.lookAt(pos.clone().add(new T.Vector3(0,1.0,0)));}
   else{camera.position.lerp(new T.Vector3(0,9,12),1-Math.exp(-2*dt));camera.lookAt(0,1,0);}
 }
 function spawnRemoteShotFX(data){
@@ -1578,12 +1604,11 @@ function startRound(data){
   /* FIX: aiUnits が空の場合は必ず初期化 */
   if(!aiUnits.length) initAIForMatch(data||{});
   updateScoreUI();resetRoundState();player.alive=true;player.spectating=false;player.hp=100;
-  roundStartAt = Date.now(); roundTimeLeft = ROUND_TIME_LIMIT; updateScoreUI();
+  reviveHumansForNewRound();
   camera.position.copy(getSpawnForTeam(player.team));
   if(player.team===TEAM_RED)yaw=0;else yaw=Math.PI;pitch=0;syncCameraRotation();
   gameMode=GAME_MODE.BATTLE;setModeUI();
   loadingOverlay.style.display='none';resultOverlay.style.display='none';spectateOverlay.style.display='none';
-  roundStartAt = Date.now(); roundTimeLeft = ROUND_TIME_LIMIT; updateScoreUI();
   if(socket&&socket.connected)socket.emit('playerState',{room:currentRoom,alive:true,hp:100});
 }
 function showFinalResultByServer(data){
@@ -1694,6 +1719,25 @@ function initSocket(){
   socket.on('playerMoved',function(d){if(!d||!d.id||(socket&&d.id===socket.id))return;if(gameMode!==GAME_MODE.BATTLE&&gameMode!==GAME_MODE.SPECTATE)return;applyRemoteState(d.id,d);updateRemotePlayersFromState();});
   socket.on('playerShot',function(d){if(!d||(socket&&d.id===socket.id))return;spawnRemoteShotFX(d);});
   socket.on('playerShotFX',function(d){if(!d||(socket&&d.id===socket.id))return;spawnRemoteShotFX(d);});
+  socket.on('playerShoot',function(d){
+    if(!d)return;
+    if(d.room&&currentRoom&&d.room!==currentRoom)return;
+    if(socket&&d.id===socket.id)return;
+    spawnRemoteShotFX(d);
+    if(!d.targetId)return;
+    var tid=d.targetId;
+    if(socket&&tid===socket.id){
+      if(player.alive){player.hp=0;updatePlayerHPUI();setLocalDeath();}
+      return;
+    }
+    roomPlayers[tid]=roomPlayers[tid]||{team:d.targetTeam||TEAM_RED,alive:true,name:d.targetName||tid,room:currentRoom};
+    roomPlayers[tid].alive=false;
+    roomPlayers[tid].hp=0;
+    applyRemoteState(tid,roomPlayers[tid]);
+    if(remoteStates[tid]){remoteStates[tid].alive=false;remoteStates[tid].hp=0;}
+    updateRoundIfEnded();
+    if(inWaiting)updateWaitingUI();
+  });
   socket.on('playerState',function(d){
     if(!d)return;
     if(d.targetId){
@@ -1740,10 +1784,10 @@ function animate(){
     updateLobbyCamera(dt);
   }else if(gameMode===GAME_MODE.BATTLE){
     syncCameraRotation();movePlayer(dt);updateGun(dt);updateMuzzleFlashes(dt);updateBullets(dt);
-    updateAI(dt);updateReload(dt);updatePlayerHPUI();updateSendLoop(dt);updateRemotePlayersFromState();updateRoundTimerUI();updateRoundIfEnded();
+    updateAI(dt);updateReload(dt);updatePlayerHPUI();updateSendLoop(dt);updateRemotePlayersFromState();updateRoundIfEnded();
   }else if(gameMode===GAME_MODE.SPECTATE){
     updateSpectateCamera(dt);updateGun(dt);updateMuzzleFlashes(dt);updateBullets(dt);
-    updateAI(dt);updateSendLoop(dt);updateRemotePlayersFromState();updateRoundTimerUI();updateRoundIfEnded();
+    updateAI(dt);updateSendLoop(dt);updateRemotePlayersFromState();updateRoundIfEnded();
   }else if(gameMode===GAME_MODE.RESULT){updateSendLoop(0);}
   if(gunRoot&&gameMode===GAME_MODE.BATTLE)gunPosTarget.copy(adsActive?gunPosAds:gunPosNormal);
   renderer.render(scene,camera);

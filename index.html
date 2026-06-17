@@ -957,20 +957,104 @@ function makeRemoteAvatar(team,name){
   return g;
 }
 function ensureAvatar(id,team,name){
-  if(remoteAvatars.has(id)){var ex=remoteAvatars.get(id);if(ex){ex.userData.entityId=id;ex.userData.team=team||TEAM_BLUE;}return ex;}
+  if(remoteAvatars.has(id)){
+    var ex=remoteAvatars.get(id);
+    if(ex){
+      ex.userData.entityId=id;
+      ex.userData.team=team||TEAM_BLUE;
+      setAvatarNameTag(ex,name||id,false);
+    }
+    return ex;
+  }
   var av=makeRemoteAvatar(team||TEAM_BLUE,name||id); av.userData.entityId=id; av.userData.entityType='human'; av.userData.team=team||TEAM_BLUE;
+  setAvatarNameTag(av,name||id,false);
   scene.add(av); remoteAvatars.set(id,av); return av;
 }
-function removeAvatar(id){var av=remoteAvatars.get(id);if(!av)return;scene.remove(av);remoteAvatars.delete(id);}
+function removeAvatar(id){var av=remoteAvatars.get(id);if(!av)return;var tag=av.getObjectByName('nameTag');if(tag){if(tag.material&&tag.material.map&&tag.material.map.dispose)tag.material.map.dispose();if(tag.material&&tag.material.dispose)tag.material.dispose();}scene.remove(av);remoteAvatars.delete(id);}
 function clearAllAvatars(){remoteAvatars.forEach(function(_,id){removeAvatar(id);});}
 function updateAvatarHPBar(av,hp){
   var hpBar=av.getObjectByName('hpBar'); var hpBg=av.getObjectByName('hpBarBg');
+  var nameTag=av.getObjectByName('nameTag');
   if(!hpBar)return;
   var pct=clamp01((Number.isFinite(hp)?hp:100)/100);
   hpBar.scale.x=Math.max(0.001,pct);
   var col=pct>0.5?0x00ff44:pct>0.25?0xffcc00:0xff2222;
   hpBar.material.color.setHex(col); hpBar.material.emissive.setHex(col);
   hpBar.lookAt(camera.position); if(hpBg)hpBg.lookAt(camera.position);
+  if(nameTag) nameTag.lookAt(camera.position);
+}
+
+function createNameTagSprite(text,isAI){
+  var canvas=document.createElement('canvas');
+  canvas.width=512; canvas.height=128;
+  var ctx=canvas.getContext('2d');
+  var label=String(text||'').trim() || 'player';
+  var display=(isAI?'ai':label);
+  var padX=24, padY=18;
+  var w=canvas.width, h=canvas.height;
+  ctx.clearRect(0,0,w,h);
+  ctx.save();
+  ctx.font='700 48px system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif';
+  while(ctx.measureText(display).width > w - 120 && parseInt(ctx.font,10) > 28){
+    var size=parseInt(ctx.font,10)-2;
+    ctx.font='700 '+size+'px system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif';
+  }
+  var metrics=ctx.measureText(display);
+  var boxW=Math.min(w-28, metrics.width + padX*2);
+  var boxH=72;
+  var x=(w-boxW)/2, y=16;
+  ctx.fillStyle='rgba(0,0,0,0.55)';
+  ctx.beginPath();
+  var r=18;
+  ctx.moveTo(x+r,y);
+  ctx.lineTo(x+boxW-r,y);
+  ctx.quadraticCurveTo(x+boxW,y,x+boxW,y+r);
+  ctx.lineTo(x+boxW,y+boxH-r);
+  ctx.quadraticCurveTo(x+boxW,y+boxH,x+boxW-r,y+boxH);
+  ctx.lineTo(x+r,y+boxH);
+  ctx.quadraticCurveTo(x,y+boxH,x,y+boxH-r);
+  ctx.lineTo(x,y+r);
+  ctx.quadraticCurveTo(x,y,x+r,y);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle=isAI?'#ffd84d':'#ffffff';
+  ctx.textAlign='center';
+  ctx.textBaseline='middle';
+  ctx.shadowColor='rgba(0,0,0,0.8)';
+  ctx.shadowBlur=10;
+  ctx.font='800 '+ctx.font.match(/\d+/)[0]+'px system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif';
+  ctx.fillText(display,w/2,y+boxH/2+2);
+  var tex=new T.CanvasTexture(canvas);
+  tex.minFilter=T.LinearFilter;
+  tex.magFilter=T.LinearFilter;
+  tex.needsUpdate=true;
+  var mat=new T.SpriteMaterial({map:tex,transparent:true,depthWrite:false});
+  var sp=new T.Sprite(mat);
+  sp.name='nameTag';
+  sp.scale.set(2.9,0.72,1);
+  sp.userData.canvas=canvas;
+  sp.userData.ctx=ctx;
+  sp.userData.tex=tex;
+  sp.userData.text=display;
+  sp.userData.isAI=!!isAI;
+  sp.userData.baseText=label;
+  return sp;
+}
+
+function setAvatarNameTag(av,text,isAI){
+  if(!av) return;
+  var current=av.getObjectByName('nameTag');
+  var nextText=isAI?'ai':String(text||'').trim()||'player';
+  if(current){
+    if(current.userData && current.userData.text===nextText && !!(current.userData && current.userData.isAI)===!!isAI) return;
+    if(current.material && current.material.map){
+      if(current.material.map.dispose) current.material.map.dispose();
+    }
+    av.remove(current);
+  }
+  var tag=createNameTagSprite(nextText,isAI);
+  tag.position.set(0,2.78,0);
+  av.add(tag);
 }
 
 /* ============================================================
@@ -983,7 +1067,7 @@ function makeAIUnit(team,index){
   var tk=team===TEAM_RED?'red':'blue';
   var seed=(aiMatchSeed+index*97+(tk==='red'?999:111))>>>0;
   var rng=mulberry32(seed);
-  var avatar=makeRemoteAvatar(tk,tk==='red'?('ENEMY AI '+(index+1)):('ALLY AI '+(index+1)));
+  var avatar=makeRemoteAvatar(tk,'ai');
   avatar.userData.isAI=true; avatar.userData.entityId='ai-'+tk+'-'+index; avatar.userData.entityType='ai'; avatar.userData.team=tk;
   avatar.visible=false; scene.add(avatar);
   var spawn=aiSpawnPoints[tk][index%aiSpawnPoints[tk].length].clone();

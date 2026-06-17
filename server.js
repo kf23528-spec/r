@@ -18,25 +18,22 @@ const START_MIN_PLAYERS = 2;
 const START_DELAY_MS = 1800;
 
 app.use(express.static(__dirname));
-
 app.get('/', (req, res) => {
   res.sendFile(__dirname + '/index.html');
 });
 
-const players = Object.create(null);   // socket.id -> player
-const roomMeta = Object.create(null);   // roomId -> meta
+// socket.id => player data
+const players = Object.create(null);
+// roomId => meta
+const roomMeta = Object.create(null);
 
 function normalizeRoom(room) {
   const s = String(room ?? '')
     .trim()
     .toUpperCase()
-    .replace(/\s+/g, '');
+    .replace(/[^A-Z0-9_-]/g, '');
 
-  return s;
-}
-
-function isValidRoom(room) {
-  return /^(\d{4}|R\d{4})$/.test(room);
+  return s.slice(0, 12);
 }
 
 function ensureRoomMeta(room) {
@@ -49,23 +46,17 @@ function ensureRoomMeta(room) {
       matchStarted: false,
       startedAt: 0,
       lastStarter: '',
-      startToken: 0,
-      timer: null
+      startToken: 0
     };
   }
   return roomMeta[roomId];
 }
 
-function deleteRoomMetaIfEmpty(room) {
+function cleanupRoomMetaIfEmpty(room) {
   const roomId = normalizeRoom(room);
   if (!roomId) return;
 
   if (getRoomCount(roomId) === 0) {
-    const meta = roomMeta[roomId];
-    if (meta && meta.timer) {
-      clearTimeout(meta.timer);
-      meta.timer = null;
-    }
     delete roomMeta[roomId];
   }
 }
@@ -102,7 +93,6 @@ function getRoomPlayers(room) {
       result[id] = flatPlayer(id, p);
     }
   }
-
   return result;
 }
 
@@ -126,8 +116,9 @@ function emitRoomState(room) {
   if (!roomId) return;
 
   const meta = ensureRoomMeta(roomId);
-  const count = getRoomCount(roomId);
+  if (!meta) return;
 
+  const count = getRoomCount(roomId);
   if (count < START_MIN_PLAYERS) {
     meta.starting = false;
   }
@@ -136,7 +127,7 @@ function emitRoomState(room) {
     room: roomId,
     count,
     maxPlayers: MAX_PLAYERS,
-    canStart: count >= START_MIN_PLAYERS && count <= MAX_PLAYERS && !meta.starting && !meta.matchStarted,
+    canStart: count >= START_MIN_PLAYERS && count <= MAX_PLAYERS && !meta.starting,
     starting: meta.starting,
     matchStarted: meta.matchStarted,
     players: getRoomPlayers(roomId)
@@ -145,8 +136,9 @@ function emitRoomState(room) {
 
 function emitCurrentPlayers(socket, room) {
   const roomId = normalizeRoom(room);
-  const roomPlayers = getRoomPlayers(roomId);
+  if (!roomId) return;
 
+  const roomPlayers = getRoomPlayers(roomId);
   socket.emit('currentPlayers', roomPlayers);
   socket.emit('room-players', {
     room: roomId,
@@ -156,6 +148,8 @@ function emitCurrentPlayers(socket, room) {
 
 function broadcastRoomPlayers(room) {
   const roomId = normalizeRoom(room);
+  if (!roomId) return;
+
   io.to(roomId).emit('room-players', {
     room: roomId,
     players: getRoomPlayers(roomId)
@@ -166,22 +160,13 @@ function leaveRoom(socket) {
   const p = players[socket.id];
   if (!p) return;
 
-  const room = normalizeRoom(p.room);
-  if (room) {
-    socket.leave(room);
-    socket.to(room).emit('playerDisconnected', {
-      id: socket.id,
-      playerId: socket.id,
-      room
-    });
-
-    socket.to(room).emit('room-players', {
-      room,
-      players: getRoomPlayers(room)
-    });
-
-    emitRoomState(room);
-    deleteRoomMetaIfEmpty(room);
+  const roomId = normalizeRoom(p.room);
+  if (roomId) {
+    socket.leave(roomId);
+    socket.to(roomId).emit('playerDisconnected', socket.id);
+    broadcastRoomPlayers(roomId);
+    emitRoomState(roomId);
+    cleanupRoomMetaIfEmpty(roomId);
   }
 
   delete players[socket.id];
@@ -196,35 +181,14 @@ function assignRandomTeams(room) {
   shuffleArray(ids);
 
   const blueCount = Math.ceil(ids.length / 2);
-  const redCount = ids.length - blueCount;
-
   ids.forEach((id, index) => {
     players[id].team = index < blueCount ? 'blue' : 'red';
   });
 
   return {
     blue: ids.slice(0, blueCount),
-    red: ids.slice(blueCount, blueCount + redCount)
+    red: ids.slice(blueCount)
   };
-}
-
-function finishMatch(room) {
-  const roomId = normalizeRoom(room);
-  const meta = roomMeta[roomId];
-  if (!meta) return;
-
-  meta.starting = false;
-  meta.matchStarted = false;
-  meta.startedAt = 0;
-  meta.lastStarter = '';
-  meta.startToken += 1;
-
-  if (meta.timer) {
-    clearTimeout(meta.timer);
-    meta.timer = null;
-  }
-
-  emitRoomState(roomId);
 }
 
 function startMatchInRoom(room, starterId) {
@@ -245,14 +209,10 @@ function startMatchInRoom(room, starterId) {
   if (meta.starting) {
     return { ok: false, message: 'Match already starting' };
   }
-  if (meta.matchStarted) {
-    return { ok: false, message: 'Match already running' };
-  }
 
   meta.starting = true;
   meta.lastStarter = starterId || '';
   meta.startToken += 1;
-
   const token = meta.startToken;
 
   io.to(roomId).emit('match-starting', {
@@ -263,18 +223,14 @@ function startMatchInRoom(room, starterId) {
 
   emitRoomState(roomId);
 
-  meta.timer = setTimeout(() => {
+  setTimeout(() => {
     const currentMeta = roomMeta[roomId];
-    if (!currentMeta || currentMeta.startToken !== token) {
-      return;
-    }
+    if (!currentMeta || currentMeta.startToken !== token) return;
 
     const nowCount = getRoomCount(roomId);
     if (nowCount < START_MIN_PLAYERS) {
       currentMeta.starting = false;
       currentMeta.matchStarted = false;
-      currentMeta.startedAt = 0;
-
       io.to(roomId).emit('match-start-cancelled', {
         room: roomId,
         message: 'Players left before start'
@@ -284,7 +240,6 @@ function startMatchInRoom(room, starterId) {
     }
 
     const teams = assignRandomTeams(roomId);
-
     currentMeta.starting = false;
     currentMeta.matchStarted = true;
     currentMeta.startedAt = Date.now();
@@ -297,7 +252,6 @@ function startMatchInRoom(room, starterId) {
       startedAt: currentMeta.startedAt
     };
 
-    // ここは1回だけ。二重開始の原因になりやすい game-start は送らない。
     io.to(roomId).emit('match-started', payload);
 
     broadcastRoomPlayers(roomId);
@@ -325,11 +279,11 @@ io.on('connection', (socket) => {
   };
 
   socket.on('join-room', (data = {}) => {
-    const room = normalizeRoom(data.room);
+    const roomId = normalizeRoom(data.room);
     const name = String(data.name || socket.id).slice(0, 20);
     const matchMode = data.matchMode || 'ranked';
 
-    if (!room || !isValidRoom(room)) {
+    if (!roomId) {
       socket.emit('join-room-error', { message: 'Invalid room number' });
       return;
     }
@@ -337,109 +291,101 @@ io.on('connection', (socket) => {
     const prev = players[socket.id];
     const prevRoom = prev ? normalizeRoom(prev.room) : '';
 
-    if (prevRoom && prevRoom !== room) {
+    if (prevRoom && prevRoom !== roomId) {
       socket.leave(prevRoom);
-      socket.to(prevRoom).emit('playerDisconnected', {
-        id: socket.id,
-        playerId: socket.id,
-        room: prevRoom
-      });
-      socket.to(prevRoom).emit('room-players', {
-        room: prevRoom,
-        players: getRoomPlayers(prevRoom)
-      });
+      socket.to(prevRoom).emit('playerDisconnected', socket.id);
+      broadcastRoomPlayers(prevRoom);
       emitRoomState(prevRoom);
-      deleteRoomMetaIfEmpty(prevRoom);
+      cleanupRoomMetaIfEmpty(prevRoom);
     }
 
-    if ((!prevRoom || prevRoom !== room) && getRoomCount(room) >= MAX_PLAYERS) {
+    const countNow = getRoomCount(roomId);
+    if (prevRoom !== roomId && countNow >= MAX_PLAYERS) {
       socket.emit('join-room-error', {
         message: 'Room is full (max 8 players)'
       });
       return;
     }
 
-    ensureRoomMeta(room);
+    ensureRoomMeta(roomId);
 
     players[socket.id] = {
       id: socket.id,
       name,
       team: 'blue',
-      room,
-      x: safeNum(data.x, 0),
-      y: safeNum(data.y, 1.6),
-      z: safeNum(data.z, 5),
-      ry: safeNum(data.ry, 0),
-      alive: true,
-      hp: safeNum(data.hp, 100),
+      room: roomId,
+      x: Number.isFinite(data.x) ? data.x : 0,
+      y: Number.isFinite(data.y) ? data.y : 1.6,
+      z: Number.isFinite(data.z) ? data.z : 5,
+      ry: Number.isFinite(data.ry) ? data.ry : 0,
+      alive: data.alive !== false,
+      hp: Number.isFinite(data.hp) ? data.hp : 100,
       matchMode
     };
 
-    socket.join(room);
+    socket.join(roomId);
+    console.log(`📦 join-room: ${socket.id} -> room ${roomId} (${name})`);
 
-    console.log(`📦 join-room: ${socket.id} -> room ${room} (${name})`);
-
-    emitCurrentPlayers(socket, room);
+    emitCurrentPlayers(socket, roomId);
 
     const fp = flatPlayer(socket.id, players[socket.id]);
-    socket.to(room).emit('newPlayer', fp);
+    socket.to(roomId).emit('newPlayer', fp);
 
-    broadcastRoomPlayers(room);
-    emitRoomState(room);
+    broadcastRoomPlayers(roomId);
+    emitRoomState(roomId);
   });
 
   socket.on('request-room-players', (data = {}) => {
-    const room = normalizeRoom(
+    const roomId = normalizeRoom(
       data.room || (players[socket.id] && players[socket.id].room)
     );
-    if (!room) return;
-
-    emitCurrentPlayers(socket, room);
+    if (!roomId) return;
+    emitCurrentPlayers(socket, roomId);
   });
 
   socket.on('get-room', (data = {}) => {
-    const room = normalizeRoom(
+    const roomId = normalizeRoom(
       data.room || (players[socket.id] && players[socket.id].room)
     );
-    if (!room) return;
+    if (!roomId) return;
 
-    const meta = ensureRoomMeta(room);
+    const meta = ensureRoomMeta(roomId);
     socket.emit('room-state', {
-      room,
-      count: getRoomCount(room),
+      room: roomId,
+      count: getRoomCount(roomId),
       maxPlayers: MAX_PLAYERS,
-      canStart: getRoomCount(room) >= START_MIN_PLAYERS && !meta.starting && !meta.matchStarted,
+      canStart: getRoomCount(roomId) >= START_MIN_PLAYERS && !meta.starting,
       starting: meta.starting,
       matchStarted: meta.matchStarted,
-      players: getRoomPlayers(room)
+      players: getRoomPlayers(roomId)
     });
   });
 
   socket.on('request-start-match', (data = {}) => {
-    const room = normalizeRoom(
+    const roomId = normalizeRoom(
       data.room || (players[socket.id] && players[socket.id].room)
     );
-    if (!room) return;
+    if (!roomId) return;
 
-    const result = startMatchInRoom(room, socket.id);
+    const result = startMatchInRoom(roomId, socket.id);
     if (!result.ok) {
       socket.emit('start-match-error', {
-        room,
+        room: roomId,
         message: result.message
       });
     }
   });
 
   socket.on('start-match', (data = {}) => {
-    const room = normalizeRoom(
+    const roomId = normalizeRoom(
       data.room || (players[socket.id] && players[socket.id].room)
     );
-    if (!room) return;
+    if (!roomId) return;
 
-    const result = startMatchInRoom(room, socket.id);
+    const result = startMatchInRoom(roomId, socket.id);
     if (!result.ok) {
       socket.emit('start-match-error', {
-        room,
+        room: roomId,
         message: result.message
       });
     }
@@ -449,14 +395,10 @@ io.on('connection', (socket) => {
     const p = players[socket.id];
     if (!p || !p.room) return;
 
-    if (movementData.room && normalizeRoom(movementData.room) !== p.room) return;
-
     if (Number.isFinite(movementData.x)) p.x = movementData.x;
     if (Number.isFinite(movementData.y)) p.y = movementData.y;
     if (Number.isFinite(movementData.z)) p.z = movementData.z;
     if (Number.isFinite(movementData.ry)) p.ry = movementData.ry;
-    if (Number.isFinite(movementData.hp)) p.hp = movementData.hp;
-    if (typeof movementData.alive === 'boolean') p.alive = movementData.alive;
 
     socket.to(p.room).emit('playerMoved', flatPlayer(socket.id, p));
   });
@@ -465,12 +407,9 @@ io.on('connection', (socket) => {
     const p = players[socket.id];
     if (!p || !p.room) return;
 
-    if (shotData.room && normalizeRoom(shotData.room) !== p.room) return;
-
     const payload = Object.assign({}, shotData, {
       id: socket.id,
       playerId: socket.id,
-      targetId: socket.id,
       name: p.name,
       team: p.team,
       room: p.room
@@ -484,50 +423,43 @@ io.on('connection', (socket) => {
     const p = players[socket.id];
     if (!p || !p.room) return;
 
-    if (stateData.room && normalizeRoom(stateData.room) !== p.room) return;
-
     if (typeof stateData.alive === 'boolean') p.alive = stateData.alive;
     if (Number.isFinite(stateData.hp)) p.hp = stateData.hp;
-    if (Number.isFinite(stateData.x)) p.x = stateData.x;
-    if (Number.isFinite(stateData.y)) p.y = stateData.y;
-    if (Number.isFinite(stateData.z)) p.z = stateData.z;
-    if (Number.isFinite(stateData.ry)) p.ry = stateData.ry;
 
-    socket.to(p.room).emit('playerState', Object.assign(flatPlayer(socket.id, p), {
-      playerId: socket.id,
-      targetId: socket.id
-    }));
+    socket.to(p.room).emit(
+      'playerState',
+      Object.assign(flatPlayer(socket.id, p), {
+        playerId: socket.id,
+        targetId: socket.id
+      })
+    );
   });
 
   socket.on('scoreUpdate', (data = {}) => {
     const p = players[socket.id];
     if (!p || !p.room) return;
-
-    const room = normalizeRoom(data.room || p.room);
-    if (room !== p.room) return;
-
-    io.to(room).emit('scoreUpdate', Object.assign({}, data, { room }));
+    socket.to(p.room).emit('scoreUpdate', data);
   });
 
   socket.on('enemyKilledAck', (data = {}) => {
     const p = players[socket.id];
     if (!p || !p.room) return;
-
-    const room = normalizeRoom(data.room || p.room);
-    if (room !== p.room) return;
-
-    io.to(room).emit('enemyKilledAck', Object.assign({}, data, { room }));
+    socket.to(p.room).emit('enemyKilledAck', data);
   });
 
   socket.on('matchFinished', (data = {}) => {
     const p = players[socket.id];
     if (!p || !p.room) return;
 
-    const room = normalizeRoom(data.room || p.room);
-    if (room !== p.room) return;
+    const roomId = normalizeRoom(data.room || p.room);
+    if (!roomId) return;
 
-    finishMatch(room);
-    io.to(room).emit('matchFinished', Object.assign({}, data, { room }));
+    const meta = ensureRoomMeta(roomId);
+    meta.matchStarted = false;
+    meta.starting = false;
+
+    socket.to(roomId).emit('matchFinished', data);
+    emitRoomState(roomId);
   });
 
   socket.on('leave-room', () => {

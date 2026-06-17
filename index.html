@@ -316,8 +316,8 @@ var GAME_MODE = {LOBBY:'lobby',WAITING:'waiting',LOADING:'loading',BATTLE:'battl
 var AI_RESPAWN_ENABLED = false; // A方式: 倒したAIはこのラウンド中に復活しない
 
 /* ---- FIX: AI ヒットボックス定数 (avatar.position.y=0 基準) ---- */
-var AI_HIT_BOX_HEIGHT = 2.2; /* アバター全高 */
-var AI_HIT_BOX_HALF_W = 0.7; /* 横幅の半分 */
+var AI_HIT_BOX_HEIGHT = 2.6; /* アバター全高 */
+var AI_HIT_BOX_HALF_W = 0.9; /* 横幅の半分 */
 
 /* DOM */
 var canvas = document.getElementById('c');
@@ -906,6 +906,17 @@ function resetRoundState(){
   player.hp=player.maxHp=100;ammo=MAG_SIZE;reloading=false;reloadTimer=0;
   gunState.reloadAnim=false;gunState.reloadAnimT=0;gunState.recoil=0;moveVel.set(0,0);
   reviveHumansForNewRound();
+  if(socket&&socket.id){
+    roomPlayers[socket.id]=roomPlayers[socket.id]||{name:PLAYER_NAME,team:player.team||TEAM_BLUE,room:currentRoom};
+    roomPlayers[socket.id].alive=true;
+    roomPlayers[socket.id].hp=100;
+    roomPlayers[socket.id].x=camera.position.x;
+    roomPlayers[socket.id].y=camera.position.y;
+    roomPlayers[socket.id].z=camera.position.z;
+    roomPlayers[socket.id].ry=yaw;
+    remoteStates[socket.id]=remoteStates[socket.id]||{};
+    Object.assign(remoteStates[socket.id],roomPlayers[socket.id]);
+  }
   resetAIForRound();updatePlayerHPUI();updateAmmoUI();if(gunRoot)gunRoot.visible=true;spectateOverlay.style.display='none';
 }
 function showResult(wt){if(resultShown)return;resultShown=true;matchOver=true;gameMode=GAME_MODE.RESULT;setModeUI();resultOverlay.style.display='flex';resultTextEl.textContent=wt===TEAM_BLUE?'BLUE WINS':'RED WINS';resultSubEl.textContent='LOADING BACK TO THE HUB...';}
@@ -934,7 +945,15 @@ function endRoundByWinner(wt,src){
       resetRoundState();gameMode=GAME_MODE.BATTLE;setModeUI();loadingOverlay.style.display='none';
       camera.position.copy(getSpawnForTeam(player.team));
       if(player.team===TEAM_RED)yaw=0;else yaw=Math.PI;pitch=0;syncCameraRotation();
-      if(socket&&socket.connected)socket.emit('playerState',{room:currentRoom,alive:true});
+      if(socket&&socket.id&&roomPlayers[socket.id]){
+        roomPlayers[socket.id].alive=true;
+        roomPlayers[socket.id].hp=100;
+        roomPlayers[socket.id].x=camera.position.x;
+        roomPlayers[socket.id].y=camera.position.y;
+        roomPlayers[socket.id].z=camera.position.z;
+        roomPlayers[socket.id].ry=yaw;
+      }
+      if(socket&&socket.connected)socket.emit('playerState',{room:currentRoom,alive:true,hp:100});
     },900);
   },900);
 }
@@ -1473,8 +1492,8 @@ function updateBullets(dt){
 /* ============================================================
    スペクテイト / 死亡
    ============================================================ */
-function setLocalDeath(){if(!player.alive)return;player.alive=false;player.hp=0;updatePlayerHPUI();addKillFeed('💀 YOU DIED');flashHitIndicator();updatePlayerStateToRoom({alive:false,hp:0});enterSpectate();}
-function enterSpectate(){player.spectating=true;gameMode=GAME_MODE.SPECTATE;setModeUI();spectateOverlay.style.display='block';}
+function setLocalDeath(){if(!player.alive)return;player.alive=false;player.hp=0;updatePlayerHPUI();addKillFeed('💀 YOU DIED');flashHitIndicator();if(socket&&socket.id&&roomPlayers[socket.id]){roomPlayers[socket.id].alive=false;roomPlayers[socket.id].hp=0;}updatePlayerStateToRoom({alive:false,hp:0});enterSpectate();}
+function enterSpectate(){player.spectating=true;gameMode=GAME_MODE.SPECTATE;setModeUI();spectateTargetId='';spectateOverlay.style.display='block';if(gunRoot)gunRoot.visible=false;}
 function getSpectateTargetState(){
   var sid = spectateTargetId;
   function alivePlayer(p){return p&&p.alive!==false;}

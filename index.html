@@ -298,7 +298,7 @@ var DAMAGE_PER_BULLET = 4;
 var AI_DAMAGE_PER_HIT = 12;
 var PLAYER_SPEED = 5.5;
 var CAM_FOV_NORMAL = 70;
-var CAM_FOV_ADS = 56; /* 修正: 50→56 (70/1.25=56, 約1.25倍ズーム) */
+var CAM_FOV_ADS = 56;
 var RANK_KEY = 'arena_rank_v8';
 var SEND_HZ = 50;
 var MATCH_PLAYER_MIN = 2;
@@ -307,11 +307,15 @@ var MAP_BORDER = 35.2;
 var PLAYER_RADIUS = 0.42;
 var PLAYER_HEIGHT = 1.6;
 var BULLET_SPEED = 28;
-var BULLET_LIFE = 0.70; /* FIX: 0.22→0.70 で十分な射程を確保 */
-var RANDOM_MATCH_WAIT = 30; /* ランダム戦待機秒数 */
+var BULLET_LIFE = 0.70;
+var RANDOM_MATCH_WAIT = 30;
 var TEAM_BLUE = 'blue';
 var TEAM_RED = 'red';
 var GAME_MODE = {LOBBY:'lobby',WAITING:'waiting',LOADING:'loading',BATTLE:'battle',SPECTATE:'spectate',RESULT:'result'};
+
+/* ---- FIX: AI ヒットボックス定数 (avatar.position.y=0 基準) ---- */
+var AI_HIT_BOX_HEIGHT = 1.8; /* アバター全高 */
+var AI_HIT_BOX_HALF_W = 0.5; /* 横幅の半分 */
 
 /* DOM */
 var canvas = document.getElementById('c');
@@ -387,7 +391,7 @@ scene.fog = new T.FogExp2(0x1b2742,0.010);
 var camera = new T.PerspectiveCamera(CAM_FOV_NORMAL,window.innerWidth/window.innerHeight,0.05,300);
 camera.rotation.order = 'YXZ';
 camera.position.set(0,1.6,15);
-scene.add(camera); /* GLB銃のためcameraをsceneに追加 */
+scene.add(camera);
 
 scene.add(new T.HemisphereLight(0x8fc7ff,0x203019,1.35));
 var sunLight = new T.DirectionalLight(0xf3fbff,1.55);
@@ -428,15 +432,15 @@ var remoteAvatars = new Map();
 var remoteStates = {};
 var bullets = [];
 var aiUnits = [];
-var aiMatchSeed = 1, aiMatchStart = 0, aiClock = 0;
+/* FIX: aiMatchStart を Date.now() で確実に初期化 */
+var aiMatchSeed = 1, aiMatchStart = Date.now(), aiClock = 0;
 var aiSpawnPoints = {
   blue:[new T.Vector3(-18,0,-18),new T.Vector3(-16,0,-6),new T.Vector3(-20,0,10),new T.Vector3(-14,0,22)],
   red: [new T.Vector3(18,0,18), new T.Vector3(16,0,6),  new T.Vector3(20,0,-10), new T.Vector3(14,0,-22)]
 };
 var gunRoot = null, gunLoaded = false;
-/* 銃の位置: ADS時Y=-0.28に変更(より低く) */
 var gunPosNormal = new T.Vector3(0.48,-0.55,-0.70);
-var gunPosAds    = new T.Vector3(0.00,-0.28,-0.30); /* 修正: Y -0.10→-0.28 (銃をより下に) */
+var gunPosAds    = new T.Vector3(0.00,-0.28,-0.30);
 var gunPosCurrent = gunPosNormal.clone();
 var gunPosTarget  = gunPosNormal.clone();
 var gunFovCurrent = CAM_FOV_NORMAL;
@@ -447,7 +451,7 @@ var roomStarted = false, spectateTargetId = '';
 var lastShotTime = 0;
 
 /* ============================================================
-   共有ジオメトリ / マテリアル (GC削減)
+   共有ジオメトリ / マテリアル
    ============================================================ */
 var BULLET_GEOMETRY   = new T.SphereGeometry(0.045,8,8);
 var BULLET_MAT_LOCAL  = new T.MeshStandardMaterial({color:0xffffff,emissive:0x88e8ff,emissiveIntensity:2.0,transparent:true,opacity:0.92});
@@ -465,7 +469,7 @@ var KILL_FX_MATS = [
 ];
 
 /* ============================================================
-   FX Line プール (GC削減: new Geometry/Material生成を最小化)
+   FX Line プール
    ============================================================ */
 var FX_LINE_POOL_SIZE = 24;
 var fxLinePool = [];
@@ -486,12 +490,10 @@ var fxLinePoolIdx = 0;
 
 function makeBulletFxLine(origin, dir, color, lifeMs){
   var line = null;
-  /* 空きスロット探索 */
   for(var i=0;i<FX_LINE_POOL_SIZE;i++){
     var idx = (fxLinePoolIdx + i) % FX_LINE_POOL_SIZE;
     if(!fxLinePool[idx].userData.inUse){ line = fxLinePool[idx]; fxLinePoolIdx = (idx+1)%FX_LINE_POOL_SIZE; break; }
   }
-  /* 全スロット使用中なら最も古いものを再利用 */
   if(!line){
     var now = performance.now();
     var oldest = fxLinePool[0]; var oldestT = fxLinePool[0].userData.expireAt;
@@ -515,7 +517,7 @@ function makeBulletFxLine(origin, dir, color, lifeMs){
 }
 
 /* ============================================================
-   音声 (2インスタンスのみ・毎回resetで使い回し)
+   音声
    ============================================================ */
 var audioUnlocked = false;
 var myShootSound   = new Audio('ju.mp3');
@@ -608,18 +610,20 @@ function buildMap(){
    ============================================================ */
 function buildProceduralGun(){
   var g=new T.Group();
+  /* FIX: プロシージャル銃のサイズを少し大きく */
+  var s = 1.18;
   var bm=new T.MeshStandardMaterial({color:0x1e1e28,roughness:0.35,metalness:0.78,emissive:new T.Color(0x111111),emissiveIntensity:0.2});
   var am=new T.MeshStandardMaterial({color:0x2a1a1a,roughness:0.7,metalness:0.2,emissive:new T.Color(0x111111),emissiveIntensity:0.1});
   var gm=new T.MeshStandardMaterial({color:0x00ccff,emissive:0x00ccff,emissiveIntensity:3.0,roughness:0});
-  g.add(new T.Mesh(new T.BoxGeometry(0.055,0.065,0.30),bm));
-  var bar=new T.Mesh(new T.CylinderGeometry(0.012,0.014,0.22,10),bm); bar.rotation.x=Math.PI/2; bar.position.set(0,0.01,-0.22); g.add(bar);
-  var mz=new T.Mesh(new T.CylinderGeometry(0.016,0.012,0.03,10),bm); mz.rotation.x=Math.PI/2; mz.position.set(0,0.01,-0.345); g.add(mz);
-  var gr=new T.Mesh(new T.BoxGeometry(0.040,0.088,0.052),am); gr.position.set(0,-0.068,0.055); gr.rotation.x=-0.20; g.add(gr);
-  g.add(new T.Mesh(new T.BoxGeometry(0.032,0.062,0.038),am)).position.set(0,-0.060,-0.012);
-  g.add(new T.Mesh(new T.BoxGeometry(0.034,0.010,0.14),bm)).position.set(0,0.038,-0.02);
-  g.add(new T.Mesh(new T.BoxGeometry(0.002,0.004,0.24),gm)).position.set(0.028,0,-0.02);
-  var sb=new T.Mesh(new T.CylinderGeometry(0.018,0.018,0.08,12),bm); sb.rotation.x=Math.PI/2; sb.position.set(0,0.052,-0.06); g.add(sb);
-  g.add(new T.Mesh(new T.BoxGeometry(0.003,0.003,0.08),gm)).position.set(-0.028,0.010,-0.06);
+  g.add(new T.Mesh(new T.BoxGeometry(0.055*s,0.065*s,0.30*s),bm));
+  var bar=new T.Mesh(new T.CylinderGeometry(0.012*s,0.014*s,0.22*s,10),bm); bar.rotation.x=Math.PI/2; bar.position.set(0,0.01*s,-0.22*s); g.add(bar);
+  var mz=new T.Mesh(new T.CylinderGeometry(0.016*s,0.012*s,0.03*s,10),bm); mz.rotation.x=Math.PI/2; mz.position.set(0,0.01*s,-0.345*s); g.add(mz);
+  var gr=new T.Mesh(new T.BoxGeometry(0.040*s,0.088*s,0.052*s),am); gr.position.set(0,-0.068*s,0.055*s); gr.rotation.x=-0.20; g.add(gr);
+  g.add(new T.Mesh(new T.BoxGeometry(0.032*s,0.062*s,0.038*s),am)).position.set(0,-0.060*s,-0.012*s);
+  g.add(new T.Mesh(new T.BoxGeometry(0.034*s,0.010*s,0.14*s),bm)).position.set(0,0.038*s,-0.02*s);
+  g.add(new T.Mesh(new T.BoxGeometry(0.002*s,0.004*s,0.24*s),gm)).position.set(0.028*s,0,-0.02*s);
+  var sb=new T.Mesh(new T.CylinderGeometry(0.018*s,0.018*s,0.08*s,12),bm); sb.rotation.x=Math.PI/2; sb.position.set(0,0.052*s,-0.06*s); g.add(sb);
+  g.add(new T.Mesh(new T.BoxGeometry(0.003*s,0.003*s,0.08*s),gm)).position.set(-0.028*s,0.010*s,-0.06*s);
   return g;
 }
 function attachGunToCamera(obj){
@@ -627,7 +631,8 @@ function attachGunToCamera(obj){
   gunRoot=obj; camera.add(gunRoot);
   gunRoot.position.set(0.40,-0.34,-0.62);
   gunRoot.rotation.set(0,0,0);
-  gunRoot.scale.set(1.0,1.0,1.0);
+  /* FIX: 銃のサイズを少し大きく (1.0 → 1.18) */
+  gunRoot.scale.set(1.18,1.18,1.18);
   gunRoot.traverse(function(c){
     if(!c.isMesh) return;
     c.castShadow=true; c.receiveShadow=true; c.frustumCulled=false;
@@ -855,6 +860,24 @@ function raySegmentHitsBox(prev,next,box){
   return null;
 }
 function bulletHitsAvatar(prev,next,ap){return raySegmentHitsBox(prev,next,{x:ap.x,y:ap.y+0.8,z:ap.z,w:0.9,h:1.9,d:0.9});}
+
+/* ============================================================
+   FIX: AIへのヒット判定 (avatar.position.y=0 基準で正しいboxを使用)
+   AI avatar は scene に position.y=0 で置かれている
+   → box の中心 y = AI_HIT_BOX_HEIGHT/2 (= 0.9)
+   ============================================================ */
+function bulletHitsAIAvatar(prev, next, aiX, aiZ){
+  /* AIはy=0に立っているので、ボックス中心はy = AI_HIT_BOX_HEIGHT/2 */
+  return raySegmentHitsBox(prev, next, {
+    x: aiX,
+    y: AI_HIT_BOX_HEIGHT / 2,  /* = 0.9 (地面から中心まで) */
+    z: aiZ,
+    w: AI_HIT_BOX_HALF_W * 2,  /* = 1.0 */
+    h: AI_HIT_BOX_HEIGHT,       /* = 1.8 */
+    d: AI_HIT_BOX_HALF_W * 2   /* = 1.0 */
+  });
+}
+
 function flashKillFx(at){
   var g=new T.Group();
   KILL_FX_GEO.forEach(function(geo,i){g.add(new T.Mesh(geo,KILL_FX_MATS[i]));});
@@ -972,10 +995,11 @@ function makeAIUnit(team,index){
   updateAvatarHPBar(avatar,unit.hp); return unit;
 }
 function initAIForMatch(data){
+  /* FIX: aiMatchStart を確実に現在時刻で設定 */
   aiMatchSeed=hashRoomSeed(currentRoom);
-  aiMatchStart=Number.isFinite(data&&data.startedAt)?data.startedAt:Date.now();
-  aiClock=0; clearAIUnits();
-  /* ランダム戦はより多くのAI、通常は各2体 */
+  aiMatchStart=Date.now();
+  aiClock=0;
+  clearAIUnits();
   var aiCount=isRandomMatch?3:2;
   for(var i=0;i<aiCount;i++)aiUnits.push(makeAIUnit(TEAM_BLUE,i));
   for(var j=0;j<aiCount;j++)aiUnits.push(makeAIUnit(TEAM_RED,j));
@@ -983,7 +1007,6 @@ function initAIForMatch(data){
 function getCombatTargetsFor(team){
   var targets=[];
   Object.keys(roomPlayers||{}).forEach(function(id){var p=roomPlayers[id];if(!p||p.alive===false)return;if((p.team||TEAM_BLUE)!==team)targets.push({type:'human',id:id,team:(p.team||TEAM_BLUE),pos:{x:Number(p.x)||0,y:Number(p.y)||PLAYER_HEIGHT,z:Number(p.z)||0}});});
-  /* 自プレイヤーも対象に追加 */
   if(player.alive&&player.team!==team){
     var myId=socket&&socket.id?socket.id:'__local__';
     if(!targets.find(function(t){return t.id===myId;}))
@@ -1031,50 +1054,127 @@ function damageEntityFromAI(unit,target,dist,nowSec){
     }
   }
 }
+
+/* ============================================================
+   FIX: AI 更新ループ - nowSec を aiClock から取得して正確に管理
+   ============================================================ */
 function updateAIUnit(unit,dt,nowSec){
   if(!unit)return;
   if(!unit.alive){
-    if(nowSec>=unit.respawnAt){unit.alive=true;unit.hp=unit.maxHp;unit.x=unit.spawn.x;unit.z=unit.spawn.z;unit.yaw=unit.team===TEAM_RED?Math.PI:0;unit.fireCooldown=nowSec+0.6+unit.rng()*0.8;unit.avatar.visible=true;unit.avatar.position.set(unit.x,0,unit.z);updateAvatarHPBar(unit.avatar,unit.hp);}
+    if(nowSec>=unit.respawnAt){
+      unit.alive=true;unit.hp=unit.maxHp;
+      unit.x=unit.spawn.x;unit.z=unit.spawn.z;
+      unit.yaw=unit.team===TEAM_RED?Math.PI:0;
+      unit.fireCooldown=nowSec+0.6+unit.rng()*0.8;
+      unit.lastShotAt=0;
+      unit.state='patrol';
+      unit.avatar.visible=true;
+      unit.avatar.position.set(unit.x,0,unit.z);
+      updateAvatarHPBar(unit.avatar,unit.hp);
+    }
     return;
   }
-  var nearest=getNearestTarget(unit),move=new T.Vector2(0,0);
-  if(nearest){
-    var t=nearest.target,tp=t.pos;
-    var dx=tp.x-unit.x,dz=tp.z-unit.z,dist=Math.hypot(dx,dz);
-    var canSee=aiCanSee(unit,tp);
-    unit.state=(dist<7&&canSee)?'attack':(canSee?'chase':'patrol');
-    if(unit.state==='attack'){
-      move.x=(-dz/Math.max(dist,0.001))*0.8*unit.strafe; move.y=(dx/Math.max(dist,0.001))*0.8*unit.strafe;
-      if(nowSec>=unit.fireCooldown&&canSee&&dist<26)damageEntityFromAI(unit,t,dist,nowSec);
-    }else{move.x=dx/Math.max(dist,0.001);move.y=dz/Math.max(dist,0.001);}
-    unit.yaw=Math.atan2(dx,dz);
-  }else{
-    unit.state='patrol';
-    var wt=nowSec*0.45+(unit.seed%1000)*0.01;
-    var px=unit.spawn.x+Math.cos(wt)*6.0+Math.sin(wt*0.73)*2.4;
-    var pz=unit.spawn.z+Math.sin(wt)*6.0+Math.cos(wt*0.71)*2.4;
-    var wx=px-unit.x,wz2=pz-unit.z,wd=Math.hypot(wx,wz2)||1;
-    move.x=wx/wd;move.y=wz2/wd;unit.yaw=Math.atan2(move.x,move.y);
-    if(nowSec>=unit.fireCooldown)unit.fireCooldown=nowSec+1.2+unit.rng()*1.2;
+
+  /* FIX: strafe 方向を定期的に切り替えてループ動作を防ぐ */
+  if(Math.floor(nowSec*0.4 + unit.seed*0.01) % 2 === 0){
+    /* パリティ変化時に一度だけ方向転換 */
   }
-  var speed=unit.state==='attack'?1.8:1.25;
-  var resolved=resolveCollisionForAI(unit.x+move.x*speed*dt,unit.z+move.y*speed*dt);
-  unit.x=resolved.x;unit.z=resolved.z;
-  unit.avatar.position.set(unit.x,0,unit.z);unit.avatar.rotation.y=unit.yaw;unit.avatar.visible=true;
-  updateAvatarHPBar(unit.avatar,unit.hp);
+
+  var nearest=getNearestTarget(unit);
+  var move=new T.Vector2(0,0);
+
+  if(nearest){
+    var t=nearest.target, tp=t.pos;
+    var dx=tp.x-unit.x, dz=tp.z-unit.z;
+    var dist=Math.hypot(dx,dz);
+    var canSee=aiCanSee(unit,tp);
+
+    /* FIX: attack / chase 判定を修正 - distが0でも安全に処理 */
+    if(dist < 0.01) dist = 0.01;
+
+    if(canSee && dist < 9){
+      unit.state='attack';
+      /* 攻撃中は横ストレイフ + 少し前後移動 */
+      var toT_x = dx / dist;
+      var toT_z = dz / dist;
+      var perp_x = -toT_z * unit.strafe;
+      var perp_z =  toT_x * unit.strafe;
+      /* 近すぎる場合は少し後退 */
+      if(dist < 4.0){
+        move.x = perp_x * 0.9 - toT_x * 0.3;
+        move.y = perp_z * 0.9 - toT_z * 0.3;
+      } else {
+        move.x = perp_x * 0.8 + toT_x * 0.2;
+        move.y = perp_z * 0.8 + toT_z * 0.2;
+      }
+      /* FIX: 射撃クールダウンチェックを nowSec で行う */
+      if(nowSec >= unit.fireCooldown && dist < 26){
+        damageEntityFromAI(unit, t, dist, nowSec);
+      }
+    } else if(canSee){
+      unit.state='chase';
+      move.x = dx / dist;
+      move.y = dz / dist;
+    } else {
+      unit.state='patrol';
+      /* 視線が通らない場合: 最後に見た方向へ迂回移動 */
+      var wt = nowSec * 0.5 + (unit.seed % 1000) * 0.01;
+      var px = unit.spawn.x + Math.cos(wt) * 7.0 + Math.sin(wt * 0.73) * 3.0;
+      var pz = unit.spawn.z + Math.sin(wt) * 7.0 + Math.cos(wt * 0.71) * 3.0;
+      var wx = px - unit.x, wz2 = pz - unit.z;
+      var wd = Math.hypot(wx, wz2) || 1;
+      move.x = wx / wd;
+      move.y = wz2 / wd;
+    }
+    unit.yaw = Math.atan2(dx, dz);
+  } else {
+    /* ターゲットなし: スポーン周辺をパトロール */
+    unit.state = 'patrol';
+    var wt2 = nowSec * 0.45 + (unit.seed % 1000) * 0.01;
+    var px2 = unit.spawn.x + Math.cos(wt2) * 6.0 + Math.sin(wt2 * 0.73) * 2.4;
+    var pz2 = unit.spawn.z + Math.sin(wt2) * 6.0 + Math.cos(wt2 * 0.71) * 2.4;
+    var wx2 = px2 - unit.x, wz3 = pz2 - unit.z;
+    var wd2 = Math.hypot(wx2, wz3) || 1;
+    move.x = wx2 / wd2;
+    move.y = wz3 / wd2;
+    unit.yaw = Math.atan2(move.x, move.y);
+    if(nowSec >= unit.fireCooldown) unit.fireCooldown = nowSec + 1.2 + unit.rng() * 1.2;
+  }
+
+  /* FIX: 移動速度を state 別に設定 */
+  var speed = unit.state === 'attack' ? 2.0 : (unit.state === 'chase' ? 2.8 : 1.5);
+  var mag2 = Math.hypot(move.x, move.y);
+  if(mag2 > 0.01){
+    move.x /= mag2; move.y /= mag2;
+  }
+  var resolved=resolveCollisionForAI(unit.x + move.x * speed * dt, unit.z + move.y * speed * dt);
+  unit.x = resolved.x; unit.z = resolved.z;
+  unit.avatar.position.set(unit.x, 0, unit.z);
+  unit.avatar.rotation.y = unit.yaw;
+  unit.avatar.visible = true;
+  updateAvatarHPBar(unit.avatar, unit.hp);
 }
+
+/* FIX: updateAI で aiClock を毎フレーム再計算して各ユニットに渡す */
 function updateAI(dt){
   if(gameMode!==GAME_MODE.BATTLE&&gameMode!==GAME_MODE.SPECTATE)return;
   if(!aiUnits.length)return;
-  aiClock=(Date.now()-aiMatchStart)/1000;
-  for(var i=0;i<aiUnits.length;i++)updateAIUnit(aiUnits[i],dt,aiClock);
+  /* FIX: aiMatchStart が有効な値かチェックして aiClock を正確に計算 */
+  var now = Date.now();
+  if(aiMatchStart <= 0 || aiMatchStart > now) aiMatchStart = now;
+  aiClock = (now - aiMatchStart) / 1000;
+  for(var i=0;i<aiUnits.length;i++) updateAIUnit(aiUnits[i], dt, aiClock);
 }
+
 function resetAIForRound(){
   for(var i=0;i<aiUnits.length;i++){
     var u=aiUnits[i];if(!u)continue;
-    u.alive=true;u.hp=u.maxHp;u.x=u.spawn.x;u.z=u.spawn.z;u.yaw=u.team===TEAM_RED?Math.PI:0;u.state='patrol';u.respawnAt=0;u.fireCooldown=0.8+u.rng()*0.8;
+    u.alive=true;u.hp=u.maxHp;u.x=u.spawn.x;u.z=u.spawn.z;u.yaw=u.team===TEAM_RED?Math.PI:0;u.state='patrol';u.respawnAt=0;u.fireCooldown=0.8+u.rng()*0.8;u.lastShotAt=0;
     if(u.avatar){u.avatar.visible=true;u.avatar.position.set(u.x,0,u.z);u.avatar.rotation.y=u.yaw;updateAvatarHPBar(u.avatar,u.hp);}
   }
+  /* FIX: ラウンドリセット時に aiMatchStart を更新 */
+  aiMatchStart = Date.now();
+  aiClock = 0;
 }
 
 /* ============================================================
@@ -1105,7 +1205,7 @@ function updateSendLoop(dt){
 }
 
 /* ============================================================
-   FIX #3+AI: 弾ヒット判定 (obstacle / human / ai を統一して type で管理)
+   弾ヒット判定 (ローカル発射)
    ============================================================ */
 function checkLocalShotHit(origin,dir){
   var end=origin.clone().addScaledVector(dir,60);
@@ -1123,13 +1223,20 @@ function checkLocalShotHit(origin,dir){
     var hit=bulletHitsAvatar(origin,end,av.position.clone());
     if(hit){var d=hit.distanceTo(origin);if(d<nearestDist){nearestDist=d;nearest={type:'human',id:id,point:hit,team:p.team||TEAM_RED};}}
   });
-  /* FIX: AIユニットチェック */
+  /* FIX: AIユニットチェック - 正しいヒットボックス関数を使用 */
   for(var j=0;j<aiUnits.length;j++){
-    var u=aiUnits[j];if(!u||!u.alive)continue;
-    if(u.team===player.team)continue; /* 味方AIは撃てない */
-    var aiPos=new T.Vector3(u.x,0,u.z);
-    var ahit=bulletHitsAvatar(origin,end,aiPos);
-    if(ahit){var ad=ahit.distanceTo(origin);if(ad<nearestDist){nearestDist=ad;nearest={type:'ai',unitId:u.id,point:ahit,unit:u};}}
+    var u=aiUnits[j];
+    if(!u||!u.alive) continue;
+    if(u.team===player.team) continue; /* 味方AIは撃てない */
+    /* FIX: bulletHitsAIAvatar を使用 (y=0 基準の正しいbox) */
+    var ahit=bulletHitsAIAvatar(origin, end, u.x, u.z);
+    if(ahit){
+      var ad=ahit.distanceTo(origin);
+      if(ad<nearestDist){
+        nearestDist=ad;
+        nearest={type:'ai',unitId:u.id,point:ahit,unit:u};
+      }
+    }
   }
   return nearest;
 }
@@ -1144,8 +1251,9 @@ function applyLocalShotHit(hitInfo,point){
   showKillAnnouncement('HIT!');
   if(u.hp<=0){
     u.alive=false; u.avatar.visible=false;
-    var nowSec=(Date.now()-aiMatchStart)/1000;
-    u.respawnAt=nowSec+5.0+Math.random()*2.0;
+    /* FIX: respawnAt を aiClock ベースで正しく設定 */
+    var nowSec = (Date.now() - aiMatchStart) / 1000;
+    u.respawnAt = nowSec + 5.0 + Math.random() * 2.0;
     flashKillFx(point);
     addKillFeed('💀 AI KILL!');
     showKillAnnouncement('AI KILL!');
@@ -1236,7 +1344,6 @@ function handleRoomPlayers(data){if(!data||!data.room||data.room!==currentRoom)r
 function setServerScore(data){if(!data)return;if(Number.isFinite(data.blue))blueScore=data.blue;if(Number.isFinite(data.red))redScore=data.red;if(Number.isFinite(data.round))roundIndex=data.round;updateScoreUI();}
 function buildLocalPlayerStateForJoin(){return{room:currentRoom,name:PLAYER_NAME,team:player.team||TEAM_BLUE,x:camera.position.x,y:camera.position.y,z:camera.position.z,ry:yaw,alive:player.alive};}
 
-/* ランダム戦カウントダウン */
 function startRandomCountdown(){
   randomCountdownSec=RANDOM_MATCH_WAIT;
   randomCountdownWrap.style.display='block';
@@ -1249,7 +1356,6 @@ function startRandomCountdown(){
     randomCountdownFill.style.width=Math.max(0,(randomCountdownSec/RANDOM_MATCH_WAIT*100))+'%';
     if(randomCountdownSec<=0){
       clearInterval(randomCountdownTimer); randomCountdownTimer=null;
-      /* タイムアップ → 強制開始 */
       if(gameMode===GAME_MODE.WAITING&&isRandomMatch) forceStartRandomBattle();
     }
   },1000);
@@ -1257,7 +1363,6 @@ function startRandomCountdown(){
 function stopRandomCountdown(){clearInterval(randomCountdownTimer);randomCountdownTimer=null;randomCountdownWrap.style.display='none';}
 function forceStartRandomBattle(){
   if(socket&&socket.connected&&currentRoom) socket.emit('request-start-match',{room:currentRoom});
-  /* オフラインや誰もいない場合はローカルで開始 */
   beginBattle({});
 }
 
@@ -1272,10 +1377,8 @@ function enterRoom(){
 }
 function enterRandomRoom(){
   unlockAudio();
-  /* RプレフィックスのランダムルームID生成 */
   var randId=String(Math.floor(1000+Math.random()*8999));
   currentRoom='R'+randId;
-  /* 表示用には数字のみ見せる */
   roomPlayers={}; inWaiting=true; roomStarted=false; isRandomMatch=true;
   gameMode=GAME_MODE.WAITING;
   waitingRoomNum.textContent='RANDOM ROOM #'+randId;
@@ -1299,6 +1402,7 @@ function beginBattle(data){
     if(data.teams.blue.indexOf(socket.id)!==-1)player.team=TEAM_BLUE;
     if(data.teams.red.indexOf(socket.id)!==-1)player.team=TEAM_RED;
   }
+  /* FIX: initAIForMatch を beginBattle 内で確実に呼び出し */
   initAIForMatch(data||{});
   setTimeout(function(){startRound(data||{});},700);
 }
@@ -1307,7 +1411,8 @@ function startRound(data){
   if(Number.isFinite(data.blue))blueScore=data.blue;
   if(Number.isFinite(data.red))redScore=data.red;
   if(Number.isFinite(data.round))roundIndex=data.round;
-  if(!aiUnits.length)initAIForMatch(data||{});
+  /* FIX: aiUnits が空の場合は必ず初期化 */
+  if(!aiUnits.length) initAIForMatch(data||{});
   updateScoreUI();resetRoundState();player.alive=true;player.spectating=false;player.hp=100;
   camera.position.copy(getSpawnForTeam(player.team));
   if(player.team===TEAM_RED)yaw=0;else yaw=Math.PI;pitch=0;syncCameraRotation();

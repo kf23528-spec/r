@@ -23,7 +23,7 @@
   --cyan:#5ff4ff;
   --gold:#ffd84d;
 }
-html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg0);overscroll-behavior:none;touch-action:none;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;user-select:none;-webkit-user-select:none;color:var(--txt)}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg0);overscroll-behavior:none;touch-action:manipulation;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;user-select:none;-webkit-user-select:none;color:var(--txt)}
 #game{position:fixed;inset:0;overflow:hidden}
 canvas{display:block;width:100%;height:100%;touch-action:none}
 #hud{position:absolute;inset:0;pointer-events:none}
@@ -66,7 +66,7 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 #joystickContainer{position:absolute;left:10px;bottom:10px;width:min(34vw,170px);height:min(34vw,170px);max-width:170px;max-height:170px;min-width:120px;min-height:120px;pointer-events:auto;z-index:100;touch-action:none}
 #joystickContainer .base{position:absolute;inset:0;border-radius:50%;background:rgba(255,255,255,0.08);border:2px solid rgba(255,255,255,0.18);backdrop-filter:blur(2px);box-shadow:inset 0 0 24px rgba(255,255,255,0.04)}
 #joystickContainer .knob{position:absolute;left:50%;top:50%;width:34%;height:34%;transform:translate(-50%,-50%);border-radius:50%;background:rgba(255,255,255,0.28);border:2px solid rgba(255,255,255,0.26);box-shadow:0 0 18px rgba(255,255,255,0.18)}
-#shootButton{position:absolute;right:8px;bottom:14px;width:min(17vw,100px);height:min(17vw,100px);max-width:100px;max-height:100px;min-width:80px;min-height:80px;border:none;border-radius:50%;background:linear-gradient(180deg,#ff6a6a,#d90c0c);color:white;font-size:clamp(13px,2.8vw,18px);font-weight:900;letter-spacing:0.08em;box-shadow:0 10px 30px rgba(255,42,42,0.40),inset 0 0 18px rgba(255,255,255,0.15);pointer-events:auto;z-index:100;touch-action:none;-webkit-tap-highlight-color:transparent;cursor:pointer}
+#shootButton{position:absolute;right:8px;bottom:14px;width:min(17vw,100px);height:min(17vw,100px);max-width:100px;max-height:100px;min-width:80px;min-height:80px;border:none;border-radius:50%;background:linear-gradient(180deg,#ff6a6a,#d90c0c);color:white;font-size:clamp(13px,2.8vw,18px);font-weight:900;letter-spacing:0.08em;box-shadow:0 10px 30px rgba(255,42,42,0.40),inset 0 0 18px rgba(255,255,255,0.15);pointer-events:auto;z-index:100;touch-action:manipulation;-webkit-tap-highlight-color:transparent;cursor:pointer}
 #shootButton:active{transform:scale(0.95);filter:brightness(1.10)}
 #reloadButton{position:absolute;right:calc(8px + min(17vw,100px) + 12px);bottom:24px;width:min(14vw,84px);height:min(14vw,84px);max-width:84px;max-height:84px;min-width:64px;min-height:64px;border:none;border-radius:50%;background:linear-gradient(160deg,#2a3a50,#1a2535);border:2px solid rgba(255,216,77,0.45);box-shadow:0 6px 20px rgba(0,0,0,0.45),inset 0 0 12px rgba(255,216,77,0.08);pointer-events:auto;z-index:100;touch-action:none;-webkit-tap-highlight-color:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center}
 #reloadButton:active{transform:scale(0.92);filter:brightness(1.14)}
@@ -639,7 +639,6 @@ function attachGunToCamera(obj){
     attachGunToCamera(model);
   }, undefined, function(err){
     /* GLB読み込み失敗 → プロシージャル銃にフォールバック */
-    console.warn('ju.glb load failed, using procedural gun:', err);
     attachGunToCamera(buildProceduralGun());
   });
 })();
@@ -660,13 +659,36 @@ function createMuzzleFlash(){
   fg.userData.flashMeshes = [fg.children[0],fg.children[1],fg.children[2]];
   muzzleFlashes.push(fg);
 }
+function disposeFlashNode(node){
+  if(!node) return;
+  if(node.parent) node.parent.remove(node);
+  node.traverse(function(obj){
+    if(obj.geometry){ try{ obj.geometry.dispose(); }catch(e){} }
+    if(obj.material){
+      var mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+      for(var i=0;i<mats.length;i++){
+        var m = mats[i];
+        if(!m) continue;
+        try{
+          if(m.map) m.map.dispose();
+          if(m.alphaMap) m.alphaMap.dispose();
+          if(m.emissiveMap) m.emissiveMap.dispose();
+          if(m.normalMap) m.normalMap.dispose();
+          if(m.roughnessMap) m.roughnessMap.dispose();
+          if(m.metalnessMap) m.metalnessMap.dispose();
+          if(m.dispose) m.dispose();
+        }catch(e){}
+      }
+    }
+  });
+}
 function updateMuzzleFlashes(dt){
   for(var i=muzzleFlashes.length-1;i>=0;i--){
     var f = muzzleFlashes[i];
     f.userData.life -= dt;
     var t = f.userData.life / f.userData.maxLife;
     if(f.userData.life <= 0){
-      if(f.parent)f.parent.remove(f);
+      disposeFlashNode(f);
       muzzleFlashes.splice(i,1);
       continue;
     }
@@ -677,61 +699,32 @@ function updateMuzzleFlashes(dt){
   }
 }
 
-/* =====================================================================
-   FIX #1: 銃声プール - 上限 GUN_SOUND_POOL_MAX を守り new Audio を増やさない
-   全スロットが再生中の場合は最も再生位置が進んでいるものを強制的に再利用する
-   ===================================================================== */
-var gunSoundPool = [];
-var gunSoundReady = false;
+const myShootSound = new Audio('ju.mp3');
+const enemyShootSound = new Audio('ju.mp3');
+myShootSound.preload = 'auto';
+enemyShootSound.preload = 'auto';
+myShootSound.volume = 0.95;
+enemyShootSound.volume = 0.7;
+try{ myShootSound.load(); }catch(e){}
+try{ enemyShootSound.load(); }catch(e){}
+
 function unlockAudio(){
-  if(gunSoundReady) return;
-  gunSoundReady = true;
-  gunSoundPool = [];
-  for(var i=0;i<GUN_SOUND_POOL_MAX;i++){
-    var a = new Audio('ju.mp3');
-    a.preload = 'auto';
-    a.volume = 0.95;
-    gunSoundPool.push(a);
-  }
   try{
-    var t = gunSoundPool[0];
-    if(t){
-      var p = t.play();
-      if(p && typeof p.then === 'function'){
-        p.then(function(){ t.pause(); t.currentTime = 0; }).catch(function(){});
-      }else{
-        t.pause();
-        t.currentTime = 0;
-      }
-    }
+    myShootSound.currentTime = 0;
+    enemyShootSound.currentTime = 0;
+    var p1 = myShootSound.play();
+    var p2 = enemyShootSound.play();
+    if(p1 && typeof p1.then === 'function') p1.then(function(){ myShootSound.pause(); myShootSound.currentTime = 0; }).catch(function(){});
+    else { myShootSound.pause(); myShootSound.currentTime = 0; }
+    if(p2 && typeof p2.then === 'function') p2.then(function(){ enemyShootSound.pause(); enemyShootSound.currentTime = 0; }).catch(function(){});
+    else { enemyShootSound.pause(); enemyShootSound.currentTime = 0; }
   }catch(e){}
 }
-(function(){
-  var a = new Audio('ju.mp3');
-  a.preload = 'auto';
-  a.load();
-})();
 
 function playGunSound(isBot){
-  if(!gunSoundReady) return;
   try{
-    /* プールから空きスロットを探す */
-    var audio = null;
-    for(var i=0;i<gunSoundPool.length;i++){
-      if(gunSoundPool[i].paused || gunSoundPool[i].ended){
-        audio = gunSoundPool[i];
-        break;
-      }
-    }
-    /* FIX #1: 全スロット使用中でも new Audio は作らず、最も再生が進んでいるものを再利用 */
-    if(!audio){
-      var oldest = gunSoundPool[0];
-      for(var j=1;j<gunSoundPool.length;j++){
-        if(gunSoundPool[j].currentTime > oldest.currentTime) oldest = gunSoundPool[j];
-      }
-      oldest.pause();
-      audio = oldest;
-    }
+    var audio = isBot ? enemyShootSound : myShootSound;
+    audio.pause();
     audio.currentTime = 0;
     audio.volume = isBot ? 0.7 : 0.95;
     var p = audio.play();
@@ -919,6 +912,35 @@ function updateReload(dt){
 function setADS(on){ adsActive = !!on; adsButton.classList.toggle('ads-active',adsActive); gunPosTarget.copy(adsActive ? gunPosAds : gunPosNormal); }
 function getForwardVectorFromCamera(){ var dir = new T.Vector3(); camera.getWorldDirection(dir); if(dir.lengthSq()<1e-8) dir.set(0,0,-1); return dir.normalize(); }
 
+function disposeObject3D(root){
+  if(!root) return;
+  if(root.parent) root.parent.remove(root);
+  root.traverse(function(obj){
+    if(obj.geometry){ try{ obj.geometry.dispose(); }catch(e){} }
+    if(obj.material){
+      var mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+      for(var i=0;i<mats.length;i++){
+        var m = mats[i];
+        if(!m) continue;
+        try{
+          if(m.map) m.map.dispose();
+          if(m.alphaMap) m.alphaMap.dispose();
+          if(m.aoMap) m.aoMap.dispose();
+          if(m.bumpMap) m.bumpMap.dispose();
+          if(m.displacementMap) m.displacementMap.dispose();
+          if(m.emissiveMap) m.emissiveMap.dispose();
+          if(m.envMap) m.envMap.dispose();
+          if(m.lightMap) m.lightMap.dispose();
+          if(m.metalnessMap) m.metalnessMap.dispose();
+          if(m.normalMap) m.normalMap.dispose();
+          if(m.roughnessMap) m.roughnessMap.dispose();
+          if(m.displacementMap) m.displacementMap.dispose();
+          if(m.dispose) m.dispose();
+        }catch(e){}
+      }
+    }
+  });
+}
 function makeBullet(origin, dir, ownerId, ownerTeam, isRemote){
   var mat = new T.MeshStandardMaterial({color:isRemote?0xffa5a5:0xffffff,emissive:isRemote?0xff5555:0x88e8ff,emissiveIntensity:isRemote?2.5:2.0,transparent:true,opacity:0.92});
   var m = new T.Mesh(new T.SphereGeometry(0.045,8,8),mat);
@@ -950,7 +972,7 @@ function flashKillFx(at){
   g.add(new T.Mesh(new T.SphereGeometry(0.24,8,8),mats[1]));
   g.add(new T.Mesh(new T.SphereGeometry(0.34,8,8),mats[2]));
   g.position.copy(at); scene.add(g);
-  setTimeout(function(){ if(g.parent)g.parent.remove(g); },420);
+  setTimeout(function(){ disposeObject3D(g); },420);
 }
 function addKillFeed(text){ var d = document.createElement('div'); d.className = 'kfItem'; d.textContent = text; killFeedEl.appendChild(d); setTimeout(function(){ if(d.parentNode)d.parentNode.removeChild(d); },2600); }
 function flashHitIndicator(){ hitIndicator.classList.add('active'); setTimeout(function(){hitIndicator.classList.remove('active');},120); }
@@ -1654,14 +1676,14 @@ function updateBullets(dt){
   for(var i=bullets.length-1;i>=0;i--){
     var b = bullets[i];
     if(!b || b.dead){
-      if(b && b.mesh && b.mesh.parent)b.mesh.parent.remove(b.mesh);
+      if(b && b.mesh){ disposeObject3D(b.mesh); b.mesh = null; }
       bullets.splice(i,1);
       continue;
     }
     b.life -= dt;
     if(b.life <= 0){
       b.dead = true;
-      if(b.mesh && b.mesh.parent)b.mesh.parent.remove(b.mesh);
+      if(b.mesh){ disposeObject3D(b.mesh); b.mesh = null; }
       bullets.splice(i,1);
       continue;
     }
@@ -1676,7 +1698,7 @@ function updateBullets(dt){
     if(hitObstacle || Math.abs(b.pos.x)>MAP_BORDER+2 || Math.abs(b.pos.z)>MAP_BORDER+2){
       flashKillFx(b.pos);
       b.dead = true;
-      if(b.mesh && b.mesh.parent)b.mesh.parent.remove(b.mesh);
+      if(b.mesh){ disposeObject3D(b.mesh); b.mesh = null; }
       bullets.splice(i,1);
       continue;
     }
@@ -1782,7 +1804,7 @@ function initSocket(){
       socket.emit('request-room-players',{room:currentRoom});
     }
   });
-  socket.on('connect_error',function(err){ setNetBadge('offline','🔴 接続エラー'); console.warn('connect_error:',err&&err.message); });
+  socket.on('connect_error',function(err){ setNetBadge('offline','🔴 接続エラー'); });
   socket.on('reconnect_attempt',function(n){ setNetBadge('connecting','🟡 再試行 #'+n); });
   socket.on('reconnect',function(){
     netOnline = true;
@@ -1958,7 +1980,8 @@ joystickContainer.addEventListener('pointermove',function(e){
 joystickContainer.addEventListener('pointerup',function(e){ if(joyTouchId !== e.pointerId) return; e.preventDefault(); joy.x = 0; joy.y = 0; knobEl.style.left='50%'; knobEl.style.top='50%'; joyTouchId = null; });
 joystickContainer.addEventListener('pointercancel',function(e){ if(joyTouchId !== e.pointerId) return; joyTouchId = null; joy.x = 0; joy.y = 0; knobEl.style.left='50%'; knobEl.style.top='50%'; });
 
-shootButton.addEventListener('pointerdown',function(e){
+var lastShootTouchAt = 0;
+function handleShootDown(e){
   e.preventDefault(); e.stopPropagation(); unlockAudio();
   if(gameMode!==GAME_MODE.BATTLE) return;
   firingHeld = true;
@@ -1969,9 +1992,19 @@ shootButton.addEventListener('pointerdown',function(e){
       fireOnce();
     }, Math.max(30, FIRE_INTERVAL*1000));
   }
+}
+shootButton.addEventListener('pointerdown',function(e){
+  if(e.pointerType === 'touch' && (Date.now() - lastShootTouchAt) < 140) return;
+  handleShootDown(e);
 });
 shootButton.addEventListener('pointerup',function(e){ e.preventDefault(); e.stopPropagation(); firingHeld = false; });
 shootButton.addEventListener('pointercancel',function(){ firingHeld = false; });
+shootButton.addEventListener('touchstart',function(e){
+  lastShootTouchAt = Date.now();
+  handleShootDown(e);
+},{passive:false});
+shootButton.addEventListener('touchend',function(e){ e.preventDefault(); e.stopPropagation(); firingHeld = false; },{passive:false});
+shootButton.addEventListener('touchcancel',function(e){ e.preventDefault(); firingHeld = false; },{passive:false});
 reloadButton.addEventListener('pointerdown',function(e){ e.preventDefault(); e.stopPropagation(); unlockAudio(); startReload(); });
 adsButton.addEventListener('pointerdown',function(e){ e.preventDefault(); e.stopPropagation(); unlockAudio(); setADS(!adsActive); });
 lobbyStartBtn.addEventListener('pointerdown',function(e){ e.preventDefault(); e.stopPropagation(); unlockAudio(); enterRoom(); });
@@ -1988,6 +2021,10 @@ window.addEventListener('resize',function(){
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth,window.innerHeight,false);
 });
+window.addEventListener('gesturestart',function(e){ if(gameMode===GAME_MODE.BATTLE) e.preventDefault(); },{passive:false});
+window.addEventListener('gesturechange',function(e){ if(gameMode===GAME_MODE.BATTLE) e.preventDefault(); },{passive:false});
+window.addEventListener('gestureend',function(e){ if(gameMode===GAME_MODE.BATTLE) e.preventDefault(); },{passive:false});
+
 
 function animate(){
   requestAnimationFrame(animate);
@@ -2048,12 +2085,6 @@ function init(){
   onlineCountEl.textContent = '👥 同室: 1人';
   initSocket();
   animate();
-  console.log('🚀 NEON ARENA FIXED | player='+PLAYER_NAME);
-  console.log('🔌 server='+RENDER_SERVER_URL);
-  console.log('✅ FIX1: gunSoundPool capped at '+GUN_SOUND_POOL_MAX);
-  console.log('✅ FIX2: scene.add(camera) for GLB gunRoot attachment');
-  console.log('✅ FIX3: hitInfo.type unified (was .kind)');
-  console.log('✅ FIX4: AI collision resolveCollisionForAI applied');
 }
 init();
 

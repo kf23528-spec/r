@@ -298,7 +298,7 @@ var DAMAGE_PER_BULLET = 4;
 var AI_DAMAGE_PER_HIT = 12;
 var PLAYER_SPEED = 5.5;
 var CAM_FOV_NORMAL = 70;
-var CAM_FOV_ADS = 50;
+var CAM_FOV_ADS = 56; /* 修正: 50→56 (70/1.25=56, 約1.25倍ズーム) */
 var RANK_KEY = 'arena_rank_v8';
 var SEND_HZ = 50;
 var MATCH_PLAYER_MIN = 2;
@@ -434,9 +434,9 @@ var aiSpawnPoints = {
   red: [new T.Vector3(18,0,18), new T.Vector3(16,0,6),  new T.Vector3(20,0,-10), new T.Vector3(14,0,-22)]
 };
 var gunRoot = null, gunLoaded = false;
-/* FIX: 銃の位置を下に調整 */
+/* 銃の位置: ADS時Y=-0.28に変更(より低く) */
 var gunPosNormal = new T.Vector3(0.48,-0.55,-0.70);
-var gunPosAds    = new T.Vector3(0.00,-0.10,-0.30);
+var gunPosAds    = new T.Vector3(0.00,-0.28,-0.30); /* 修正: Y -0.10→-0.28 (銃をより下に) */
 var gunPosCurrent = gunPosNormal.clone();
 var gunPosTarget  = gunPosNormal.clone();
 var gunFovCurrent = CAM_FOV_NORMAL;

@@ -312,6 +312,7 @@ var RANDOM_MATCH_WAIT = 30;
 var TEAM_BLUE = 'blue';
 var TEAM_RED = 'red';
 var GAME_MODE = {LOBBY:'lobby',WAITING:'waiting',LOADING:'loading',BATTLE:'battle',SPECTATE:'spectate',RESULT:'result'};
+var AI_RESPAWN_ENABLED = false; // A方式: 倒したAIはこのラウンド中に復活しない
 
 /* ---- FIX: AI ヒットボックス定数 (avatar.position.y=0 基準) ---- */
 var AI_HIT_BOX_HEIGHT = 2.2; /* アバター全高 */
@@ -1046,7 +1047,8 @@ function damageEntityFromAI(unit,target,dist,nowSec){
     for(var k=0;k<aiUnits.length;k++){
       var tu=aiUnits[k]; if(!tu||tu.id!==target.id||!tu.alive)continue;
       tu.hp=Math.max(0,tu.hp-40); updateAvatarHPBar(tu.avatar,tu.hp);
-      if(tu.hp<=0){tu.alive=false;tu.respawnAt=AI_RESPAWN_ENABLED ? (nowSec+5.0+unit.rng()*2.0) : Infinity;tu.avatar.visible=false;flashKillFx(new T.Vector3(tu.x,1.0,tu.z));}
+      if(tu.hp<=0){tu.alive=false;tu.respawnAt=Infinity;tu.avatar.visible=false;flashKillFx(new T.Vector3(tu.x,1.0,tu.z));}
+      clearRoundIfNeededFromStates();
       break;
     }
   }
@@ -1058,7 +1060,7 @@ function damageEntityFromAI(unit,target,dist,nowSec){
 function updateAIUnit(unit,dt,nowSec){
   if(!unit)return;
   if(!unit.alive){
-    if(AI_RESPAWN_ENABLED && Number.isFinite(unit.respawnAt) && nowSec>=unit.respawnAt){
+    if(Number.isFinite(unit.respawnAt) && nowSec>=unit.respawnAt){
       unit.alive=true;unit.hp=unit.maxHp;
       unit.x=unit.spawn.x;unit.z=unit.spawn.z;
       unit.yaw=unit.team===TEAM_RED?Math.PI:0;
@@ -1251,7 +1253,7 @@ function applyLocalShotHit(hitInfo,point){
     u.alive=false; u.avatar.visible=false;
     /* FIX: respawnAt を aiClock ベースで正しく設定 */
     var nowSec = (Date.now() - aiMatchStart) / 1000;
-    u.respawnAt = AI_RESPAWN_ENABLED ? (nowSec + 4.5 + Math.random() * 1.5) : Infinity;
+    u.respawnAt = Infinity;
     flashKillFx(point);
     addKillFeed('💀 AI KILL!');
     showKillAnnouncement('AI KILL!');

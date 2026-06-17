@@ -715,6 +715,64 @@ function saveRank(){try{localStorage.setItem('arena_rank_v8',JSON.stringify({xp:
 function loadRank(){try{var d=JSON.parse(localStorage.getItem('arena_rank_v8')||'{}');if(Number.isFinite(d&&d.xp))rankXp=Math.max(0,d.xp);}catch(e){}}
 function addRankXp(amt){if(matchMode!=='ranked')return;rankXp=Math.max(0,Math.min(999999,rankXp+Math.round(amt)));saveRank();updateRankUI();}
 function updateScoreUI(){blueScoreEl.textContent=String(blueScore);redScoreEl.textContent=String(redScore);roundTextEl.textContent=String(roundIndex);}
+
+var ROUND_TIME_LIMIT_MS = 180000;
+var roundStartedAt = 0;
+var roundTimerMs = 0;
+
+function resetTouchAndInputState(){
+  firingHeld = false;
+  if(fireLoopTimer){ clearInterval(fireLoopTimer); fireLoopTimer = null; }
+  joyTouchId = null;
+  lookTouchId = null;
+  joy.x = 0; joy.y = 0;
+  if(knobEl){ knobEl.style.left = '50%'; knobEl.style.top = '50%'; }
+  setADS(false);
+}
+
+function syncRoundStateToRoom(extra){
+  if(!socket || !socket.connected || !currentRoom) return;
+  var payload = Object.assign({
+    room: currentRoom,
+    name: PLAYER_NAME,
+    team: player.team || TEAM_BLUE,
+    x: camera.position.x,
+    y: camera.position.y,
+    z: camera.position.z,
+    ry: yaw,
+    alive: player.alive,
+    hp: player.hp,
+    round: roundIndex,
+    blue: blueScore,
+    red: redScore,
+    spectating: !!player.spectating,
+    phase: gameMode,
+    aiSeed: aiMatchSeed,
+    aiStart: aiMatchStart
+  }, extra || {});
+  socket.emit('playerState', payload);
+  socket.emit('request-room-players', {room: currentRoom});
+}
+
+function restoreBattleViewAfterRespawn(){
+  player.alive = true;
+  player.spectating = false;
+  spectateTargetId = '';
+  gameMode = GAME_MODE.BATTLE;
+  setModeUI();
+  loadingOverlay.style.display = 'none';
+  resultOverlay.style.display = 'none';
+  spectateOverlay.style.display = 'none';
+  if(gunRoot) gunRoot.visible = true;
+  resetTouchAndInputState();
+  camera.position.copy(getSpawnForTeam(player.team || TEAM_BLUE));
+  if(player.team===TEAM_RED) yaw = 0; else yaw = Math.PI;
+  pitch = 0;
+  syncCameraRotation();
+  updatePlayerHPUI();
+  updateAmmoUI();
+}
+
 function updateAmmoUI(){
   ammoCountEl.textContent=String(ammo);
   if(reloading){reloadIndicator.style.display='block';reloadBarEl.style.display='block';reloadBarFill.style.width=(Math.max(0,Math.min(1,1-reloadTimer/RELOAD_TIME))*100)+'%';}
@@ -905,7 +963,9 @@ function resetRoundState(){
   roundResolved=false;matchOver=false;player.alive=true;player.spectating=false;spectateTargetId='';
   player.hp=player.maxHp=100;ammo=MAG_SIZE;reloading=false;reloadTimer=0;
   gunState.reloadAnim=false;gunState.reloadAnimT=0;gunState.recoil=0;moveVel.set(0,0);
+  resetTouchAndInputState();
   reviveHumansForNewRound();
+  restoreBattleViewAfterRespawn();
   if(socket&&socket.id){
     roomPlayers[socket.id]=roomPlayers[socket.id]||{name:PLAYER_NAME,team:player.team||TEAM_BLUE,room:currentRoom};
     roomPlayers[socket.id].alive=true;
@@ -914,10 +974,12 @@ function resetRoundState(){
     roomPlayers[socket.id].y=camera.position.y;
     roomPlayers[socket.id].z=camera.position.z;
     roomPlayers[socket.id].ry=yaw;
+    roomPlayers[socket.id].round=roundIndex;
     remoteStates[socket.id]=remoteStates[socket.id]||{};
     Object.assign(remoteStates[socket.id],roomPlayers[socket.id]);
   }
   resetAIForRound();updatePlayerHPUI();updateAmmoUI();if(gunRoot)gunRoot.visible=true;spectateOverlay.style.display='none';
+  syncRoundStateToRoom({alive:true,hp:100,phase:GAME_MODE.BATTLE});
 }
 function showResult(wt){if(resultShown)return;resultShown=true;matchOver=true;gameMode=GAME_MODE.RESULT;setModeUI();resultOverlay.style.display='flex';resultTextEl.textContent=wt===TEAM_BLUE?'BLUE WINS':'RED WINS';resultSubEl.textContent='LOADING BACK TO THE HUB...';}
 function endRoundByWinner(wt,src){
@@ -1347,6 +1409,16 @@ function applyRemoteState(id,s){
   av.visible=normalized.alive!==false;
   ensureNameTag(av,normalized.name,normalized.team);
   updateAvatarHPBar(av,normalized.hp);
+
+  if(socket && id===socket.id && normalized.alive !== false){
+    player.team = normalized.team || player.team || TEAM_BLUE;
+    player.hp = Number.isFinite(normalized.hp) ? normalized.hp : player.hp;
+    player.alive = true;
+    if(gameMode===GAME_MODE.SPECTATE || gameMode===GAME_MODE.LOADING || !player.alive){
+      restoreBattleViewAfterRespawn();
+      syncCameraRotation();
+    }
+  }
 }
 function updateRemotePlayersFromState(){
   var ids={};
@@ -1591,7 +1663,7 @@ function leaveWaiting(){
   if(socket&&socket.connected&&currentRoom)socket.emit('leave-room',{room:currentRoom,name:PLAYER_NAME});
   currentRoom='';gameMode=GAME_MODE.LOBBY;setModeUI();setRoomInputValid();
 }
-function startBattleFromLobby(){if(!socket||!socket.connected||!currentRoom)return;socket.emit('request-start-match',{room:currentRoom});}
+function startBattleFromLobby(){if(!socket||!socket.connected||!currentRoom)return;socket.emit('request-start-match',{room:currentRoom});syncRoundStateToRoom({phase:GAME_MODE.LOADING});}
 
 function beginBattle(data){
   if(battleBeginLock)return;
@@ -1622,13 +1694,22 @@ function startRound(data){
   if(Number.isFinite(data.round))roundIndex=data.round;
   /* FIX: aiUnits が空の場合は必ず初期化 */
   if(!aiUnits.length) initAIForMatch(data||{});
-  updateScoreUI();resetRoundState();player.alive=true;player.spectating=false;player.hp=100;
+  roundStartedAt = Date.now();
+  roundTimerMs = 0;
+  updateScoreUI();
+  resetRoundState();
+  player.alive=true;
+  player.spectating=false;
+  player.hp=100;
   reviveHumansForNewRound();
-  camera.position.copy(getSpawnForTeam(player.team));
-  if(player.team===TEAM_RED)yaw=0;else yaw=Math.PI;pitch=0;syncCameraRotation();
-  gameMode=GAME_MODE.BATTLE;setModeUI();
-  loadingOverlay.style.display='none';resultOverlay.style.display='none';spectateOverlay.style.display='none';
-  if(socket&&socket.connected)socket.emit('playerState',{room:currentRoom,alive:true,hp:100});
+  restoreBattleViewAfterRespawn();
+  gameMode=GAME_MODE.BATTLE;
+  setModeUI();
+  loadingOverlay.style.display='none';
+  resultOverlay.style.display='none';
+  spectateOverlay.style.display='none';
+  if(socket&&socket.connected)socket.emit('playerState',{room:currentRoom,alive:true,hp:100,round:roundIndex,blue:blueScore,red:redScore,phase:GAME_MODE.BATTLE});
+  syncRoundStateToRoom({alive:true,hp:100,round:roundIndex,blue:blueScore,red:redScore,phase:GAME_MODE.BATTLE});
 }
 function showFinalResultByServer(data){
   if(resultShown)return;resultShown=true;matchOver=true;battleBeginLock=true;gameMode=GAME_MODE.RESULT;setModeUI();resultOverlay.style.display='flex';
@@ -1637,11 +1718,24 @@ function showFinalResultByServer(data){
   setTimeout(function(){
     if(socket&&socket.connected&&currentRoom)socket.emit('leave-room',{room:currentRoom,name:PLAYER_NAME});
     currentRoom='';inWaiting=false;roomStarted=false;isRandomMatch=false;battleBeginLock=false;gameMode=GAME_MODE.LOBBY;
-    player.alive=true;player.spectating=false;player.hp=player.maxHp;roomPlayers={};
+    player.alive=true;player.spectating=false;player.hp=player.maxHp;roomPlayers={};spectateTargetId='';
     setModeUI();setRoomInputValid();
   },2500);
 }
 function updateRoundIfEnded(){if(gameMode!==GAME_MODE.BATTLE||roundResolved||matchOver)return;var w=getWinnerByElimination();if(w)endRoundByWinner(w,'state-sync');}
+
+function updateRoundTimer(dt){
+  if(gameMode!==GAME_MODE.BATTLE || roundResolved || matchOver) return;
+  roundTimerMs += dt * 1000;
+  if(roundTimerMs >= ROUND_TIME_LIMIT_MS){
+    var c = getAliveCounts();
+    var w = '';
+    if(c.blue > c.red) w = TEAM_BLUE;
+    else if(c.red > c.blue) w = TEAM_RED;
+    else w = (player.team || TEAM_BLUE) === TEAM_BLUE ? TEAM_BLUE : TEAM_RED;
+    endRoundByWinner(w, 'time-limit');
+  }
+}
 function showResultFromMatchFinished(data){
   if(data&&data.room&&currentRoom&&data.room!==currentRoom)return;
   if(Number.isFinite(data.blue))blueScore=data.blue;if(Number.isFinite(data.red))redScore=data.red;if(Number.isFinite(data.round))roundIndex=data.round;
@@ -1731,6 +1825,10 @@ function initSocket(){
     if(inWaiting&&currentRoom){var f={};Object.keys(p||{}).forEach(function(id){var pp=p[id];if(pp&&pp.room===currentRoom)f[id]=pp;});if(Object.keys(f).length===0)f=p||{};roomPlayers=f;updateWaitingUI();}
     if(gameMode===GAME_MODE.BATTLE||gameMode===GAME_MODE.SPECTATE){
       Object.keys(p||{}).forEach(function(id){if(socket&&id===socket.id)return;applyRemoteState(id,p[id]);});
+      if(socket && p && p[socket.id] && p[socket.id].alive !== false){
+        applyRemoteState(socket.id, p[socket.id]);
+        if(player.alive){ restoreBattleViewAfterRespawn(); syncCameraRotation(); }
+      }
       updateRemotePlayersFromState();
     }
   });
@@ -1768,7 +1866,23 @@ function initSocket(){
       updateRoundIfEnded();
       if(inWaiting)updateWaitingUI();
       updateRemotePlayersFromState();
-      if(d.targetId===(socket&&socket.id)&&d.alive===false){player.alive=false;player.hp=0;updatePlayerHPUI();enterSpectate();}
+      if(d.targetId===(socket&&socket.id)){
+        if(d.alive===false){
+          player.alive=false;player.hp=0;updatePlayerHPUI();enterSpectate();
+        }else{
+          player.alive=true;
+          player.spectating=false;
+          if(Number.isFinite(d.hp)) player.hp=d.hp;
+          if(Number.isFinite(d.x)) camera.position.x=d.x;
+          if(Number.isFinite(d.y)) camera.position.y=d.y;
+          if(Number.isFinite(d.z)) camera.position.z=d.z;
+          if(Number.isFinite(d.ry)) yaw=d.ry;
+          restoreBattleViewAfterRespawn();
+          syncCameraRotation();
+          updatePlayerHPUI();
+          updateAmmoUI();
+        }
+      }
       return;
     }
     if(d.playerId&&roomPlayers[d.playerId]){
@@ -1784,7 +1898,7 @@ function initSocket(){
   socket.on('room-players',function(data){handleRoomPlayers(data);});
   socket.on('room-state',function(pl){if(!pl||pl.room!==currentRoom)return;roomPlayers=pl.players||{};Object.keys(roomPlayers).forEach(function(id){applyRemoteState(id,roomPlayers[id]);});if(inWaiting)updateWaitingUI();updateWaitingLaunchBtn();updateRemotePlayersFromState();if(pl.starting&&inWaiting){gameMode=GAME_MODE.LOADING;setModeUI();loadingOverlay.style.display='flex';loadingTextEl.textContent='DEPLOYING';loadingSubEl.textContent='試合開始中...';}});
   socket.on('match-starting',function(data){if(data&&data.room&&currentRoom&&data.room!==currentRoom)return;roomStarted=true;gameMode=GAME_MODE.LOADING;setModeUI();loadingOverlay.style.display='flex';loadingTextEl.textContent='DEPLOYING';loadingSubEl.textContent='試合開始中...';});
-  socket.on('match-started',function(data){if(data&&data.room&&currentRoom&&data.room!==currentRoom)return;beginBattle(data||{});});
+  socket.on('match-started',function(data){if(data&&data.room&&currentRoom&&data.room!==currentRoom)return;beginBattle(data||{});syncRoundStateToRoom({phase:GAME_MODE.LOADING,round:Number.isFinite(data&&data.round)?data.round:roundIndex});});
   // game-start は二重開始の原因になるため無視する。match-started だけで開始する。
   socket.on('scoreUpdate',function(data){if(data&&data.room&&currentRoom&&data.room!==currentRoom)return;setServerScore(data);});
   socket.on('enemyKilledAck',function(data){if(data&&data.room&&currentRoom&&data.room!==currentRoom)return;setServerScore(data);});
@@ -1803,10 +1917,10 @@ function animate(){
     updateLobbyCamera(dt);
   }else if(gameMode===GAME_MODE.BATTLE){
     syncCameraRotation();movePlayer(dt);updateGun(dt);updateMuzzleFlashes(dt);updateBullets(dt);
-    updateAI(dt);updateReload(dt);updatePlayerHPUI();updateSendLoop(dt);updateRemotePlayersFromState();updateRoundIfEnded();
+    updateAI(dt);updateReload(dt);updatePlayerHPUI();updateSendLoop(dt);updateRemotePlayersFromState();updateRoundTimer(dt);updateRoundIfEnded();
   }else if(gameMode===GAME_MODE.SPECTATE){
     updateSpectateCamera(dt);updateGun(dt);updateMuzzleFlashes(dt);updateBullets(dt);
-    updateAI(dt);updateSendLoop(dt);updateRemotePlayersFromState();updateRoundIfEnded();
+    updateAI(dt);updateSendLoop(dt);updateRemotePlayersFromState();updateRoundTimer(dt);updateRoundIfEnded();
   }else if(gameMode===GAME_MODE.RESULT){updateSendLoop(0);}
   if(gunRoot&&gameMode===GAME_MODE.BATTLE)gunPosTarget.copy(adsActive?gunPosAds:gunPosNormal);
   renderer.render(scene,camera);

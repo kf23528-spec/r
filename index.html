@@ -988,7 +988,7 @@ function makeAIUnit(team,index){
   var spawn=aiSpawnPoints[tk][index%aiSpawnPoints[tk].length].clone();
   var unit={id:'ai-'+tk+'-'+index,team:tk,avatar:avatar,rng:rng,seed:seed,spawn:spawn,x:spawn.x,z:spawn.z,
     yaw:tk==='red'?Math.PI:0,hp:100,maxHp:100,alive:true,state:'patrol',
-    moveSpeed:2.2+rng()*0.7,strafe:rng()>0.5?1:-1,fireCooldown:0.6+rng()*1.2,respawnAt:0,lastShotAt:0};
+    moveSpeed:2.2+rng()*0.7,strafe:rng()>0.5?1:-1,fireCooldown:0.6+rng()*1.2,lastShotAt:0};
   avatar.position.set(unit.x,0,unit.z); avatar.rotation.y=unit.yaw; avatar.visible=true;
   updateAvatarHPBar(avatar,unit.hp); return unit;
 }
@@ -1047,7 +1047,7 @@ function damageEntityFromAI(unit,target,dist,nowSec){
     for(var k=0;k<aiUnits.length;k++){
       var tu=aiUnits[k]; if(!tu||tu.id!==target.id||!tu.alive)continue;
       tu.hp=Math.max(0,tu.hp-40); updateAvatarHPBar(tu.avatar,tu.hp);
-      if(tu.hp<=0){tu.alive=false;tu.respawnAt=Infinity;tu.avatar.visible=false;flashKillFx(new T.Vector3(tu.x,1.0,tu.z));}
+      if(tu.hp<=0){tu.alive=false;tu.avatar.visible=false;flashKillFx(new T.Vector3(tu.x,1.0,tu.z));}
       clearRoundIfNeededFromStates();
       break;
     }
@@ -1055,22 +1055,11 @@ function damageEntityFromAI(unit,target,dist,nowSec){
 }
 
 /* ============================================================
-   FIX: AI 更新ループ - nowSec を aiClock から取得して正確に管理
+   FIX: AI 更新ループ - このラウンド中は死亡後に復活しない
    ============================================================ */
 function updateAIUnit(unit,dt,nowSec){
   if(!unit)return;
   if(!unit.alive){
-    if(Number.isFinite(unit.respawnAt) && nowSec>=unit.respawnAt){
-      unit.alive=true;unit.hp=unit.maxHp;
-      unit.x=unit.spawn.x;unit.z=unit.spawn.z;
-      unit.yaw=unit.team===TEAM_RED?Math.PI:0;
-      unit.fireCooldown=nowSec+0.6+unit.rng()*0.8;
-      unit.lastShotAt=0;
-      unit.state='patrol';
-      unit.avatar.visible=true;
-      unit.avatar.position.set(unit.x,0,unit.z);
-      updateAvatarHPBar(unit.avatar,unit.hp);
-    }
     return;
   }
 
@@ -1169,7 +1158,7 @@ function updateAI(dt){
 function resetAIForRound(){
   for(var i=0;i<aiUnits.length;i++){
     var u=aiUnits[i];if(!u)continue;
-    u.alive=true;u.hp=u.maxHp;u.x=u.spawn.x;u.z=u.spawn.z;u.yaw=u.team===TEAM_RED?Math.PI:0;u.state='patrol';u.respawnAt=0;u.fireCooldown=0.8+u.rng()*0.8;u.lastShotAt=0;
+    u.alive=true;u.hp=u.maxHp;u.x=u.spawn.x;u.z=u.spawn.z;u.yaw=u.team===TEAM_RED?Math.PI:0;u.state='patrol';u.fireCooldown=0.8+u.rng()*0.8;u.lastShotAt=0;
     if(u.avatar){u.avatar.visible=true;u.avatar.position.set(u.x,0,u.z);u.avatar.rotation.y=u.yaw;updateAvatarHPBar(u.avatar,u.hp);}
   }
   /* FIX: ラウンドリセット時に aiMatchStart を更新 */
@@ -1251,9 +1240,7 @@ function applyLocalShotHit(hitInfo,point){
   showKillAnnouncement('HIT!');
   if(u.hp<=0){
     u.alive=false; u.avatar.visible=false;
-    /* FIX: respawnAt を aiClock ベースで正しく設定 */
-    var nowSec = (Date.now() - aiMatchStart) / 1000;
-    u.respawnAt = Infinity;
+    /* FIX: このラウンド中は復活しない（ラウンドリセット時のみ復活） */
     flashKillFx(point);
     addKillFeed('💀 AI KILL!');
     showKillAnnouncement('AI KILL!');

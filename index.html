@@ -602,7 +602,10 @@ function loadPoloFbx(){
     fbx.scale.set(scaleVal, scaleVal, scaleVal);
     fbx.updateMatrixWorld(true);
 
-    /* ── ③ キャッシュ ── */
+    /* ── ③ 見た目を完全に不透明に正規化 ── */
+    prepareAvatarAsset(fbx, TEAM_BLUE);
+
+    /* ── ④ キャッシュ ── */
     poloFbxTemplate = fbx;
     poloFbxReady    = true;
     console.log('[POLO] loaded. rawH=' + modelH.toFixed(3) + 'm  scale=' + scaleVal.toFixed(4) +
@@ -648,7 +651,58 @@ function onGunGlbReady(fn){
 }
 
 /* チームカラー適用 */
-function normalizeAvatarMaterial(m, team){
+function forceOpaqueTexture(texture){
+  if(!texture || !texture.image) return texture;
+  try{
+    var img = texture.image;
+    var w = img.width || img.videoWidth || img.naturalWidth || 0;
+    var h = img.height || img.videoHeight || img.naturalHeight || 0;
+    if(!w || !h) return texture;
+
+    texture.userData = texture.userData || {};
+    if(texture.userData._opaqueTexture) return texture.userData._opaqueTexture;
+
+    var canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    var ctx = canvas.getContext('2d', { willReadFrequently: false });
+    if(!ctx) return texture;
+
+    try{
+      ctx.drawImage(img, 0, 0, w, h);
+      var imageData = ctx.getImageData(0, 0, w, h);
+      var d = imageData.data;
+      for(var i = 3; i < d.length; i += 4) d[i] = 255;
+      ctx.putImageData(imageData, 0, 0);
+    }catch(e){
+      return texture;
+    }
+
+    var tex = new T.CanvasTexture(canvas);
+    tex.needsUpdate = true;
+    tex.flipY = texture.flipY;
+    tex.wrapS = texture.wrapS;
+    tex.wrapT = texture.wrapT;
+    tex.repeat.copy(texture.repeat);
+    tex.offset.copy(texture.offset);
+    tex.center.copy(texture.center);
+    tex.rotation = texture.rotation;
+    tex.matrixAutoUpdate = texture.matrixAutoUpdate;
+    tex.matrix.copy(texture.matrix);
+    tex.minFilter = texture.minFilter;
+    tex.magFilter = texture.magFilter;
+    tex.generateMipmaps = texture.generateMipmaps;
+    tex.encoding = texture.encoding;
+    tex.name = texture.name || '';
+    tex.userData = Object.assign({}, texture.userData, { _opaqueSource:true });
+    texture.userData._opaqueTexture = tex;
+    return tex;
+  }catch(e){
+    return texture;
+  }
+}
+
+function normalizeAvatarMaterial(m, team, forceOpaque){
   if(!m) return;
   var tc = team === TEAM_RED ? TEAM_COLOR_RED : TEAM_COLOR_BLUE;
   try {
@@ -662,12 +716,22 @@ function normalizeAvatarMaterial(m, team){
     m.transparent = false;
     m.opacity = 1;
     m.alphaTest = 0;
+    m.alphaHash = false;
+    m.alphaToCoverage = false;
+    m.blending = T.NormalBlending;
+    m.premultipliedAlpha = false;
     m.depthWrite = true;
     m.depthTest = true;
+    m.colorWrite = true;
     m.side = T.DoubleSide;
+    m.visible = true;
 
+    if(forceOpaque && m.map) m.map = forceOpaqueTexture(m.map);
     if(m.map) m.map.needsUpdate = true;
-    if(m.alphaMap) m.alphaMap.needsUpdate = true;
+    if(m.alphaMap){
+      try{ if(m.alphaMap.dispose) m.alphaMap.dispose(); }catch(e){}
+      m.alphaMap = null;
+    }
     if(m.emissiveMap) m.emissiveMap.needsUpdate = true;
     m.needsUpdate = true;
   } catch(e){}
@@ -682,6 +746,21 @@ function applyTeamColor(object, team){
     var mats = Array.isArray(child.material) ? child.material : [child.material];
     mats.forEach(function(m){
       normalizeAvatarMaterial(m, team);
+    });
+  });
+}
+
+function prepareAvatarAsset(root, team){
+  if(!root) return;
+  root.traverse(function(child){
+    if(!child.isMesh) return;
+    child.visible = true;
+    child.castShadow = true;
+    child.receiveShadow = true;
+    child.frustumCulled = false;
+    var mats = Array.isArray(child.material) ? child.material : [child.material];
+    mats.forEach(function(m){
+      normalizeAvatarMaterial(m, team, true);
     });
   });
 }
@@ -761,6 +840,7 @@ function makeRemoteAvatar(team, name){
       /* FBXクローン */
       var clone = fbx.clone(true);
       clone.visible = true;
+      prepareAvatarAsset(clone, team);
       clone.traverse(function(child){
         if(!child.isMesh) return;
         child.visible = true;

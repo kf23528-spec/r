@@ -1525,10 +1525,17 @@ function fireOnce(){
       if(socket&&socket.connected){
         socket.emit('playerShoot',{room:currentRoom,ox:rayOrigin.x,oy:rayOrigin.y,oz:rayOrigin.z,dx:dir.x,dy:dir.y,dz:dir.z,targetId:hitInfo.id,team:player.team||TEAM_BLUE});
         roomPlayers[hitInfo.id]=roomPlayers[hitInfo.id]||{team:hitInfo.team,alive:true,name:hitInfo.id,room:currentRoom};
-        roomPlayers[hitInfo.id].alive=false;roomPlayers[hitInfo.id].hp=0;
+        var nextHp=Math.max(0,Number.isFinite(roomPlayers[hitInfo.id].hp)?roomPlayers[hitInfo.id].hp:100);
+        nextHp=Math.max(0,nextHp-DAMAGE_PER_BULLET);
+        roomPlayers[hitInfo.id].hp=nextHp;
+        roomPlayers[hitInfo.id].alive=nextHp>0;
         applyRemoteState(hitInfo.id,roomPlayers[hitInfo.id]);
-        updatePlayerStateToRoom({targetId:hitInfo.id,alive:false,hp:0});
-        flashKillFx(hitInfo.point);addKillFeed('💥 KILL!');showKillAnnouncement('HIT!');clearRoundIfNeededFromStates();
+        updatePlayerStateToRoom({targetId:hitInfo.id,alive:nextHp>0,hp:nextHp});
+        flashHitIndicator();
+        flashKillFx(hitInfo.point);
+        addKillFeed(nextHp>0?'💥 HIT!':'💥 KILL!');
+        showKillAnnouncement('HIT!');
+        clearRoundIfNeededFromStates();
       }
       return;
     }
@@ -1882,19 +1889,20 @@ function initSocket(){
     if(!d)return;
     if(d.targetId){
       if(roomPlayers[d.targetId]){
-        roomPlayers[d.targetId].alive=d.alive!==false;
-        if(d.hp!==undefined)roomPlayers[d.targetId].hp=d.hp;
-        if(d.x!==undefined) roomPlayers[d.targetId].x=d.x;
-        if(d.y!==undefined) roomPlayers[d.targetId].y=d.y;
-        if(d.z!==undefined) roomPlayers[d.targetId].z=d.z;
-        if(d.ry!==undefined) roomPlayers[d.targetId].ry=d.ry;
+        roomPlayers[d.targetId].alive = d.alive!==false;
+        if(d.hp!==undefined) roomPlayers[d.targetId].hp = d.hp;
+        if(d.x!==undefined) roomPlayers[d.targetId].x = d.x;
+        if(d.y!==undefined) roomPlayers[d.targetId].y = d.y;
+        if(d.z!==undefined) roomPlayers[d.targetId].z = d.z;
+        if(d.ry!==undefined) roomPlayers[d.targetId].ry = d.ry;
+        if(roomPlayers[d.targetId].hp<=0) roomPlayers[d.targetId].alive = false;
         applyRemoteState(d.targetId,roomPlayers[d.targetId]);
       }
       updateRoundIfEnded();
       if(inWaiting)updateWaitingUI();
       updateRemotePlayersFromState();
       if(d.targetId===(socket&&socket.id)){
-        if(d.alive===false){
+        if(d.alive===false || (Number.isFinite(d.hp) && d.hp<=0)){
           player.alive=false;player.hp=0;updatePlayerHPUI();enterSpectate();
         }else{
           player.alive=true;
@@ -1913,12 +1921,13 @@ function initSocket(){
       return;
     }
     if(d.playerId&&roomPlayers[d.playerId]){
-      roomPlayers[d.playerId].alive=d.alive!==false;
+      roomPlayers[d.playerId].alive = d.alive!==false;
       if(d.hp!==undefined)roomPlayers[d.playerId].hp=d.hp;
       if(d.x!==undefined)roomPlayers[d.playerId].x=d.x;
       if(d.y!==undefined)roomPlayers[d.playerId].y=d.y;
       if(d.z!==undefined)roomPlayers[d.playerId].z=d.z;
       if(d.ry!==undefined)roomPlayers[d.playerId].ry=d.ry;
+      if(roomPlayers[d.playerId].hp<=0) roomPlayers[d.playerId].alive = false;
       applyRemoteState(d.playerId,roomPlayers[d.playerId]);
       updateRoundIfEnded();
       if(inWaiting)updateWaitingUI();
@@ -1930,6 +1939,42 @@ function initSocket(){
   socket.on('room-state',function(pl){if(!pl||pl.room!==currentRoom)return;roomPlayers=pl.players||{};Object.keys(roomPlayers).forEach(function(id){applyRemoteState(id,roomPlayers[id]);});if(inWaiting)updateWaitingUI();updateWaitingLaunchBtn();updateRemotePlayersFromState();if(pl.starting&&inWaiting){gameMode=GAME_MODE.LOADING;setModeUI();loadingOverlay.style.display='flex';loadingTextEl.textContent='DEPLOYING';loadingSubEl.textContent='試合開始中...';}});
   socket.on('match-starting',function(data){if(data&&data.room&&currentRoom&&data.room!==currentRoom)return;roomStarted=true;gameMode=GAME_MODE.LOADING;setModeUI();loadingOverlay.style.display='flex';loadingTextEl.textContent='DEPLOYING';loadingSubEl.textContent='試合開始中...';});
   socket.on('match-started',function(data){if(data&&data.room&&currentRoom&&data.room!==currentRoom)return;beginBattle(data||{});syncRoundStateToRoom({phase:GAME_MODE.LOADING,round:Number.isFinite(data&&data.round)?data.round:roundIndex});});
+  socket.on('round-reset',function(data){
+    if(data&&data.room&&currentRoom&&data.room!==currentRoom)return;
+    reviveHumansForNewRound();
+    restoreBattleViewAfterRespawn();
+    if(socket&&socket.connected){
+      socket.emit('playerState',{
+        room:currentRoom,
+        alive:true,
+        hp:player.hp,
+        x:camera.position.x,
+        y:camera.position.y,
+        z:camera.position.z,
+        ry:yaw,
+        round:Number.isFinite(data&&data.roundIndex)?data.roundIndex:roundIndex,
+        phase:GAME_MODE.BATTLE
+      });
+    }
+  });
+  socket.on('round-started',function(data){
+    if(data&&data.room&&currentRoom&&data.room!==currentRoom)return;
+    reviveHumansForNewRound();
+    restoreBattleViewAfterRespawn();
+    if(socket&&socket.connected){
+      socket.emit('playerState',{
+        room:currentRoom,
+        alive:true,
+        hp:player.hp,
+        x:camera.position.x,
+        y:camera.position.y,
+        z:camera.position.z,
+        ry:yaw,
+        round:Number.isFinite(data&&data.roundIndex)?data.roundIndex:roundIndex,
+        phase:GAME_MODE.BATTLE
+      });
+    }
+  });
   // game-start は二重開始の原因になるため無視する。match-started だけで開始する。
   socket.on('scoreUpdate',function(data){if(data&&data.room&&currentRoom&&data.room!==currentRoom)return;setServerScore(data);});
   socket.on('enemyKilledAck',function(data){if(data&&data.room&&currentRoom&&data.room!==currentRoom)return;setServerScore(data);});

@@ -16,6 +16,8 @@ const PORT = process.env.PORT || 3000;
 const MAX_PLAYERS = 8;
 const START_MIN_PLAYERS = 2;
 const START_DELAY_MS = 1800;
+const ROUND_DURATION_MS = 180000; // 3分
+const ROUND_RESET_DELAY_MS = 1200;
 
 app.use(express.static(__dirname));
 app.get('/', (req, res) => {
@@ -27,6 +29,21 @@ const players = Object.create(null);
 // roomId => meta
 const roomMeta = Object.create(null);
 
+const SPAWN_POINTS = {
+  blue: [
+    { x: -18, y: 1.6, z: -18, ry: 0 },
+    { x: -16, y: 1.6, z: -6, ry: 0 },
+    { x: -20, y: 1.6, z: 10, ry: 0 },
+    { x: -14, y: 1.6, z: 22, ry: 0 }
+  ],
+  red: [
+    { x: 18, y: 1.6, z: 18, ry: Math.PI },
+    { x: 16, y: 1.6, z: 6, ry: Math.PI },
+    { x: 20, y: 1.6, z: -10, ry: Math.PI },
+    { x: 14, y: 1.6, z: -22, ry: Math.PI }
+  ]
+};
+
 function normalizeRoom(room) {
   const s = String(room ?? '')
     .trim()
@@ -34,6 +51,10 @@ function normalizeRoom(room) {
     .replace(/[^A-Z0-9_-]/g, '');
 
   return s.slice(0, 12);
+}
+
+function safeNum(value, fallback) {
+  return Number.isFinite(value) ? value : fallback;
 }
 
 function ensureRoomMeta(room) {
@@ -44,12 +65,32 @@ function ensureRoomMeta(room) {
     roomMeta[roomId] = {
       starting: false,
       matchStarted: false,
+      phase: 'lobby', // lobby | starting | playing | roundOver | finished
       startedAt: 0,
+      roundIndex: 1,
+      roundEndsAt: 0,
       lastStarter: '',
-      startToken: 0
+      startToken: 0,
+      roundTimerId: null,
+      roundResetTimerId: null,
+      lastRoundSummary: null
     };
   }
   return roomMeta[roomId];
+}
+
+function clearRoomTimers(roomId) {
+  const meta = roomMeta[roomId];
+  if (!meta) return;
+
+  if (meta.roundTimerId) {
+    clearInterval(meta.roundTimerId);
+    meta.roundTimerId = null;
+  }
+  if (meta.roundResetTimerId) {
+    clearTimeout(meta.roundResetTimerId);
+    meta.roundResetTimerId = null;
+  }
 }
 
 function cleanupRoomMetaIfEmpty(room) {
@@ -57,12 +98,9 @@ function cleanupRoomMetaIfEmpty(room) {
   if (!roomId) return;
 
   if (getRoomCount(roomId) === 0) {
+    clearRoomTimers(roomId);
     delete roomMeta[roomId];
   }
-}
-
-function safeNum(value, fallback) {
-  return Number.isFinite(value) ? value : fallback;
 }
 
 function flatPlayer(id, p) {
@@ -80,7 +118,8 @@ function flatPlayer(id, p) {
     ry: safeNum(p.ry, 0),
     alive: p.alive !== false,
     hp: safeNum(p.hp, 100),
-    matchMode: p.matchMode || 'ranked'
+    matchMode: p.matchMode || 'ranked',
+    lastSeenAt: safeNum(p.lastSeenAt, Date.now())
   };
 }
 
@@ -96,9 +135,27 @@ function getRoomPlayers(room) {
   return result;
 }
 
+function getRoomPlayerEntries(room) {
+  const roomId = normalizeRoom(room);
+  return Object.entries(players)
+    .filter(([, p]) => p && p.room === roomId)
+    .sort(([a], [b]) => a.localeCompare(b));
+}
+
 function getRoomCount(room) {
   const roomId = normalizeRoom(room);
   return Object.values(players).filter(p => p && p.room === roomId).length;
+}
+
+function getAliveCount(room, team) {
+  const roomId = normalizeRoom(room);
+  return Object.values(players).filter(p => {
+    return p &&
+      p.room === roomId &&
+      p.team === team &&
+      p.alive !== false &&
+      (p.hp ?? 100) > 0;
+  }).length;
 }
 
 function shuffleArray(arr) {
@@ -109,6 +166,57 @@ function shuffleArray(arr) {
     arr[j] = t;
   }
   return arr;
+}
+
+function assignRandomTeams(room) {
+  const roomId = normalizeRoom(room);
+  const ids = Object.entries(players)
+    .filter(([, p]) => p && p.room === roomId)
+    .map(([id]) => id);
+
+  shuffleArray(ids);
+
+  const blueCount = Math.ceil(ids.length / 2);
+  ids.forEach((id, index) => {
+    players[id].team = index < blueCount ? 'blue' : 'red';
+  });
+
+  return {
+    blue: ids.slice(0, blueCount),
+    red: ids.slice(blueCount)
+  };
+}
+
+function getSpawnPoint(team, index) {
+  const points = SPAWN_POINTS[team] || SPAWN_POINTS.blue;
+  return points[index % points.length];
+}
+
+function applySpawnPositions(roomId) {
+  const byTeam = {
+    blue: [],
+    red: []
+  };
+
+  getRoomPlayerEntries(roomId).forEach(([id, p]) => {
+    const team = p.team === 'red' ? 'red' : 'blue';
+    byTeam[team].push(id);
+  });
+
+  ['blue', 'red'].forEach(team => {
+    byTeam[team].forEach((id, index) => {
+      const p = players[id];
+      if (!p) return;
+      const sp = getSpawnPoint(team, index);
+      p.x = sp.x;
+      p.y = sp.y;
+      p.z = sp.z;
+      p.ry = sp.ry;
+      p.alive = true;
+      p.hp = 100;
+      p.lastSeenAt = Date.now();
+    });
+  });
 }
 
 function emitRoomState(room) {
@@ -130,6 +238,10 @@ function emitRoomState(room) {
     canStart: count >= START_MIN_PLAYERS && count <= MAX_PLAYERS && !meta.starting,
     starting: meta.starting,
     matchStarted: meta.matchStarted,
+    phase: meta.phase,
+    roundIndex: meta.roundIndex,
+    roundEndsAt: meta.roundEndsAt,
+    roundDurationMs: ROUND_DURATION_MS,
     players: getRoomPlayers(roomId)
   });
 }
@@ -156,6 +268,39 @@ function broadcastRoomPlayers(room) {
   });
 }
 
+function broadcastRoomSnapshot(room) {
+  const roomId = normalizeRoom(room);
+  if (!roomId) return;
+
+  const meta = ensureRoomMeta(roomId);
+  if (!meta) return;
+
+  const payload = {
+    room: roomId,
+    players: getRoomPlayers(roomId),
+    phase: meta.phase,
+    matchStarted: meta.matchStarted,
+    roundIndex: meta.roundIndex,
+    roundEndsAt: meta.roundEndsAt,
+    roundDurationMs: ROUND_DURATION_MS
+  };
+
+  io.to(roomId).emit('room-snapshot', payload);
+  io.to(roomId).emit('room-state', {
+    room: roomId,
+    count: getRoomCount(roomId),
+    maxPlayers: MAX_PLAYERS,
+    canStart: getRoomCount(roomId) >= START_MIN_PLAYERS && !meta.starting,
+    starting: meta.starting,
+    matchStarted: meta.matchStarted,
+    phase: meta.phase,
+    roundIndex: meta.roundIndex,
+    roundEndsAt: meta.roundEndsAt,
+    roundDurationMs: ROUND_DURATION_MS,
+    players: getRoomPlayers(roomId)
+  });
+}
+
 function leaveRoom(socket) {
   const p = players[socket.id];
   if (!p) return;
@@ -172,23 +317,122 @@ function leaveRoom(socket) {
   delete players[socket.id];
 }
 
-function assignRandomTeams(room) {
-  const roomId = normalizeRoom(room);
-  const ids = Object.entries(players)
-    .filter(([, p]) => p && p.room === roomId)
-    .map(([id]) => id);
+function resetPlayersForNextRound(roomId) {
+  const meta = ensureRoomMeta(roomId);
+  if (!meta) return;
 
-  shuffleArray(ids);
+  applySpawnPositions(roomId);
+  meta.matchStarted = true;
+  meta.starting = false;
+  meta.phase = 'playing';
+  meta.startedAt = Date.now();
+  meta.roundEndsAt = Date.now() + ROUND_DURATION_MS;
 
-  const blueCount = Math.ceil(ids.length / 2);
-  ids.forEach((id, index) => {
-    players[id].team = index < blueCount ? 'blue' : 'red';
+  const payload = {
+    room: roomId,
+    roundIndex: meta.roundIndex,
+    startedAt: meta.startedAt,
+    roundEndsAt: meta.roundEndsAt,
+    roundDurationMs: ROUND_DURATION_MS,
+    players: getRoomPlayers(roomId)
+  };
+
+  io.to(roomId).emit('round-reset', payload);
+  io.to(roomId).emit('round-started', payload);
+  io.to(roomId).emit('match-started', {
+    room: roomId,
+    teams: {
+      blue: getRoomPlayerEntries(roomId).filter(([, p]) => p.team === 'blue').map(([id]) => id),
+      red: getRoomPlayerEntries(roomId).filter(([, p]) => p.team === 'red').map(([id]) => id)
+    },
+    players: getRoomPlayers(roomId),
+    startedBy: meta.lastStarter || '',
+    startedAt: meta.startedAt,
+    roundIndex: meta.roundIndex,
+    roundEndsAt: meta.roundEndsAt,
+    roundDurationMs: ROUND_DURATION_MS
   });
 
-  return {
-    blue: ids.slice(0, blueCount),
-    red: ids.slice(blueCount)
+  broadcastRoomSnapshot(roomId);
+  emitRoomState(roomId);
+}
+
+function computeRoundWinner(roomId) {
+  const blueAlive = getAliveCount(roomId, 'blue');
+  const redAlive = getAliveCount(roomId, 'red');
+
+  if (blueAlive > redAlive) return 'blue';
+  if (redAlive > blueAlive) return 'red';
+  return 'draw';
+}
+
+function finishRound(roomId, reason = 'round-end', forceFinal = false) {
+  const meta = ensureRoomMeta(roomId);
+  if (!meta) return;
+
+  if (meta.phase === 'roundOver' && !forceFinal) return;
+
+  clearRoomTimers(roomId);
+  meta.phase = forceFinal ? 'finished' : 'roundOver';
+  meta.matchStarted = !forceFinal;
+  meta.roundEndsAt = 0;
+
+  const winner = computeRoundWinner(roomId);
+  const summary = {
+    room: roomId,
+    reason,
+    winner,
+    blueAlive: getAliveCount(roomId, 'blue'),
+    redAlive: getAliveCount(roomId, 'red'),
+    roundIndex: meta.roundIndex,
+    players: getRoomPlayers(roomId)
   };
+
+  meta.lastRoundSummary = summary;
+
+  io.to(roomId).emit('round-ended', summary);
+  io.to(roomId).emit('matchFinished', Object.assign({}, summary, {
+    final: forceFinal
+  }));
+
+  emitRoomState(roomId);
+
+  if (!forceFinal) {
+    meta.roundResetTimerId = setTimeout(() => {
+      const currentMeta = roomMeta[roomId];
+      if (!currentMeta) return;
+
+      currentMeta.roundIndex += 1;
+      resetPlayersForNextRound(roomId);
+      currentMeta.roundResetTimerId = null;
+    }, ROUND_RESET_DELAY_MS);
+  }
+}
+
+function startRoundTimer(roomId) {
+  const meta = ensureRoomMeta(roomId);
+  if (!meta) return;
+
+  clearRoomTimers(roomId);
+
+  meta.roundEndsAt = Date.now() + ROUND_DURATION_MS;
+  meta.roundTimerId = setInterval(() => {
+    const currentMeta = roomMeta[roomId];
+    if (!currentMeta || currentMeta.phase !== 'playing') return;
+
+    const remainingMs = Math.max(0, currentMeta.roundEndsAt - Date.now());
+    io.to(roomId).emit('round-timer', {
+      room: roomId,
+      roundIndex: currentMeta.roundIndex,
+      remainingMs,
+      remainingSec: Math.ceil(remainingMs / 1000),
+      roundEndsAt: currentMeta.roundEndsAt
+    });
+
+    if (remainingMs <= 0) {
+      finishRound(roomId, 'timeout', false);
+    }
+  }, 500);
 }
 
 function startMatchInRoom(room, starterId) {
@@ -231,6 +475,7 @@ function startMatchInRoom(room, starterId) {
     if (nowCount < START_MIN_PLAYERS) {
       currentMeta.starting = false;
       currentMeta.matchStarted = false;
+      currentMeta.phase = 'lobby';
       io.to(roomId).emit('match-start-cancelled', {
         room: roomId,
         message: 'Players left before start'
@@ -239,23 +484,36 @@ function startMatchInRoom(room, starterId) {
       return;
     }
 
-    const teams = assignRandomTeams(roomId);
+    assignRandomTeams(roomId);
+    applySpawnPositions(roomId);
+
     currentMeta.starting = false;
     currentMeta.matchStarted = true;
+    currentMeta.phase = 'playing';
     currentMeta.startedAt = Date.now();
+    currentMeta.roundIndex = currentMeta.roundIndex || 1;
+    currentMeta.roundEndsAt = Date.now() + ROUND_DURATION_MS;
 
     const payload = {
       room: roomId,
-      teams,
+      teams: {
+        blue: getRoomPlayerEntries(roomId).filter(([, p]) => p.team === 'blue').map(([id]) => id),
+        red: getRoomPlayerEntries(roomId).filter(([, p]) => p.team === 'red').map(([id]) => id)
+      },
       players: getRoomPlayers(roomId),
       startedBy: starterId || '',
-      startedAt: currentMeta.startedAt
+      startedAt: currentMeta.startedAt,
+      roundIndex: currentMeta.roundIndex,
+      roundEndsAt: currentMeta.roundEndsAt,
+      roundDurationMs: ROUND_DURATION_MS
     };
 
     io.to(roomId).emit('match-started', payload);
+    io.to(roomId).emit('round-started', payload);
 
-    broadcastRoomPlayers(roomId);
+    broadcastRoomSnapshot(roomId);
     emitRoomState(roomId);
+    startRoundTimer(roomId);
   }, START_DELAY_MS);
 
   return { ok: true };
@@ -275,7 +533,8 @@ io.on('connection', (socket) => {
     ry: 0,
     alive: true,
     hp: 100,
-    matchMode: 'ranked'
+    matchMode: 'ranked',
+    lastSeenAt: Date.now()
   };
 
   socket.on('join-room', (data = {}) => {
@@ -320,7 +579,8 @@ io.on('connection', (socket) => {
       ry: Number.isFinite(data.ry) ? data.ry : 0,
       alive: data.alive !== false,
       hp: Number.isFinite(data.hp) ? data.hp : 100,
-      matchMode
+      matchMode,
+      lastSeenAt: Date.now()
     };
 
     socket.join(roomId);
@@ -333,6 +593,15 @@ io.on('connection', (socket) => {
 
     broadcastRoomPlayers(roomId);
     emitRoomState(roomId);
+    socket.emit('room-snapshot', {
+      room: roomId,
+      players: getRoomPlayers(roomId),
+      phase: ensureRoomMeta(roomId).phase,
+      matchStarted: ensureRoomMeta(roomId).matchStarted,
+      roundIndex: ensureRoomMeta(roomId).roundIndex,
+      roundEndsAt: ensureRoomMeta(roomId).roundEndsAt,
+      roundDurationMs: ROUND_DURATION_MS
+    });
   });
 
   socket.on('request-room-players', (data = {}) => {
@@ -341,6 +610,14 @@ io.on('connection', (socket) => {
     );
     if (!roomId) return;
     emitCurrentPlayers(socket, roomId);
+  });
+
+  socket.on('request-room-sync', (data = {}) => {
+    const roomId = normalizeRoom(
+      data.room || (players[socket.id] && players[socket.id].room)
+    );
+    if (!roomId) return;
+    broadcastRoomSnapshot(roomId);
   });
 
   socket.on('get-room', (data = {}) => {
@@ -357,6 +634,10 @@ io.on('connection', (socket) => {
       canStart: getRoomCount(roomId) >= START_MIN_PLAYERS && !meta.starting,
       starting: meta.starting,
       matchStarted: meta.matchStarted,
+      phase: meta.phase,
+      roundIndex: meta.roundIndex,
+      roundEndsAt: meta.roundEndsAt,
+      roundDurationMs: ROUND_DURATION_MS,
       players: getRoomPlayers(roomId)
     });
   });
@@ -400,7 +681,11 @@ io.on('connection', (socket) => {
     if (Number.isFinite(movementData.z)) p.z = movementData.z;
     if (Number.isFinite(movementData.ry)) p.ry = movementData.ry;
 
-    socket.to(p.room).emit('playerMoved', flatPlayer(socket.id, p));
+    p.lastSeenAt = Date.now();
+
+    const payload = flatPlayer(socket.id, p);
+    socket.to(p.room).emit('playerMoved', payload);
+    socket.to(p.room).emit('playerState', payload);
   });
 
   socket.on('playerShoot', (shotData = {}) => {
@@ -425,14 +710,23 @@ io.on('connection', (socket) => {
 
     if (typeof stateData.alive === 'boolean') p.alive = stateData.alive;
     if (Number.isFinite(stateData.hp)) p.hp = stateData.hp;
+    if (Number.isFinite(stateData.x)) p.x = stateData.x;
+    if (Number.isFinite(stateData.y)) p.y = stateData.y;
+    if (Number.isFinite(stateData.z)) p.z = stateData.z;
+    if (Number.isFinite(stateData.ry)) p.ry = stateData.ry;
 
-    socket.to(p.room).emit(
-      'playerState',
-      Object.assign(flatPlayer(socket.id, p), {
-        playerId: socket.id,
-        targetId: socket.id
-      })
-    );
+    p.lastSeenAt = Date.now();
+
+    const payload = Object.assign(flatPlayer(socket.id, p), {
+      playerId: socket.id,
+      targetId: socket.id
+    });
+
+    socket.to(p.room).emit('playerState', payload);
+    socket.to(p.room).emit('room-players', {
+      room: p.room,
+      players: getRoomPlayers(p.room)
+    });
   });
 
   socket.on('scoreUpdate', (data = {}) => {
@@ -455,11 +749,83 @@ io.on('connection', (socket) => {
     if (!roomId) return;
 
     const meta = ensureRoomMeta(roomId);
-    meta.matchStarted = false;
-    meta.starting = false;
+    if (!meta) return;
 
-    socket.to(roomId).emit('matchFinished', data);
+    const isFinal = !!data.final || !!data.matchOver || !!data.gameOver;
+
+    if (isFinal) {
+      meta.phase = 'finished';
+      meta.matchStarted = false;
+      clearRoomTimers(roomId);
+    } else {
+      meta.phase = 'roundOver';
+    }
+
+    meta.lastRoundSummary = {
+      room: roomId,
+      reason: data.reason || 'matchFinished',
+      winner: data.winner || computeRoundWinner(roomId),
+      blueAlive: getAliveCount(roomId, 'blue'),
+      redAlive: getAliveCount(roomId, 'red'),
+      roundIndex: meta.roundIndex,
+      players: getRoomPlayers(roomId)
+    };
+
+    socket.to(roomId).emit('matchFinished', Object.assign({}, meta.lastRoundSummary, {
+      final: isFinal
+    }));
+
+    io.to(roomId).emit('round-ended', meta.lastRoundSummary);
     emitRoomState(roomId);
+
+    if (!isFinal) {
+      clearRoomTimers(roomId);
+      meta.roundResetTimerId = setTimeout(() => {
+        const currentMeta = roomMeta[roomId];
+        if (!currentMeta) return;
+        currentMeta.roundIndex += 1;
+        resetPlayersForNextRound(roomId);
+        currentMeta.roundResetTimerId = null;
+      }, ROUND_RESET_DELAY_MS);
+    }
+  });
+
+  socket.on('roundFinished', (data = {}) => {
+    const p = players[socket.id];
+    if (!p || !p.room) return;
+
+    const roomId = normalizeRoom(data.room || p.room);
+    if (!roomId) return;
+
+    const meta = ensureRoomMeta(roomId);
+    if (!meta) return;
+
+    meta.phase = 'roundOver';
+    meta.lastRoundSummary = {
+      room: roomId,
+      reason: data.reason || 'roundFinished',
+      winner: data.winner || computeRoundWinner(roomId),
+      blueAlive: getAliveCount(roomId, 'blue'),
+      redAlive: getAliveCount(roomId, 'red'),
+      roundIndex: meta.roundIndex,
+      players: getRoomPlayers(roomId)
+    };
+
+    io.to(roomId).emit('round-ended', meta.lastRoundSummary);
+    io.to(roomId).emit('matchFinished', Object.assign({}, meta.lastRoundSummary, {
+      final: false
+    }));
+
+    emitRoomState(roomId);
+
+    clearRoomTimers(roomId);
+    meta.roundResetTimerId = setTimeout(() => {
+      const currentMeta = roomMeta[roomId];
+      if (!currentMeta) return;
+      currentMeta.roundIndex += 1;
+      resetPlayersForNextRound(roomId);
+      currentMeta.roundResetTimerId = null;
+    }, ROUND_RESET_DELAY_MS);
   });
 
   socket.on('leave-room', () => {

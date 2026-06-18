@@ -316,10 +316,10 @@ var AI_HIT_BOX_HEIGHT = 1.8;
 var AI_HIT_BOX_HALF_W = 0.35;
 
 /* ================================================================
-   POLO.fbx キャッシュ
+   TEST AVATAR キャッシュ（TEST_AVATAR は完全無効化）
    ================================================================ */
 var poloFbxTemplate = null;
-var poloFbxReady    = false;
+var poloFbxReady    = true;
 var poloFbxWaiters  = [];
 var gunGlbTemplate  = null;
 var gunGlbReady     = false;
@@ -572,59 +572,19 @@ function isInteractiveTarget(el){return !!(el&&el.closest&&el.closest('button,in
 function addColliderBox(x,y,z,w,h,d,mesh){colliders.push({x:x,y:y,z:z,w:w,h:h,d:d,mesh:mesh||null});}
 
 /* ================================================================
-   ★修正① POLO.fbx ローダー
+   ★修正① TEST_AVATAR ローダー
    スケールを正しく計算: まず scale(1,1,1) でBBox計測 → 1.8mに正規化
    ================================================================ */
 function loadPoloFbx(){
-  if(typeof T.FBXLoader === 'undefined'){
-    console.warn('[POLO] FBXLoader not available, falling back to procedural avatar');
-    poloFbxReady = true;
-    poloFbxTemplate = null;
-    poloFbxWaiters.forEach(function(fn){ fn(null); });
-    poloFbxWaiters = [];
-    return;
-  }
-  var loader = new T.FBXLoader();
-  loader.load('POLO.fbx', function(fbx){
-
-    /* ── ① スケールを1にリセットしてから BBox を計測 ── */
-    fbx.scale.set(1, 1, 1);
-    fbx.updateMatrixWorld(true);
-
-    var box  = new T.Box3().setFromObject(fbx);
-    var size = new T.Vector3();
-    box.getSize(size);
-    var modelH = size.y;
-
-    /* ── ② 目標高さ 1.8m のスケールを計算して適用 ── */
-    var TARGET_H = 1.80;
-    var scaleVal = (modelH > 0.001) ? (TARGET_H / modelH) : 0.01;
-    fbx.scale.set(scaleVal, scaleVal, scaleVal);
-    fbx.updateMatrixWorld(true);
-
-    /* ── ③ 見た目を完全に不透明に正規化 ── */
-    prepareAvatarAsset(fbx, TEAM_BLUE);
-
-    /* ── ④ キャッシュ ── */
-    poloFbxTemplate = fbx;
-    poloFbxReady    = true;
-    console.log('[POLO] loaded. rawH=' + modelH.toFixed(3) + 'm  scale=' + scaleVal.toFixed(4) +
-                '  clips=' + (fbx.animations ? fbx.animations.length : 0));
-    poloFbxWaiters.forEach(function(fn){ fn(fbx); });
-    poloFbxWaiters = [];
-
-  }, undefined, function(err){
-    console.warn('[POLO] load failed, procedural fallback:', err);
-    poloFbxReady    = true;
-    poloFbxTemplate = null;
-    poloFbxWaiters.forEach(function(fn){ fn(null); });
-    poloFbxWaiters = [];
-  });
+  // TEST_AVATAR は完全に使わず、必ず見えるプロシージャル人型を使う
+  console.log('[TEST AVATAR] TEST_AVATAR disabled. Using procedural avatar only.');
+  poloFbxReady = true;
+  poloFbxTemplate = null;
+  poloFbxWaiters = [];
 }
 
 function onPoloReady(fn){
-  if(poloFbxReady){ fn(poloFbxTemplate); return; }
-  poloFbxWaiters.push(fn);
+  fn(null);
 }
 
 /* ================================================================
@@ -750,42 +710,110 @@ function applyTeamColor(object, team){
   });
 }
 
-function prepareAvatarAsset(root, team){
-  if(!root) return;
-  root.traverse(function(child){
-    if(!child.isMesh) return;
-    child.visible = true;
-    child.castShadow = true;
-    child.receiveShadow = true;
-    child.frustumCulled = false;
-    var mats = Array.isArray(child.material) ? child.material : [child.material];
-    mats.forEach(function(m){
-      normalizeAvatarMaterial(m, team, true);
-    });
-  });
-}
-
 /* プロシージャルフォールバックアバター */
 function buildProceduralAvatar(team){
   var g = new T.Group();
-  var isB = team === TEAM_BLUE;
-  var bm = new T.MeshStandardMaterial({color:isB?0x2f7dff:0xd72626,roughness:0.62,metalness:0.08,emissive:isB?new T.Color(0x0b1e70):new T.Color(0x440000),emissiveIntensity:0.24});
-  var hm = new T.MeshStandardMaterial({color:isB?0x7db3ff:0xff6060,roughness:0.45,emissive:isB?new T.Color(0x082055):new T.Color(0x551111),emissiveIntensity:0.15});
-  var em = new T.MeshStandardMaterial({color:0xffffff,emissive:0xffffff,emissiveIntensity:3.2});
+  g.userData.isTestAvatar = true;
 
-  function makeCapsule(rT,rB,h,mat){
-    var cg=new T.Group();
-    var cyl=new T.Mesh(new T.CylinderGeometry(rT,rB,h,16,1,false),mat); cyl.position.y=h/2; cg.add(cyl);
-    var ts=new T.Mesh(new T.SphereGeometry(rT,16,8,0,Math.PI*2,0,Math.PI/2),mat); ts.position.y=h; cg.add(ts);
-    var bs=new T.Mesh(new T.SphereGeometry(rB,16,8,0,Math.PI*2,Math.PI/2,Math.PI/2),mat); bs.position.y=0; cg.add(bs);
-    return cg;
+  var isBlue = team === TEAM_BLUE;
+  var bodyMat = new T.MeshStandardMaterial({
+    color: isBlue ? 0x2f7dff : 0xd72626,
+    roughness: 0.55,
+    metalness: 0.06,
+    emissive: isBlue ? 0x0b1e70 : 0x440000,
+    emissiveIntensity: 0.18
+  });
+  var headMat = new T.MeshStandardMaterial({
+    color: isBlue ? 0x9ed0ff : 0xff9a9a,
+    roughness: 0.42,
+    metalness: 0.02,
+    emissive: isBlue ? 0x122d55 : 0x551111,
+    emissiveIntensity: 0.10
+  });
+  var trimMat = new T.MeshStandardMaterial({
+    color: 0xffffff,
+    roughness: 0.25,
+    metalness: 0.15,
+    emissive: 0xffffff,
+    emissiveIntensity: 1.6
+  });
+  var darkMat = new T.MeshStandardMaterial({
+    color: 0x111827,
+    roughness: 0.75,
+    metalness: 0.12
+  });
+
+  function addCapsule(parent, rTop, rBottom, height, mat, x, y, z, rx, ry, rz){
+    var grp = new T.Group();
+    var cyl = new T.Mesh(new T.CylinderGeometry(rTop, rBottom, height, 18, 1, false), mat);
+    cyl.position.y = height * 0.5;
+    grp.add(cyl);
+    var capTop = new T.Mesh(new T.SphereGeometry(rTop, 18, 12), mat);
+    capTop.position.y = height;
+    grp.add(capTop);
+    var capBottom = new T.Mesh(new T.SphereGeometry(rBottom, 18, 12), mat);
+    capBottom.position.y = 0;
+    grp.add(capBottom);
+    grp.position.set(x || 0, y || 0, z || 0);
+    grp.rotation.set(rx || 0, ry || 0, rz || 0);
+    parent.add(grp);
+    return grp;
   }
 
-  var body = makeCapsule(0.32,0.32,0.88,bm); body.position.y=0.17; g.add(body);
-  var head = new T.Mesh(new T.SphereGeometry(0.22,12,10),hm); head.position.y=1.47; g.add(head);
-  [new T.Vector3(0.08,1.50,-0.18),new T.Vector3(-0.08,1.50,-0.18)].forEach(function(p){
-    var e=new T.Mesh(new T.SphereGeometry(0.04,6,6),em); e.position.copy(p); g.add(e);
-  });
+  // torso
+  var torso = new T.Mesh(new T.BoxGeometry(0.72, 0.96, 0.42), bodyMat);
+  torso.position.y = 0.95;
+  g.add(torso);
+
+  // chest plate / visibility marker
+  var chest = new T.Mesh(new T.BoxGeometry(0.32, 0.22, 0.08), trimMat);
+  chest.position.set(0, 1.00, 0.23);
+  g.add(chest);
+
+  // pelvis
+  var pelvis = new T.Mesh(new T.BoxGeometry(0.56, 0.30, 0.36), darkMat);
+  pelvis.position.y = 0.38;
+  g.add(pelvis);
+
+  // head
+  var head = new T.Mesh(new T.SphereGeometry(0.28, 18, 14), headMat);
+  head.position.y = 1.62;
+  g.add(head);
+
+  // visor / eyes
+  var eyeL = new T.Mesh(new T.SphereGeometry(0.035, 8, 8), trimMat);
+  eyeL.position.set(0.10, 1.67, 0.22);
+  g.add(eyeL);
+  var eyeR = new T.Mesh(new T.SphereGeometry(0.035, 8, 8), trimMat);
+  eyeR.position.set(-0.10, 1.67, 0.22);
+  g.add(eyeR);
+
+  // arms
+  addCapsule(g, 0.10, 0.10, 0.58, bodyMat, 0.48, 1.28, 0.04, 0, 0, -0.25);
+  addCapsule(g, 0.10, 0.10, 0.58, bodyMat, -0.48, 1.28, 0.04, 0, 0, 0.25);
+
+  // legs
+  addCapsule(g, 0.12, 0.12, 0.72, darkMat, 0.18, 0.02, 0, 0, 0, 0.06);
+  addCapsule(g, 0.12, 0.12, 0.72, darkMat, -0.18, 0.02, 0, 0, 0, -0.06);
+
+  // boots
+  var bootL = new T.Mesh(new T.BoxGeometry(0.20, 0.10, 0.30), darkMat);
+  bootL.position.set(0.18, -0.02, 0.05);
+  g.add(bootL);
+  var bootR = new T.Mesh(new T.BoxGeometry(0.20, 0.10, 0.30), darkMat);
+  bootR.position.set(-0.18, -0.02, 0.05);
+  g.add(bootR);
+
+  // small team glow so it is unmistakable on mobile
+  var glow = new T.Mesh(
+    new T.SphereGeometry(0.10, 10, 10),
+    new T.MeshStandardMaterial({color:isBlue ? 0x7ad4ff : 0xff7a7a, emissive:isBlue ? 0x7ad4ff : 0xff7a7a, emissiveIntensity:2.2, transparent:false, opacity:1})
+  );
+  glow.position.set(0, 1.02, 0.26);
+  g.add(glow);
+
+  g.position.y = 0;
+  g.scale.setScalar(1.0);
   return g;
 }
 
@@ -830,59 +858,33 @@ function makeRemoteAvatar(team, name){
   hpBar.name = 'hpBar';
   outer.add(hpBar);
 
-  /* キャラクター本体を非同期で差し込む */
-  onPoloReady(function(fbx){
-    var correctionGroup = new T.Group();
-    correctionGroup.rotation.set(POLO_ROT_X, POLO_ROT_Y, POLO_ROT_Z);
-    outer.add(correctionGroup);
+  // TEST_AVATAR は使わず、必ず見えるテスト人型を直接生成
+  var correctionGroup = new T.Group();
+  correctionGroup.rotation.set(POLO_ROT_X, POLO_ROT_Y, POLO_ROT_Z);
+  outer.add(correctionGroup);
 
-    if(fbx){
-      /* FBXクローン */
-      var clone = fbx.clone(true);
-      clone.visible = true;
-      prepareAvatarAsset(clone, team);
-      clone.traverse(function(child){
-        if(!child.isMesh) return;
-        child.visible = true;
-        child.frustumCulled = false;
-      });
-      applyTeamColor(clone, team);
-      correctionGroup.add(clone);
+  var avatar = buildProceduralAvatar(team);
+  avatar.visible = true;
+  correctionGroup.add(avatar);
 
-      /* ── ★ AnimationMixer を作成してクリップを再生 ── */
-      if(fbx.animations && fbx.animations.length > 0){
-        var mixer = new T.AnimationMixer(clone);
+  // これがないとスマホで薄く見える場合があるので念押し
+  correctionGroup.traverse(function(child){
+    if(!child.isMesh) return;
+    child.visible = true;
+    child.castShadow = true;
+    child.receiveShadow = true;
+    child.frustumCulled = false;
+  });
 
-        /* walk / run / idle を優先、なければ最初のクリップ */
-        var clip = fbx.animations[0];
-        for(var _ci = 0; _ci < fbx.animations.length; _ci++){
-          var _cn = (fbx.animations[_ci].name || '').toLowerCase();
-          if(_cn.indexOf('walk') !== -1 || _cn.indexOf('run') !== -1 || _cn.indexOf('idle') !== -1){
-            clip = fbx.animations[_ci]; break;
-          }
-        }
-        var action = mixer.clipAction(clip);
-        action.setLoop(T.LoopRepeat, Infinity);
-        action.play();
-
-        outer.userData._mixer  = mixer;
-        outer.userData._action = action;
-        console.log('[POLO] mixer started, clip=' + clip.name + ' dur=' + clip.duration.toFixed(2) + 's');
-      }
-    } else {
-      correctionGroup.add(buildProceduralAvatar(team));
-    }
-
-    /* 銃を右手位置に追加 */
-    onGunGlbReady(function(){
-      var gunGroup = new T.Group();
-      gunGroup.name = 'avatarGun';
-      gunGroup.position.set(AVATAR_GUN_POS.x, AVATAR_GUN_POS.y, AVATAR_GUN_POS.z);
-      gunGroup.rotation.set(AVATAR_GUN_ROT.x, AVATAR_GUN_ROT.y, AVATAR_GUN_ROT.z);
-      gunGroup.scale.setScalar(AVATAR_GUN_SCALE);
-      gunGroup.add(cloneGunForAvatar());
-      correctionGroup.add(gunGroup);
-    });
+  /* 銃を右手位置に追加 */
+  onGunGlbReady(function(){
+    var gunGroup = new T.Group();
+    gunGroup.name = 'avatarGun';
+    gunGroup.position.set(AVATAR_GUN_POS.x, AVATAR_GUN_POS.y, AVATAR_GUN_POS.z);
+    gunGroup.rotation.set(AVATAR_GUN_ROT.x, AVATAR_GUN_ROT.y, AVATAR_GUN_ROT.z);
+    gunGroup.scale.setScalar(AVATAR_GUN_SCALE);
+    gunGroup.add(cloneGunForAvatar());
+    correctionGroup.add(gunGroup);
   });
 
   /* ネームタグ */
@@ -2027,7 +2029,7 @@ function init(){
   loadRank();setMatchMode('ranked',false);updateRankUI();updateScoreUI();updateAmmoUI();updatePlayerHPUI();updateOrientationUI();
   buildMap();gameMode=GAME_MODE.LOBBY;camera.position.set(0,16,33);camera.lookAt(0,0,0);
   setModeUI();setRoomInputValid();updateRoomUI();onlineCountEl.textContent='👥 同室: 1人';
-  loadPoloFbx();
+  // loadPoloFbx(); // TEST_AVATAR は完全に無効化
   loadGunGlbForAvatars();
   initSocket();animate();
 }

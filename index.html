@@ -751,6 +751,7 @@ function syncRoundStateToRoom(extra){
     aiStart: aiMatchStart
   }, extra || {});
   socket.emit('playerState', payload);
+  socket.emit('playerMovement', payload);
   socket.emit('request-room-players', {room: currentRoom});
 }
 
@@ -765,6 +766,9 @@ function restoreBattleViewAfterRespawn(){
   spectateOverlay.style.display = 'none';
   if(gunRoot) gunRoot.visible = true;
   resetTouchAndInputState();
+  reloading = false;
+  reloadTimer = 0;
+  moveVel.set(0,0);
   camera.position.copy(getSpawnForTeam(player.team || TEAM_BLUE));
   if(player.team===TEAM_RED) yaw = 0; else yaw = Math.PI;
   pitch = 0;
@@ -1172,14 +1176,13 @@ function makeAIUnit(team,index){
   updateAvatarHPBar(avatar,unit.hp); return unit;
 }
 function initAIForMatch(data){
-  /* FIX: aiMatchStart を確実に現在時刻で設定 */
-  aiMatchSeed=hashRoomSeed(currentRoom);
-  aiMatchStart=Date.now();
-  aiClock=0;
+  aiMatchSeed = hashRoomSeed(currentRoom);
+  aiMatchStart = 0;
+  aiClock = 0;
   clearAIUnits();
-  var aiCount=isRandomMatch?3:2;
-  for(var i=0;i<aiCount;i++)aiUnits.push(makeAIUnit(TEAM_BLUE,i));
-  for(var j=0;j<aiCount;j++)aiUnits.push(makeAIUnit(TEAM_RED,j));
+  var aiCount = isRandomMatch ? 3 : 2;
+  for(var i=0;i<aiCount;i++) aiUnits.push(makeAIUnit(TEAM_BLUE,i));
+  for(var j=0;j<aiCount;j++) aiUnits.push(makeAIUnit(TEAM_RED,j));
 }
 function getCombatTargetsFor(team){
   var targets=[];
@@ -1333,10 +1336,8 @@ function updateAIUnit(unit,dt,nowSec){
 function updateAI(dt){
   if(gameMode!==GAME_MODE.BATTLE&&gameMode!==GAME_MODE.SPECTATE)return;
   if(!aiUnits.length)return;
-  /* FIX: aiMatchStart が有効な値かチェックして aiClock を正確に計算 */
-  var now = Date.now();
-  if(aiMatchStart <= 0 || aiMatchStart > now) aiMatchStart = now;
-  aiClock = (now - aiMatchStart) / 1000;
+  if(roundTimerMs < 0) roundTimerMs = 0;
+  aiClock = roundTimerMs / 1000;
   for(var i=0;i<aiUnits.length;i++) updateAIUnit(aiUnits[i], dt, aiClock);
 }
 
@@ -1348,7 +1349,9 @@ function reviveHumansForNewRound(){
     if(socket&&id===socket.id)return;
     var p=roomPlayers[id]||remoteStates[id];
     if(!p)return;
-    var revived=Object.assign({},p,{alive:true,hp:100});
+    var spawnTeam=(p.team||TEAM_BLUE)===TEAM_RED?TEAM_RED:TEAM_BLUE;
+    var spawn=getSpawnForTeam(spawnTeam);
+    var revived=Object.assign({},p,{alive:true,hp:100,x:spawn.x,y:spawn.y,z:spawn.z,ry:spawnTeam===TEAM_RED?0:Math.PI});
     roomPlayers[id]=roomPlayers[id]||{};
     Object.assign(roomPlayers[id],revived);
     remoteStates[id]=remoteStates[id]||{};
@@ -1708,7 +1711,18 @@ function startRound(data){
   loadingOverlay.style.display='none';
   resultOverlay.style.display='none';
   spectateOverlay.style.display='none';
-  if(socket&&socket.connected)socket.emit('playerState',{room:currentRoom,alive:true,hp:100,round:roundIndex,blue:blueScore,red:redScore,phase:GAME_MODE.BATTLE});
+  roomPlayers[socket&&socket.id?socket.id:'__local__'] = Object.assign({}, roomPlayers[socket&&socket.id?socket.id:'__local__']||{}, {
+    name: PLAYER_NAME,
+    team: player.team || TEAM_BLUE,
+    room: currentRoom,
+    x: camera.position.x,
+    y: camera.position.y,
+    z: camera.position.z,
+    ry: yaw,
+    alive: true,
+    hp: 100
+  });
+  if(socket&&socket.connected)socket.emit('playerState',{room:currentRoom,alive:true,hp:100,round:roundIndex,blue:blueScore,red:redScore,phase:GAME_MODE.BATTLE,x:camera.position.x,y:camera.position.y,z:camera.position.z,ry:yaw});
   syncRoundStateToRoom({alive:true,hp:100,round:roundIndex,blue:blueScore,red:redScore,phase:GAME_MODE.BATTLE});
 }
 function showFinalResultByServer(data){
@@ -1833,7 +1847,16 @@ function initSocket(){
     }
   });
   socket.on('newPlayer',function(d){if(!d||!d.id||(socket&&d.id===socket.id))return;applyRemoteState(d.id,d);if(inWaiting&&d.room&&d.room===currentRoom){if(!roomPlayers[d.id])roomPlayers[d.id]={name:d.name||'??',team:d.team||TEAM_BLUE,alive:true,room:currentRoom};updateWaitingUI();}updateRemotePlayersFromState();});
-  socket.on('playerMoved',function(d){if(!d||!d.id||(socket&&d.id===socket.id))return;if(gameMode!==GAME_MODE.BATTLE&&gameMode!==GAME_MODE.SPECTATE)return;applyRemoteState(d.id,d);updateRemotePlayersFromState();});
+  function handleRemoteMovement(d){
+    if(!d)return;
+    var id=d.id||d.playerId||d.userId;
+    if(!id||(socket&&id===socket.id))return;
+    if(gameMode!==GAME_MODE.BATTLE&&gameMode!==GAME_MODE.SPECTATE)return;
+    applyRemoteState(id,d);
+    updateRemotePlayersFromState();
+  }
+  socket.on('playerMoved',handleRemoteMovement);
+  socket.on('playerMovement',handleRemoteMovement);
   socket.on('playerShot',function(d){if(!d||(socket&&d.id===socket.id))return;spawnRemoteShotFX(d);});
   socket.on('playerShotFX',function(d){if(!d||(socket&&d.id===socket.id))return;spawnRemoteShotFX(d);});
   socket.on('playerShoot',function(d){
@@ -1861,6 +1884,10 @@ function initSocket(){
       if(roomPlayers[d.targetId]){
         roomPlayers[d.targetId].alive=d.alive!==false;
         if(d.hp!==undefined)roomPlayers[d.targetId].hp=d.hp;
+        if(d.x!==undefined) roomPlayers[d.targetId].x=d.x;
+        if(d.y!==undefined) roomPlayers[d.targetId].y=d.y;
+        if(d.z!==undefined) roomPlayers[d.targetId].z=d.z;
+        if(d.ry!==undefined) roomPlayers[d.targetId].ry=d.ry;
         applyRemoteState(d.targetId,roomPlayers[d.targetId]);
       }
       updateRoundIfEnded();
@@ -1888,6 +1915,10 @@ function initSocket(){
     if(d.playerId&&roomPlayers[d.playerId]){
       roomPlayers[d.playerId].alive=d.alive!==false;
       if(d.hp!==undefined)roomPlayers[d.playerId].hp=d.hp;
+      if(d.x!==undefined)roomPlayers[d.playerId].x=d.x;
+      if(d.y!==undefined)roomPlayers[d.playerId].y=d.y;
+      if(d.z!==undefined)roomPlayers[d.playerId].z=d.z;
+      if(d.ry!==undefined)roomPlayers[d.playerId].ry=d.ry;
       applyRemoteState(d.playerId,roomPlayers[d.playerId]);
       updateRoundIfEnded();
       if(inWaiting)updateWaitingUI();

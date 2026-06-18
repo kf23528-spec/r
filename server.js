@@ -18,6 +18,16 @@ const START_MIN_PLAYERS = 2;
 const START_DELAY_MS = 1800;
 const ROUND_DURATION_MS = 180000; // 3分
 const ROUND_RESET_DELAY_MS = 1200;
+const WIN_SCORE = 5;
+
+// ============================================================
+// FIX: ダメージ判定をサーバー側で一元管理するための定数。
+// クライアント側の DAMAGE_PER_BULLET / AI_DAMAGE_PER_HIT と同じ値を使う。
+// これにより「誰が誰に何ダメージ与えたか」はサーバーが唯一の真実になる。
+// ============================================================
+const DAMAGE_PER_BULLET = 4;
+const AI_DAMAGE_PER_HIT = 12;
+const SHOT_MIN_INTERVAL_MS = 90; // 1人のプレイヤーが連続でダメージ判定を要求できる最短間隔(チート・多重送信対策)
 
 app.use(express.static(__dirname));
 app.get('/', (req, res) => {
@@ -73,7 +83,13 @@ function ensureRoomMeta(room) {
       startToken: 0,
       roundTimerId: null,
       roundResetTimerId: null,
-      lastRoundSummary: null
+      lastRoundSummary: null,
+      // FIX: スコアもサーバー側で一元管理する(クライアント自己申告のscoreUpdateに依存しない)
+      blueScore: 0,
+      redScore: 0,
+      roundResolved: false,
+      // FIX: AIユニットの状態をサーバー側でも保持し、AIのダメージ判定もサーバー権威にする
+      aiUnits: [] // { id, team, hp, alive }
     };
   }
   return roomMeta[roomId];
@@ -149,13 +165,22 @@ function getRoomCount(room) {
 
 function getAliveCount(room, team) {
   const roomId = normalizeRoom(room);
-  return Object.values(players).filter(p => {
+  const meta = roomMeta[roomId];
+
+  let count = Object.values(players).filter(p => {
     return p &&
       p.room === roomId &&
       p.team === team &&
       p.alive !== false &&
       (p.hp ?? 100) > 0;
   }).length;
+
+  // FIX: AIユニットの生存数もカウントに含める(ラウンド終了判定をサーバーが正しく行うため)
+  if (meta && Array.isArray(meta.aiUnits)) {
+    count += meta.aiUnits.filter(u => u.team === team && u.alive).length;
+  }
+
+  return count;
 }
 
 function shuffleArray(arr) {
@@ -214,6 +239,7 @@ function applySpawnPositions(roomId) {
       p.ry = sp.ry;
       p.alive = true;
       p.hp = 100;
+      p.lastShotAt = 0;
       p.lastSeenAt = Date.now();
     });
   });
@@ -242,6 +268,8 @@ function emitRoomState(room) {
     roundIndex: meta.roundIndex,
     roundEndsAt: meta.roundEndsAt,
     roundDurationMs: ROUND_DURATION_MS,
+    blue: meta.blueScore,
+    red: meta.redScore,
     players: getRoomPlayers(roomId)
   });
 }
@@ -282,7 +310,9 @@ function broadcastRoomSnapshot(room) {
     matchStarted: meta.matchStarted,
     roundIndex: meta.roundIndex,
     roundEndsAt: meta.roundEndsAt,
-    roundDurationMs: ROUND_DURATION_MS
+    roundDurationMs: ROUND_DURATION_MS,
+    blue: meta.blueScore,
+    red: meta.redScore
   };
 
   io.to(roomId).emit('room-snapshot', payload);
@@ -297,6 +327,8 @@ function broadcastRoomSnapshot(room) {
     roundIndex: meta.roundIndex,
     roundEndsAt: meta.roundEndsAt,
     roundDurationMs: ROUND_DURATION_MS,
+    blue: meta.blueScore,
+    red: meta.redScore,
     players: getRoomPlayers(roomId)
   });
 }
@@ -311,10 +343,54 @@ function leaveRoom(socket) {
     socket.to(roomId).emit('playerDisconnected', socket.id);
     broadcastRoomPlayers(roomId);
     emitRoomState(roomId);
+
+    // FIX: プレイヤーが抜けたことでラウンドの全滅条件が満たされる可能性があるのでチェックする
+    checkRoundEndCondition(roomId, 'player-left');
+
     cleanupRoomMetaIfEmpty(roomId);
   }
 
   delete players[socket.id];
+}
+
+// ============================================================
+// FIX: AIユニットの初期化・管理をサーバー側に追加。
+// クライアントは見た目(アバターの表示・移動アニメ)だけを担当し、
+// 「HPがいくつか」「死んでいるか」はサーバーのaiUnitsが真実になる。
+// ============================================================
+function initAIUnitsForRoom(roomId, isRandomMatch) {
+  const meta = ensureRoomMeta(roomId);
+  if (!meta) return;
+
+  const aiCount = isRandomMatch ? 3 : 2;
+  const units = [];
+  ['blue', 'red'].forEach(team => {
+    for (let i = 0; i < aiCount; i++) {
+      units.push({
+        id: `ai-${team}-${i}`,
+        team,
+        hp: 100,
+        maxHp: 100,
+        alive: true
+      });
+    }
+  });
+  meta.aiUnits = units;
+}
+
+function reviveAIUnitsForRoom(roomId) {
+  const meta = roomMeta[roomId];
+  if (!meta) return;
+  meta.aiUnits.forEach(u => {
+    u.hp = u.maxHp;
+    u.alive = true;
+  });
+}
+
+function findAIUnit(roomId, aiId) {
+  const meta = roomMeta[roomId];
+  if (!meta) return null;
+  return meta.aiUnits.find(u => u.id === aiId) || null;
 }
 
 function resetPlayersForNextRound(roomId) {
@@ -322,11 +398,13 @@ function resetPlayersForNextRound(roomId) {
   if (!meta) return;
 
   applySpawnPositions(roomId);
+  reviveAIUnitsForRoom(roomId);
   meta.matchStarted = true;
   meta.starting = false;
   meta.phase = 'playing';
   meta.startedAt = Date.now();
   meta.roundEndsAt = Date.now() + ROUND_DURATION_MS;
+  meta.roundResolved = false;
 
   const payload = {
     room: roomId,
@@ -334,9 +412,15 @@ function resetPlayersForNextRound(roomId) {
     startedAt: meta.startedAt,
     roundEndsAt: meta.roundEndsAt,
     roundDurationMs: ROUND_DURATION_MS,
+    blue: meta.blueScore,
+    red: meta.redScore,
+    aiUnits: meta.aiUnits,
     players: getRoomPlayers(roomId)
   };
 
+  // FIX: round-reset / round-started / match-started の3つを送るのは維持しつつ、
+  // 全プレイヤーのalive/hpをこのタイミングで強制的にtrue/100にする情報を含める。
+  // クライアント側はこれらのイベントを受け取ったら「問答無用で」復活処理をする。
   io.to(roomId).emit('round-reset', payload);
   io.to(roomId).emit('round-started', payload);
   io.to(roomId).emit('match-started', {
@@ -350,11 +434,15 @@ function resetPlayersForNextRound(roomId) {
     startedAt: meta.startedAt,
     roundIndex: meta.roundIndex,
     roundEndsAt: meta.roundEndsAt,
-    roundDurationMs: ROUND_DURATION_MS
+    roundDurationMs: ROUND_DURATION_MS,
+    blue: meta.blueScore,
+    red: meta.redScore,
+    aiUnits: meta.aiUnits
   });
 
   broadcastRoomSnapshot(roomId);
   emitRoomState(roomId);
+  startRoundTimer(roomId);
 }
 
 function computeRoundWinner(roomId) {
@@ -366,43 +454,77 @@ function computeRoundWinner(roomId) {
   return 'draw';
 }
 
-function finishRound(roomId, reason = 'round-end', forceFinal = false) {
-  const meta = ensureRoomMeta(roomId);
+// ============================================================
+// FIX: ラウンド終了→スコア加算→次ラウンド or 試合終了 を
+// 完全にサーバー側で一括処理する関数。
+// 以前はクライアントの clearRoundIfNeededFromStates が各クライアントで
+// 独立に判定していたため、複数クライアントが同時にendRoundByWinnerを呼んで
+// 二重カウントする可能性があった。これをサーバー側で一度だけ実行するようにする。
+// ============================================================
+function checkRoundEndCondition(roomId, reason) {
+  const meta = roomMeta[roomId];
   if (!meta) return;
+  if (meta.phase !== 'playing') return;
+  if (meta.roundResolved) return;
 
-  if (meta.phase === 'roundOver' && !forceFinal) return;
+  const blueAlive = getAliveCount(roomId, 'blue');
+  const redAlive = getAliveCount(roomId, 'red');
 
+  // どちらかのチームが0人になったらラウンド終了
+  if (blueAlive > 0 && redAlive > 0) return;
+  // 両方0人(誰も部屋にいない等)の場合は判定しない
+  if (blueAlive === 0 && redAlive === 0) return;
+
+  const winner = blueAlive === 0 ? 'red' : 'blue';
+  resolveRound(roomId, winner, reason || 'elimination');
+}
+
+function resolveRound(roomId, winner, reason) {
+  const meta = roomMeta[roomId];
+  if (!meta) return;
+  if (meta.roundResolved) return;
+
+  meta.roundResolved = true;
   clearRoomTimers(roomId);
-  meta.phase = forceFinal ? 'finished' : 'roundOver';
-  meta.matchStarted = !forceFinal;
+
+  if (winner === 'blue') meta.blueScore += 1;
+  else if (winner === 'red') meta.redScore += 1;
+
+  const isFinal = meta.blueScore >= WIN_SCORE || meta.redScore >= WIN_SCORE;
+  const finalWinner = meta.blueScore >= WIN_SCORE ? 'blue' : (meta.redScore >= WIN_SCORE ? 'red' : winner);
+
+  meta.phase = isFinal ? 'finished' : 'roundOver';
+  meta.matchStarted = !isFinal;
   meta.roundEndsAt = 0;
 
-  const winner = computeRoundWinner(roomId);
   const summary = {
     room: roomId,
-    reason,
-    winner,
+    reason: reason || 'round-end',
+    winner: finalWinner,
+    blue: meta.blueScore,
+    red: meta.redScore,
+    roundIndex: meta.roundIndex,
     blueAlive: getAliveCount(roomId, 'blue'),
     redAlive: getAliveCount(roomId, 'red'),
-    roundIndex: meta.roundIndex,
-    players: getRoomPlayers(roomId)
+    players: getRoomPlayers(roomId),
+    final: isFinal
   };
 
   meta.lastRoundSummary = summary;
 
+  // FIX: scoreUpdate / enemyKilledAck / round-ended / matchFinished を
+  // サーバーが正式な値で一斉配信する。クライアントからの自己申告は無視する。
+  io.to(roomId).emit('scoreUpdate', { room: roomId, blue: meta.blueScore, red: meta.redScore, round: meta.roundIndex });
   io.to(roomId).emit('round-ended', summary);
-  io.to(roomId).emit('matchFinished', Object.assign({}, summary, {
-    final: forceFinal
-  }));
+  io.to(roomId).emit('matchFinished', summary);
 
   emitRoomState(roomId);
 
-  if (!forceFinal) {
+  if (!isFinal) {
+    meta.roundIndex += 1;
     meta.roundResetTimerId = setTimeout(() => {
       const currentMeta = roomMeta[roomId];
       if (!currentMeta) return;
-
-      currentMeta.roundIndex += 1;
       resetPlayersForNextRound(roomId);
       currentMeta.roundResetTimerId = null;
     }, ROUND_RESET_DELAY_MS);
@@ -430,12 +552,16 @@ function startRoundTimer(roomId) {
     });
 
     if (remainingMs <= 0) {
-      finishRound(roomId, 'timeout', false);
+      // FIX: タイムアウト時は生存人数が多いチームの勝利、同数ならdraw扱いでblue勝利(既存仕様を維持)
+      const blueAlive = getAliveCount(roomId, 'blue');
+      const redAlive = getAliveCount(roomId, 'red');
+      const winner = blueAlive >= redAlive ? 'blue' : 'red';
+      resolveRound(roomId, winner, 'timeout');
     }
   }, 500);
 }
 
-function startMatchInRoom(room, starterId) {
+function startMatchInRoom(room, starterId, isRandomMatch) {
   const roomId = normalizeRoom(room);
   if (!roomId) {
     return { ok: false, message: 'Invalid room' };
@@ -457,6 +583,10 @@ function startMatchInRoom(room, starterId) {
   meta.starting = true;
   meta.lastStarter = starterId || '';
   meta.startToken += 1;
+  meta.blueScore = 0;
+  meta.redScore = 0;
+  meta.roundIndex = 1;
+  meta.roundResolved = false;
   const token = meta.startToken;
 
   io.to(roomId).emit('match-starting', {
@@ -486,6 +616,7 @@ function startMatchInRoom(room, starterId) {
 
     assignRandomTeams(roomId);
     applySpawnPositions(roomId);
+    initAIUnitsForRoom(roomId, isRandomMatch);
 
     currentMeta.starting = false;
     currentMeta.matchStarted = true;
@@ -493,6 +624,7 @@ function startMatchInRoom(room, starterId) {
     currentMeta.startedAt = Date.now();
     currentMeta.roundIndex = currentMeta.roundIndex || 1;
     currentMeta.roundEndsAt = Date.now() + ROUND_DURATION_MS;
+    currentMeta.roundResolved = false;
 
     const payload = {
       room: roomId,
@@ -505,7 +637,10 @@ function startMatchInRoom(room, starterId) {
       startedAt: currentMeta.startedAt,
       roundIndex: currentMeta.roundIndex,
       roundEndsAt: currentMeta.roundEndsAt,
-      roundDurationMs: ROUND_DURATION_MS
+      roundDurationMs: ROUND_DURATION_MS,
+      blue: currentMeta.blueScore,
+      red: currentMeta.redScore,
+      aiUnits: currentMeta.aiUnits
     };
 
     io.to(roomId).emit('match-started', payload);
@@ -534,6 +669,7 @@ io.on('connection', (socket) => {
     alive: true,
     hp: 100,
     matchMode: 'ranked',
+    lastShotAt: 0,
     lastSeenAt: Date.now()
   };
 
@@ -555,6 +691,7 @@ io.on('connection', (socket) => {
       socket.to(prevRoom).emit('playerDisconnected', socket.id);
       broadcastRoomPlayers(prevRoom);
       emitRoomState(prevRoom);
+      checkRoundEndCondition(prevRoom, 'player-switched-room');
       cleanupRoomMetaIfEmpty(prevRoom);
     }
 
@@ -580,6 +717,7 @@ io.on('connection', (socket) => {
       alive: data.alive !== false,
       hp: Number.isFinite(data.hp) ? data.hp : 100,
       matchMode,
+      lastShotAt: 0,
       lastSeenAt: Date.now()
     };
 
@@ -593,14 +731,18 @@ io.on('connection', (socket) => {
 
     broadcastRoomPlayers(roomId);
     emitRoomState(roomId);
+    const meta = ensureRoomMeta(roomId);
     socket.emit('room-snapshot', {
       room: roomId,
       players: getRoomPlayers(roomId),
-      phase: ensureRoomMeta(roomId).phase,
-      matchStarted: ensureRoomMeta(roomId).matchStarted,
-      roundIndex: ensureRoomMeta(roomId).roundIndex,
-      roundEndsAt: ensureRoomMeta(roomId).roundEndsAt,
-      roundDurationMs: ROUND_DURATION_MS
+      phase: meta.phase,
+      matchStarted: meta.matchStarted,
+      roundIndex: meta.roundIndex,
+      roundEndsAt: meta.roundEndsAt,
+      roundDurationMs: ROUND_DURATION_MS,
+      blue: meta.blueScore,
+      red: meta.redScore,
+      aiUnits: meta.aiUnits
     });
   });
 
@@ -638,6 +780,8 @@ io.on('connection', (socket) => {
       roundIndex: meta.roundIndex,
       roundEndsAt: meta.roundEndsAt,
       roundDurationMs: ROUND_DURATION_MS,
+      blue: meta.blueScore,
+      red: meta.redScore,
       players: getRoomPlayers(roomId)
     });
   });
@@ -648,7 +792,7 @@ io.on('connection', (socket) => {
     );
     if (!roomId) return;
 
-    const result = startMatchInRoom(roomId, socket.id);
+    const result = startMatchInRoom(roomId, socket.id, !!data.isRandom);
     if (!result.ok) {
       socket.emit('start-match-error', {
         room: roomId,
@@ -663,7 +807,7 @@ io.on('connection', (socket) => {
     );
     if (!roomId) return;
 
-    const result = startMatchInRoom(roomId, socket.id);
+    const result = startMatchInRoom(roomId, socket.id, !!data.isRandom);
     if (!result.ok) {
       socket.emit('start-match-error', {
         room: roomId,
@@ -672,6 +816,9 @@ io.on('connection', (socket) => {
     }
   });
 
+  // FIX: playerMovement は座標同期のみを行う。HP/alive はここでは絶対に変更しない。
+  // 以前はこのイベントが移動とHPの両方を運んでいたため、移動パケットが
+  // 古いHP値を持って届くと、ダメージ判定後の最新HPを上書きしてしまうことがあった。
   socket.on('playerMovement', (movementData = {}) => {
     const p = players[socket.id];
     if (!p || !p.room) return;
@@ -683,33 +830,215 @@ io.on('connection', (socket) => {
 
     p.lastSeenAt = Date.now();
 
-    const payload = flatPlayer(socket.id, p);
-    socket.to(p.room).emit('playerMoved', payload);
-    socket.to(p.room).emit('playerState', payload);
-  });
-
-  socket.on('playerShoot', (shotData = {}) => {
-    const p = players[socket.id];
-    if (!p || !p.room) return;
-
-    const payload = Object.assign({}, shotData, {
+    // alive/hp は含めず、座標のみを中継する
+    const payload = {
       id: socket.id,
       playerId: socket.id,
       name: p.name,
       team: p.team,
-      room: p.room
-    });
-
-    socket.to(p.room).emit('playerShot', payload);
-    socket.to(p.room).emit('playerShotFX', payload);
+      room: p.room,
+      x: p.x,
+      y: p.y,
+      z: p.z,
+      ry: p.ry
+    };
+    socket.to(p.room).emit('playerMoved', payload);
   });
 
+  // ============================================================
+  // FIX: playerShoot がダメージ判定の唯一の入口になる。
+  // クライアントは「自分がこの方向に撃った」「当てたつもりのtargetId」を送るだけ。
+  // サーバーがtargetの現在HPを確認し、実際にダメージを適用、
+  // 結果(誰が何HPになったか/死んだか)を damage-result として
+  // 部屋の全員(撃った本人含む)に同じ内容で配信する。
+  // これにより撃った側と撃たれた側のHP表示が必ず一致するようになる。
+  // ============================================================
+  socket.on('playerShoot', (shotData = {}) => {
+    const p = players[socket.id];
+    if (!p || !p.room) return;
+
+    const roomId = p.room;
+    const meta = roomMeta[roomId];
+
+    // 見た目用のFX(マズルフラッシュ・弾の軌跡)はそのまま中継する
+    const fxPayload = Object.assign({}, shotData, {
+      id: socket.id,
+      playerId: socket.id,
+      name: p.name,
+      team: p.team,
+      room: roomId
+    });
+    socket.to(roomId).emit('playerShot', fxPayload);
+    socket.to(roomId).emit('playerShotFX', fxPayload);
+
+    if (!meta || meta.phase !== 'playing') return;
+
+    const now = Date.now();
+    if (p.lastShotAt && now - p.lastShotAt < SHOT_MIN_INTERVAL_MS) {
+      // 連射しすぎ(チート/重複送信)はダメージ判定をスキップ(FXは出すが当たらない)
+      return;
+    }
+    p.lastShotAt = now;
+
+    const targetId = shotData.targetId;
+    if (!targetId) return; // 何にも当たっていない(空振り)
+
+    // ターゲットがAIユニットの場合
+    if (typeof targetId === 'string' && targetId.indexOf('ai-') === 0) {
+      const unit = findAIUnit(roomId, targetId);
+      if (!unit || !unit.alive) return;
+      if (unit.team === p.team) return; // 味方AIには当たらない
+
+      const dmg = Number.isFinite(shotData.damage) ? shotData.damage : DAMAGE_PER_BULLET;
+      unit.hp = Math.max(0, unit.hp - dmg);
+      const justDied = unit.hp <= 0 && unit.alive;
+      if (unit.hp <= 0) unit.alive = false;
+
+      io.to(roomId).emit('damage-result', {
+        room: roomId,
+        sourceId: socket.id,
+        targetId: unit.id,
+        targetType: 'ai',
+        hp: unit.hp,
+        alive: unit.alive,
+        killed: justDied,
+        team: unit.team
+      });
+
+      if (justDied) {
+        io.to(roomId).emit('player-died', { room: roomId, targetId: unit.id, targetType: 'ai', killerId: socket.id });
+      }
+
+      checkRoundEndCondition(roomId, 'ai-eliminated');
+      return;
+    }
+
+    // ターゲットが人間プレイヤーの場合
+    const target = players[targetId];
+    if (!target || target.room !== roomId) return;
+    if (target.alive === false || (target.hp ?? 100) <= 0) return; // 既に死んでいる相手には重複ダメージを与えない
+    if (target.team === p.team) return; // 味方には当たらない(フレンドリーファイア無効)
+
+    const dmg = Number.isFinite(shotData.damage) ? shotData.damage : DAMAGE_PER_BULLET;
+    target.hp = Math.max(0, (target.hp ?? 100) - dmg);
+    const justDied = target.hp <= 0 && target.alive !== false;
+    if (target.hp <= 0) target.alive = false;
+    target.lastSeenAt = Date.now();
+
+    io.to(roomId).emit('damage-result', {
+      room: roomId,
+      sourceId: socket.id,
+      targetId,
+      targetType: 'human',
+      hp: target.hp,
+      alive: target.alive,
+      killed: justDied,
+      team: target.team
+    });
+
+    if (justDied) {
+      io.to(roomId).emit('player-died', { room: roomId, targetId, targetType: 'human', killerId: socket.id });
+    }
+
+    broadcastRoomPlayers(roomId);
+    checkRoundEndCondition(roomId, 'player-eliminated');
+  });
+
+  // ============================================================
+  // FIX: AIによるダメージもサーバー側で確定させる。
+  // クライアントの各端末はAIの行動をローカルでシミュレートしているため、
+  // 「AIが誰に何ダメージ与えたか」は端末ごとにズレる可能性がある。
+  // そこで「このAIがこの座標からこの相手を狙って攻撃した」という
+  // 意図だけをサーバーに送り、実際にダメージを適用するかはサーバーが決める。
+  // 複数端末から同じ内容が重複して送られてくる可能性があるため、
+  // AIごとのクールダウン(最短間隔)をサーバー側でも管理する。
+  // ============================================================
+  socket.on('ai-attack', (data = {}) => {
+    const p = players[socket.id];
+    if (!p || !p.room) return;
+
+    const roomId = p.room;
+    const meta = roomMeta[roomId];
+    if (!meta || meta.phase !== 'playing') return;
+
+    const aiId = data.aiId;
+    const unit = findAIUnit(roomId, aiId);
+    if (!unit || !unit.alive) return;
+
+    const now = Date.now();
+    if (unit.lastAttackAt && now - unit.lastAttackAt < 400) return; // 複数端末からの重複攻撃要求を間引く
+    unit.lastAttackAt = now;
+
+    const targetId = data.targetId;
+    if (!targetId) return;
+
+    // AIが人間を攻撃
+    if (targetId !== aiId && typeof targetId === 'string' && targetId.indexOf('ai-') !== 0) {
+      const target = players[targetId];
+      if (!target || target.room !== roomId) return;
+      if (target.alive === false || (target.hp ?? 100) <= 0) return;
+      if (target.team === unit.team) return;
+
+      const dmg = AI_DAMAGE_PER_HIT;
+      target.hp = Math.max(0, (target.hp ?? 100) - dmg);
+      const justDied = target.hp <= 0 && target.alive !== false;
+      if (target.hp <= 0) target.alive = false;
+      target.lastSeenAt = Date.now();
+
+      io.to(roomId).emit('damage-result', {
+        room: roomId,
+        sourceId: aiId,
+        targetId,
+        targetType: 'human',
+        hp: target.hp,
+        alive: target.alive,
+        killed: justDied,
+        team: target.team
+      });
+
+      if (justDied) {
+        io.to(roomId).emit('player-died', { room: roomId, targetId, targetType: 'human', killerId: aiId });
+      }
+
+      broadcastRoomPlayers(roomId);
+      checkRoundEndCondition(roomId, 'player-eliminated-by-ai');
+      return;
+    }
+
+    // AIが別のAIを攻撃(チーム戦なのでAI同士の交戦もあり得る設計を残す)
+    if (targetId.indexOf('ai-') === 0) {
+      const targetUnit = findAIUnit(roomId, targetId);
+      if (!targetUnit || !targetUnit.alive || targetUnit.team === unit.team) return;
+      targetUnit.hp = Math.max(0, targetUnit.hp - AI_DAMAGE_PER_HIT);
+      const justDied = targetUnit.hp <= 0 && targetUnit.alive;
+      if (targetUnit.hp <= 0) targetUnit.alive = false;
+
+      io.to(roomId).emit('damage-result', {
+        room: roomId,
+        sourceId: aiId,
+        targetId: targetUnit.id,
+        targetType: 'ai',
+        hp: targetUnit.hp,
+        alive: targetUnit.alive,
+        killed: justDied,
+        team: targetUnit.team
+      });
+
+      if (justDied) {
+        io.to(roomId).emit('player-died', { room: roomId, targetId: targetUnit.id, targetType: 'ai', killerId: aiId });
+      }
+
+      checkRoundEndCondition(roomId, 'ai-eliminated');
+    }
+  });
+
+  // FIX: playerState は「自分の生死・HPをサーバーに直接書き込む」用途では使わせない。
+  // 生死とHPはサーバーのdamage-result/resolveRoundでのみ変更される。
+  // ここではクライアントが見た目上の座標補正等を送ってきても、座標の中継のみ行う。
   socket.on('playerState', (stateData = {}) => {
     const p = players[socket.id];
     if (!p || !p.room) return;
 
-    if (typeof stateData.alive === 'boolean') p.alive = stateData.alive;
-    if (Number.isFinite(stateData.hp)) p.hp = stateData.hp;
     if (Number.isFinite(stateData.x)) p.x = stateData.x;
     if (Number.isFinite(stateData.y)) p.y = stateData.y;
     if (Number.isFinite(stateData.z)) p.z = stateData.z;
@@ -717,115 +1046,13 @@ io.on('connection', (socket) => {
 
     p.lastSeenAt = Date.now();
 
+    // FIX: alive/hp はサーバーの値をそのまま使う(クライアントの自己申告で上書きしない)
     const payload = Object.assign(flatPlayer(socket.id, p), {
       playerId: socket.id,
       targetId: socket.id
     });
 
     socket.to(p.room).emit('playerState', payload);
-    socket.to(p.room).emit('room-players', {
-      room: p.room,
-      players: getRoomPlayers(p.room)
-    });
-  });
-
-  socket.on('scoreUpdate', (data = {}) => {
-    const p = players[socket.id];
-    if (!p || !p.room) return;
-    socket.to(p.room).emit('scoreUpdate', data);
-  });
-
-  socket.on('enemyKilledAck', (data = {}) => {
-    const p = players[socket.id];
-    if (!p || !p.room) return;
-    socket.to(p.room).emit('enemyKilledAck', data);
-  });
-
-  socket.on('matchFinished', (data = {}) => {
-    const p = players[socket.id];
-    if (!p || !p.room) return;
-
-    const roomId = normalizeRoom(data.room || p.room);
-    if (!roomId) return;
-
-    const meta = ensureRoomMeta(roomId);
-    if (!meta) return;
-
-    const isFinal = !!data.final || !!data.matchOver || !!data.gameOver;
-
-    if (isFinal) {
-      meta.phase = 'finished';
-      meta.matchStarted = false;
-      clearRoomTimers(roomId);
-    } else {
-      meta.phase = 'roundOver';
-    }
-
-    meta.lastRoundSummary = {
-      room: roomId,
-      reason: data.reason || 'matchFinished',
-      winner: data.winner || computeRoundWinner(roomId),
-      blueAlive: getAliveCount(roomId, 'blue'),
-      redAlive: getAliveCount(roomId, 'red'),
-      roundIndex: meta.roundIndex,
-      players: getRoomPlayers(roomId)
-    };
-
-    socket.to(roomId).emit('matchFinished', Object.assign({}, meta.lastRoundSummary, {
-      final: isFinal
-    }));
-
-    io.to(roomId).emit('round-ended', meta.lastRoundSummary);
-    emitRoomState(roomId);
-
-    if (!isFinal) {
-      clearRoomTimers(roomId);
-      meta.roundResetTimerId = setTimeout(() => {
-        const currentMeta = roomMeta[roomId];
-        if (!currentMeta) return;
-        currentMeta.roundIndex += 1;
-        resetPlayersForNextRound(roomId);
-        currentMeta.roundResetTimerId = null;
-      }, ROUND_RESET_DELAY_MS);
-    }
-  });
-
-  socket.on('roundFinished', (data = {}) => {
-    const p = players[socket.id];
-    if (!p || !p.room) return;
-
-    const roomId = normalizeRoom(data.room || p.room);
-    if (!roomId) return;
-
-    const meta = ensureRoomMeta(roomId);
-    if (!meta) return;
-
-    meta.phase = 'roundOver';
-    meta.lastRoundSummary = {
-      room: roomId,
-      reason: data.reason || 'roundFinished',
-      winner: data.winner || computeRoundWinner(roomId),
-      blueAlive: getAliveCount(roomId, 'blue'),
-      redAlive: getAliveCount(roomId, 'red'),
-      roundIndex: meta.roundIndex,
-      players: getRoomPlayers(roomId)
-    };
-
-    io.to(roomId).emit('round-ended', meta.lastRoundSummary);
-    io.to(roomId).emit('matchFinished', Object.assign({}, meta.lastRoundSummary, {
-      final: false
-    }));
-
-    emitRoomState(roomId);
-
-    clearRoomTimers(roomId);
-    meta.roundResetTimerId = setTimeout(() => {
-      const currentMeta = roomMeta[roomId];
-      if (!currentMeta) return;
-      currentMeta.roundIndex += 1;
-      resetPlayersForNextRound(roomId);
-      currentMeta.roundResetTimerId = null;
-    }, ROUND_RESET_DELAY_MS);
   });
 
   socket.on('leave-room', () => {

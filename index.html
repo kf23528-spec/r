@@ -648,8 +648,32 @@ function onGunGlbReady(fn){
 }
 
 /* チームカラー適用 */
-function applyTeamColor(object, team){
+function normalizeAvatarMaterial(m, team){
+  if(!m) return;
   var tc = team === TEAM_RED ? TEAM_COLOR_RED : TEAM_COLOR_BLUE;
+  try {
+    if(m.color && m.color.setHex) m.color.setHex(tc.color);
+    if(m.emissive !== undefined){
+      m.emissive = new T.Color(tc.emissive);
+      m.emissiveIntensity = tc.emissiveIntensity;
+    }
+
+    // 透明化・アルファ由来の消失を強制的に無効化
+    m.transparent = false;
+    m.opacity = 1;
+    m.alphaTest = 0;
+    m.depthWrite = true;
+    m.depthTest = true;
+    m.side = T.DoubleSide;
+
+    if(m.map) m.map.needsUpdate = true;
+    if(m.alphaMap) m.alphaMap.needsUpdate = true;
+    if(m.emissiveMap) m.emissiveMap.needsUpdate = true;
+    m.needsUpdate = true;
+  } catch(e){}
+}
+
+function applyTeamColor(object, team){
   object.traverse(function(child){
     if(!child.isMesh) return;
     child.castShadow = true;
@@ -657,14 +681,7 @@ function applyTeamColor(object, team){
     child.frustumCulled = false;
     var mats = Array.isArray(child.material) ? child.material : [child.material];
     mats.forEach(function(m){
-      if(!m) return;
-      try {
-        if(m.emissive !== undefined){
-          m.emissive = new T.Color(tc.emissive);
-          m.emissiveIntensity = tc.emissiveIntensity;
-        }
-        m.needsUpdate = true;
-      } catch(e){}
+      normalizeAvatarMaterial(m, team);
     });
   });
 }
@@ -743,6 +760,12 @@ function makeRemoteAvatar(team, name){
     if(fbx){
       /* FBXクローン */
       var clone = fbx.clone(true);
+      clone.visible = true;
+      clone.traverse(function(child){
+        if(!child.isMesh) return;
+        child.visible = true;
+        child.frustumCulled = false;
+      });
       applyTeamColor(clone, team);
       correctionGroup.add(clone);
 

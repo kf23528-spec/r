@@ -5,10 +5,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <title>NEON ARENA – Online Multiplayer</title>
 
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/libs/fflate.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/FBXLoader.js"></script>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.module.js",
+    "three/examples/jsm/loaders/FBXLoader.js": "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/loaders/FBXLoader.js",
+    "three/examples/jsm/loaders/GLTFLoader.js": "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/loaders/GLTFLoader.js",
+    "three/examples/jsm/libs/fflate.module.min.js": "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/libs/fflate.module.min.js"
+  }
+}
+</script>
 <script src="https://cdn.socket.io/4.7.5/socket.io.min.js" crossorigin="anonymous"></script>
 
 <style>
@@ -282,8 +288,11 @@ input,button{-webkit-appearance:none;appearance:none}
     <div id="rotateOverlay">📱 画面を横向きにしてください</div>
   </div>
 </div>
+<script type="module">
+import * as THREE_NS from 'three';
+import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
-<script>
 (function(){
 'use strict';
 
@@ -316,15 +325,17 @@ var AI_HIT_BOX_HEIGHT = 1.8;
 var AI_HIT_BOX_HALF_W = 0.35;
 
 /* ================================================================
-   TEST AVATAR キャッシュ（TEST_AVATAR は完全無効化）
+   POLO.FBX キャッシュ（ES Modules / FBXLoader 方式）
    ================================================================ */
 var poloFbxTemplate = null;
-var poloFbxReady    = true;
+var poloFbxReady    = false;
 var poloFbxWaiters  = [];
 var gunGlbTemplate  = null;
 var gunGlbReady     = false;
 var gunGlbWaiters   = [];
 
+/* polo.fbx viewer と同じ縮尺ロジック：scale.setScalar(0.01) */
+var POLO_FBX_SCALE = 0.01;
 var POLO_ROT_Y = Math.PI;
 var POLO_ROT_X = 0;
 var POLO_ROT_Z = 0;
@@ -396,9 +407,10 @@ var randomBattleBtn = document.getElementById('randomBattleBtn');
 var randomCountdownWrap = document.getElementById('randomCountdownWrap');
 var randomCountdownNum = document.getElementById('randomCountdownNum');
 var randomCountdownFill = document.getElementById('randomCountdownFill');
+var waitingHint = document.getElementById('waitingHint');
 
-/* THREE.js setup */
-var T = window.THREE;
+/* THREE.js setup (ES Modules) */
+var T = THREE_NS;
 var renderer = new T.WebGLRenderer({canvas:canvas,antialias:true,alpha:false,powerPreference:'high-performance'});
 renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,1.75));
 renderer.setSize(window.innerWidth,window.innerHeight,false);
@@ -572,26 +584,45 @@ function isInteractiveTarget(el){return !!(el&&el.closest&&el.closest('button,in
 function addColliderBox(x,y,z,w,h,d,mesh){colliders.push({x:x,y:y,z:z,w:w,h:h,d:d,mesh:mesh||null});}
 
 /* ================================================================
-   ★修正① TEST_AVATAR ローダー
-   スケールを正しく計算: まず scale(1,1,1) でBBox計測 → 1.8mに正規化
+   ★ POLO.FBX ローダー（polo.fbx Viewer と同じ方式）
+   FBXLoader（ESモジュール）で 'polo.fbx' を読み込み、
+   scale.setScalar(0.01) で正規化。アニメーションは clips[0] を保持し、
+   makeRemoteAvatar 側で AnimationMixer を作って再生する。
    ================================================================ */
 function loadPoloFbx(){
-  // TEST_AVATAR は完全に使わず、必ず見えるプロシージャル人型を使う
-  console.log('[TEST AVATAR] TEST_AVATAR disabled. Using procedural avatar only.');
-  poloFbxReady = true;
-  poloFbxTemplate = null;
-  poloFbxWaiters = [];
+  var loader = new FBXLoader();
+  loader.load(
+    'polo.fbx',
+    function(fbx){
+      // polo.fbx Viewer と同じスケール正規化
+      fbx.scale.setScalar(POLO_FBX_SCALE);
+      poloFbxTemplate = fbx;
+      poloFbxReady = true;
+      poloFbxWaiters.forEach(function(fn){ fn(poloFbxTemplate); });
+      poloFbxWaiters = [];
+      console.log('[POLO] polo.fbx loaded. animations:', fbx.animations ? fbx.animations.length : 0);
+    },
+    undefined,
+    function(err){
+      console.warn('[POLO] polo.fbx load failed, falling back to procedural avatar:', err);
+      poloFbxReady = true;
+      poloFbxTemplate = null;
+      poloFbxWaiters.forEach(function(fn){ fn(null); });
+      poloFbxWaiters = [];
+    }
+  );
 }
 
 function onPoloReady(fn){
-  fn(null);
+  if(poloFbxReady){ fn(poloFbxTemplate); return; }
+  poloFbxWaiters.push(fn);
 }
 
 /* ================================================================
-   アバター用 ju.glb ローダー
+   アバター用 ju.glb ローダー（ESモジュール GLTFLoader）
    ================================================================ */
 function loadGunGlbForAvatars(){
-  var loader = new T.GLTFLoader();
+  var loader = new GLTFLoader();
   loader.load('ju.glb', function(gltf){
     gunGlbTemplate = gltf.scene;
     gunGlbReady = true;
@@ -838,7 +869,8 @@ function cloneGunForAvatar(){
 
 
 /* ================================================================
-   ★修正② makeRemoteAvatar - POLO.fbx 優先 + 失敗時フォールバック
+   ★ makeRemoteAvatar - polo.fbx 優先 + 失敗時フォールバック
+   polo.fbx Viewer と同じ方式：clips[0] を AnimationMixer で再生
    ================================================================ */
 function makeRemoteAvatar(team, name){
   var outer = new T.Group();
@@ -881,17 +913,12 @@ function makeRemoteAvatar(team, name){
       if(fbx.animations && fbx.animations.length > 0){
         var mixer = new T.AnimationMixer(clone);
 
+        // polo.fbx Viewer と同じ：clips[0] をそのまま使う
         var clip = fbx.animations[0];
-        for(var _ci = 0; _ci < fbx.animations.length; _ci++){
-          var _cn = (fbx.animations[_ci].name || '').toLowerCase();
-          if(_cn.indexOf('walk') !== -1 || _cn.indexOf('run') !== -1 || _cn.indexOf('idle') !== -1){
-            clip = fbx.animations[_ci];
-            break;
-          }
-        }
 
         var action = mixer.clipAction(clip);
         action.setLoop(T.LoopRepeat, Infinity);
+        action.clampWhenFinished = false;
         action.play();
 
         outer.userData._mixer  = mixer;
@@ -966,7 +993,7 @@ function attachGunToCamera(obj){
 }
 
 (function(){
-  var loader=new T.GLTFLoader();
+  var loader=new GLTFLoader();
   loader.load('ju.glb',function(gltf){
     var model=gltf.scene;
     model.name = 'gun-glb';
@@ -1395,7 +1422,7 @@ function updateAvatarHPBar(av,hp){
 function hashRoomSeed(room){var str=String(room||'0000'),h=2166136261>>>0;for(var i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,16777619);}return h>>>0;}
 function mulberry32(a){return function(){var t=a+=0x6D2B79F5;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return((t^t>>>14)>>>0)/4294967296;};}
 
-/* ★修正③ clearAIUnits - mixer を停止・破棄 */
+/* clearAIUnits - mixer を停止・破棄 */
 function clearAIUnits(){
   for(var i=0;i<aiUnits.length;i++){
     var u=aiUnits[i];
@@ -1530,7 +1557,7 @@ function updateAIUnit(unit,dt,nowSec){
   updateAvatarHPBar(unit.avatar,unit.hp);
 }
 
-/* ★修正④ updateAI - mixer.update(dt) を追加 */
+/* updateAI - mixer.update(dt) を追加 */
 function updateAI(dt){
   if(gameMode!==GAME_MODE.BATTLE&&gameMode!==GAME_MODE.SPECTATE)return;
   if(!aiUnits.length)return;
@@ -1538,7 +1565,7 @@ function updateAI(dt){
   aiClock = roundTimerMs / 1000;
   for(var i=0;i<aiUnits.length;i++) updateAIUnit(aiUnits[i], dt, aiClock);
 
-  /* ── ★ AnimationMixer 更新 ── */
+  /* ── AnimationMixer 更新 ── */
   for(var _mi=0; _mi<aiUnits.length; _mi++){
     var _mu=aiUnits[_mi];
     if(_mu && _mu.avatar && _mu.avatar.userData._mixer){
@@ -2042,7 +2069,7 @@ function initSocket(){
   socket.on('match-start-cancelled',function(data){if(data&&data.room&&currentRoom&&data.room!==currentRoom)return;battleBeginLock=false;roomStarted=false;if(inWaiting){gameMode=GAME_MODE.WAITING;setModeUI();updateWaitingUI();}});
 }
 
-/* ★修正⑤ メインループ - spectate中もmixer更新 */
+/* メインループ - spectate中もmixer更新 */
 function animate(){
   requestAnimationFrame(animate);
   var dt=Math.min(clock.getDelta(),0.034);

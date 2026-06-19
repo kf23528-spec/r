@@ -836,8 +836,9 @@ function cloneGunForAvatar(){
   return clone;
 }
 
+
 /* ================================================================
-   ★修正② makeRemoteAvatar - AnimationMixer を追加
+   ★修正② makeRemoteAvatar - POLO.fbx 優先 + 失敗時フォールバック
    ================================================================ */
 function makeRemoteAvatar(team, name){
   var outer = new T.Group();
@@ -858,38 +859,72 @@ function makeRemoteAvatar(team, name){
   hpBar.name = 'hpBar';
   outer.add(hpBar);
 
-  // TEST_AVATAR は使わず、必ず見えるテスト人型を直接生成
+  /* キャラクター本体 */
   var correctionGroup = new T.Group();
   correctionGroup.rotation.set(POLO_ROT_X, POLO_ROT_Y, POLO_ROT_Z);
   outer.add(correctionGroup);
 
-  var avatar = buildProceduralAvatar(team);
-  avatar.visible = true;
-  correctionGroup.add(avatar);
+  onPoloReady(function(fbx){
+    if(fbx){
+      var clone = fbx.clone(true);
+      clone.visible = true;
+      clone.traverse(function(child){
+        if(!child.isMesh) return;
+        child.visible = true;
+        child.castShadow = true;
+        child.receiveShadow = true;
+        child.frustumCulled = false;
+      });
+      applyTeamColor(clone, team);
+      correctionGroup.add(clone);
 
-  // これがないとスマホで薄く見える場合があるので念押し
-  correctionGroup.traverse(function(child){
-    if(!child.isMesh) return;
-    child.visible = true;
-    child.castShadow = true;
-    child.receiveShadow = true;
-    child.frustumCulled = false;
-  });
+      if(fbx.animations && fbx.animations.length > 0){
+        var mixer = new T.AnimationMixer(clone);
 
-  /* 銃を右手位置に追加 */
-  onGunGlbReady(function(){
-    var gunGroup = new T.Group();
-    gunGroup.name = 'avatarGun';
-    gunGroup.position.set(AVATAR_GUN_POS.x, AVATAR_GUN_POS.y, AVATAR_GUN_POS.z);
-    gunGroup.rotation.set(AVATAR_GUN_ROT.x, AVATAR_GUN_ROT.y, AVATAR_GUN_ROT.z);
-    gunGroup.scale.setScalar(AVATAR_GUN_SCALE);
-    gunGroup.add(cloneGunForAvatar());
-    correctionGroup.add(gunGroup);
+        var clip = fbx.animations[0];
+        for(var _ci = 0; _ci < fbx.animations.length; _ci++){
+          var _cn = (fbx.animations[_ci].name || '').toLowerCase();
+          if(_cn.indexOf('walk') !== -1 || _cn.indexOf('run') !== -1 || _cn.indexOf('idle') !== -1){
+            clip = fbx.animations[_ci];
+            break;
+          }
+        }
+
+        var action = mixer.clipAction(clip);
+        action.setLoop(T.LoopRepeat, Infinity);
+        action.play();
+
+        outer.userData._mixer  = mixer;
+        outer.userData._action = action;
+        console.log('[POLO] mixer started, clip=' + (clip.name || '(unnamed)') + ' dur=' + clip.duration.toFixed(2) + 's');
+      }
+    }else{
+      var avatar = buildProceduralAvatar(team);
+      avatar.visible = true;
+      correctionGroup.add(avatar);
+      correctionGroup.traverse(function(child){
+        if(!child.isMesh) return;
+        child.visible = true;
+        child.castShadow = true;
+        child.receiveShadow = true;
+        child.frustumCulled = false;
+      });
+    }
+
+    /* 銃を右手位置に追加 */
+    onGunGlbReady(function(){
+      var gunGroup = new T.Group();
+      gunGroup.name = 'avatarGun';
+      gunGroup.position.set(AVATAR_GUN_POS.x, AVATAR_GUN_POS.y, AVATAR_GUN_POS.z);
+      gunGroup.rotation.set(AVATAR_GUN_ROT.x, AVATAR_GUN_ROT.y, AVATAR_GUN_ROT.z);
+      gunGroup.scale.setScalar(AVATAR_GUN_SCALE);
+      gunGroup.add(cloneGunForAvatar());
+      correctionGroup.add(gunGroup);
+    });
   });
 
   /* ネームタグ */
   ensureNameTag(outer, name||'PLAYER', team);
-
   return outer;
 }
 
@@ -2029,7 +2064,7 @@ function init(){
   loadRank();setMatchMode('ranked',false);updateRankUI();updateScoreUI();updateAmmoUI();updatePlayerHPUI();updateOrientationUI();
   buildMap();gameMode=GAME_MODE.LOBBY;camera.position.set(0,16,33);camera.lookAt(0,0,0);
   setModeUI();setRoomInputValid();updateRoomUI();onlineCountEl.textContent='👥 同室: 1人';
-  // loadPoloFbx(); // TEST_AVATAR は完全に無効化
+  loadPoloFbx();
   loadGunGlbForAvatars();
   initSocket();animate();
 }

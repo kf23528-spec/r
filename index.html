@@ -336,8 +336,13 @@ var gunGlbTemplate  = null;
 var gunGlbReady     = false;
 var gunGlbWaiters   = [];
 
-/* polo.fbx viewer と同じ縮尺ロジック：scale.setScalar(0.01) */
+/* FIX: 固定スケール(0.01)は polo.fbx のエクスポート設定によって
+   身長が合わない/合いすぎないケースがあるため、ロード直後に実際の
+   バウンディングサイズを測定し、目標身長(POLO_TARGET_HEIGHT)に
+   合わせて自動でスケールを計算する方式に変更する。
+   POLO_FBX_SCALE は計算に失敗した場合のフォールバック値として残す。 */
 var POLO_FBX_SCALE = 0.01;
+var POLO_TARGET_HEIGHT = 1.78; // 見た目上の目標身長(m)。プレイヤーカメラ高さ(1.6)より少し高めにして自然な一人称視点にする
 var POLO_ROT_Y = Math.PI;
 var POLO_ROT_X = 0;
 var POLO_ROT_Z = 0;
@@ -596,18 +601,44 @@ function loadPoloFbx(){
   loader.load(
     'polo.fbx',
     function(fbx){
-      // polo.fbx Viewer と同じスケール正規化
-      fbx.scale.setScalar(POLO_FBX_SCALE);
+      // FIX: 固定の 0.01 スケールではモデルのエクスポート単位次第で
+      // 身長が合わないことがあるため、まずスケール1のままバウンディング
+      // ボックスを測定し、実際の高さ(size.y)から目標身長に必要な
+      // スケール係数を逆算する。
+      fbx.scale.setScalar(1);
+      fbx.updateMatrixWorld(true);
+
+      var rawBox = new T.Box3().setFromObject(fbx);
+      var rawSize = new T.Vector3();
+      rawBox.getSize(rawSize);
+      var rawHeight = rawSize.y;
+
+      var finalScale = POLO_FBX_SCALE; // フォールバック
+      if(Number.isFinite(rawHeight) && rawHeight > 0.0001){
+        var computed = POLO_TARGET_HEIGHT / rawHeight;
+        // 異常値(NaN/極端な値)を弾いて安全範囲にクランプ
+        if(Number.isFinite(computed) && computed > 0.00001 && computed < 1000){
+          finalScale = computed;
+        }
+      }
+
+      fbx.scale.setScalar(finalScale);
       // FIX: 読み込んだ直後にワールド行列とバインド行列を確定させる。
       // これをやらないと、後で SkeletonUtils.clone() するときに
       // ボーンの matrixWorld が古い(未更新)状態のままコピーされ、
       // クローン後のスキニング計算がズレて巨大化/伸びの原因になる。
       fbx.updateMatrixWorld(true);
+
+      // 最終チェック: スケール後の高さが目標とどれだけ近いかログに残す
+      var checkBox = new T.Box3().setFromObject(fbx);
+      var checkSize = new T.Vector3();
+      checkBox.getSize(checkSize);
+
       poloFbxTemplate = fbx;
       poloFbxReady = true;
       poloFbxWaiters.forEach(function(fn){ fn(poloFbxTemplate); });
       poloFbxWaiters = [];
-      console.log('[POLO] polo.fbx loaded. animations:', fbx.animations ? fbx.animations.length : 0);
+      console.log('[POLO] polo.fbx loaded. rawHeight=' + rawHeight.toFixed(3) + ' appliedScale=' + finalScale.toFixed(5) + ' finalHeight=' + checkSize.y.toFixed(3) + ' animations:', fbx.animations ? fbx.animations.length : 0);
     },
     undefined,
     function(err){
@@ -1125,6 +1156,12 @@ function resetTouchAndInputState(){
   setADS(false);
 }
 
+// FIX: server.js の playerState ハンドラは座標(x/y/z/ry)以外の
+// フィールド(alive/hp/round/blue/red等)を一切信用しない設計になっている
+// (サーバー側コメント: "alive/hp はサーバーの値をそのまま使う")。
+// そのため、ここから送るのは座標同期に必要な情報のみに絞る。
+// alive/hp/round/blue/red をクライアントから送ってもサーバーには
+// 反映されないが、誤解を避けるため送信自体をやめる。
 function syncRoundStateToRoom(extra){
   if(!socket || !socket.connected || !currentRoom) return;
   var payload = Object.assign({
@@ -1134,16 +1171,7 @@ function syncRoundStateToRoom(extra){
     x: camera.position.x,
     y: camera.position.y,
     z: camera.position.z,
-    ry: yaw,
-    alive: player.alive,
-    hp: player.hp,
-    round: roundIndex,
-    blue: blueScore,
-    red: redScore,
-    spectating: !!player.spectating,
-    phase: gameMode,
-    aiSeed: aiMatchSeed,
-    aiStart: aiMatchStart
+    ry: yaw
   }, extra || {});
   socket.emit('playerState', payload);
   socket.emit('playerMovement', payload);
@@ -1329,17 +1357,35 @@ function addKillFeed(text){var d=document.createElement('div');d.className='kfIt
 function flashHitIndicator(){hitIndicator.classList.add('active');setTimeout(function(){hitIndicator.classList.remove('active');},120);}
 function showKillAnnouncement(text){announceEl.textContent=text||'HIT!';announceEl.classList.remove('show');void announceEl.offsetWidth;announceEl.classList.add('show');}
 
-/* ラウンド管理 */
-function getAliveCounts(){
-  var c={blue:0,red:0};
-  Object.keys(roomPlayers||{}).forEach(function(id){var p=roomPlayers[id];if(!p||p.alive===false)return;if((p.team||TEAM_BLUE)===TEAM_RED)c.red++;else c.blue++;});
-  for(var i=0;i<aiUnits.length;i++){var u=aiUnits[i];if(!u||!u.alive)continue;if(u.team===TEAM_RED)c.red++;else c.blue++;}
-  if(socket&&socket.id&&roomPlayers[socket.id]&&roomPlayers[socket.id].alive!==false){
-    if((roomPlayers[socket.id].team||TEAM_BLUE)===TEAM_RED)c.red=Math.max(c.red,1);else c.blue=Math.max(c.blue,1);
-  }
-  return c;
-}
-function getWinnerByElimination(){var c=getAliveCounts();if(c.blue===0&&c.red===0)return'';if(c.blue===0)return TEAM_RED;if(c.red===0)return TEAM_BLUE;return'';}
+/* ================================================================
+   ラウンド管理
+   FIX(重要): 以前はクライアント側でも「生存数を数えて勝敗を決め、
+   スコアを加算してサーバーに scoreUpdate/enemyKilledAck/matchFinished
+   を送り返す」処理(getAliveCounts/getWinnerByElimination/
+   endRoundByWinner/clearRoundIfNeededFromStates)が残っていた。
+
+   server.js 側はすでに完全にサーバー権威でラウンド終了・スコア・
+   試合終了を管理しており(checkRoundEndCondition/resolveRound)、
+   scoreUpdate / round-ended / round-started / round-reset /
+   matchFinished を一斉配信してくる。
+
+   クライアントが同時に同じ判定をローカルでも行い、さらにサーバーへ
+   イベントを送り返してしまうと、
+   - 自分の画面では「ローカル判定→表示→サーバーの結果で上書き」が
+     短時間に連続して起こり、勝利表示が一瞬で出て消える
+   - 相手の画面はサーバーの正しい結果を受け取るタイミングが
+     ローカル判定とズレるため、スコア/ラウンド表示が不整合になる
+   - 5点に達した後の matchFinished がクライアントからも送られるため、
+     サーバー側の最終結果と競合し、resultShown 等のフラグの状態次第で
+     試合終了が表示されないことがある
+   という問題を引き起こしていた。
+
+   そのため、ここからはクライアントはラウンド/試合の勝敗を
+   一切ローカルで判定しない。生存数のチェックも、スコア加算も、
+   ラウンド番号の更新も行わない。サーバーから来る
+   round-ended / round-started / round-reset / scoreUpdate /
+   matchFinished を受け取って画面に反映するだけにする。
+   ================================================================ */
 function resetRoundState(){
   roundResolved=false;matchOver=false;player.alive=true;player.spectating=false;spectateTargetId='';
   player.hp=player.maxHp=100;ammo=MAG_SIZE;reloading=false;reloadTimer=0;
@@ -1356,41 +1402,17 @@ function resetRoundState(){
   resetAIForRound();updatePlayerHPUI();updateAmmoUI();if(gunRoot)gunRoot.visible=true;spectateOverlay.style.display='none';
   syncRoundStateToRoom({alive:true,hp:100,phase:GAME_MODE.BATTLE});
 }
+// FIX: showResult はサーバーからの matchFinished 受信時にのみ呼ばれる
+// (showFinalResultByServer 経由)。ローカルでの勝敗計算では呼ばない。
 function showResult(wt){if(resultShown)return;resultShown=true;matchOver=true;gameMode=GAME_MODE.RESULT;setModeUI();resultOverlay.style.display='flex';resultTextEl.textContent=wt===TEAM_BLUE?'BLUE WINS':'RED WINS';resultSubEl.textContent='LOADING BACK TO THE HUB...';}
-function endRoundByWinner(wt,src){
-  if(roundResolved||!wt)return;roundResolved=true;
-  if(wt===TEAM_BLUE)blueScore++;else redScore++;roundIndex++;
-  updateScoreUI();
-  showKillAnnouncement(wt===TEAM_BLUE?'BLUE ROUND':'RED ROUND');
-  addKillFeed((wt===TEAM_BLUE?'🔵 ':'🔴 ')+'ROUND WIN');
+// FIX: ラウンド終了の見た目処理(アナウンス表示等)はサーバーの
+// round-ended イベント受信時に呼ばれる(handleServerRoundEnded)。
+// スコア加算・ラウンド番号更新は一切しない。表示効果のみ。
+function playRoundEndFx(winnerTeam){
+  showKillAnnouncement(winnerTeam===TEAM_BLUE?'BLUE ROUND':(winnerTeam===TEAM_RED?'RED ROUND':'ROUND END'));
+  addKillFeed((winnerTeam===TEAM_BLUE?'🔵 ':(winnerTeam===TEAM_RED?'🔴 ':'⚪ '))+'ROUND WIN');
   flashHitIndicator();
-  if(socket&&socket.connected){
-    socket.emit('scoreUpdate',{room:currentRoom,blue:blueScore,red:redScore,round:roundIndex,source:src||'client'});
-    socket.emit('enemyKilledAck',{room:currentRoom,blue:blueScore,red:redScore,round:roundIndex,source:src||'client'});
-  }
-  if(matchMode==='ranked')addRankXp(20);
-  if(blueScore>=WIN_SCORE||redScore>=WIN_SCORE){
-    setTimeout(function(){
-      if(socket&&socket.connected)socket.emit('matchFinished',{room:currentRoom,blue:blueScore,red:redScore,round:roundIndex,winner:blueScore>=WIN_SCORE?TEAM_BLUE:TEAM_RED});
-      showResult(blueScore>=WIN_SCORE?TEAM_BLUE:TEAM_RED);
-    },900); return;
-  }
-  setTimeout(function(){
-    if(matchOver)return;
-    gameMode=GAME_MODE.LOADING;setModeUI();loadingTextEl.textContent='SYNCING';loadingSubEl.textContent='次のラウンドを準備中...';loadingOverlay.style.display='flex';
-    setTimeout(function(){
-      resetRoundState();gameMode=GAME_MODE.BATTLE;setModeUI();loadingOverlay.style.display='none';
-      camera.position.copy(getSpawnForTeam(player.team));
-      if(player.team===TEAM_RED)yaw=0;else yaw=Math.PI;pitch=0;syncCameraRotation();
-      if(socket&&socket.id&&roomPlayers[socket.id]){
-        roomPlayers[socket.id].alive=true; roomPlayers[socket.id].hp=100;
-        roomPlayers[socket.id].x=camera.position.x; roomPlayers[socket.id].y=camera.position.y; roomPlayers[socket.id].z=camera.position.z; roomPlayers[socket.id].ry=yaw;
-      }
-      if(socket&&socket.connected)socket.emit('playerState',{room:currentRoom,alive:true,hp:100});
-    },900);
-  },900);
 }
-function clearRoundIfNeededFromStates(){if(gameMode!==GAME_MODE.BATTLE||roundResolved||matchOver)return;var w=getWinnerByElimination();if(w)endRoundByWinner(w,'state-check');}
 
 /* ================================================================
    ネームタグ (Sprite)
@@ -1540,6 +1562,14 @@ function aiCanSee(unit,targetPos){
   for(var i=0;i<colliders.length;i++){if(raySegmentHitsBox(from,to,colliders[i]))return false;}
   return true;
 }
+// FIX: AIによる攻撃も、ダメージ確定はサーバー(ai-attack→damage-result)に
+// 委ねる。以前はここでローカルに player.hp や roomPlayers[...].hp / alive
+// を直接書き換え、さらに enemyKilledAck を送ってスコア相当の処理にも
+// 介入していたため、複数クライアントの判定がズレてラウンドが
+// 正しく終わらない/相手画面に反映されない原因になっていた。
+// 各クライアントはAIの動きを独立にシミュレートしているので、
+// 「攻撃の意図(このAIがこの相手を狙った)」だけをサーバーに伝え、
+// 実際にダメージが乗るかどうか・誰のHPが減るかはサーバーが決める。
 function damageEntityFromAI(unit,target,dist,nowSec){
   if(nowSec<unit.lastShotAt+0.45)return;
   unit.lastShotAt=nowSec; unit.fireCooldown=nowSec+0.7+unit.rng()*1.1;
@@ -1551,19 +1581,18 @@ function damageEntityFromAI(unit,target,dist,nowSec){
   var acc=clamp01(1-(dist/34))*0.85+0.10; if(unit.rng()>acc && dist>10)return;
   var myId=socket&&socket.id?socket.id:'__local__';
   if(target.type==='human'){
+    // 見た目のヒットエフェクトは即時に出して気持ちよさを保つが、
+    // HP/alive の確定はサーバーからの damage-result を待つ。
     if(target.id===myId){
-      player.hp=Math.max(0,player.hp-AI_DAMAGE_PER_HIT);updatePlayerHPUI();flashHitIndicator();showKillAnnouncement('HIT!');
-      if(player.hp<=0)setLocalDeath();
+      flashHitIndicator(); showKillAnnouncement('HIT!');
     }
-    if(roomPlayers[target.id]){roomPlayers[target.id].alive=false;roomPlayers[target.id].hp=0;applyRemoteState(target.id,roomPlayers[target.id]);}
-    updatePlayerStateToRoom({targetId:target.id,alive:false,hp:0,fromAI:true});
-    if(socket&&socket.connected)socket.emit('enemyKilledAck',{room:currentRoom,blue:blueScore,red:redScore,round:roundIndex,fromAI:true});
+    if(socket&&socket.connected){
+      socket.emit('ai-attack',{room:currentRoom,aiId:unit.id,targetId:target.id});
+    }
   }else if(target.type==='ai'){
-    for(var k=0;k<aiUnits.length;k++){
-      var tu=aiUnits[k]; if(!tu||tu.id!==target.id||!tu.alive)continue;
-      tu.hp=Math.max(0,tu.hp-40); updateAvatarHPBar(tu.avatar,tu.hp);
-      if(tu.hp<=0){tu.alive=false;tu.avatar.visible=false;flashKillFx(new T.Vector3(tu.x,1.0,tu.z));}
-      clearRoundIfNeededFromStates(); break;
+    flashKillFx(new T.Vector3(target.pos.x,1.0,target.pos.z));
+    if(socket&&socket.connected){
+      socket.emit('ai-attack',{room:currentRoom,aiId:unit.id,targetId:target.id});
     }
   }
 }
@@ -1740,12 +1769,14 @@ function checkLocalShotHit(origin,dir){
   }
   return nearest;
 }
+// FIX: 当たり判定(レイキャスト)はクライアントでローカルに行うが、
+// ダメージの確定・HP変更・撃破判定はサーバー(damage-result)が唯一の
+// 真実になる。ここではローカルでHPを変更せず、ヒットの見た目FXだけを
+// 出し、実際のダメージ確定要求は呼び出し元(fireOnce)が playerShoot で
+// サーバーに送る。
 function applyLocalShotHit(hitInfo,point){
   var u=hitInfo.unit; if(!u||!u.alive)return;
-  u.hp=Math.max(0,u.hp-25); updateAvatarHPBar(u.avatar,u.hp);
   flashKillFx(point); addKillFeed('💥 AI HIT!'); showKillAnnouncement('HIT!');
-  if(u.hp<=0){ u.alive=false; u.avatar.visible=false; flashKillFx(point); addKillFeed('💀 AI KILL!'); showKillAnnouncement('AI KILL!'); }
-  clearRoundIfNeededFromStates();
 }
 
 function fireOnce(){
@@ -1763,25 +1794,37 @@ function fireOnce(){
     if(shotBullet){shotBullet.pos.copy(hitInfo.point);shotBullet.prev.copy(hitInfo.point);if(shotBullet.mesh)shotBullet.mesh.position.copy(hitInfo.point);shotBullet.life=0.08;}
     if(hitInfo.type==='obstacle'){flashKillFx(hitInfo.point);return;}
     if(hitInfo.type==='human'){
+      // FIX: ダメージ確定はサーバーに委ねる。ローカルでHPやaliveを
+      // 直接書き換えたり applyRemoteState を呼んだりしない。
+      // 結果は damage-result イベントで全クライアントに同じ内容が
+      // 配信されてくるので、それを待って画面に反映する。
       if(socket&&socket.connected){
         socket.emit('playerShoot',{room:currentRoom,ox:rayOrigin.x,oy:rayOrigin.y,oz:rayOrigin.z,dx:dir.x,dy:dir.y,dz:dir.z,targetId:hitInfo.id,team:player.team||TEAM_BLUE});
-        roomPlayers[hitInfo.id]=roomPlayers[hitInfo.id]||{team:hitInfo.team,alive:true,name:hitInfo.id,room:currentRoom};
-        var nextHp=Math.max(0,Number.isFinite(roomPlayers[hitInfo.id].hp)?roomPlayers[hitInfo.id].hp:100);
-        nextHp=Math.max(0,nextHp-DAMAGE_PER_BULLET);
-        roomPlayers[hitInfo.id].hp=nextHp; roomPlayers[hitInfo.id].alive=nextHp>0;
-        applyRemoteState(hitInfo.id,roomPlayers[hitInfo.id]); updatePlayerStateToRoom({targetId:hitInfo.id,alive:nextHp>0,hp:nextHp});
-        flashHitIndicator(); flashKillFx(hitInfo.point); addKillFeed(nextHp>0?'💥 HIT!':'💥 KILL!'); showKillAnnouncement('HIT!');
-        clearRoundIfNeededFromStates();
+        flashHitIndicator(); flashKillFx(hitInfo.point); addKillFeed('💥 HIT!'); showKillAnnouncement('HIT!');
       }
       return;
     }
-    if(hitInfo.type==='ai'){applyLocalShotHit(hitInfo,hitInfo.point);return;}
+    if(hitInfo.type==='ai'){
+      applyLocalShotHit(hitInfo,hitInfo.point);
+      // FIX: AIユニットへのダメージもサーバー権威にするため、
+      // targetId にAIのIDを入れて playerShoot を送る。
+      // server.js 側はAI IDなら findAIUnit でAIユニットとして処理する。
+      if(socket&&socket.connected&&hitInfo.unit&&hitInfo.unit.id){
+        socket.emit('playerShoot',{room:currentRoom,ox:rayOrigin.x,oy:rayOrigin.y,oz:rayOrigin.z,dx:dir.x,dy:dir.y,dz:dir.z,targetId:hitInfo.unit.id,team:player.team||TEAM_BLUE});
+      }
+      return;
+    }
   }else if(socket&&socket.connected){
     socket.emit('playerShot',{room:currentRoom,ox:rayOrigin.x,oy:rayOrigin.y,oz:rayOrigin.z,dx:dir.x,dy:dir.y,dz:dir.z,team:player.team||TEAM_BLUE});
   }
 }
 
 /* 弾更新 */
+// FIX: ここで処理する弾は見た目用(他プレイヤー/AIが撃った弾の軌跡表示)。
+// 実際にダメージが入るかどうかはサーバー側の playerShoot / ai-attack
+// 判定で決まり、結果は damage-result として降ってくる。
+// そのため、ここでは「弾が自分に当たって見えた」ときに見た目の
+// ヒットエフェクトだけ出し、HPやalive、setLocalDeath は呼ばない。
 function updateBullets(dt){
   var myId=socket&&socket.id?socket.id:'local';
   for(var i=bullets.length-1;i>=0;i--){
@@ -1795,17 +1838,11 @@ function updateBullets(dt){
       var hit=false;
       for(var c=0;c<colliders.length;c++){if(hitPointInBox(b.pos,colliders[c])){hit=true;break;}}
       if(hit||Math.abs(b.pos.x)>MAP_BORDER+2||Math.abs(b.pos.z)>MAP_BORDER+2){flashKillFx(b.pos);b.dead=true;if(b.mesh&&b.mesh.parent)b.mesh.parent.remove(b.mesh);b.mesh=null;bullets.splice(i,1);continue;}
-      var hm=bulletHitsAvatar(b.prev,b.pos,camera.position.clone());
-      if(hm&&player.alive&&gameMode===GAME_MODE.BATTLE){
-        player.hp=Math.max(0,player.hp-DAMAGE_PER_BULLET);updatePlayerHPUI();flashHitIndicator();showKillAnnouncement('HIT!');
-        if(player.hp<=0)setLocalDeath();
-      }
     }else if(Math.abs(b.pos.x)>MAP_BORDER+2||Math.abs(b.pos.z)>MAP_BORDER+2){b.dead=true;if(b.mesh&&b.mesh.parent)b.mesh.parent.remove(b.mesh);b.mesh=null;bullets.splice(i,1);}
   }
 }
 
 /* スペクテイト / 死亡 */
-function setLocalDeath(){if(!player.alive)return;player.alive=false;player.hp=0;updatePlayerHPUI();addKillFeed('💀 YOU DIED');flashHitIndicator();if(socket&&socket.id&&roomPlayers[socket.id]){roomPlayers[socket.id].alive=false;roomPlayers[socket.id].hp=0;}updatePlayerStateToRoom({alive:false,hp:0});enterSpectate();}
 function enterSpectate(){player.spectating=true;gameMode=GAME_MODE.SPECTATE;setModeUI();spectateTargetId='';spectateOverlay.style.display='block';if(gunRoot)gunRoot.visible=false;}
 function getSpectateTargetState(){
   var sid=spectateTargetId;
@@ -1914,8 +1951,7 @@ function startRound(data){
   gameMode=GAME_MODE.BATTLE; setModeUI();
   loadingOverlay.style.display='none'; resultOverlay.style.display='none'; spectateOverlay.style.display='none';
   roomPlayers[socket&&socket.id?socket.id:'__local__']=Object.assign({},roomPlayers[socket&&socket.id?socket.id:'__local__']||{},{name:PLAYER_NAME,team:player.team||TEAM_BLUE,room:currentRoom,x:camera.position.x,y:camera.position.y,z:camera.position.z,ry:yaw,alive:true,hp:100});
-  if(socket&&socket.connected)socket.emit('playerState',{room:currentRoom,alive:true,hp:100,round:roundIndex,blue:blueScore,red:redScore,phase:GAME_MODE.BATTLE,x:camera.position.x,y:camera.position.y,z:camera.position.z,ry:yaw});
-  syncRoundStateToRoom({alive:true,hp:100,round:roundIndex,blue:blueScore,red:redScore,phase:GAME_MODE.BATTLE});
+  syncRoundStateToRoom();
 }
 function showFinalResultByServer(data){
   if(resultShown)return;resultShown=true;matchOver=true;battleBeginLock=true;gameMode=GAME_MODE.RESULT;setModeUI();resultOverlay.style.display='flex';
@@ -1928,16 +1964,18 @@ function showFinalResultByServer(data){
     setModeUI();setRoomInputValid();
   },2500);
 }
-function updateRoundIfEnded(){if(gameMode!==GAME_MODE.BATTLE||roundResolved||matchOver)return;var w=getWinnerByElimination();if(w)endRoundByWinner(w,'state-sync');}
-function updateRoundTimer(dt){
-  if(gameMode!==GAME_MODE.BATTLE||roundResolved||matchOver)return;
-  roundTimerMs+=dt*1000;
-  if(roundTimerMs>=ROUND_TIME_LIMIT_MS){
-    var c=getAliveCounts(); var w='';
-    if(c.blue>c.red)w=TEAM_BLUE; else if(c.red>c.blue)w=TEAM_RED; else w=(player.team||TEAM_BLUE)===TEAM_BLUE?TEAM_BLUE:TEAM_RED;
-    endRoundByWinner(w,'time-limit');
-  }
-}
+// FIX: ラウンドの勝敗判定・タイムアウト判定は server.js が
+// startRoundTimer / resolveRound で完全に行っている
+// (ROUND_DURATION_MS=180000ms 経過で 'timeout' 終了、
+//  生存0人で 'elimination' 終了)。
+// クライアントはサーバーから来る round-timer イベントの
+// remainingMs/remainingSec を使って残り時間表示を更新するだけにする。
+// 以前のようにクライアント側でも同じ180秒タイマーを独立に走らせて
+// 勝敗を決めてしまうと、サーバーとのタイマーのズレ次第で
+// 「自分の画面だけ先に(あるいは後に)ラウンドが終わる」ことになるため、
+// この関数は何もしない(残し場所だけ確保)。
+function updateRoundIfEnded(){ /* no-op: サーバーの round-ended を待つ */ }
+function updateRoundTimer(dt){ /* no-op: 残り時間表示は round-timer イベント側で更新する */ }
 function showResultFromMatchFinished(data){
   if(data&&data.room&&currentRoom&&data.room!==currentRoom)return;
   if(Number.isFinite(data.blue))blueScore=data.blue;if(Number.isFinite(data.red))redScore=data.red;if(Number.isFinite(data.round))roundIndex=data.round;
@@ -2072,59 +2110,158 @@ function initSocket(){
   }
   socket.on('playerMoved',handleRemoteMovement);
   socket.on('playerMovement',handleRemoteMovement);
+  // FIX: playerShot / playerShotFX はサーバーが中継する見た目FX専用
+  // イベント(マズルフラッシュ・弾の軌跡)。ダメージ判定には使わない。
   socket.on('playerShot',function(d){if(!d||(socket&&d.id===socket.id))return;spawnRemoteShotFX(d);});
   socket.on('playerShotFX',function(d){if(!d||(socket&&d.id===socket.id))return;spawnRemoteShotFX(d);});
-  socket.on('playerShoot',function(d){
-    if(!d)return; if(d.room&&currentRoom&&d.room!==currentRoom)return;
-    if(socket&&d.id===socket.id)return;
-    spawnRemoteShotFX(d); if(!d.targetId)return;
-    var tid=d.targetId;
-    if(socket&&tid===socket.id){if(player.alive){player.hp=0;updatePlayerHPUI();setLocalDeath();}return;}
-    roomPlayers[tid]=roomPlayers[tid]||{team:d.targetTeam||TEAM_RED,alive:true,name:d.targetName||tid,room:currentRoom};
-    roomPlayers[tid].alive=false; roomPlayers[tid].hp=0;
-    applyRemoteState(tid,roomPlayers[tid]); if(remoteStates[tid]){remoteStates[tid].alive=false;remoteStates[tid].hp=0;}
-    updateRoundIfEnded(); if(inWaiting)updateWaitingUI();
+
+  // ============================================================
+  // FIX(重要): damage-result がダメージ確定の唯一の入口になる。
+  // サーバーが「誰が誰に何ダメージ与えてHPがいくつになったか」を
+  // 部屋の全員(撃った本人含む)に同じ内容で配信してくるので、
+  // 受け取った内容をそのまま画面に反映する。
+  // これにより撃った側と撃たれた側のHP表示が必ず一致する。
+  // ============================================================
+  socket.on('damage-result',function(d){
+    if(!d||(d.room&&currentRoom&&d.room!==currentRoom))return;
+    if(d.targetType==='human'){
+      var tid=d.targetId;
+      roomPlayers[tid]=roomPlayers[tid]||{team:d.team||TEAM_BLUE,alive:true,name:tid,room:currentRoom};
+      roomPlayers[tid].hp=d.hp; roomPlayers[tid].alive=d.alive!==false;
+      if(remoteStates[tid]){remoteStates[tid].hp=d.hp;remoteStates[tid].alive=d.alive!==false;}
+      if(socket&&tid===socket.id){
+        // 自分が被弾した場合はローカルのHP/alive表示を更新
+        player.hp=Number.isFinite(d.hp)?d.hp:player.hp;
+        updatePlayerHPUI();
+        if(d.alive===false||player.hp<=0){
+          if(player.alive){addKillFeed('💀 YOU DIED');}
+          player.alive=false; player.hp=0; updatePlayerHPUI();
+          if(gameMode===GAME_MODE.BATTLE) enterSpectate();
+        }else{
+          flashHitIndicator();
+        }
+      }else{
+        applyRemoteState(tid,roomPlayers[tid]);
+        if(d.alive===false){flashKillFx(remoteAvatars.has(tid)?remoteAvatars.get(tid).position.clone():new T.Vector3());}
+      }
+    }else if(d.targetType==='ai'){
+      for(var i=0;i<aiUnits.length;i++){
+        var u=aiUnits[i]; if(!u||u.id!==d.targetId)continue;
+        u.hp=Number.isFinite(d.hp)?d.hp:u.hp; u.alive=d.alive!==false;
+        if(u.avatar){updateAvatarHPBar(u.avatar,u.hp); if(!u.alive)u.avatar.visible=false;}
+        break;
+      }
+    }
+    if(inWaiting)updateWaitingUI();
+  });
+  socket.on('player-died',function(d){
+    if(!d||(d.room&&currentRoom&&d.room!==currentRoom))return;
+    if(d.targetType==='human'&&!(socket&&d.targetId===socket.id)){
+      addKillFeed('💥 KILL!'); showKillAnnouncement('KILL!');
+    }
+  });
+
+  // ============================================================
+  // FIX: ラウンド・スコア・試合終了は全てサーバーが権威を持つ。
+  // round-ended でラウンド結果の見た目演出だけ行い、
+  // scoreUpdate でスコア/ラウンド番号の表示を更新し、
+  // round-reset / round-started で次のラウンドの復活処理を行い、
+  // matchFinished で最終結果を表示する。
+  // クライアントはこれらの受信内容をそのまま信じて表示するだけで、
+  // 自分で勝敗を計算したりサーバーへ結果を送り返したりしない。
+  // ============================================================
+  socket.on('round-ended',function(data){
+    if(!data||(data.room&&currentRoom&&data.room!==currentRoom))return;
+    if(Number.isFinite(data.blue))blueScore=data.blue;
+    if(Number.isFinite(data.red))redScore=data.red;
+    if(Number.isFinite(data.roundIndex))roundIndex=data.roundIndex;
+    updateScoreUI();
+    playRoundEndFx(data.winner||'');
+    if(matchMode==='ranked' && !data.final) addRankXp(20);
   });
   socket.on('playerState',function(d){
-    if(!d)return;
-    if(d.targetId){
-      if(roomPlayers[d.targetId]){
-        roomPlayers[d.targetId].alive=d.alive!==false;
-        if(d.hp!==undefined)roomPlayers[d.targetId].hp=d.hp;
-        if(d.x!==undefined)roomPlayers[d.targetId].x=d.x;
-        if(d.y!==undefined)roomPlayers[d.targetId].y=d.y;
-        if(d.z!==undefined)roomPlayers[d.targetId].z=d.z;
-        if(d.ry!==undefined)roomPlayers[d.targetId].ry=d.ry;
-        if(roomPlayers[d.targetId].hp<=0)roomPlayers[d.targetId].alive=false;
-        applyRemoteState(d.targetId,roomPlayers[d.targetId]);
-      }
-      updateRoundIfEnded(); if(inWaiting)updateWaitingUI(); updateRemotePlayersFromState();
-      if(d.targetId===(socket&&socket.id)){
-        if(d.alive===false||(Number.isFinite(d.hp)&&d.hp<=0)){player.alive=false;player.hp=0;updatePlayerHPUI();enterSpectate();}
-        else{player.alive=true;player.spectating=false;if(Number.isFinite(d.hp))player.hp=d.hp;if(Number.isFinite(d.x))camera.position.x=d.x;if(Number.isFinite(d.y))camera.position.y=d.y;if(Number.isFinite(d.z))camera.position.z=d.z;if(Number.isFinite(d.ry))yaw=d.ry;restoreBattleViewAfterRespawn();syncCameraRotation();updatePlayerHPUI();updateAmmoUI();}
-      }
-      return;
-    }
-    if(d.playerId&&roomPlayers[d.playerId]){
-      roomPlayers[d.playerId].alive=d.alive!==false;
-      if(d.hp!==undefined)roomPlayers[d.playerId].hp=d.hp;
+    if(!d||!d.playerId)return;
+    if(socket&&d.playerId===socket.id)return;
+    if(roomPlayers[d.playerId]){
       if(d.x!==undefined)roomPlayers[d.playerId].x=d.x;
       if(d.y!==undefined)roomPlayers[d.playerId].y=d.y;
       if(d.z!==undefined)roomPlayers[d.playerId].z=d.z;
       if(d.ry!==undefined)roomPlayers[d.playerId].ry=d.ry;
-      if(roomPlayers[d.playerId].hp<=0)roomPlayers[d.playerId].alive=false;
-      applyRemoteState(d.playerId,roomPlayers[d.playerId]); updateRoundIfEnded(); if(inWaiting)updateWaitingUI(); updateRemotePlayersFromState();
     }
+    if(inWaiting)updateWaitingUI(); updateRemotePlayersFromState();
   });
   socket.on('playerDisconnected',function(d){var id=d&&(d.id||d);if(!id)return;removeAvatar(id);delete roomPlayers[id];delete remoteStates[id];if(inWaiting)updateWaitingUI();});
   socket.on('room-players',function(data){handleRoomPlayers(data);});
-  socket.on('room-state',function(pl){if(!pl||pl.room!==currentRoom)return;roomPlayers=pl.players||{};Object.keys(roomPlayers).forEach(function(id){applyRemoteState(id,roomPlayers[id]);});if(inWaiting)updateWaitingUI();updateWaitingLaunchBtn();updateRemotePlayersFromState();if(pl.starting&&inWaiting){gameMode=GAME_MODE.LOADING;setModeUI();loadingOverlay.style.display='flex';loadingTextEl.textContent='DEPLOYING';loadingSubEl.textContent='試合開始中...';}});
+  socket.on('room-state',function(pl){
+    if(!pl||pl.room!==currentRoom)return;
+    roomPlayers=pl.players||{};
+    Object.keys(roomPlayers).forEach(function(id){applyRemoteState(id,roomPlayers[id]);});
+    if(Number.isFinite(pl.blue))blueScore=pl.blue;
+    if(Number.isFinite(pl.red))redScore=pl.red;
+    if(Number.isFinite(pl.roundIndex))roundIndex=pl.roundIndex;
+    updateScoreUI();
+    if(inWaiting)updateWaitingUI();updateWaitingLaunchBtn();updateRemotePlayersFromState();
+    if(pl.starting&&inWaiting){gameMode=GAME_MODE.LOADING;setModeUI();loadingOverlay.style.display='flex';loadingTextEl.textContent='DEPLOYING';loadingSubEl.textContent='試合開始中...';}
+  });
+  // FIX: round-timer はサーバーの正式な残り時間。表示だけ更新する。
+  socket.on('round-timer',function(data){
+    if(!data||(data.room&&currentRoom&&data.room!==currentRoom))return;
+    if(Number.isFinite(data.remainingMs))roundTimerMs=Math.max(0,ROUND_TIME_LIMIT_MS-data.remainingMs);
+    if(Number.isFinite(data.roundIndex))roundIndex=data.roundIndex;
+  });
   socket.on('match-starting',function(data){if(data&&data.room&&currentRoom&&data.room!==currentRoom)return;roomStarted=true;gameMode=GAME_MODE.LOADING;setModeUI();loadingOverlay.style.display='flex';loadingTextEl.textContent='DEPLOYING';loadingSubEl.textContent='試合開始中...';});
-  socket.on('match-started',function(data){if(data&&data.room&&currentRoom&&data.room!==currentRoom)return;beginBattle(data||{});syncRoundStateToRoom({phase:GAME_MODE.LOADING,round:Number.isFinite(data&&data.round)?data.round:roundIndex});});
-  socket.on('round-reset',function(data){if(data&&data.room&&currentRoom&&data.room!==currentRoom)return;reviveHumansForNewRound();restoreBattleViewAfterRespawn();if(socket&&socket.connected){socket.emit('playerState',{room:currentRoom,alive:true,hp:player.hp,x:camera.position.x,y:camera.position.y,z:camera.position.z,ry:yaw,round:Number.isFinite(data&&data.roundIndex)?data.roundIndex:roundIndex,phase:GAME_MODE.BATTLE});}});
-  socket.on('round-started',function(data){if(data&&data.room&&currentRoom&&data.room!==currentRoom)return;reviveHumansForNewRound();restoreBattleViewAfterRespawn();if(socket&&socket.connected){socket.emit('playerState',{room:currentRoom,alive:true,hp:player.hp,x:camera.position.x,y:camera.position.y,z:camera.position.z,ry:yaw,round:Number.isFinite(data&&data.roundIndex)?data.roundIndex:roundIndex,phase:GAME_MODE.BATTLE});}});
+  // ============================================================
+  // FIX(重要): server.js は「試合の最初の開始」だけでなく、
+  // 「次のラウンドの開始」のときも resetPlayersForNextRound() から
+  // 同じ match-started イベントを送ってくる(round-started と同時に)。
+  //
+  // 以前は match-started を受けるたびに beginBattle() を呼んでいたが、
+  // beginBattle は battleBeginLock で「2回目以降は何もしない」ガードに
+  // なっているため、2ラウンド目以降の match-started では実質何も
+  // 起こらなくなっていた。その結果、AIユニットの復活処理
+  // (resetAIForRound)が呼ばれず、「自分は勝ってラウンドが進んでいるのに
+  // 相手の画面ではAIだけ残って更新されない」という不整合が起きていた。
+  //
+  // 修正方針:
+  // - battleBeginLock が false のとき(=このルームでの初回開始)だけ
+  //   beginBattle() を呼ぶ(チーム振り直し・AI初期化・ローディング表示)。
+  // - battleBeginLock が true のとき(=2ラウンド目以降)は
+  //   beginBattle() を呼ばず、round-started 側の処理に任せる。
+  // ============================================================
+  socket.on('match-started',function(data){
+    if(data&&data.room&&currentRoom&&data.room!==currentRoom)return;
+    if(Number.isFinite(data&&data.blue))blueScore=data.blue;
+    if(Number.isFinite(data&&data.red))redScore=data.red;
+    if(Number.isFinite(data&&data.roundIndex))roundIndex=data.roundIndex;
+    if(!battleBeginLock){
+      beginBattle(data||{});
+      syncRoundStateToRoom({phase:GAME_MODE.LOADING});
+    }
+    // battleBeginLock が既に true の場合は round-started ハンドラが
+    // 次ラウンドの復活処理を行うので、ここでは何もしない。
+  });
+  // FIX: round-reset / round-started はラウンド開始(初回・2回目以降を
+  // 問わず)のたびに毎回送られてくる。人間プレイヤーの復活だけでなく、
+  // AIユニットの復活(resetAIForRound)も必ずここで行う。
+  // これを怠ると、AI単体が前のラウンドのHP/death状態を引き継いだまま
+  // 表示され続け、画面ごとに見える状態がズレる原因になる。
+  function handleServerRoundRestart(data){
+    if(data&&data.room&&currentRoom&&data.room!==currentRoom)return;
+    if(Number.isFinite(data&&data.roundIndex))roundIndex=data.roundIndex;
+    if(Number.isFinite(data&&data.blue))blueScore=data.blue;
+    if(Number.isFinite(data&&data.red))redScore=data.red;
+    updateScoreUI();
+    if(!aiUnits.length) initAIForMatch(data||{});
+    resetAIForRound();
+    reviveHumansForNewRound();
+    restoreBattleViewAfterRespawn();
+    gameMode=GAME_MODE.BATTLE; setModeUI();
+    loadingOverlay.style.display='none'; resultOverlay.style.display='none'; spectateOverlay.style.display='none';
+    if(socket&&socket.connected){socket.emit('playerState',{room:currentRoom,x:camera.position.x,y:camera.position.y,z:camera.position.z,ry:yaw});}
+  }
+  socket.on('round-reset',handleServerRoundRestart);
+  socket.on('round-started',handleServerRoundRestart);
   socket.on('scoreUpdate',function(data){if(data&&data.room&&currentRoom&&data.room!==currentRoom)return;setServerScore(data);});
-  socket.on('enemyKilledAck',function(data){if(data&&data.room&&currentRoom&&data.room!==currentRoom)return;setServerScore(data);});
   socket.on('matchFinished',function(data){if(data&&data.room&&currentRoom&&data.room!==currentRoom)return;showResultFromMatchFinished(data||{});});
   socket.on('match-start-cancelled',function(data){if(data&&data.room&&currentRoom&&data.room!==currentRoom)return;battleBeginLock=false;roomStarted=false;if(inWaiting){gameMode=GAME_MODE.WAITING;setModeUI();updateWaitingUI();}});
 }

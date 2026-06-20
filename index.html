@@ -11,7 +11,8 @@
     "three": "https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.module.js",
     "three/examples/jsm/loaders/FBXLoader.js": "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/loaders/FBXLoader.js",
     "three/examples/jsm/loaders/GLTFLoader.js": "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/loaders/GLTFLoader.js",
-    "three/examples/jsm/libs/fflate.module.min.js": "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/libs/fflate.module.min.js"
+    "three/examples/jsm/libs/fflate.module.min.js": "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/libs/fflate.module.min.js",
+    "three/examples/jsm/utils/SkeletonUtils.js": "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/utils/SkeletonUtils.js"
   }
 }
 </script>
@@ -292,6 +293,7 @@ input,button{-webkit-appearance:none;appearance:none}
 import * as THREE_NS from 'three';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { SkeletonUtils } from 'three/examples/jsm/utils/SkeletonUtils.js';
 
 (function(){
 'use strict';
@@ -596,6 +598,11 @@ function loadPoloFbx(){
     function(fbx){
       // polo.fbx Viewer と同じスケール正規化
       fbx.scale.setScalar(POLO_FBX_SCALE);
+      // FIX: 読み込んだ直後にワールド行列とバインド行列を確定させる。
+      // これをやらないと、後で SkeletonUtils.clone() するときに
+      // ボーンの matrixWorld が古い(未更新)状態のままコピーされ、
+      // クローン後のスキニング計算がズレて巨大化/伸びの原因になる。
+      fbx.updateMatrixWorld(true);
       poloFbxTemplate = fbx;
       poloFbxReady = true;
       poloFbxWaiters.forEach(function(fn){ fn(poloFbxTemplate); });
@@ -717,6 +724,9 @@ function normalizeAvatarMaterial(m, team, forceOpaque){
     m.side = T.DoubleSide;
     m.visible = true;
 
+    // FIX: forceOpaque を実際に使ってテクスチャのアルファチャンネルも
+    // 不透明化する。以前は引数を受け取っていたが呼び出し側で渡していなかった
+    // ため、テクスチャ由来の半透明/抜け穴がまだ残るケースがあった。
     if(forceOpaque && m.map) m.map = forceOpaqueTexture(m.map);
     if(m.map) m.map.needsUpdate = true;
     if(m.alphaMap){
@@ -736,7 +746,8 @@ function applyTeamColor(object, team){
     child.frustumCulled = false;
     var mats = Array.isArray(child.material) ? child.material : [child.material];
     mats.forEach(function(m){
-      normalizeAvatarMaterial(m, team);
+      // FIX: forceOpaque=true を明示的に渡す
+      normalizeAvatarMaterial(m, team, true);
     });
   });
 }
@@ -871,6 +882,19 @@ function cloneGunForAvatar(){
 /* ================================================================
    ★ makeRemoteAvatar - polo.fbx 優先 + 失敗時フォールバック
    polo.fbx Viewer と同じ方式：clips[0] を AnimationMixer で再生
+
+   FIX(重要): 以前は fbx.clone(true) を使っていたが、これは
+   three.js 標準の Object3D.prototype.clone であり、
+   SkinnedMesh のスケルトン(bones)を正しく複製しない既知の問題がある。
+   そのままだとクローン後の SkinnedMesh が「元テンプレートのボーン」
+   または「未初期化のバインド行列」を参照してしまい、
+   再生されるアニメーションでメッシュが巨大に伸びる/裂ける
+   (今回の「赤い布のようなものが画面を覆う」症状)が発生する。
+
+   → three/examples/jsm/utils/SkeletonUtils.js の SkeletonUtils.clone()
+   に置き換える。これは SkinnedMesh とボーン階層を正しく一緒に複製し、
+   bindMatrix / skeleton の対応関係を保持するため、
+   AnimationMixer で再生してもメッシュが破綻しない。
    ================================================================ */
 function makeRemoteAvatar(team, name){
   var outer = new T.Group();
@@ -897,35 +921,71 @@ function makeRemoteAvatar(team, name){
   outer.add(correctionGroup);
 
   onPoloReady(function(fbx){
+    var usedProcedural = false;
+
     if(fbx){
-      var clone = fbx.clone(true);
-      clone.visible = true;
-      clone.traverse(function(child){
-        if(!child.isMesh) return;
-        child.visible = true;
-        child.castShadow = true;
-        child.receiveShadow = true;
-        child.frustumCulled = false;
-      });
-      applyTeamColor(clone, team);
-      correctionGroup.add(clone);
+      var clone = null;
+      try{
+        // FIX: SkeletonUtils.clone はボーン階層とSkinnedMeshの紐付けを
+        // 正しく複製する。万一 SkeletonUtils が使えない/失敗した場合は
+        // フォールバックとしてプロシージャルアバターに切り替える
+        // (壊れたメッシュを画面に出すよりはるかに安全)。
+        clone = SkeletonUtils.clone(fbx);
+      }catch(e){
+        console.warn('[POLO] SkeletonUtils.clone failed, falling back to procedural avatar:', e);
+        clone = null;
+      }
 
-      if(fbx.animations && fbx.animations.length > 0){
-        var mixer = new T.AnimationMixer(clone);
+      if(clone){
+        // FIX: 異常なバウンディングサイズ(=メッシュ破綻)を検知したら
+        // プロシージャルアバターにフォールバックする安全装置。
+        // 正常な polo.fbx (scale 0.01 適用後)は身長 2m 程度のはずなので、
+        // 明らかに大きすぎる/小さすぎる場合は信用しない。
+        var box = new T.Box3().setFromObject(clone);
+        var size = new T.Vector3();
+        box.getSize(size);
+        var maxDim = Math.max(size.x, size.y, size.z);
+        if(!Number.isFinite(maxDim) || maxDim <= 0.05 || maxDim > 8){
+          console.warn('[POLO] Cloned avatar bounding size looks broken (', maxDim, '), falling back to procedural avatar.');
+          clone = null;
+        }
+      }
 
-        // polo.fbx Viewer と同じ：clips[0] をそのまま使う
-        var clip = fbx.animations[0];
+      if(clone){
+        clone.visible = true;
+        clone.traverse(function(child){
+          if(!child.isMesh) return;
+          child.visible = true;
+          child.castShadow = true;
+          child.receiveShadow = true;
+          child.frustumCulled = false;
+        });
+        applyTeamColor(clone, team);
+        correctionGroup.add(clone);
 
-        var action = mixer.clipAction(clip);
-        action.setLoop(T.LoopRepeat, Infinity);
-        action.clampWhenFinished = false;
-        action.play();
+        if(fbx.animations && fbx.animations.length > 0){
+          var mixer = new T.AnimationMixer(clone);
 
-        outer.userData._mixer  = mixer;
-        outer.userData._action = action;
-        console.log('[POLO] mixer started, clip=' + (clip.name || '(unnamed)') + ' dur=' + clip.duration.toFixed(2) + 's');
+          // polo.fbx Viewer と同じ：clips[0] をそのまま使う
+          var clip = fbx.animations[0];
+
+          var action = mixer.clipAction(clip);
+          action.setLoop(T.LoopRepeat, Infinity);
+          action.clampWhenFinished = false;
+          action.play();
+
+          outer.userData._mixer  = mixer;
+          outer.userData._action = action;
+          console.log('[POLO] mixer started, clip=' + (clip.name || '(unnamed)') + ' dur=' + clip.duration.toFixed(2) + 's');
+        }
+      }else{
+        usedProcedural = true;
       }
     }else{
+      usedProcedural = true;
+    }
+
+    if(usedProcedural){
       var avatar = buildProceduralAvatar(team);
       avatar.visible = true;
       correctionGroup.add(avatar);

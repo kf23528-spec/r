@@ -20,28 +20,12 @@ const ROUND_DURATION_MS = 180000; // 3分
 const ROUND_RESET_DELAY_MS = 1200;
 const WIN_SCORE = 5;
 
-// ============================================================
-// FIX: ダメージ判定をサーバー側で一元管理するための定数。
-// クライアント側の DAMAGE_PER_BULLET / AI_DAMAGE_PER_HIT と同じ値を使う。
-// これにより「誰が誰に何ダメージ与えたか」はサーバーが唯一の真実になる。
-// ============================================================
+// ダメージ判定はサーバー権威。クライアントと同じ値を使う。
 const DAMAGE_PER_BULLET = 4;
-// FIX: AIのダメージ(12)が人間の弾(4)の3倍で、AIに撃たれるだけで
-// 一瞬でHPが溶びてしまい強すぎるとの報告。人間と同じ威力に揃える。
-const AI_DAMAGE_PER_HIT = 4;
-const SHOT_MIN_INTERVAL_MS = 90; // 1人のプレイヤーが連続でダメージ判定を要求できる最短間隔(チート・多重送信対策)
+const AI_DAMAGE_PER_HIT = 4; // 人間の弾と同威力に統一
+const SHOT_MIN_INTERVAL_MS = 90; // 連射/多重送信対策の最短間隔
 
-// ============================================================
-// FIX(重要): AIが撃った弾が壁を貫通してくる不具合への対応。
-// 以前は ai-attack ハンドラが壁の有無を一切チェックせず、
-// クライアントから「このAIがこの相手を狙った」という報告を
-// そのまま信用してダメージを通していた。
-// クライアント側の buildMap() で配置している壁と同じ座標データを
-// サーバー側にも複製し、AIの座標→ターゲットの座標の間に壁があれば
-// ダメージを無効化するようにする。
-// (このデータは index.html の buildMap() 内のコライダー配置と
-//  常に一致させること。マップを変更した場合はここも更新する。)
-// ============================================================
+// AI攻撃の壁判定用マップ壁データ(index.html buildMap()と座標を一致させること)
 const MAP_COLLIDERS = [
   // 外周4壁
   { x: 0, z: -35.4, w: 72, d: 1.2 },
@@ -79,8 +63,7 @@ const MAP_COLLIDERS = [
   { x: 0, z: 14, w: 4, d: 4 }
 ];
 
-// 2D(x,z)の線分が軸並行の矩形(AABB)と交差するかどうかを判定する。
-// AIの攻撃判定は地上の平面上の話なので、高さ(y)は無視して2Dで十分。
+// 2D(x,z)線分とAABBの交差判定(AIの攻撃判定は地上平面のみで十分)
 function segmentIntersectsRect2D(x1, z1, x2, z2, rect) {
   const halfW = rect.w / 2;
   const halfD = rect.d / 2;
@@ -117,10 +100,7 @@ function segmentIntersectsRect2D(x1, z1, x2, z2, rect) {
   return true;
 }
 
-// AIの座標とターゲットの座標の間に、マップの壁(MAP_COLLIDERS)が
-// 1つでも挟まっていれば true (=遮蔽されている)を返す。
-// 座標が不正(NaN等)な場合は安全側に倒して「遮蔽されていない」扱いにする
-// (クライアントが座標を送っていない古いバージョンとの互換性のため)。
+// AI座標とターゲット座標の間に壁(MAP_COLLIDERS)があればtrue。座標未送信の旧クライアントは安全側で通す。
 function isLineOfSightBlocked(x1, z1, x2, z2) {
   if (![x1, z1, x2, z2].every(v => Number.isFinite(v))) return false;
   for (let i = 0; i < MAP_COLLIDERS.length; i++) {
@@ -184,11 +164,11 @@ function ensureRoomMeta(room) {
       roundTimerId: null,
       roundResetTimerId: null,
       lastRoundSummary: null,
-      // FIX: スコアもサーバー側で一元管理する(クライアント自己申告のscoreUpdateに依存しない)
+      // スコアもサーバー側で一元管理する(クライアント自己申告のscoreUpdateに依存しない)
       blueScore: 0,
       redScore: 0,
       roundResolved: false,
-      // FIX: AIユニットの状態をサーバー側でも保持し、AIのダメージ判定もサーバー権威にする
+      // AIユニットの状態をサーバー側でも保持し、AIのダメージ判定もサーバー権威にする
       aiUnits: [] // { id, team, hp, alive }
     };
   }
@@ -275,7 +255,7 @@ function getAliveCount(room, team) {
       (p.hp ?? 100) > 0;
   }).length;
 
-  // FIX: AIユニットの生存数もカウントに含める(ラウンド終了判定をサーバーが正しく行うため)
+  // AIユニットの生存数もカウントに含める(ラウンド終了判定をサーバーが正しく行うため)
   if (meta && Array.isArray(meta.aiUnits)) {
     count += meta.aiUnits.filter(u => u.team === team && u.alive).length;
   }
@@ -444,7 +424,7 @@ function leaveRoom(socket) {
     broadcastRoomPlayers(roomId);
     emitRoomState(roomId);
 
-    // FIX: プレイヤーが抜けたことでラウンドの全滅条件が満たされる可能性があるのでチェックする
+    // プレイヤーが抜けたことでラウンドの全滅条件が満たされる可能性があるのでチェックする
     checkRoundEndCondition(roomId, 'player-left');
 
     cleanupRoomMetaIfEmpty(roomId);
@@ -453,11 +433,7 @@ function leaveRoom(socket) {
   delete players[socket.id];
 }
 
-// ============================================================
-// FIX: AIユニットの初期化・管理をサーバー側に追加。
-// クライアントは見た目(アバターの表示・移動アニメ)だけを担当し、
-// 「HPがいくつか」「死んでいるか」はサーバーのaiUnitsが真実になる。
-// ============================================================
+// AIユニットの状態(HP/生死)はサーバー権威。クライアントは見た目のみ担当。
 function initAIUnitsForRoom(roomId, isRandomMatch) {
   const meta = ensureRoomMeta(roomId);
   if (!meta) return;
@@ -518,9 +494,7 @@ function resetPlayersForNextRound(roomId) {
     players: getRoomPlayers(roomId)
   };
 
-  // FIX: round-reset / round-started / match-started の3つを送るのは維持しつつ、
-  // 全プレイヤーのalive/hpをこのタイミングで強制的にtrue/100にする情報を含める。
-  // クライアント側はこれらのイベントを受け取ったら「問答無用で」復活処理をする。
+  // round-reset/round-started/match-startedで全員を強制復活(alive/hp=true/100)させる
   io.to(roomId).emit('round-reset', payload);
   io.to(roomId).emit('round-started', payload);
   io.to(roomId).emit('match-started', {
@@ -554,13 +528,7 @@ function computeRoundWinner(roomId) {
   return 'draw';
 }
 
-// ============================================================
-// FIX: ラウンド終了→スコア加算→次ラウンド or 試合終了 を
-// 完全にサーバー側で一括処理する関数。
-// 以前はクライアントの clearRoundIfNeededFromStates が各クライアントで
-// 独立に判定していたため、複数クライアントが同時にendRoundByWinnerを呼んで
-// 二重カウントする可能性があった。これをサーバー側で一度だけ実行するようにする。
-// ============================================================
+// ラウンド終了→スコア加算→次ラウンド/試合終了をサーバーで一括処理(二重カウント防止)
 function checkRoundEndCondition(roomId, reason) {
   const meta = roomMeta[roomId];
   if (!meta) return;
@@ -612,12 +580,7 @@ function resolveRound(roomId, winner, reason) {
 
   meta.lastRoundSummary = summary;
 
-  // FIX(重要): 以前は isFinal(本当に WIN_SCORE に達したか)に関係なく
-  // 毎ラウンド matchFinished を送っていた。クライアント側がこの
-  // イベントを受け取ると即座に「試合終了」画面を表示してしまうため、
-  // 1ラウンド勝っただけで試合が終わったように見える不具合の原因になっていた。
-  // matchFinished は本当に試合が終わった(isFinal===true)ときだけ送る。
-  // ラウンドの結果自体は scoreUpdate と round-ended で常に通知する。
+  // matchFinishedはisFinal===trueの時だけ送る(毎ラウンド送ると即終了表示になる)
   io.to(roomId).emit('scoreUpdate', { room: roomId, blue: meta.blueScore, red: meta.redScore, round: meta.roundIndex });
   io.to(roomId).emit('round-ended', summary);
   if (isFinal) {
@@ -658,7 +621,7 @@ function startRoundTimer(roomId) {
     });
 
     if (remainingMs <= 0) {
-      // FIX: タイムアウト時は生存人数が多いチームの勝利、同数ならdraw扱いでblue勝利(既存仕様を維持)
+      // タイムアウト時は生存人数が多いチームの勝利、同数ならdraw扱いでblue勝利(既存仕様を維持)
       const blueAlive = getAliveCount(roomId, 'blue');
       const redAlive = getAliveCount(roomId, 'red');
       const winner = blueAlive >= redAlive ? 'blue' : 'red';
@@ -922,19 +885,7 @@ io.on('connection', (socket) => {
     }
   });
 
-  // FIX: playerMovement は座標同期のみを行う。HP/alive はここでは絶対に変更しない。
-  // 以前はこのイベントが移動とHPの両方を運んでいたため、移動パケットが
-  // 古いHP値を持って届くと、ダメージ判定後の最新HPを上書きしてしまうことがあった。
-  //
-  // FIX(重要): 死んでいる(alive===false)プレイヤーは観戦(スペクテイト)
-  // カメラを操作しているだけで、ゲーム上の実体としては存在しない。
-  // 以前はここで alive を見ずに座標を無条件で更新・他クライアントに
-  // 中継していたため、観戦カメラが「観戦対象の背後」に動き続けることで
-  // サーバー上の死亡プレイヤーの座標がそこに書き換わり、他クライアントの
-  // 当たり判定(bulletHitsAvatar は avatar.position を見るだけで
-  // visible/alive を見ない)が観戦者の座標を巻き込んでしまい、
-  // 「観戦者に当たり判定を吸われて狙った相手に当たらない」不具合の
-  // 原因になっていた。死亡中は座標更新・中継を完全に止める。
+  // playerMovementは座標同期専用(HP/aliveは変更しない)。死亡中(観戦中)は座標更新・中継を止める(観戦カメラ座標が当たり判定を乱すため)
   socket.on('playerMovement', (movementData = {}) => {
     const p = players[socket.id];
     if (!p || !p.room) return;
@@ -962,14 +913,7 @@ io.on('connection', (socket) => {
     socket.to(p.room).emit('playerMoved', payload);
   });
 
-  // ============================================================
-  // FIX: playerShoot がダメージ判定の唯一の入口になる。
-  // クライアントは「自分がこの方向に撃った」「当てたつもりのtargetId」を送るだけ。
-  // サーバーがtargetの現在HPを確認し、実際にダメージを適用、
-  // 結果(誰が何HPになったか/死んだか)を damage-result として
-  // 部屋の全員(撃った本人含む)に同じ内容で配信する。
-  // これにより撃った側と撃たれた側のHP表示が必ず一致するようになる。
-  // ============================================================
+  // playerShootがダメージ判定の唯一の入口。サーバーがHPを確定しdamage-resultを全員に同一配信する
   socket.on('playerShoot', (shotData = {}) => {
     const p = players[socket.id];
     if (!p || !p.room) return;
@@ -1061,15 +1005,7 @@ io.on('connection', (socket) => {
     checkRoundEndCondition(roomId, 'player-eliminated');
   });
 
-  // ============================================================
-  // FIX: AIによるダメージもサーバー側で確定させる。
-  // クライアントの各端末はAIの行動をローカルでシミュレートしているため、
-  // 「AIが誰に何ダメージ与えたか」は端末ごとにズレる可能性がある。
-  // そこで「このAIがこの座標からこの相手を狙って攻撃した」という
-  // 意図だけをサーバーに送り、実際にダメージを適用するかはサーバーが決める。
-  // 複数端末から同じ内容が重複して送られてくる可能性があるため、
-  // AIごとのクールダウン(最短間隔)をサーバー側でも管理する。
-  // ============================================================
+  // AI攻撃もサーバー権威で確定。クライアントは攻撃意図のみ送信、重複はクールダウンで間引く
   socket.on('ai-attack', (data = {}) => {
     const p = players[socket.id];
     if (!p || !p.room) return;
@@ -1089,11 +1025,7 @@ io.on('connection', (socket) => {
     const targetId = data.targetId;
     if (!targetId) return;
 
-    // FIX(重要): AIの座標とターゲットの座標の間に壁があれば、
-    // ダメージを無効化する(=AIの弾が壁を貫通してくる不具合の修正)。
-    // 座標はクライアントの ai-attack 送信時に追加されたフィールド
-    // (aiX/aiZ/targetX/targetZ)から取得する。座標が送られていない
-    // 古いクライアントの場合は安全側(=遮蔽なし扱い)で通す(後方互換)。
+    // AI-ターゲット間に壁があればダメージ無効化(座標未送信の旧クライアントは通す)
     if (
       Number.isFinite(data.aiX) && Number.isFinite(data.aiZ) &&
       Number.isFinite(data.targetX) && Number.isFinite(data.targetZ)
@@ -1163,12 +1095,7 @@ io.on('connection', (socket) => {
     }
   });
 
-  // FIX: playerState は「自分の生死・HPをサーバーに直接書き込む」用途では使わせない。
-  // 生死とHPはサーバーのdamage-result/resolveRoundでのみ変更される。
-  // ここではクライアントが見た目上の座標補正等を送ってきても、座標の中継のみ行う。
-  // FIX(重要): playerMovement と同様、死亡中(観戦中)は座標の更新・中継を
-  // 止める。観戦カメラの位置が他クライアントに伝わって当たり判定を
-  // 乱す問題を防ぐため。
+  // playerStateは座標中継専用(alive/hpはサーバー権威)。死亡中(観戦中)は座標更新・中継しない
   socket.on('playerState', (stateData = {}) => {
     const p = players[socket.id];
     if (!p || !p.room) return;
@@ -1181,7 +1108,7 @@ io.on('connection', (socket) => {
 
     p.lastSeenAt = Date.now();
 
-    // FIX: alive/hp はサーバーの値をそのまま使う(クライアントの自己申告で上書きしない)
+    // alive/hp はサーバーの値をそのまま使う(クライアントの自己申告で上書きしない)
     const payload = Object.assign(flatPlayer(socket.id, p), {
       playerId: socket.id,
       targetId: socket.id

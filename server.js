@@ -26,8 +26,108 @@ const WIN_SCORE = 5;
 // これにより「誰が誰に何ダメージ与えたか」はサーバーが唯一の真実になる。
 // ============================================================
 const DAMAGE_PER_BULLET = 4;
-const AI_DAMAGE_PER_HIT = 12;
+// FIX: AIのダメージ(12)が人間の弾(4)の3倍で、AIに撃たれるだけで
+// 一瞬でHPが溶びてしまい強すぎるとの報告。人間と同じ威力に揃える。
+const AI_DAMAGE_PER_HIT = 4;
 const SHOT_MIN_INTERVAL_MS = 90; // 1人のプレイヤーが連続でダメージ判定を要求できる最短間隔(チート・多重送信対策)
+
+// ============================================================
+// FIX(重要): AIが撃った弾が壁を貫通してくる不具合への対応。
+// 以前は ai-attack ハンドラが壁の有無を一切チェックせず、
+// クライアントから「このAIがこの相手を狙った」という報告を
+// そのまま信用してダメージを通していた。
+// クライアント側の buildMap() で配置している壁と同じ座標データを
+// サーバー側にも複製し、AIの座標→ターゲットの座標の間に壁があれば
+// ダメージを無効化するようにする。
+// (このデータは index.html の buildMap() 内のコライダー配置と
+//  常に一致させること。マップを変更した場合はここも更新する。)
+// ============================================================
+const MAP_COLLIDERS = [
+  // 外周4壁
+  { x: 0, z: -35.4, w: 72, d: 1.2 },
+  { x: 0, z: 35.4, w: 72, d: 1.2 },
+  { x: -35.4, z: 0, w: 1.2, d: 72 },
+  { x: 35.4, z: 0, w: 1.2, d: 72 },
+  // 中間の障害物群(buildMapの配列と同じ座標・サイズ)
+  { x: -23, z: -22, w: 6, d: 6 },
+  { x: -23, z: -8, w: 8, d: 5 },
+  { x: -23, z: 9, w: 7, d: 5 },
+  { x: -23, z: 24, w: 6, d: 6 },
+  { x: -10, z: -18, w: 5, d: 8 },
+  { x: -10, z: 0, w: 5, d: 10 },
+  { x: -10, z: 18, w: 5, d: 8 },
+  { x: 10, z: -18, w: 5, d: 8 },
+  { x: 10, z: 0, w: 5, d: 10 },
+  { x: 10, z: 18, w: 5, d: 8 },
+  { x: 23, z: -22, w: 6, d: 6 },
+  { x: 23, z: -8, w: 8, d: 5 },
+  { x: 23, z: 9, w: 7, d: 5 },
+  { x: 23, z: 24, w: 6, d: 6 },
+  { x: -5, z: -28, w: 10, d: 4 },
+  { x: 5, z: -28, w: 10, d: 4 },
+  { x: -5, z: 28, w: 10, d: 4 },
+  { x: 5, z: 28, w: 10, d: 4 },
+  { x: -28, z: -5, w: 4, d: 10 },
+  { x: -28, z: 5, w: 4, d: 10 },
+  { x: 28, z: -5, w: 4, d: 10 },
+  { x: 28, z: 5, w: 4, d: 10 },
+  { x: -6, z: -6, w: 3, d: 10 },
+  { x: 6, z: -6, w: 3, d: 10 },
+  { x: -6, z: 6, w: 3, d: 10 },
+  { x: 6, z: 6, w: 3, d: 10 },
+  { x: 0, z: -14, w: 4, d: 4 },
+  { x: 0, z: 14, w: 4, d: 4 }
+];
+
+// 2D(x,z)の線分が軸並行の矩形(AABB)と交差するかどうかを判定する。
+// AIの攻撃判定は地上の平面上の話なので、高さ(y)は無視して2Dで十分。
+function segmentIntersectsRect2D(x1, z1, x2, z2, rect) {
+  const halfW = rect.w / 2;
+  const halfD = rect.d / 2;
+  const minX = rect.x - halfW, maxX = rect.x + halfW;
+  const minZ = rect.z - halfD, maxZ = rect.z + halfD;
+
+  const dx = x2 - x1, dz = z2 - z1;
+  let tmin = 0, tmax = 1;
+
+  // X軸方向のスラブ
+  if (Math.abs(dx) < 1e-9) {
+    if (x1 < minX || x1 > maxX) return false;
+  } else {
+    let t1 = (minX - x1) / dx;
+    let t2 = (maxX - x1) / dx;
+    if (t1 > t2) { const tmp = t1; t1 = t2; t2 = tmp; }
+    if (t1 > tmin) tmin = t1;
+    if (t2 < tmax) tmax = t2;
+    if (tmin > tmax) return false;
+  }
+
+  // Z軸方向のスラブ
+  if (Math.abs(dz) < 1e-9) {
+    if (z1 < minZ || z1 > maxZ) return false;
+  } else {
+    let t1 = (minZ - z1) / dz;
+    let t2 = (maxZ - z1) / dz;
+    if (t1 > t2) { const tmp = t1; t1 = t2; t2 = tmp; }
+    if (t1 > tmin) tmin = t1;
+    if (t2 < tmax) tmax = t2;
+    if (tmin > tmax) return false;
+  }
+
+  return true;
+}
+
+// AIの座標とターゲットの座標の間に、マップの壁(MAP_COLLIDERS)が
+// 1つでも挟まっていれば true (=遮蔽されている)を返す。
+// 座標が不正(NaN等)な場合は安全側に倒して「遮蔽されていない」扱いにする
+// (クライアントが座標を送っていない古いバージョンとの互換性のため)。
+function isLineOfSightBlocked(x1, z1, x2, z2) {
+  if (![x1, z1, x2, z2].every(v => Number.isFinite(v))) return false;
+  for (let i = 0; i < MAP_COLLIDERS.length; i++) {
+    if (segmentIntersectsRect2D(x1, z1, x2, z2, MAP_COLLIDERS[i])) return true;
+  }
+  return false;
+}
 
 app.use(express.static(__dirname));
 app.get('/', (req, res) => {
@@ -825,9 +925,20 @@ io.on('connection', (socket) => {
   // FIX: playerMovement は座標同期のみを行う。HP/alive はここでは絶対に変更しない。
   // 以前はこのイベントが移動とHPの両方を運んでいたため、移動パケットが
   // 古いHP値を持って届くと、ダメージ判定後の最新HPを上書きしてしまうことがあった。
+  //
+  // FIX(重要): 死んでいる(alive===false)プレイヤーは観戦(スペクテイト)
+  // カメラを操作しているだけで、ゲーム上の実体としては存在しない。
+  // 以前はここで alive を見ずに座標を無条件で更新・他クライアントに
+  // 中継していたため、観戦カメラが「観戦対象の背後」に動き続けることで
+  // サーバー上の死亡プレイヤーの座標がそこに書き換わり、他クライアントの
+  // 当たり判定(bulletHitsAvatar は avatar.position を見るだけで
+  // visible/alive を見ない)が観戦者の座標を巻き込んでしまい、
+  // 「観戦者に当たり判定を吸われて狙った相手に当たらない」不具合の
+  // 原因になっていた。死亡中は座標更新・中継を完全に止める。
   socket.on('playerMovement', (movementData = {}) => {
     const p = players[socket.id];
     if (!p || !p.room) return;
+    if (p.alive === false) return; // 観戦中は座標を更新・中継しない
 
     if (Number.isFinite(movementData.x)) p.x = movementData.x;
     if (Number.isFinite(movementData.y)) p.y = movementData.y;
@@ -978,6 +1089,20 @@ io.on('connection', (socket) => {
     const targetId = data.targetId;
     if (!targetId) return;
 
+    // FIX(重要): AIの座標とターゲットの座標の間に壁があれば、
+    // ダメージを無効化する(=AIの弾が壁を貫通してくる不具合の修正)。
+    // 座標はクライアントの ai-attack 送信時に追加されたフィールド
+    // (aiX/aiZ/targetX/targetZ)から取得する。座標が送られていない
+    // 古いクライアントの場合は安全側(=遮蔽なし扱い)で通す(後方互換)。
+    if (
+      Number.isFinite(data.aiX) && Number.isFinite(data.aiZ) &&
+      Number.isFinite(data.targetX) && Number.isFinite(data.targetZ)
+    ) {
+      if (isLineOfSightBlocked(data.aiX, data.aiZ, data.targetX, data.targetZ)) {
+        return; // 壁に遮蔽されているのでダメージなし(弾は壁に当たって止まる)
+      }
+    }
+
     // AIが人間を攻撃
     if (targetId !== aiId && typeof targetId === 'string' && targetId.indexOf('ai-') !== 0) {
       const target = players[targetId];
@@ -1041,9 +1166,13 @@ io.on('connection', (socket) => {
   // FIX: playerState は「自分の生死・HPをサーバーに直接書き込む」用途では使わせない。
   // 生死とHPはサーバーのdamage-result/resolveRoundでのみ変更される。
   // ここではクライアントが見た目上の座標補正等を送ってきても、座標の中継のみ行う。
+  // FIX(重要): playerMovement と同様、死亡中(観戦中)は座標の更新・中継を
+  // 止める。観戦カメラの位置が他クライアントに伝わって当たり判定を
+  // 乱す問題を防ぐため。
   socket.on('playerState', (stateData = {}) => {
     const p = players[socket.id];
     if (!p || !p.room) return;
+    if (p.alive === false) return; // 観戦中は座標を更新・中継しない
 
     if (Number.isFinite(stateData.x)) p.x = stateData.x;
     if (Number.isFinite(stateData.y)) p.y = stateData.y;

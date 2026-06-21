@@ -305,7 +305,9 @@ var MAG_SIZE = 30;
 var FIRE_INTERVAL = 0.10;
 var RELOAD_TIME = 1.4;
 var DAMAGE_PER_BULLET = 4;
-var AI_DAMAGE_PER_HIT = 12;
+// FIX: 実際のダメージ確定はサーバー(server.js)が行うが、表示や
+// 見た目演出で参照する値はサーバーと揃えておく(AI_DAMAGE_PER_HIT=4)。
+var AI_DAMAGE_PER_HIT = 4;
 var PLAYER_SPEED = 5.5;
 var CAM_FOV_NORMAL = 70;
 var CAM_FOV_ADS = 56;
@@ -1311,6 +1313,20 @@ function resolveCollisionForAI(nx,nz){
   }
   return{x:clamp(sx,-MAP_BORDER,MAP_BORDER),z:clamp(sz,-MAP_BORDER,MAP_BORDER)};
 }
+// FIX: AIが壁に向かって進もうとしているかを事前にチェックするための
+// ヘルパー。指定した移動先(nx,nz)が、現在位置(AI_RADIUSの余白込みで)
+// から見て壁の中にめり込む場合は true を返す。
+// これを使って「その方向に進むと詰まる」ことを移動前に検知し、
+// 別の方向を試すことで壁スタックを未然に防ぐ。
+function aiWouldHitWall(nx,nz){
+  var r=AI_RADIUS;
+  for(var i=0;i<colliders.length;i++){
+    var c=colliders[i];
+    var x1=c.x-c.w/2-r,x2=c.x+c.w/2+r,z1=c.z-c.d/2-r,z2=c.z+c.d/2+r;
+    if(nx>x1&&nx<x2&&nz>z1&&nz<z2) return true;
+  }
+  return Math.abs(nx)>=MAP_BORDER||Math.abs(nz)>=MAP_BORDER;
+}
 
 function movePlayer(dt){
   if(!player.alive||gameMode!==GAME_MODE.BATTLE) return;
@@ -1593,7 +1609,11 @@ function makeAIUnit(team,index){
   var spawn=aiSpawnPoints[tk][index%aiSpawnPoints[tk].length].clone();
   var unit={id:'ai-'+tk+'-'+index,team:tk,avatar:avatar,rng:rng,seed:seed,spawn:spawn,x:spawn.x,z:spawn.z,
     yaw:tk==='red'?Math.PI:0,hp:100,maxHp:100,alive:true,state:'patrol',
-    moveSpeed:2.2+rng()*0.7,strafe:rng()>0.5?1:-1,fireCooldown:0.6+rng()*1.2,lastShotAt:0};
+    moveSpeed:2.2+rng()*0.7,strafe:rng()>0.5?1:-1,fireCooldown:0.6+rng()*1.2,lastShotAt:0,
+    // FIX: 壁にスタックしたかどうかを検知するための状態。
+    // 一定時間ほとんど移動できていなければ「詰まっている」と判定し、
+    // 強制的に別方向へ逃げさせる(unstuckUntil の間はその方向を優先)。
+    stuckTimer:0, lastCheckPos:{x:spawn.x,z:spawn.z}, unstuckDir:null, unstuckUntil:0};
   avatar.position.set(unit.x,0,unit.z); avatar.rotation.y=unit.yaw; avatar.visible=true;
   updateAvatarHPBar(avatar,unit.hp); return unit;
 }
@@ -1644,6 +1664,10 @@ function damageEntityFromAI(unit,target,dist,nowSec){
   addBullet(origin,dir,unit.id,unit.team,true);
   var acc=clamp01(1-(dist/34))*0.85+0.10; if(unit.rng()>acc && dist>10)return;
   var myId=socket&&socket.id?socket.id:'__local__';
+  // FIX: サーバー側で壁の有無を判定できるように、AIの座標と
+  // ターゲットの座標を ai-attack に含めて送る。以前は座標を送って
+  // いなかったため、サーバーは壁を一切考慮せずダメージを通していた
+  // (=AIの弾が壁を貫通してくるように見える不具合の原因)。
   if(target.type==='human'){
     // 見た目のヒットエフェクトは即時に出して気持ちよさを保つが、
     // HP/alive の確定はサーバーからの damage-result を待つ。
@@ -1651,12 +1675,14 @@ function damageEntityFromAI(unit,target,dist,nowSec){
       flashHitIndicator(); showKillAnnouncement('HIT!');
     }
     if(socket&&socket.connected){
-      socket.emit('ai-attack',{room:currentRoom,aiId:unit.id,targetId:target.id});
+      socket.emit('ai-attack',{room:currentRoom,aiId:unit.id,targetId:target.id,
+        aiX:unit.x,aiZ:unit.z,targetX:target.pos.x,targetZ:target.pos.z});
     }
   }else if(target.type==='ai'){
     flashKillFx(new T.Vector3(target.pos.x,1.0,target.pos.z));
     if(socket&&socket.connected){
-      socket.emit('ai-attack',{room:currentRoom,aiId:unit.id,targetId:target.id});
+      socket.emit('ai-attack',{room:currentRoom,aiId:unit.id,targetId:target.id,
+        aiX:unit.x,aiZ:unit.z,targetX:target.pos.x,targetZ:target.pos.z});
     }
   }
 }
@@ -1702,7 +1728,64 @@ function updateAIUnit(unit,dt,nowSec){
   var speed=unit.state==='attack'?2.0:(unit.state==='chase'?2.8:1.5);
   var mag2=Math.hypot(move.x,move.y);
   if(mag2>0.01){ move.x/=mag2; move.y/=mag2; }
+
+  // ============================================================
+  // FIX(IQ向上・壁スタック対策): 以前は move 方向(ターゲットや巡回点への
+  // 直線方向)のまま壁の有無を考慮せず突き進んでいたため、壁に正面から
+  // 突っかかると「めり込み→押し出し→また同じ方向に進もうとする」を
+  // 繰り返してその場で固まってしまうことがあった。
+  //
+  // 対策は2段構え:
+  // 1) 脱出モード中(unstuckUntil > now)は、検知した脱出方向を最優先で使う。
+  // 2) 今回の移動先がそのまま壁にぶつかる場合、左右にずらした方向
+  //    (45°/90°/135°)を順に試し、壁に当たらない方向が見つかれば
+  //    それを採用する(簡易な障害物回避)。
+  // さらに、実際に移動できた距離を毎フレーム監視し、一定時間ほとんど
+  // 進めていなければ「詰まっている」と判定して、ランダムな方向への
+  // 強制脱出モードに入る。
+  // ============================================================
+  if(unit.unstuckUntil && nowSec < unit.unstuckUntil && unit.unstuckDir){
+    move.x = unit.unstuckDir.x;
+    move.y = unit.unstuckDir.y;
+  }else{
+    var stepLen=speed*dt;
+    var tryX=unit.x+move.x*stepLen, tryZ=unit.z+move.y*stepLen;
+    if(mag2>0.01 && aiWouldHitWall(tryX,tryZ)){
+      var baseAngle=Math.atan2(move.y,move.x);
+      var offsets=[Math.PI/4,-Math.PI/4,Math.PI/2,-Math.PI/2,Math.PI*0.75,-Math.PI*0.75];
+      var found=false;
+      for(var oi=0;oi<offsets.length;oi++){
+        var ang=baseAngle+offsets[oi];
+        var cx=Math.cos(ang), cz=Math.sin(ang);
+        var altX=unit.x+cx*stepLen, altZ=unit.z+cz*stepLen;
+        if(!aiWouldHitWall(altX,altZ)){
+          move.x=cx; move.y=cz; found=true; break;
+        }
+      }
+      if(!found){
+        // どの方向もダメなら後退する
+        move.x=-move.x; move.y=-move.y;
+      }
+    }
+  }
+
   var resolved=resolveCollisionForAI(unit.x+move.x*speed*dt, unit.z+move.y*speed*dt);
+
+  // スタック検知: 0.6秒ごとに、その間に実際に進めた距離を確認する。
+  // 十分進めていなければ stuckTimer を蓄積し、一定時間連続で
+  // 詰まっていたら強制的にランダム方向への脱出モードに入る。
+  unit.stuckTimer = (unit.stuckTimer||0) + dt;
+  if(unit.stuckTimer >= 0.6){
+    var movedDist=Math.hypot(resolved.x-unit.lastCheckPos.x, resolved.z-unit.lastCheckPos.z);
+    if(movedDist < 0.35){
+      var escapeAngle = unit.rng()*Math.PI*2;
+      unit.unstuckDir = {x:Math.cos(escapeAngle), y:Math.sin(escapeAngle)};
+      unit.unstuckUntil = nowSec + 0.8 + unit.rng()*0.6;
+    }
+    unit.lastCheckPos = {x:resolved.x, z:resolved.z};
+    unit.stuckTimer = 0;
+  }
+
   unit.x=resolved.x; unit.z=resolved.z;
   unit.avatar.position.set(unit.x,0,unit.z);
   unit.avatar.rotation.y=unit.yaw;
@@ -1758,6 +1841,7 @@ function resetAIForRound(){
   for(var i=0;i<aiUnits.length;i++){
     var u=aiUnits[i];if(!u)continue;
     u.alive=true;u.hp=u.maxHp;u.x=u.spawn.x;u.z=u.spawn.z;u.yaw=u.team===TEAM_RED?Math.PI:0;u.state='patrol';u.fireCooldown=0.8+u.rng()*0.8;u.lastShotAt=0;
+    u.stuckTimer=0; u.lastCheckPos={x:u.x,z:u.z}; u.unstuckDir=null; u.unstuckUntil=0;
     if(u.avatar){u.avatar.visible=true;u.avatar.position.set(u.x,0,u.z);u.avatar.rotation.y=u.yaw;ensureNameTag(u.avatar,'AI',u.team);updateAvatarHPBar(u.avatar,u.hp);}
   }
   aiClock=0;
@@ -1805,8 +1889,16 @@ function updateRemotePlayersFromState(){
     if(socket&&id===socket.id)return; if(!ids[id])removeAvatar(id);
   });
 }
+// FIX: 観戦(SPECTATE)中はカメラが「観戦対象の背後」を動き回るだけで、
+// 自分自身はゲーム上どこにも実在しない。以前はSPECTATE中もこの
+// カメラ座標を自分の位置として送信していたため、サーバー上の
+// 死亡プレイヤーの座標が観戦対象の近くに書き換わり続け、他クライアントの
+// 当たり判定(アバターのposition基準)がそれを巻き込んでしまっていた。
+// server.js 側でも alive===false なら座標更新を無視するようにしたが、
+// クライアント側でも観戦中は送信自体を行わないようにしておく。
 function updateSendLoop(dt){
-  if(!socket||!socket.connected||(gameMode!==GAME_MODE.BATTLE&&gameMode!==GAME_MODE.SPECTATE))return;
+  if(!socket||!socket.connected||gameMode!==GAME_MODE.BATTLE)return;
+  if(!player.alive)return;
   sendTimer+=dt*1000;
   if(sendTimer>=SEND_HZ){sendTimer=0;socket.emit('playerMovement',{room:currentRoom,name:PLAYER_NAME,team:player.team,x:camera.position.x,y:camera.position.y,z:camera.position.z,ry:yaw,alive:player.alive,hp:player.hp});}
 }

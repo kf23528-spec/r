@@ -305,8 +305,7 @@ var MAG_SIZE = 30;
 var FIRE_INTERVAL = 0.10;
 var RELOAD_TIME = 1.4;
 var DAMAGE_PER_BULLET = 4;
-// FIX: 実際のダメージ確定はサーバー(server.js)が行うが、表示や
-// 見た目演出で参照する値はサーバーと揃えておく(AI_DAMAGE_PER_HIT=4)。
+// ダメージ確定はサーバー権威。表示用にサーバーと同じ値を保持
 var AI_DAMAGE_PER_HIT = 4;
 var PLAYER_SPEED = 5.5;
 var CAM_FOV_NORMAL = 70;
@@ -318,12 +317,7 @@ var MAX_PLAYERS = 8;
 var MAP_BORDER = 35.2;
 var PLAYER_RADIUS = 0.42;
 var PLAYER_HEIGHT = 1.6;
-// FIX: 弾速(見た目のトレーサー速度)を上げて、撃った瞬間に
-// 弾が走っていく爽快感を出す。当たり判定自体はヒットスキャン
-// (発射時に即座にレイキャストして命中判定する方式)なので、
-// この値を上げてもダメージ判定のタイミングには影響しない。
-// 見た目の弾が短時間でターゲットまで届くようにし、BULLET_LIFEも
-// 短縮して弾がだらだら残らないようにする。
+// 弾速は見た目のトレーサー速度。当たり判定はヒットスキャン(発射時の即時レイキャスト)なので影響なし
 var BULLET_SPEED = 85;
 var BULLET_LIFE = 0.45;
 var RANDOM_MATCH_WAIT = 30;
@@ -331,15 +325,11 @@ var TEAM_BLUE = 'blue';
 var TEAM_RED = 'red';
 var GAME_MODE = {LOBBY:'lobby',WAITING:'waiting',LOADING:'loading',BATTLE:'battle',SPECTATE:'spectate',RESULT:'result'};
 var AI_RESPAWN_ENABLED = false;
-// FIX: 身長修正(POLO_TARGET_HEIGHT=1.78m)に合わせてAIの当たり判定も
-// 少し拾いやすいサイズに調整する。0.35(幅0.7m)は実際のシルエットに
-// 対してギリギリで、レイのサンプリング荒さも重なって外れやすかった。
+// 身長修正(1.78m)に合わせて拾いやすいサイズに調整
 var AI_HIT_BOX_HEIGHT = 1.9;
 var AI_HIT_BOX_HALF_W = 0.45;
 
-/* ================================================================
-   POLO.FBX キャッシュ（ES Modules / FBXLoader 方式）
-   ================================================================ */
+/* POLO.FBX キャッシュ（ES Modules / FBXLoader 方式） */
 var poloFbxTemplate = null;
 var poloFbxReady    = false;
 var poloFbxWaiters  = [];
@@ -347,13 +337,9 @@ var gunGlbTemplate  = null;
 var gunGlbReady     = false;
 var gunGlbWaiters   = [];
 
-/* FIX: 固定スケール(0.01)は polo.fbx のエクスポート設定によって
-   身長が合わない/合いすぎないケースがあるため、ロード直後に実際の
-   バウンディングサイズを測定し、目標身長(POLO_TARGET_HEIGHT)に
-   合わせて自動でスケールを計算する方式に変更する。
-   POLO_FBX_SCALE は計算に失敗した場合のフォールバック値として残す。 */
+/* 実測身長から目標身長(POLO_TARGET_HEIGHT)に合わせ動的スケール計算。POLO_FBX_SCALEは計算失敗時のフォールバック */
 var POLO_FBX_SCALE = 0.01;
-var POLO_TARGET_HEIGHT = 1.78; // 見た目上の目標身長(m)。プレイヤーカメラ高さ(1.6)より少し高めにして自然な一人称視点にする
+var POLO_TARGET_HEIGHT = 1.78; // 目標身長(m)。一人称視点が自然に見える高さ
 var POLO_ROT_Y = Math.PI;
 var POLO_ROT_X = 0;
 var POLO_ROT_Z = 0;
@@ -601,21 +587,13 @@ function clampVecToMap(v){v.x=clamp(v.x,-MAP_BORDER,MAP_BORDER);v.z=clamp(v.z,-M
 function isInteractiveTarget(el){return !!(el&&el.closest&&el.closest('button,input,textarea,select,label,a,#lobbyOverlay,#waitingOverlay,#loadingOverlay,#resultOverlay'));}
 function addColliderBox(x,y,z,w,h,d,mesh){colliders.push({x:x,y:y,z:z,w:w,h:h,d:d,mesh:mesh||null});}
 
-/* ================================================================
-   ★ POLO.FBX ローダー（polo.fbx Viewer と同じ方式）
-   FBXLoader（ESモジュール）で 'polo.fbx' を読み込み、
-   scale.setScalar(0.01) で正規化。アニメーションは clips[0] を保持し、
-   makeRemoteAvatar 側で AnimationMixer を作って再生する。
-   ================================================================ */
+/* POLO.FBXローダー: FBXLoaderで'polo.fbx'を読み込み、実測身長から動的スケールを適用。clips[0]をAnimationMixerで再生する */
 function loadPoloFbx(){
   var loader = new FBXLoader();
   loader.load(
     'polo.fbx',
     function(fbx){
-      // FIX: 固定の 0.01 スケールではモデルのエクスポート単位次第で
-      // 身長が合わないことがあるため、まずスケール1のままバウンディング
-      // ボックスを測定し、実際の高さ(size.y)から目標身長に必要な
-      // スケール係数を逆算する。
+      // スケール1で実測し、目標身長との比からスケール係数を逆算する
       fbx.scale.setScalar(1);
       fbx.updateMatrixWorld(true);
 
@@ -634,10 +612,7 @@ function loadPoloFbx(){
       }
 
       fbx.scale.setScalar(finalScale);
-      // FIX: 読み込んだ直後にワールド行列とバインド行列を確定させる。
-      // これをやらないと、後で SkeletonUtils.clone() するときに
-      // ボーンの matrixWorld が古い(未更新)状態のままコピーされ、
-      // クローン後のスキニング計算がズレて巨大化/伸びの原因になる。
+      // SkeletonUtils.clone前にワールド/バインド行列を確定(クローン後のスキニングずれ防止)
       fbx.updateMatrixWorld(true);
 
       // 最終チェック: スケール後の高さが目標とどれだけ近いかログに残す
@@ -667,9 +642,7 @@ function onPoloReady(fn){
   poloFbxWaiters.push(fn);
 }
 
-/* ================================================================
-   アバター用 ju.glb ローダー（ESモジュール GLTFLoader）
-   ================================================================ */
+/* アバター用 ju.glb ローダー（ESモジュール GLTFLoader） */
 function loadGunGlbForAvatars(){
   var loader = new GLTFLoader();
   loader.load('ju.glb', function(gltf){
@@ -766,9 +739,7 @@ function normalizeAvatarMaterial(m, team, forceOpaque){
     m.side = T.DoubleSide;
     m.visible = true;
 
-    // FIX: forceOpaque を実際に使ってテクスチャのアルファチャンネルも
-    // 不透明化する。以前は引数を受け取っていたが呼び出し側で渡していなかった
-    // ため、テクスチャ由来の半透明/抜け穴がまだ残るケースがあった。
+    // forceOpaque時はテクスチャのアルファも不透明化(半透明/抜け穴対策)
     if(forceOpaque && m.map) m.map = forceOpaqueTexture(m.map);
     if(m.map) m.map.needsUpdate = true;
     if(m.alphaMap){
@@ -788,8 +759,7 @@ function applyTeamColor(object, team){
     child.frustumCulled = false;
     var mats = Array.isArray(child.material) ? child.material : [child.material];
     mats.forEach(function(m){
-      // FIX: forceOpaque=true を明示的に渡す
-      normalizeAvatarMaterial(m, team, true);
+      normalizeAvatarMaterial(m, team, true); // forceOpaque=true
     });
   });
 }
@@ -921,23 +891,8 @@ function cloneGunForAvatar(){
 }
 
 
-/* ================================================================
-   ★ makeRemoteAvatar - polo.fbx 優先 + 失敗時フォールバック
-   polo.fbx Viewer と同じ方式：clips[0] を AnimationMixer で再生
-
-   FIX(重要): 以前は fbx.clone(true) を使っていたが、これは
-   three.js 標準の Object3D.prototype.clone であり、
-   SkinnedMesh のスケルトン(bones)を正しく複製しない既知の問題がある。
-   そのままだとクローン後の SkinnedMesh が「元テンプレートのボーン」
-   または「未初期化のバインド行列」を参照してしまい、
-   再生されるアニメーションでメッシュが巨大に伸びる/裂ける
-   (今回の「赤い布のようなものが画面を覆う」症状)が発生する。
-
-   → three/examples/jsm/utils/SkeletonUtils.js の SkeletonUtils.clone()
-   に置き換える。これは SkinnedMesh とボーン階層を正しく一緒に複製し、
-   bindMatrix / skeleton の対応関係を保持するため、
-   AnimationMixer で再生してもメッシュが破綻しない。
-   ================================================================ */
+/* makeRemoteAvatar: polo.fbx優先+失敗時フォールバック。クローンはSkeletonUtils.clone()を使用
+   (Object3D.clone()はSkinnedMeshのボーンを正しく複製せずメッシュ破綻の原因になるため) */
 function makeRemoteAvatar(team, name){
   var outer = new T.Group();
   outer.userData = { isRemoteAvatar:true, team:team, name:name||'' };
@@ -968,10 +923,7 @@ function makeRemoteAvatar(team, name){
     if(fbx){
       var clone = null;
       try{
-        // FIX: SkeletonUtils.clone はボーン階層とSkinnedMeshの紐付けを
-        // 正しく複製する。万一 SkeletonUtils が使えない/失敗した場合は
-        // フォールバックとしてプロシージャルアバターに切り替える
-        // (壊れたメッシュを画面に出すよりはるかに安全)。
+        // SkeletonUtils.cloneでボーン階層を正しく複製。失敗時はプロシージャルにフォールバック
         clone = SkeletonUtils.clone(fbx);
       }catch(e){
         console.warn('[POLO] SkeletonUtils.clone failed, falling back to procedural avatar:', e);
@@ -979,10 +931,7 @@ function makeRemoteAvatar(team, name){
       }
 
       if(clone){
-        // FIX: 異常なバウンディングサイズ(=メッシュ破綻)を検知したら
-        // プロシージャルアバターにフォールバックする安全装置。
-        // 正常な polo.fbx (scale 0.01 適用後)は身長 2m 程度のはずなので、
-        // 明らかに大きすぎる/小さすぎる場合は信用しない。
+        // 異常なバウンディングサイズ(メッシュ破綻)を検知したらプロシージャルにフォールバック
         var box = new T.Box3().setFromObject(clone);
         var size = new T.Vector3();
         box.getSize(size);
@@ -1057,9 +1006,7 @@ function makeRemoteAvatar(team, name){
   return outer;
 }
 
-/* ================================================================
-   カメラ用銃 (一人称)
-   ================================================================ */
+/* カメラ用銃 (一人称) */
 function buildProceduralGun(){
   var g=new T.Group();
   var s = 1.14;
@@ -1167,12 +1114,7 @@ function resetTouchAndInputState(){
   setADS(false);
 }
 
-// FIX: server.js の playerState ハンドラは座標(x/y/z/ry)以外の
-// フィールド(alive/hp/round/blue/red等)を一切信用しない設計になっている
-// (サーバー側コメント: "alive/hp はサーバーの値をそのまま使う")。
-// そのため、ここから送るのは座標同期に必要な情報のみに絞る。
-// alive/hp/round/blue/red をクライアントから送ってもサーバーには
-// 反映されないが、誤解を避けるため送信自体をやめる。
+// server.jsのplayerStateハンドラは座標(x/y/z/ry)以外を信用しないため、座標同期のみに絞る
 function syncRoundStateToRoom(extra){
   if(!socket || !socket.connected || !currentRoom) return;
   var payload = Object.assign({
@@ -1313,11 +1255,7 @@ function resolveCollisionForAI(nx,nz){
   }
   return{x:clamp(sx,-MAP_BORDER,MAP_BORDER),z:clamp(sz,-MAP_BORDER,MAP_BORDER)};
 }
-// FIX: AIが壁に向かって進もうとしているかを事前にチェックするための
-// ヘルパー。指定した移動先(nx,nz)が、現在位置(AI_RADIUSの余白込みで)
-// から見て壁の中にめり込む場合は true を返す。
-// これを使って「その方向に進むと詰まる」ことを移動前に検知し、
-// 別の方向を試すことで壁スタックを未然に防ぐ。
+// 移動先(nx,nz)が壁にめり込むか事前チェック。壁スタック回避用
 function aiWouldHitWall(nx,nz){
   var r=AI_RADIUS;
   for(var i=0;i<colliders.length;i++){
@@ -1360,16 +1298,7 @@ function makeBullet(origin,dir,ownerId,ownerTeam,isRemote){
 }
 function addBullet(origin,dir,ownerId,ownerTeam,isRemote){var b=makeBullet(origin,dir,ownerId,ownerTeam,isRemote);bullets.push(b);return b;}
 function hitPointInBox(p,b){return Math.abs(p.x-b.x)<=b.w/2&&Math.abs(p.y-b.y)<=b.h/2&&Math.abs(p.z-b.z)<=b.d/2;}
-// FIX: 以前は prev→next の区間を固定16分割でサンプリングしていた。
-// checkLocalShotHit は60m先まで判定するため、16分割だと
-// サンプリング間隔が 60/16=3.75m にもなり、map内の薄い壁
-// (奥行き1.2m〜4m程度)を完全に飛び越えてしまい、弾がすり抜ける
-// 原因になっていた。同じ理由でAIや人間の薄い当たり判定ボックス
-// (奥行き1m前後)も外れやすく、「当たり判定がシビアすぎる」の
-// 一因になっていた。
-// → 区間の長さに応じてステップ数を増減させ、サンプリング間隔が
-// 常に約0.12m以下になるようにする(対象ボックスの奥行きより
-// 十分に細かい間隔にする)。
+// サンプリング間隔を約0.12m以下に保つ(固定16分割だと薄い壁を飛び越えすり抜ける問題があった)
 function raySegmentHitsBox(prev,next,box){
   var totalDist=prev.distanceTo(next);
   if(totalDist<1e-6) return hitPointInBox(prev,box)?prev.clone():null;
@@ -1382,12 +1311,7 @@ function raySegmentHitsBox(prev,next,box){
   }
   return null;
 }
-// FIX: 壁などのコライダー(AABB)はサンプリングではなく解析的な
-// スラブ法(slab method)でレイとの交差を正確に計算する。
-// これによりサンプリング間隔に関係なく薄い壁も確実にヒットし、
-// かつ大量のコライダーがあっても計算量が一定(ステップ数に依存しない)
-// になるため、連射時のパフォーマンスも安定する。
-// 戻り値: ヒットした場合は origin からの距離(m)。当たらなければ null。
+// 壁(AABB)はスラブ法で解析的に交差判定(サンプリングより確実かつ計算量も一定)。戻り値はoriginからの距離(m)
 function rayIntersectAABBDistance(origin,dir,box){
   var halfW=box.w/2, halfH=box.h/2, halfD=box.d/2;
   var minX=box.x-halfW, maxX=box.x+halfW;
@@ -1416,9 +1340,7 @@ function rayIntersectAABBDistance(origin,dir,box){
   if(tmax<0) return null;
   return tmin>=0?tmin:tmax;
 }
-// FIX: 当たり判定ボックスは身長修正(POLO_TARGET_HEIGHT=1.78m)に
-// 合わせて余裕を持たせ、見た目のシルエットより少し大きめにして
-// 「明らかに当たっているように見えるのに外れる」を防ぐ。
+// 当たり判定ボックスは見た目のシルエットより少し大きめに(身長修正に合わせて調整)
 function bulletHitsAvatar(prev,next,ap){return raySegmentHitsBox(prev,next,{x:ap.x,y:ap.y+0.95,z:ap.z,w:1.30,h:2.10,d:1.30});}
 function bulletHitsAIAvatar(prev, next, aiX, aiZ){
   return raySegmentHitsBox(prev, next, {
@@ -1437,35 +1359,9 @@ function addKillFeed(text){var d=document.createElement('div');d.className='kfIt
 function flashHitIndicator(){hitIndicator.classList.add('active');setTimeout(function(){hitIndicator.classList.remove('active');},120);}
 function showKillAnnouncement(text){announceEl.textContent=text||'HIT!';announceEl.classList.remove('show');void announceEl.offsetWidth;announceEl.classList.add('show');}
 
-/* ================================================================
-   ラウンド管理
-   FIX(重要): 以前はクライアント側でも「生存数を数えて勝敗を決め、
-   スコアを加算してサーバーに scoreUpdate/enemyKilledAck/matchFinished
-   を送り返す」処理(getAliveCounts/getWinnerByElimination/
-   endRoundByWinner/clearRoundIfNeededFromStates)が残っていた。
-
-   server.js 側はすでに完全にサーバー権威でラウンド終了・スコア・
-   試合終了を管理しており(checkRoundEndCondition/resolveRound)、
-   scoreUpdate / round-ended / round-started / round-reset /
-   matchFinished を一斉配信してくる。
-
-   クライアントが同時に同じ判定をローカルでも行い、さらにサーバーへ
-   イベントを送り返してしまうと、
-   - 自分の画面では「ローカル判定→表示→サーバーの結果で上書き」が
-     短時間に連続して起こり、勝利表示が一瞬で出て消える
-   - 相手の画面はサーバーの正しい結果を受け取るタイミングが
-     ローカル判定とズレるため、スコア/ラウンド表示が不整合になる
-   - 5点に達した後の matchFinished がクライアントからも送られるため、
-     サーバー側の最終結果と競合し、resultShown 等のフラグの状態次第で
-     試合終了が表示されないことがある
-   という問題を引き起こしていた。
-
-   そのため、ここからはクライアントはラウンド/試合の勝敗を
-   一切ローカルで判定しない。生存数のチェックも、スコア加算も、
-   ラウンド番号の更新も行わない。サーバーから来る
-   round-ended / round-started / round-reset / scoreUpdate /
-   matchFinished を受け取って画面に反映するだけにする。
-   ================================================================ */
+/* ラウンド管理: 勝敗・スコア・試合終了は完全にサーバー権威(checkRoundEndCondition/resolveRound)。
+   クライアントはローカルで判定しない。round-ended/round-started/round-reset/scoreUpdate/matchFinishedを
+   受け取って画面に反映するだけ(ローカル判定+サーバーへの送り返しは表示の二重更新・不整合の原因だった) */
 function resetRoundState(){
   roundResolved=false;matchOver=false;player.alive=true;player.spectating=false;spectateTargetId='';
   player.hp=player.maxHp=100;ammo=MAG_SIZE;reloading=false;reloadTimer=0;
@@ -1482,21 +1378,16 @@ function resetRoundState(){
   resetAIForRound();updatePlayerHPUI();updateAmmoUI();if(gunRoot)gunRoot.visible=true;spectateOverlay.style.display='none';
   syncRoundStateToRoom({alive:true,hp:100,phase:GAME_MODE.BATTLE});
 }
-// FIX: showResult はサーバーからの matchFinished 受信時にのみ呼ばれる
-// (showFinalResultByServer 経由)。ローカルでの勝敗計算では呼ばない。
+// showResultはmatchFinished受信時のみ呼ばれる(showFinalResultByServer経由)
 function showResult(wt){if(resultShown)return;resultShown=true;matchOver=true;gameMode=GAME_MODE.RESULT;setModeUI();resultOverlay.style.display='flex';resultTextEl.textContent=wt===TEAM_BLUE?'BLUE WINS':'RED WINS';resultSubEl.textContent='LOADING BACK TO THE HUB...';}
-// FIX: ラウンド終了の見た目処理(アナウンス表示等)はサーバーの
-// round-ended イベント受信時に呼ばれる(handleServerRoundEnded)。
-// スコア加算・ラウンド番号更新は一切しない。表示効果のみ。
+// ラウンド終了の見た目演出のみ(round-ended受信時に呼ばれる。スコア/ラウンド番号は更新しない)
 function playRoundEndFx(winnerTeam){
   showKillAnnouncement(winnerTeam===TEAM_BLUE?'BLUE ROUND':(winnerTeam===TEAM_RED?'RED ROUND':'ROUND END'));
   addKillFeed((winnerTeam===TEAM_BLUE?'🔵 ':(winnerTeam===TEAM_RED?'🔴 ':'⚪ '))+'ROUND WIN');
   flashHitIndicator();
 }
 
-/* ================================================================
-   ネームタグ (Sprite)
-   ================================================================ */
+/* ネームタグ (Sprite) */
 function canvasRoundRect(ctx,x,y,w,h,r,fill,stroke){
   if(typeof r==='number') r={tl:r,tr:r,br:r,bl:r};
   else r=r||{};
@@ -1578,9 +1469,7 @@ function updateAvatarHPBar(av,hp){
   updateAvatarBillboard(av);
 }
 
-/* ================================================================
-   AI ユニット
-   ================================================================ */
+/* AI ユニット */
 function hashRoomSeed(room){var str=String(room||'0000'),h=2166136261>>>0;for(var i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,16777619);}return h>>>0;}
 function mulberry32(a){return function(){var t=a+=0x6D2B79F5;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return((t^t>>>14)>>>0)/4294967296;};}
 
@@ -1610,9 +1499,7 @@ function makeAIUnit(team,index){
   var unit={id:'ai-'+tk+'-'+index,team:tk,avatar:avatar,rng:rng,seed:seed,spawn:spawn,x:spawn.x,z:spawn.z,
     yaw:tk==='red'?Math.PI:0,hp:100,maxHp:100,alive:true,state:'patrol',
     moveSpeed:2.2+rng()*0.7,strafe:rng()>0.5?1:-1,fireCooldown:0.6+rng()*1.2,lastShotAt:0,
-    // FIX: 壁にスタックしたかどうかを検知するための状態。
-    // 一定時間ほとんど移動できていなければ「詰まっている」と判定し、
-    // 強制的に別方向へ逃げさせる(unstuckUntil の間はその方向を優先)。
+    // 壁スタック検知用: 詰まっていればunstuckUntilの間unstuckDirへ強制逃走
     stuckTimer:0, lastCheckPos:{x:spawn.x,z:spawn.z}, unstuckDir:null, unstuckUntil:0};
   avatar.position.set(unit.x,0,unit.z); avatar.rotation.y=unit.yaw; avatar.visible=true;
   updateAvatarHPBar(avatar,unit.hp); return unit;
@@ -1646,14 +1533,7 @@ function aiCanSee(unit,targetPos){
   for(var i=0;i<colliders.length;i++){if(raySegmentHitsBox(from,to,colliders[i]))return false;}
   return true;
 }
-// FIX: AIによる攻撃も、ダメージ確定はサーバー(ai-attack→damage-result)に
-// 委ねる。以前はここでローカルに player.hp や roomPlayers[...].hp / alive
-// を直接書き換え、さらに enemyKilledAck を送ってスコア相当の処理にも
-// 介入していたため、複数クライアントの判定がズレてラウンドが
-// 正しく終わらない/相手画面に反映されない原因になっていた。
-// 各クライアントはAIの動きを独立にシミュレートしているので、
-// 「攻撃の意図(このAIがこの相手を狙った)」だけをサーバーに伝え、
-// 実際にダメージが乗るかどうか・誰のHPが減るかはサーバーが決める。
+// AIの攻撃判定もサーバー権威。ローカルでは攻撃意図(ai-attack)のみ送信、HP確定はサーバーが行う
 function damageEntityFromAI(unit,target,dist,nowSec){
   if(nowSec<unit.lastShotAt+0.45)return;
   unit.lastShotAt=nowSec; unit.fireCooldown=nowSec+0.7+unit.rng()*1.1;
@@ -1664,13 +1544,9 @@ function damageEntityFromAI(unit,target,dist,nowSec){
   addBullet(origin,dir,unit.id,unit.team,true);
   var acc=clamp01(1-(dist/34))*0.85+0.10; if(unit.rng()>acc && dist>10)return;
   var myId=socket&&socket.id?socket.id:'__local__';
-  // FIX: サーバー側で壁の有無を判定できるように、AIの座標と
-  // ターゲットの座標を ai-attack に含めて送る。以前は座標を送って
-  // いなかったため、サーバーは壁を一切考慮せずダメージを通していた
-  // (=AIの弾が壁を貫通してくるように見える不具合の原因)。
+  // サーバー側の壁判定用にAI/ターゲットの座標を含めて送る
   if(target.type==='human'){
-    // 見た目のヒットエフェクトは即時に出して気持ちよさを保つが、
-    // HP/alive の確定はサーバーからの damage-result を待つ。
+    // 見た目のヒットエフェクトは即時表示。HP/alive確定はdamage-resultを待つ
     if(target.id===myId){
       flashHitIndicator(); showKillAnnouncement('HIT!');
     }
@@ -1729,21 +1605,8 @@ function updateAIUnit(unit,dt,nowSec){
   var mag2=Math.hypot(move.x,move.y);
   if(mag2>0.01){ move.x/=mag2; move.y/=mag2; }
 
-  // ============================================================
-  // FIX(IQ向上・壁スタック対策): 以前は move 方向(ターゲットや巡回点への
-  // 直線方向)のまま壁の有無を考慮せず突き進んでいたため、壁に正面から
-  // 突っかかると「めり込み→押し出し→また同じ方向に進もうとする」を
-  // 繰り返してその場で固まってしまうことがあった。
-  //
-  // 対策は2段構え:
-  // 1) 脱出モード中(unstuckUntil > now)は、検知した脱出方向を最優先で使う。
-  // 2) 今回の移動先がそのまま壁にぶつかる場合、左右にずらした方向
-  //    (45°/90°/135°)を順に試し、壁に当たらない方向が見つかれば
-  //    それを採用する(簡易な障害物回避)。
-  // さらに、実際に移動できた距離を毎フレーム監視し、一定時間ほとんど
-  // 進めていなければ「詰まっている」と判定して、ランダムな方向への
-  // 強制脱出モードに入る。
-  // ============================================================
+  // 壁スタック対策: (1)脱出モード中は脱出方向を最優先 (2)移動先が壁にぶつかる場合は左右にずらした方向(45/90/135°)を試す簡易回避
+  // さらに移動できた距離を監視し、詰まっていればランダム方向への強制脱出モードに入る(下記stuckTimer判定)
   if(unit.unstuckUntil && nowSec < unit.unstuckUntil && unit.unstuckDir){
     move.x = unit.unstuckDir.x;
     move.y = unit.unstuckDir.y;
@@ -1889,13 +1752,7 @@ function updateRemotePlayersFromState(){
     if(socket&&id===socket.id)return; if(!ids[id])removeAvatar(id);
   });
 }
-// FIX: 観戦(SPECTATE)中はカメラが「観戦対象の背後」を動き回るだけで、
-// 自分自身はゲーム上どこにも実在しない。以前はSPECTATE中もこの
-// カメラ座標を自分の位置として送信していたため、サーバー上の
-// 死亡プレイヤーの座標が観戦対象の近くに書き換わり続け、他クライアントの
-// 当たり判定(アバターのposition基準)がそれを巻き込んでしまっていた。
-// server.js 側でも alive===false なら座標更新を無視するようにしたが、
-// クライアント側でも観戦中は送信自体を行わないようにしておく。
+// 観戦中は自分はゲーム上に実在しないため座標送信しない(送ると観戦カメラ座標が他の当たり判定を乱す。server.js側もalive===falseなら無視する二重防御)
 function updateSendLoop(dt){
   if(!socket||!socket.connected||gameMode!==GAME_MODE.BATTLE)return;
   if(!player.alive)return;
@@ -1908,8 +1765,7 @@ function checkLocalShotHit(origin,dir){
   var MAX_RANGE=60;
   var end=origin.clone().addScaledVector(dir,MAX_RANGE);
   var nearest=null,nearestDist=Infinity;
-  // FIX: 壁(コライダー)は解析的なレイ-AABB交差判定を使う。
-  // サンプリングに頼らないため、薄い壁も確実に検出できる。
+  // 壁は解析的なレイ-AABB交差判定(サンプリングに頼らず薄い壁も確実に検出)
   for(var i=0;i<colliders.length;i++){
     var d=rayIntersectAABBDistance(origin,dir,colliders[i]);
     if(d!==null && d>=0 && d<=MAX_RANGE && d<nearestDist){
@@ -1917,8 +1773,7 @@ function checkLocalShotHit(origin,dir){
       nearest={type:'obstacle',point:origin.clone().addScaledVector(dir,d)};
     }
   }
-  // 人間・AIのアバターは小さい当たり判定なのでサンプリング方式を維持する。
-  // ただし壁より手前にある場合のみ上書きする(壁の裏のプレイヤーに当たらないようにする)。
+  // 人間/AIは小さい当たり判定なのでサンプリング方式。壁より手前の場合のみ上書き
   Object.keys(roomPlayers||{}).forEach(function(id){
     if(socket&&id===socket.id)return;
     var p=roomPlayers[id];if(!p||p.alive===false)return;
@@ -1935,11 +1790,7 @@ function checkLocalShotHit(origin,dir){
   }
   return nearest;
 }
-// FIX: 当たり判定(レイキャスト)はクライアントでローカルに行うが、
-// ダメージの確定・HP変更・撃破判定はサーバー(damage-result)が唯一の
-// 真実になる。ここではローカルでHPを変更せず、ヒットの見た目FXだけを
-// 出し、実際のダメージ確定要求は呼び出し元(fireOnce)が playerShoot で
-// サーバーに送る。
+// レイキャストはローカルだが、ダメージ確定はサーバー(damage-result)権威。ここでは見た目FXのみ、確定要求はfireOnceがplayerShootで送る
 function applyLocalShotHit(hitInfo,point){
   var u=hitInfo.unit; if(!u||!u.alive)return;
   flashKillFx(point); addKillFeed('💥 AI HIT!'); showKillAnnouncement('HIT!');
@@ -1960,10 +1811,7 @@ function fireOnce(){
     if(shotBullet){shotBullet.pos.copy(hitInfo.point);shotBullet.prev.copy(hitInfo.point);if(shotBullet.mesh)shotBullet.mesh.position.copy(hitInfo.point);shotBullet.life=0.08;}
     if(hitInfo.type==='obstacle'){flashKillFx(hitInfo.point);return;}
     if(hitInfo.type==='human'){
-      // FIX: ダメージ確定はサーバーに委ねる。ローカルでHPやaliveを
-      // 直接書き換えたり applyRemoteState を呼んだりしない。
-      // 結果は damage-result イベントで全クライアントに同じ内容が
-      // 配信されてくるので、それを待って画面に反映する。
+      // ダメージ確定はサーバー権威。damage-result受信を待つ
       if(socket&&socket.connected){
         socket.emit('playerShoot',{room:currentRoom,ox:rayOrigin.x,oy:rayOrigin.y,oz:rayOrigin.z,dx:dir.x,dy:dir.y,dz:dir.z,targetId:hitInfo.id,team:player.team||TEAM_BLUE});
         flashHitIndicator(); flashKillFx(hitInfo.point); addKillFeed('💥 HIT!'); showKillAnnouncement('HIT!');
@@ -1972,9 +1820,7 @@ function fireOnce(){
     }
     if(hitInfo.type==='ai'){
       applyLocalShotHit(hitInfo,hitInfo.point);
-      // FIX: AIユニットへのダメージもサーバー権威にするため、
-      // targetId にAIのIDを入れて playerShoot を送る。
-      // server.js 側はAI IDなら findAIUnit でAIユニットとして処理する。
+      // AIへのダメージもサーバー権威。targetIdにAI IDを入れて送る
       if(socket&&socket.connected&&hitInfo.unit&&hitInfo.unit.id){
         socket.emit('playerShoot',{room:currentRoom,ox:rayOrigin.x,oy:rayOrigin.y,oz:rayOrigin.z,dx:dir.x,dy:dir.y,dz:dir.z,targetId:hitInfo.unit.id,team:player.team||TEAM_BLUE});
       }
@@ -1986,8 +1832,7 @@ function fireOnce(){
 }
 
 /* 弾更新 */
-// FIX: ここで処理する弾は見た目用(他プレイヤー/AIが撃った弾の軌跡表示)。
-// 実際にダメージが入るかどうかはサーバー側の playerShoot / ai-attack
+// 見た目用の弾(他プレイヤー/AIの軌跡表示)。ダメージ判定はサーバー側のplayerShoot/ai-attackで行う
 // 判定で決まり、結果は damage-result として降ってくる。
 // そのため、ここでは「弾が自分に当たって見えた」ときに見た目の
 // ヒットエフェクトだけ出し、HPやalive、setLocalDeath は呼ばない。
@@ -2001,9 +1846,7 @@ function updateBullets(dt){
     b.prev.copy(b.pos); b.pos.addScaledVector(b.dir,b.speed*dt); if(b.mesh)b.mesh.position.copy(b.pos);
     var isLocal=b.ownerId===myId||b.ownerId==='local';
     if(!isLocal){
-      // FIX: 1点(b.pos)だけのチェックだと、フレームレートが低い/弾速が
-      // 速いときに前フレームから今フレームの間で壁を飛び越えて見える
-      // ことがあった。b.prev→b.pos の線分全体を解析的にチェックする。
+      // b.prev→b.posの線分全体で判定(1点だけだと低FPS/高速弾で壁を飛び越えて見える)
       var hit=false;
       for(var c=0;c<colliders.length;c++){
         var segDist=b.prev.distanceTo(b.pos);
@@ -2139,22 +1982,10 @@ function showFinalResultByServer(data){
     setModeUI();setRoomInputValid();
   },2500);
 }
-// FIX: ラウンドの勝敗判定・タイムアウト判定は server.js が
-// startRoundTimer / resolveRound で完全に行っている
-// (ROUND_DURATION_MS=180000ms 経過で 'timeout' 終了、
-//  生存0人で 'elimination' 終了)。
-// クライアントはサーバーから来る round-timer イベントの
-// remainingMs/remainingSec を使って残り時間表示を更新するだけにする。
-// 以前のようにクライアント側でも同じ180秒タイマーを独立に走らせて
-// 勝敗を決めてしまうと、サーバーとのタイマーのズレ次第で
-// 「自分の画面だけ先に(あるいは後に)ラウンドが終わる」ことになるため、
-// この関数は何もしない(残し場所だけ確保)。
+// ラウンド勝敗・タイムアウト判定はserver.js(startRoundTimer/resolveRound)が権威。クライアントはno-op、round-timerで表示更新のみ
 function updateRoundIfEnded(){ /* no-op: サーバーの round-ended を待つ */ }
 function updateRoundTimer(dt){ /* no-op: 残り時間表示は round-timer イベント側で更新する */ }
-// FIX: サーバーは本当に試合が終わった時だけ matchFinished を送るように
-// なったが、念のためクライアント側でも final !== true なら試合終了
-// 画面を出さない保険を入れておく(古いサーバーや想定外のデータが
-// 来た場合の安全装置)。
+// サーバーはfinal===trueの時のみmatchFinishedを送るが、念のためfinal===falseなら無視する保険を入れる
 function showResultFromMatchFinished(data){
   if(data&&data.room&&currentRoom&&data.room!==currentRoom)return;
   if(data&&data.final===false)return;
@@ -2292,18 +2123,11 @@ function initSocket(){
   }
   socket.on('playerMoved',handleRemoteMovement);
   socket.on('playerMovement',handleRemoteMovement);
-  // FIX: playerShot / playerShotFX はサーバーが中継する見た目FX専用
-  // イベント(マズルフラッシュ・弾の軌跡)。ダメージ判定には使わない。
+  // playerShot/playerShotFXは見た目FX専用(ダメージ判定には使わない)
   socket.on('playerShot',function(d){if(!d||(socket&&d.id===socket.id))return;spawnRemoteShotFX(d);});
   socket.on('playerShotFX',function(d){if(!d||(socket&&d.id===socket.id))return;spawnRemoteShotFX(d);});
 
-  // ============================================================
-  // FIX(重要): damage-result がダメージ確定の唯一の入口になる。
-  // サーバーが「誰が誰に何ダメージ与えてHPがいくつになったか」を
-  // 部屋の全員(撃った本人含む)に同じ内容で配信してくるので、
-  // 受け取った内容をそのまま画面に反映する。
-  // これにより撃った側と撃たれた側のHP表示が必ず一致する。
-  // ============================================================
+  // damage-resultがダメージ確定の唯一の入口。サーバーが全員に同一配信するHP/aliveをそのまま表示する
   socket.on('damage-result',function(d){
     if(!d||(d.room&&currentRoom&&d.room!==currentRoom))return;
     if(d.targetType==='human'){
@@ -2343,15 +2167,8 @@ function initSocket(){
     }
   });
 
-  // ============================================================
-  // FIX: ラウンド・スコア・試合終了は全てサーバーが権威を持つ。
-  // round-ended でラウンド結果の見た目演出だけ行い、
-  // scoreUpdate でスコア/ラウンド番号の表示を更新し、
-  // round-reset / round-started で次のラウンドの復活処理を行い、
-  // matchFinished で最終結果を表示する。
-  // クライアントはこれらの受信内容をそのまま信じて表示するだけで、
-  // 自分で勝敗を計算したりサーバーへ結果を送り返したりしない。
-  // ============================================================
+  // ラウンド/スコア/試合終了はサーバー権威。round-endedで演出、scoreUpdateで表示更新、
+  // round-reset/round-startedで復活処理、matchFinishedで結果表示。クライアントは判定しない
   socket.on('round-ended',function(data){
     if(!data||(data.room&&currentRoom&&data.room!==currentRoom))return;
     if(Number.isFinite(data.blue))blueScore=data.blue;
@@ -2385,31 +2202,16 @@ function initSocket(){
     if(inWaiting)updateWaitingUI();updateWaitingLaunchBtn();updateRemotePlayersFromState();
     if(pl.starting&&inWaiting){gameMode=GAME_MODE.LOADING;setModeUI();loadingOverlay.style.display='flex';loadingTextEl.textContent='DEPLOYING';loadingSubEl.textContent='試合開始中...';}
   });
-  // FIX: round-timer はサーバーの正式な残り時間。表示だけ更新する。
+  // round-timerはサーバーの正式な残り時間。表示のみ更新
   socket.on('round-timer',function(data){
     if(!data||(data.room&&currentRoom&&data.room!==currentRoom))return;
     if(Number.isFinite(data.remainingMs))roundTimerMs=Math.max(0,ROUND_TIME_LIMIT_MS-data.remainingMs);
     if(Number.isFinite(data.roundIndex))roundIndex=data.roundIndex;
   });
   socket.on('match-starting',function(data){if(data&&data.room&&currentRoom&&data.room!==currentRoom)return;roomStarted=true;gameMode=GAME_MODE.LOADING;setModeUI();loadingOverlay.style.display='flex';loadingTextEl.textContent='DEPLOYING';loadingSubEl.textContent='試合開始中...';});
-  // ============================================================
-  // FIX(重要): server.js は「試合の最初の開始」だけでなく、
-  // 「次のラウンドの開始」のときも resetPlayersForNextRound() から
-  // 同じ match-started イベントを送ってくる(round-started と同時に)。
-  //
-  // 以前は match-started を受けるたびに beginBattle() を呼んでいたが、
-  // beginBattle は battleBeginLock で「2回目以降は何もしない」ガードに
-  // なっているため、2ラウンド目以降の match-started では実質何も
-  // 起こらなくなっていた。その結果、AIユニットの復活処理
-  // (resetAIForRound)が呼ばれず、「自分は勝ってラウンドが進んでいるのに
-  // 相手の画面ではAIだけ残って更新されない」という不整合が起きていた。
-  //
-  // 修正方針:
-  // - battleBeginLock が false のとき(=このルームでの初回開始)だけ
-  //   beginBattle() を呼ぶ(チーム振り直し・AI初期化・ローディング表示)。
-  // - battleBeginLock が true のとき(=2ラウンド目以降)は
-  //   beginBattle() を呼ばず、round-started 側の処理に任せる。
-  // ============================================================
+  // match-startedは初回開始と次ラウンド開始(resetPlayersForNextRound経由)の両方で送られる。
+  // battleBeginLock=falseの初回だけbeginBattle()を呼び、true(2ラウンド目以降)はround-started側に任せる
+  // (毎回呼ぶとAI復活処理(resetAIForRound)が走らず相手画面でAIだけ残る不整合になるため)
   socket.on('match-started',function(data){
     if(data&&data.room&&currentRoom&&data.room!==currentRoom)return;
     if(Number.isFinite(data&&data.blue))blueScore=data.blue;
@@ -2422,11 +2224,7 @@ function initSocket(){
     // battleBeginLock が既に true の場合は round-started ハンドラが
     // 次ラウンドの復活処理を行うので、ここでは何もしない。
   });
-  // FIX: round-reset / round-started はラウンド開始(初回・2回目以降を
-  // 問わず)のたびに毎回送られてくる。人間プレイヤーの復活だけでなく、
-  // AIユニットの復活(resetAIForRound)も必ずここで行う。
-  // これを怠ると、AI単体が前のラウンドのHP/death状態を引き継いだまま
-  // 表示され続け、画面ごとに見える状態がズレる原因になる。
+  // round-reset/round-startedは毎ラウンド送られる。人間復活だけでなくAI復活(resetAIForRound)も必ず行う(怠ると前ラウンドの状態が残り画面間でズレる)
   function handleServerRoundRestart(data){
     if(data&&data.room&&currentRoom&&data.room!==currentRoom)return;
     if(Number.isFinite(data&&data.roundIndex))roundIndex=data.roundIndex;

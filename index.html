@@ -316,15 +316,24 @@ var MAX_PLAYERS = 8;
 var MAP_BORDER = 35.2;
 var PLAYER_RADIUS = 0.42;
 var PLAYER_HEIGHT = 1.6;
-var BULLET_SPEED = 28;
-var BULLET_LIFE = 0.70;
+// FIX: 弾速(見た目のトレーサー速度)を上げて、撃った瞬間に
+// 弾が走っていく爽快感を出す。当たり判定自体はヒットスキャン
+// (発射時に即座にレイキャストして命中判定する方式)なので、
+// この値を上げてもダメージ判定のタイミングには影響しない。
+// 見た目の弾が短時間でターゲットまで届くようにし、BULLET_LIFEも
+// 短縮して弾がだらだら残らないようにする。
+var BULLET_SPEED = 85;
+var BULLET_LIFE = 0.45;
 var RANDOM_MATCH_WAIT = 30;
 var TEAM_BLUE = 'blue';
 var TEAM_RED = 'red';
 var GAME_MODE = {LOBBY:'lobby',WAITING:'waiting',LOADING:'loading',BATTLE:'battle',SPECTATE:'spectate',RESULT:'result'};
 var AI_RESPAWN_ENABLED = false;
-var AI_HIT_BOX_HEIGHT = 1.8;
-var AI_HIT_BOX_HALF_W = 0.35;
+// FIX: 身長修正(POLO_TARGET_HEIGHT=1.78m)に合わせてAIの当たり判定も
+// 少し拾いやすいサイズに調整する。0.35(幅0.7m)は実際のシルエットに
+// 対してギリギリで、レイのサンプリング荒さも重なって外れやすかった。
+var AI_HIT_BOX_HEIGHT = 1.9;
+var AI_HIT_BOX_HALF_W = 0.45;
 
 /* ================================================================
    POLO.FBX キャッシュ（ES Modules / FBXLoader 方式）
@@ -1335,11 +1344,66 @@ function makeBullet(origin,dir,ownerId,ownerTeam,isRemote){
 }
 function addBullet(origin,dir,ownerId,ownerTeam,isRemote){var b=makeBullet(origin,dir,ownerId,ownerTeam,isRemote);bullets.push(b);return b;}
 function hitPointInBox(p,b){return Math.abs(p.x-b.x)<=b.w/2&&Math.abs(p.y-b.y)<=b.h/2&&Math.abs(p.z-b.z)<=b.d/2;}
+// FIX: 以前は prev→next の区間を固定16分割でサンプリングしていた。
+// checkLocalShotHit は60m先まで判定するため、16分割だと
+// サンプリング間隔が 60/16=3.75m にもなり、map内の薄い壁
+// (奥行き1.2m〜4m程度)を完全に飛び越えてしまい、弾がすり抜ける
+// 原因になっていた。同じ理由でAIや人間の薄い当たり判定ボックス
+// (奥行き1m前後)も外れやすく、「当たり判定がシビアすぎる」の
+// 一因になっていた。
+// → 区間の長さに応じてステップ数を増減させ、サンプリング間隔が
+// 常に約0.12m以下になるようにする(対象ボックスの奥行きより
+// 十分に細かい間隔にする)。
 function raySegmentHitsBox(prev,next,box){
-  for(var i=1;i<=16;i++){var t=i/16;var p=new T.Vector3(lerp(prev.x,next.x,t),lerp(prev.y,next.y,t),lerp(prev.z,next.z,t));if(hitPointInBox(p,box))return p;}
+  var totalDist=prev.distanceTo(next);
+  if(totalDist<1e-6) return hitPointInBox(prev,box)?prev.clone():null;
+  var STEP=0.12; // m単位。ヒットボックスの最小奥行きより十分小さい間隔
+  var steps=Math.max(2,Math.ceil(totalDist/STEP));
+  for(var i=0;i<=steps;i++){
+    var t=i/steps;
+    var p=new T.Vector3(lerp(prev.x,next.x,t),lerp(prev.y,next.y,t),lerp(prev.z,next.z,t));
+    if(hitPointInBox(p,box))return p;
+  }
   return null;
 }
-function bulletHitsAvatar(prev,next,ap){return raySegmentHitsBox(prev,next,{x:ap.x,y:ap.y+0.85,z:ap.z,w:1.05,h:2.05,d:1.05});}
+// FIX: 壁などのコライダー(AABB)はサンプリングではなく解析的な
+// スラブ法(slab method)でレイとの交差を正確に計算する。
+// これによりサンプリング間隔に関係なく薄い壁も確実にヒットし、
+// かつ大量のコライダーがあっても計算量が一定(ステップ数に依存しない)
+// になるため、連射時のパフォーマンスも安定する。
+// 戻り値: ヒットした場合は origin からの距離(m)。当たらなければ null。
+function rayIntersectAABBDistance(origin,dir,box){
+  var halfW=box.w/2, halfH=box.h/2, halfD=box.d/2;
+  var minX=box.x-halfW, maxX=box.x+halfW;
+  var minY=box.y-halfH, maxY=box.y+halfH;
+  var minZ=box.z-halfD, maxZ=box.z+halfD;
+  var tmin=0, tmax=Infinity;
+  var axes=[
+    {o:origin.x,d:dir.x,mn:minX,mx:maxX},
+    {o:origin.y,d:dir.y,mn:minY,mx:maxY},
+    {o:origin.z,d:dir.z,mn:minZ,mx:maxZ}
+  ];
+  for(var i=0;i<3;i++){
+    var ax=axes[i];
+    if(Math.abs(ax.d)<1e-9){
+      if(ax.o<ax.mn||ax.o>ax.mx) return null;
+    }else{
+      var inv=1/ax.d;
+      var t1=(ax.mn-ax.o)*inv;
+      var t2=(ax.mx-ax.o)*inv;
+      if(t1>t2){var tmp=t1;t1=t2;t2=tmp;}
+      if(t1>tmin)tmin=t1;
+      if(t2<tmax)tmax=t2;
+      if(tmin>tmax) return null;
+    }
+  }
+  if(tmax<0) return null;
+  return tmin>=0?tmin:tmax;
+}
+// FIX: 当たり判定ボックスは身長修正(POLO_TARGET_HEIGHT=1.78m)に
+// 合わせて余裕を持たせ、見た目のシルエットより少し大きめにして
+// 「明らかに当たっているように見えるのに外れる」を防ぐ。
+function bulletHitsAvatar(prev,next,ap){return raySegmentHitsBox(prev,next,{x:ap.x,y:ap.y+0.95,z:ap.z,w:1.30,h:2.10,d:1.30});}
 function bulletHitsAIAvatar(prev, next, aiX, aiZ){
   return raySegmentHitsBox(prev, next, {
     x: aiX, y: AI_HIT_BOX_HEIGHT / 2, z: aiZ,
@@ -1749,22 +1813,32 @@ function updateSendLoop(dt){
 
 /* 弾ヒット判定 */
 function checkLocalShotHit(origin,dir){
-  var end=origin.clone().addScaledVector(dir,60);
+  var MAX_RANGE=60;
+  var end=origin.clone().addScaledVector(dir,MAX_RANGE);
   var nearest=null,nearestDist=Infinity;
+  // FIX: 壁(コライダー)は解析的なレイ-AABB交差判定を使う。
+  // サンプリングに頼らないため、薄い壁も確実に検出できる。
   for(var i=0;i<colliders.length;i++){
-    var hit=raySegmentHitsBox(origin,end,colliders[i]);
-    if(hit){var d=hit.distanceTo(origin);if(d<nearestDist){nearestDist=d;nearest={type:'obstacle',point:hit};}}
+    var d=rayIntersectAABBDistance(origin,dir,colliders[i]);
+    if(d!==null && d>=0 && d<=MAX_RANGE && d<nearestDist){
+      nearestDist=d;
+      nearest={type:'obstacle',point:origin.clone().addScaledVector(dir,d)};
+    }
   }
+  // 人間・AIのアバターは小さい当たり判定なのでサンプリング方式を維持する。
+  // ただし壁より手前にある場合のみ上書きする(壁の裏のプレイヤーに当たらないようにする)。
   Object.keys(roomPlayers||{}).forEach(function(id){
     if(socket&&id===socket.id)return;
     var p=roomPlayers[id];if(!p||p.alive===false)return;
     var av=remoteAvatars.get(id);if(!av)return;
-    var hit=bulletHitsAvatar(origin,end,av.position.clone());
-    if(hit){var d=hit.distanceTo(origin);if(d<nearestDist){nearestDist=d;nearest={type:'human',id:id,point:hit,team:p.team||TEAM_RED};}}
+    var checkEnd=nearestDist<MAX_RANGE?origin.clone().addScaledVector(dir,nearestDist):end;
+    var hit=bulletHitsAvatar(origin,checkEnd,av.position.clone());
+    if(hit){var hd=hit.distanceTo(origin);if(hd<nearestDist){nearestDist=hd;nearest={type:'human',id:id,point:hit,team:p.team||TEAM_RED};}}
   });
   for(var j=0;j<aiUnits.length;j++){
     var u=aiUnits[j]; if(!u||!u.alive) continue; if(u.team===player.team) continue;
-    var ahit=bulletHitsAIAvatar(origin, end, u.x, u.z);
+    var checkEnd2=nearestDist<MAX_RANGE?origin.clone().addScaledVector(dir,nearestDist):end;
+    var ahit=bulletHitsAIAvatar(origin, checkEnd2, u.x, u.z);
     if(ahit){ var ad=ahit.distanceTo(origin); if(ad<nearestDist){ nearestDist=ad; nearest={type:'ai',unitId:u.id,point:ahit,unit:u}; } }
   }
   return nearest;
@@ -1835,8 +1909,17 @@ function updateBullets(dt){
     b.prev.copy(b.pos); b.pos.addScaledVector(b.dir,b.speed*dt); if(b.mesh)b.mesh.position.copy(b.pos);
     var isLocal=b.ownerId===myId||b.ownerId==='local';
     if(!isLocal){
+      // FIX: 1点(b.pos)だけのチェックだと、フレームレートが低い/弾速が
+      // 速いときに前フレームから今フレームの間で壁を飛び越えて見える
+      // ことがあった。b.prev→b.pos の線分全体を解析的にチェックする。
       var hit=false;
-      for(var c=0;c<colliders.length;c++){if(hitPointInBox(b.pos,colliders[c])){hit=true;break;}}
+      for(var c=0;c<colliders.length;c++){
+        var segDist=b.prev.distanceTo(b.pos);
+        if(segDist<1e-6){ if(hitPointInBox(b.pos,colliders[c])){hit=true;break;} continue; }
+        var segDir=b.pos.clone().sub(b.prev).normalize();
+        var hitDist=rayIntersectAABBDistance(b.prev,segDir,colliders[c]);
+        if(hitDist!==null && hitDist<=segDist){hit=true;break;}
+      }
       if(hit||Math.abs(b.pos.x)>MAP_BORDER+2||Math.abs(b.pos.z)>MAP_BORDER+2){flashKillFx(b.pos);b.dead=true;if(b.mesh&&b.mesh.parent)b.mesh.parent.remove(b.mesh);b.mesh=null;bullets.splice(i,1);continue;}
     }else if(Math.abs(b.pos.x)>MAP_BORDER+2||Math.abs(b.pos.z)>MAP_BORDER+2){b.dead=true;if(b.mesh&&b.mesh.parent)b.mesh.parent.remove(b.mesh);b.mesh=null;bullets.splice(i,1);}
   }
@@ -1976,9 +2059,16 @@ function showFinalResultByServer(data){
 // この関数は何もしない(残し場所だけ確保)。
 function updateRoundIfEnded(){ /* no-op: サーバーの round-ended を待つ */ }
 function updateRoundTimer(dt){ /* no-op: 残り時間表示は round-timer イベント側で更新する */ }
+// FIX: サーバーは本当に試合が終わった時だけ matchFinished を送るように
+// なったが、念のためクライアント側でも final !== true なら試合終了
+// 画面を出さない保険を入れておく(古いサーバーや想定外のデータが
+// 来た場合の安全装置)。
 function showResultFromMatchFinished(data){
   if(data&&data.room&&currentRoom&&data.room!==currentRoom)return;
-  if(Number.isFinite(data.blue))blueScore=data.blue;if(Number.isFinite(data.red))redScore=data.red;if(Number.isFinite(data.round))roundIndex=data.round;
+  if(data&&data.final===false)return;
+  if(Number.isFinite(data.blue))blueScore=data.blue;
+  if(Number.isFinite(data.red))redScore=data.red;
+  if(Number.isFinite(data.roundIndex))roundIndex=data.roundIndex;
   updateScoreUI();showFinalResultByServer(data||{});
 }
 

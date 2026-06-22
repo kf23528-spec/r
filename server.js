@@ -167,19 +167,50 @@ const players = Object.create(null);
 // roomId => meta
 const roomMeta = Object.create(null);
 
-const SPAWN_POINTS = {
-  blue: [
-    { x: -18, y: 1.6, z: -18, ry: 0 },
-    { x: -16, y: 1.6, z: -6, ry: 0 },
-    { x: -20, y: 1.6, z: 10, ry: 0 },
-    { x: -14, y: 1.6, z: 22, ry: 0 }
-  ],
-  red: [
-    { x: 18, y: 1.6, z: 18, ry: Math.PI },
-    { x: 16, y: 1.6, z: 6, ry: Math.PI },
-    { x: 20, y: 1.6, z: -10, ry: Math.PI },
-    { x: 14, y: 1.6, z: -22, ry: Math.PI }
-  ]
+// マップごとのスポーン地点(index.html の MAP_DEFS[id].spawns と座標を一致させること)
+const SPAWN_POINTS_BY_MAP = {
+  arena: {
+    blue: [
+      { x: -30, y: 1.6, z: -30, ry: 0 },
+      { x: -30, y: 1.6, z: -12, ry: 0 },
+      { x: -30, y: 1.6, z: 12, ry: 0 },
+      { x: -30, y: 1.6, z: 30, ry: 0 }
+    ],
+    red: [
+      { x: 30, y: 1.6, z: 30, ry: Math.PI },
+      { x: 30, y: 1.6, z: 12, ry: Math.PI },
+      { x: 30, y: 1.6, z: -12, ry: Math.PI },
+      { x: 30, y: 1.6, z: -30, ry: Math.PI }
+    ]
+  },
+  warehouse: {
+    blue: [
+      { x: -32, y: 1.6, z: -32, ry: 0 },
+      { x: -32, y: 1.6, z: 0, ry: 0 },
+      { x: -32, y: 1.6, z: 32, ry: 0 },
+      { x: -32, y: 1.6, z: -12, ry: 0 }
+    ],
+    red: [
+      { x: 32, y: 1.6, z: 32, ry: Math.PI },
+      { x: 32, y: 1.6, z: 0, ry: Math.PI },
+      { x: 32, y: 1.6, z: -32, ry: Math.PI },
+      { x: 32, y: 1.6, z: 12, ry: Math.PI }
+    ]
+  },
+  courtyard: {
+    blue: [
+      { x: -33, y: 1.6, z: -15, ry: 0 },
+      { x: -33, y: 1.6, z: 0, ry: 0 },
+      { x: -33, y: 1.6, z: 15, ry: 0 },
+      { x: -33, y: 1.6, z: -30, ry: 0 }
+    ],
+    red: [
+      { x: 33, y: 1.6, z: 15, ry: Math.PI },
+      { x: 33, y: 1.6, z: 0, ry: Math.PI },
+      { x: 33, y: 1.6, z: -15, ry: Math.PI },
+      { x: 33, y: 1.6, z: 30, ry: Math.PI }
+    ]
+  }
 };
 
 function normalizeRoom(room) {
@@ -250,6 +281,8 @@ function cleanupRoomMetaIfEmpty(room) {
 }
 
 function flatPlayer(id, p) {
+  const kills = safeNum(p.matchKills, 0);
+  const deaths = safeNum(p.matchDeaths, 0);
   return {
     id,
     playerId: id,
@@ -265,7 +298,11 @@ function flatPlayer(id, p) {
     alive: p.alive !== false,
     hp: safeNum(p.hp, 100),
     matchMode: p.matchMode || 'ranked',
-    lastSeenAt: safeNum(p.lastSeenAt, Date.now())
+    lastSeenAt: safeNum(p.lastSeenAt, Date.now()),
+    // リザルト画面用の集計値(キル/デス/キルレシオ)
+    kills,
+    deaths,
+    kdr: deaths > 0 ? Math.round((kills / deaths) * 100) / 100 : kills
   };
 }
 
@@ -342,12 +379,15 @@ function assignRandomTeams(room) {
   };
 }
 
-function getSpawnPoint(team, index) {
-  const points = SPAWN_POINTS[team] || SPAWN_POINTS.blue;
+function getSpawnPoint(team, index, mapId) {
+  const mapPoints = SPAWN_POINTS_BY_MAP[mapId] || SPAWN_POINTS_BY_MAP.arena;
+  const points = mapPoints[team] || mapPoints.blue;
   return points[index % points.length];
 }
 
 function applySpawnPositions(roomId) {
+  const meta = roomMeta[roomId];
+  const mapId = (meta && meta.mapId) || 'arena';
   const byTeam = {
     blue: [],
     red: []
@@ -362,7 +402,7 @@ function applySpawnPositions(roomId) {
     byTeam[team].forEach((id, index) => {
       const p = players[id];
       if (!p) return;
-      const sp = getSpawnPoint(team, index);
+      const sp = getSpawnPoint(team, index, mapId);
       p.x = sp.x;
       p.y = sp.y;
       p.z = sp.z;
@@ -710,6 +750,11 @@ function startMatchInRoom(room, starterId, isRandomMatch) {
   meta.redScore = 0;
   meta.roundIndex = 1;
   meta.roundResolved = false;
+  // 新しい試合の開始時に全員のキル/デス集計をリセットする(同じルームで連戦する場合があるため)
+  getRoomPlayerEntries(roomId).forEach(([, p]) => {
+    p.matchKills = 0;
+    p.matchDeaths = 0;
+  });
   const token = meta.startToken;
 
   io.to(roomId).emit('match-starting', {
@@ -738,11 +783,11 @@ function startMatchInRoom(room, starterId, isRandomMatch) {
     }
 
     assignRandomTeams(roomId);
+    // マップは試合開始時に1回だけランダム決定し、試合中(ラウンド間)は固定する。
+    // applySpawnPositionsがmapId依存のスポーン地点を使うため、スポーン配置より先に決定する。
+    currentMeta.mapId = pickRandomMapId();
     applySpawnPositions(roomId);
     initAIUnitsForRoom(roomId, isRandomMatch);
-
-    // マップは試合開始時に1回だけランダム決定し、試合中(ラウンド間)は固定する
-    currentMeta.mapId = pickRandomMapId();
 
     currentMeta.starting = false;
     currentMeta.matchStarted = true;
@@ -797,7 +842,10 @@ io.on('connection', (socket) => {
     hp: 100,
     matchMode: 'ranked',
     lastShotAt: 0,
-    lastSeenAt: Date.now()
+    lastSeenAt: Date.now(),
+    // リザルト画面用の試合内集計(join-room時にもリセットされる)
+    matchKills: 0,
+    matchDeaths: 0
   };
 
   socket.on('join-room', (data = {}) => {
@@ -845,7 +893,9 @@ io.on('connection', (socket) => {
       hp: Number.isFinite(data.hp) ? data.hp : 100,
       matchMode,
       lastShotAt: 0,
-      lastSeenAt: Date.now()
+      lastSeenAt: Date.now(),
+      matchKills: 0,
+      matchDeaths: 0
     };
 
     socket.join(roomId);
@@ -1013,6 +1063,11 @@ io.on('connection', (socket) => {
       const justDied = unit.hp <= 0 && unit.alive;
       if (unit.hp <= 0) unit.alive = false;
 
+      // AIキルもリザルト画面の撃破数に含める(デスはAIには記録しない)
+      if (justDied) {
+        p.matchKills = (p.matchKills || 0) + 1;
+      }
+
       io.to(roomId).emit('damage-result', {
         room: roomId,
         sourceId: socket.id,
@@ -1043,6 +1098,12 @@ io.on('connection', (socket) => {
     const justDied = target.hp <= 0 && target.alive !== false;
     if (target.hp <= 0) target.alive = false;
     target.lastSeenAt = Date.now();
+
+    // リザルト画面用のキル/デス集計(撃った本人=人間がキルした場合のみ加算。AIキルは集計対象外)
+    if (justDied) {
+      p.matchKills = (p.matchKills || 0) + 1;
+      target.matchDeaths = (target.matchDeaths || 0) + 1;
+    }
 
     io.to(roomId).emit('damage-result', {
       room: roomId,
@@ -1105,6 +1166,11 @@ io.on('connection', (socket) => {
       const justDied = target.hp <= 0 && target.alive !== false;
       if (target.hp <= 0) target.alive = false;
       target.lastSeenAt = Date.now();
+
+      // AIに倒された場合もデスとして記録する(キル側はAIなのでkillsには加算しない)
+      if (justDied) {
+        target.matchDeaths = (target.matchDeaths || 0) + 1;
+      }
 
       io.to(roomId).emit('damage-result', {
         room: roomId,

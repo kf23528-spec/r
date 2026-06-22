@@ -159,6 +159,15 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 #resultOverlay{position:absolute;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;background:radial-gradient(circle at center,rgba(15,20,33,0.58),rgba(0,0,0,0.94));z-index:130;pointer-events:none;color:#fff;text-align:center}
 #resultText{font-size:clamp(38px,8.5vw,86px);font-weight:1000;letter-spacing:0.12em;text-shadow:0 0 18px rgba(255,255,255,0.25),0 0 28px rgba(120,180,255,0.22),0 8px 24px rgba(0,0,0,0.8);animation:resultPop 0.95s ease-out infinite alternate}
 #resultSub{margin-top:14px;font-size:clamp(14px,3vw,20px);opacity:0.88;letter-spacing:0.08em}
+#resultStatsPanel{margin-top:22px;width:min(86vw,420px);padding:18px 20px;border-radius:20px;background:linear-gradient(180deg,rgba(255,255,255,0.10),rgba(255,255,255,0.04));border:1px solid rgba(255,255,255,0.14);box-shadow:0 16px 40px rgba(0,0,0,0.4);backdrop-filter:blur(10px)}
+#resultStatsGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.resultStatCard{padding:10px 8px;border-radius:14px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.10)}
+.resultStatLabel{font-size:11px;letter-spacing:0.14em;opacity:0.65}
+.resultStatValue{margin-top:4px;font-size:22px;font-weight:1000;letter-spacing:0.04em}
+#resultRankRow{margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.10);display:flex;align-items:center;justify-content:space-between;font-size:13px;letter-spacing:0.06em}
+#resultRankDelta{font-weight:1000;font-size:16px}
+#resultRankDelta.positive{color:#3dff88}
+#resultRankDelta.negative{color:#ff6a6a}
 @keyframes resultPop{from{transform:scale(0.98);filter:brightness(1.0)}to{transform:scale(1.03);filter:brightness(1.2)}}
 #rotateOverlay{position:absolute;inset:0;display:none;align-items:center;justify-content:center;text-align:center;background:rgba(4,8,14,0.96);color:#ffffff;z-index:200;pointer-events:all;padding:24px;box-sizing:border-box;font-size:clamp(18px,4.5vw,30px);font-weight:800;letter-spacing:0.05em;line-height:1.6}
 @media (orientation:portrait){#rotateOverlay{display:flex}}
@@ -284,6 +293,18 @@ input,button{-webkit-appearance:none;appearance:none}
     <div id="resultOverlay">
       <div id="resultText">YOUR TEAM WON</div>
       <div id="resultSub">LOADING BACK TO THE HUB...</div>
+      <div id="resultStatsPanel">
+        <div id="resultStatsGrid">
+          <div class="resultStatCard"><div class="resultStatLabel">KILLS</div><div class="resultStatValue" id="resultKills">0</div></div>
+          <div class="resultStatCard"><div class="resultStatLabel">DEATHS</div><div class="resultStatValue" id="resultDeaths">0</div></div>
+          <div class="resultStatCard"><div class="resultStatLabel">K/D RATIO</div><div class="resultStatValue" id="resultKdr">0.00</div></div>
+          <div class="resultStatCard"><div class="resultStatLabel">FINAL SCORE</div><div class="resultStatValue" id="resultFinalScore">0 - 0</div></div>
+        </div>
+        <div id="resultRankRow">
+          <span id="resultRankName">ブロンズ I</span>
+          <span id="resultRankDelta">+0 XP</span>
+        </div>
+      </div>
     </div>
     <div id="spectateOverlay">SPECTATING</div>
     <div id="rotateOverlay">📱 画面を横向きにしてください</div>
@@ -411,6 +432,12 @@ var loadingTextEl = document.getElementById('loadingText');
 var loadingSubEl = document.getElementById('loadingSub');
 var resultTextEl = document.getElementById('resultText');
 var resultSubEl = document.getElementById('resultSub');
+var resultKillsEl = document.getElementById('resultKills');
+var resultDeathsEl = document.getElementById('resultDeaths');
+var resultKdrEl = document.getElementById('resultKdr');
+var resultFinalScoreEl = document.getElementById('resultFinalScore');
+var resultRankNameEl = document.getElementById('resultRankName');
+var resultRankDeltaEl = document.getElementById('resultRankDelta');
 var netBadge = document.getElementById('netBadge');
 var onlineCountEl = document.getElementById('onlineCount');
 var lobbyNetValue = document.getElementById('lobbyNetValue');
@@ -984,6 +1011,37 @@ function makeUpperBodyClip(clip){
   return filterClipByBoneName(clip, function(boneName){ return isUpperBodyBoneName(boneName); });
 }
 
+// ============================================================
+// ルートモーション除去: Mixamoの歩行アニメーション(Walking_Woman)には
+// Hipsボーンの水平方向(X/Z)移動が含まれており、これをそのままループ再生すると
+// 1ループごとに少しずつ前へ進んでいってしまう(その場で足踏みしているはずの
+// アバターがじわじわ移動して見える不具合)。
+// Hips.position トラックのX/Z成分を最初のキーフレームの値で固定し、
+// Y成分(しゃがみ等の上下動)はそのまま残すことで、その場でループする
+// ループアニメーションに変換する。回転(quaternion)トラックは変更しない。
+// ============================================================
+function stripRootMotionXZ(clip, rootBoneName){
+  if(!clip) return clip;
+  var newTracks = clip.tracks.map(function(track){
+    var dot = track.name.lastIndexOf('.');
+    var boneName = dot>=0 ? track.name.slice(0,dot) : track.name;
+    var prop = dot>=0 ? track.name.slice(dot+1) : '';
+    if(boneName!==rootBoneName || prop!=='position') return track;
+    // VectorKeyframeTrackのvaluesは [x0,y0,z0, x1,y1,z1, ...] のフラット配列
+    var values = track.values.slice();
+    var firstX = values[0], firstZ = values[2];
+    for(var i=0;i<values.length;i+=3){
+      values[i]   = firstX; // X固定
+      values[i+2] = firstZ; // Z固定
+      // values[i+1] (Y)はそのまま残す
+    }
+    var newTrack = track.clone();
+    newTrack.values = values;
+    return newTrack;
+  });
+  return new T.AnimationClip(clip.name+'_noRootXZ', clip.duration, newTracks);
+}
+
 // アバターのアニメーション状態を見て、再生すべきモードを決める。
 // 'full-polo'    : 通常時(待機/移動のみ、射撃なし) → polo.fbx全身クリップ
 // 'split'        : 移動中に射撃 → polo下半身 + shine上半身
@@ -1096,7 +1154,9 @@ function makeRemoteAvatar(team, name){
 
         if(fbx.animations && fbx.animations.length > 0){
           var mixer = new T.AnimationMixer(clone);
-          var fullPoloClip = fbx.animations[0];
+          // ルートモーション(Hipsの水平移動)を除去し、その場でループする歩行/構えモーションにする。
+          // (polo.fbx/shine.fbxともにMixamoのWalking_WomanクリップでHipsの前進移動を含むため)
+          var fullPoloClip = stripRootMotionXZ(fbx.animations[0], 'Hips');
 
           // 全身polo(通常時/フォールバック用)
           var actionFullPolo = mixer.clipAction(fullPoloClip);
@@ -1128,7 +1188,8 @@ function makeRemoteAvatar(team, name){
           onShineReady(function(shineFbx){
             if(!shineFbx || !shineFbx.animations || !shineFbx.animations.length) return;
             try{
-              var shineClip = shineFbx.animations[0];
+              // 全身shine用にルートモーション除去したクリップを作る(upperClipはHips自体を含まないため不要)
+              var shineClip = stripRootMotionXZ(shineFbx.animations[0], 'Hips');
               var upperClip = makeUpperBodyClip(shineClip);
               if(upperClip){
                 var actionUpperShine = mixer.clipAction(upperClip);
@@ -1672,7 +1733,13 @@ function makeAIUnit(team,index){
   var avatar=makeRemoteAvatar(tk,'AI');
   avatar.userData.isAI=true; avatar.userData.entityId='ai-'+tk+'-'+index; avatar.userData.entityType='ai'; avatar.userData.team=tk;
   avatar.visible=false; scene.add(avatar);
-  var spawn=aiSpawnPoints[tk][index%aiSpawnPoints[tk].length].clone();
+  // FIX: 以前は全マップ共通の固定座標(aiSpawnPoints)を使っていたため、
+  // arena以外のマップ(warehouse/courtyard)では障害物の真上にスポーンしてしまい、
+  // AIが動けず索敵もできず「全く攻撃してこない」ことがあった。
+  // マップごとに障害物と重ならない専用スポーン地点(MAP_DEFS[mapId].spawns)を使う。
+  var spawnPoints = getSpawnPointsForMap(currentMapId, tk);
+  var sp = spawnPoints[index % spawnPoints.length];
+  var spawn = new T.Vector3(sp.x, 0, sp.z);
   var unit={id:'ai-'+tk+'-'+index,team:tk,avatar:avatar,rng:rng,seed:seed,spawn:spawn,x:spawn.x,z:spawn.z,
     yaw:tk==='red'?Math.PI:0,hp:100,maxHp:100,alive:true,state:'patrol',
     moveSpeed:2.2+rng()*0.7,strafe:rng()>0.5?1:-1,fireCooldown:0.6+rng()*1.2,lastShotAt:0,
@@ -1831,6 +1898,13 @@ function updateAIUnit(unit,dt,nowSec){
   unit.avatar.rotation.y=unit.yaw;
   unit.avatar.visible=true;
   updateAvatarHPBar(unit.avatar,unit.hp);
+
+  // AIも人間プレイヤーと同じ基準でアニメーションモードを切り替える。
+  // 「移動中」はmag2(移動方向の大きさ)で判定、「射撃中」は直近の発射から
+  // SHOOTING_FLAG_DURATION_MS以内かどうかで判定する。
+  var aiIsMoving = mag2 > 0.05;
+  var aiIsShooting = !!(unit.lastShotAt && (nowSec - unit.lastShotAt) * 1000 < SHOOTING_FLAG_DURATION_MS);
+  updateAvatarAnimationMode(unit.avatar, aiIsMoving, aiIsShooting);
 }
 
 /* updateAI - mixer.update(dt) を追加 */
@@ -1872,7 +1946,12 @@ function reviveHumansForNewRound(){
   updateRemotePlayersFromState();
 }
 function initAIForMatch(data){
-  aiMatchSeed=hashRoomSeed(currentRoom); aiMatchStart=0; aiClock=0; clearAIUnits();
+  // FIX: ランダム戦は常に同じ固定ルーム('R0001')を使うため、部屋名だけのハッシュでは
+  // 毎試合まったく同じAIシード(=毎回同じ巡回パターン)になってしまう。
+  // サーバーから渡される試合開始時刻(startedAt)を混ぜて毎試合ユニークにする。
+  var startedAt = Number(data && data.startedAt) || Date.now();
+  aiMatchSeed=(hashRoomSeed(currentRoom) ^ (startedAt>>>0) ^ ((startedAt/65536)>>>0))>>>0;
+  aiMatchStart=0; aiClock=0; clearAIUnits();
   var aiCount=isRandomMatch?3:2;
   for(var i=0;i<aiCount;i++) aiUnits.push(makeAIUnit(TEAM_BLUE,i));
   for(var j=0;j<aiCount;j++) aiUnits.push(makeAIUnit(TEAM_RED,j));
@@ -2180,16 +2259,46 @@ function startRound(data){
   roomPlayers[socket&&socket.id?socket.id:'__local__']=Object.assign({},roomPlayers[socket&&socket.id?socket.id:'__local__']||{},{name:PLAYER_NAME,team:player.team||TEAM_BLUE,room:currentRoom,x:camera.position.x,y:camera.position.y,z:camera.position.z,ry:yaw,alive:true,hp:100});
   syncRoundStateToRoom();
 }
+// リザルト画面用: 自分のチームが勝ったかどうかでランクXPの増減量を決める。
+// 既存のaddRankXp(ラウンド勝利時+20)とは別に、試合終了時のボーナス/ペナルティを与える。
+function computeMatchRankDelta(didWin){
+  if(matchMode!=='ranked') return 0;
+  return didWin ? 35 : -10;
+}
 function showFinalResultByServer(data){
   if(resultShown)return;resultShown=true;matchOver=true;battleBeginLock=true;gameMode=GAME_MODE.RESULT;setModeUI();resultOverlay.style.display='flex';
-  resultTextEl.textContent=(data&&data.winner)?(data.winner===TEAM_BLUE?'BLUE WINS':'RED WINS'):(blueScore>=WIN_SCORE?'BLUE WINS':'RED WINS');
+  var winnerTeam=(data&&data.winner)?data.winner:(blueScore>=WIN_SCORE?TEAM_BLUE:TEAM_RED);
+  resultTextEl.textContent=winnerTeam===TEAM_BLUE?'BLUE WINS':'RED WINS';
   resultSubEl.textContent='LOADING BACK TO THE HUB...';
+
+  // 自分自身のキル/デス/KDRをサーバーのsummary.playersから取り出して表示する。
+  // (サーバー権威の値。クライアントでは集計しない)
+  var myStats=null;
+  if(data&&data.players&&socket&&socket.id&&data.players[socket.id]){
+    myStats=data.players[socket.id];
+  }
+  var kills=myStats?(Number(myStats.kills)||0):0;
+  var deaths=myStats?(Number(myStats.deaths)||0):0;
+  var kdr=myStats&&Number.isFinite(myStats.kdr)?myStats.kdr:(deaths>0?Math.round((kills/deaths)*100)/100:kills);
+  resultKillsEl.textContent=String(kills);
+  resultDeathsEl.textContent=String(deaths);
+  resultKdrEl.textContent=kdr.toFixed(2);
+  resultFinalScoreEl.textContent=(Number.isFinite(data&&data.blue)?data.blue:blueScore)+' - '+(Number.isFinite(data&&data.red)?data.red:redScore);
+
+  var didWin=(player.team||TEAM_BLUE)===winnerTeam;
+  var delta=computeMatchRankDelta(didWin);
+  if(delta!==0) addRankXp(delta);
+  resultRankNameEl.textContent=rankNameEl.textContent;
+  resultRankDeltaEl.textContent=(delta>=0?'+':'')+delta+' XP';
+  resultRankDeltaEl.classList.toggle('positive',delta>0);
+  resultRankDeltaEl.classList.toggle('negative',delta<0);
+
   setTimeout(function(){
     if(socket&&socket.connected&&currentRoom)socket.emit('leave-room',{room:currentRoom,name:PLAYER_NAME});
     currentRoom='';inWaiting=false;roomStarted=false;isRandomMatch=false;battleBeginLock=false;gameMode=GAME_MODE.LOBBY;
     player.alive=true;player.spectating=false;player.hp=player.maxHp;roomPlayers={};spectateTargetId='';
     setModeUI();setRoomInputValid();
-  },2500);
+  },4200);
 }
 // ラウンド勝敗・タイムアウト判定はserver.js(startRoundTimer/resolveRound)が権威。クライアントはno-op、round-timerで表示更新のみ
 function updateRoundIfEnded(){ /* no-op: サーバーの round-ended を待つ */ }
@@ -2288,7 +2397,12 @@ var MAP_DEFS = {
       [-28,1,-5,4,2,10],[-28,1,5,4,2,10],[28,1,-5,4,2,10],[28,1,5,4,2,10],
       [-6,1,-6,3,2,10],[6,1,-6,3,2,10],[-6,1,6,3,2,10],[6,1,6,3,2,10],
       [0,1,-14,4,2,4],[0,1,14,4,2,4]
-    ]
+    ],
+    // 障害物と重ならない安全なスポーン地点(プレイヤー/AI共通で使う)
+    spawns: {
+      blue: [{x:-30,z:-30},{x:-30,z:-12},{x:-30,z:12},{x:-30,z:30}],
+      red:  [{x:30,z:30},{x:30,z:12},{x:30,z:-12},{x:30,z:-30}]
+    }
   },
   // Map B: CROSSFIRE WAREHOUSE (十字に開けた通路+四隅にボックス)
   warehouse: {
@@ -2301,7 +2415,12 @@ var MAP_DEFS = {
       [-8,1,-4,3,2,16],[8,1,4,3,2,16],
       [0,1,0,6,2,6],
       [-14,1,0,3,2,10],[14,1,0,3,2,10]
-    ]
+    ],
+    // 四隅の障害物(26±4)や中央の通路を避けた安全地帯
+    spawns: {
+      blue: [{x:-32,z:-32},{x:-32,z:0},{x:-32,z:32},{x:-32,z:-12}],
+      red:  [{x:32,z:32},{x:32,z:0},{x:32,z:-32},{x:32,z:12}]
+    }
   },
   // Map C: SUNKEN COURTYARD (中央が広く開けた回廊型)
   courtyard: {
@@ -2313,9 +2432,20 @@ var MAP_DEFS = {
       [-12,1,0,3,2,20],[12,1,0,3,2,20],
       [0,1,-12,20,2,3],[0,1,12,20,2,3],
       [-4,1,-4,4,2,4],[4,1,-4,4,2,4],[-4,1,4,4,2,4],[4,1,4,4,2,4]
-    ]
+    ],
+    // 四隅の小障害物(30±2.5)や中央の十字通路を避けた安全地帯
+    spawns: {
+      blue: [{x:-33,z:-15},{x:-33,z:0},{x:-33,z:15},{x:-33,z:-30}],
+      red:  [{x:33,z:15},{x:33,z:0},{x:33,z:-15},{x:33,z:30}]
+    }
   }
 };
+
+function getSpawnPointsForMap(mapId, team){
+  var def = MAP_DEFS[mapId] || MAP_DEFS.arena;
+  var list = (def.spawns && def.spawns[team]) ? def.spawns[team] : MAP_DEFS.arena.spawns[team];
+  return list;
+}
 
 function pickRandomMapId(){
   var ids=Object.keys(MAP_DEFS);
@@ -2411,9 +2541,12 @@ function initSocket(){
   }
   socket.on('playerMoved',handleRemoteMovement);
   socket.on('playerMovement',handleRemoteMovement);
-  // playerShot/playerShotFXは見た目FX専用(ダメージ判定には使わない)
-  socket.on('playerShot',function(d){if(!d||(socket&&d.id===socket.id))return;spawnRemoteShotFX(d);});
-  socket.on('playerShotFX',function(d){if(!d||(socket&&d.id===socket.id))return;spawnRemoteShotFX(d);});
+  // playerShot/playerShotFXは見た目FX専用(ダメージ判定には使わない)。
+  // ここで撃った人のアバターに「射撃中」フラグを立て、上半身shineアニメーションへの
+  // 切り替えトリガーにする(以前はここでmarkAvatarShootingを呼んでおらず、
+  // 射撃してもアニメーションが切り替わらなかった)。
+  socket.on('playerShot',function(d){if(!d)return; if(socket&&d.id===socket.id)return; spawnRemoteShotFX(d); markAvatarShooting(d.id);});
+  socket.on('playerShotFX',function(d){if(!d)return; if(socket&&d.id===socket.id)return; spawnRemoteShotFX(d); markAvatarShooting(d.id);});
 
   // damage-resultがダメージ確定の唯一の入口。サーバーが全員に同一配信するHP/aliveをそのまま表示する
   socket.on('damage-result',function(d){

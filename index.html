@@ -1008,7 +1008,11 @@ function stripRootMotionXZ(clip, rootBoneName) {
     var prop = track.name.slice(boneName.length + 1);
     if (prop !== 'position') return false;
     if (!firstPositionTrack) firstPositionTrack = track;
-    return isRootMotionBone(boneName) || normalizeBoneKey(boneName) === normalizeBoneKey(rootName);
+    return (
+      isRootMotionBone(boneName) ||
+      normalizeBoneKey(boneName) === normalizeBoneKey(rootName) ||
+      /hips|hip|pelvis|root|armature/i.test(String(boneName || ''))
+    );
   }
 
   var newTracks = clip.tracks.map(function(track) {
@@ -1730,8 +1734,9 @@ function updateAvatarBillboard(av){
   if(hpBg)hpBg.lookAt(camera.position);
 }
 function ensureAvatar(id,team,name){
-  if(remoteAvatars.has(id)){var ex=remoteAvatars.get(id);if(ex){ex.userData.entityId=id;ex.userData.team=team||TEAM_BLUE;ensureNameTag(ex,name||id,team||TEAM_BLUE);}return ex;}
+  if(remoteAvatars.has(id)){var ex=remoteAvatars.get(id);if(ex){ex.userData.entityId=id;ex.userData.team=team||TEAM_BLUE;ensureNameTag(ex,name||id,team||TEAM_BLUE);if(remoteShotMarks[id]&&!ex.userData._lastShotAt)ex.userData._lastShotAt=remoteShotMarks[id];}return ex;}
   var av=makeRemoteAvatar(team||TEAM_BLUE,name||id); av.userData.entityId=id; av.userData.entityType='human'; av.userData.team=team||TEAM_BLUE;
+  if(remoteShotMarks[id]) av.userData._lastShotAt=remoteShotMarks[id];
   scene.add(av); remoteAvatars.set(id,av); return av;
 }
 function removeAvatar(id){var av=remoteAvatars.get(id);if(!av)return;if(av.userData._mixer){av.userData._mixer.stopAllAction();av.userData._mixer=null;}scene.remove(av);remoteAvatars.delete(id);delete remoteShotMarks[id];}
@@ -2018,12 +2023,33 @@ function applyRemoteState(id,s){
 var REMOTE_MOVING_THRESHOLD = 0.012; /* この距離以上動いたら「移動中」と判定 */
 var SHOOTING_FLAG_DURATION_MS = 280;  /* 最後の射撃から何ms以内なら「射撃中」と判定 */
 
+function forceUpdateRemoteAvatarAnimation(id){
+  if(socket&&id===socket.id)return;
+  var av=remoteAvatars.get(id);
+  if(!av||!av.userData)return;
+  var p=remoteStates[id]||roomPlayers[id];
+  if(!p)return;
+
+  var nx=Number(p.x)||0, nz=Number(p.z)||0;
+  var prevX=Number.isFinite(av.userData._prevX)?av.userData._prevX:nx;
+  var prevZ=Number.isFinite(av.userData._prevZ)?av.userData._prevZ:nz;
+  var movedDist=Math.hypot(nx-prevX,nz-prevZ);
+  var isMoving=movedDist>REMOTE_MOVING_THRESHOLD;
+  var nowMs=performance.now();
+  var lastShotMs=av.userData._lastShotAt||remoteShotMarks[id]||0;
+  if(!av.userData._lastShotAt && lastShotMs) av.userData._lastShotAt=lastShotMs;
+  var isShooting=(nowMs-lastShotMs)<SHOOTING_FLAG_DURATION_MS;
+  updateAvatarAnimationMode(av,isMoving,isShooting);
+}
+
 function markAvatarShooting(id){
   var now = performance.now();
   remoteShotMarks[id] = now;
   var av=remoteAvatars.get(id);
-  if(!av) return;
-  av.userData._lastShotAt=now;
+  if(av&&av.userData){
+    av.userData._lastShotAt=now;
+  }
+  forceUpdateRemoteAvatarAnimation(id);
 }
 
 function updateRemotePlayersFromState(){
@@ -2372,17 +2398,17 @@ function initSocket(){
       updateRemotePlayersFromState();
     }
   });
-  socket.on('newPlayer',function(d){if(!d||!d.id||(socket&&d.id===socket.id))return;applyRemoteState(d.id,d);if(inWaiting&&d.room&&d.room===currentRoom){if(!roomPlayers[d.id])roomPlayers[d.id]={name:d.name||'??',team:d.team||TEAM_BLUE,alive:true,room:currentRoom};updateWaitingUI();}updateRemotePlayersFromState();});
+  socket.on('newPlayer',function(d){if(!d||!d.id||(socket&&d.id===socket.id))return;applyRemoteState(d.id,d);forceUpdateRemoteAvatarAnimation(d.id);if(inWaiting&&d.room&&d.room===currentRoom){if(!roomPlayers[d.id])roomPlayers[d.id]={name:d.name||'??',team:d.team||TEAM_BLUE,alive:true,room:currentRoom};updateWaitingUI();}updateRemotePlayersFromState();});
   function handleRemoteMovement(d){
     if(!d)return; var id=d.id||d.playerId||d.userId;
     if(!id||(socket&&id===socket.id))return;
     if(gameMode!==GAME_MODE.BATTLE&&gameMode!==GAME_MODE.SPECTATE)return;
-    applyRemoteState(id,d); updateRemotePlayersFromState();
+    applyRemoteState(id,d); forceUpdateRemoteAvatarAnimation(id); updateRemotePlayersFromState();
   }
   socket.on('playerMoved',handleRemoteMovement);
   socket.on('playerMovement',handleRemoteMovement);
-  socket.on('playerShot',function(d){if(!d)return;if(socket&&d.id===socket.id)return;spawnRemoteShotFX(d);markAvatarShooting(d.id);});
-  socket.on('playerShotFX',function(d){if(!d)return;if(socket&&d.id===socket.id)return;spawnRemoteShotFX(d);markAvatarShooting(d.id);});
+  socket.on('playerShot',function(d){if(!d)return;if(socket&&d.id===socket.id)return;spawnRemoteShotFX(d);markAvatarShooting(d.id);forceUpdateRemoteAvatarAnimation(d.id);updateRemotePlayersFromState();});
+  socket.on('playerShotFX',function(d){if(!d)return;if(socket&&d.id===socket.id)return;spawnRemoteShotFX(d);markAvatarShooting(d.id);forceUpdateRemoteAvatarAnimation(d.id);updateRemotePlayersFromState();});
 
   socket.on('damage-result',function(d){
     if(!d||(d.room&&currentRoom&&d.room!==currentRoom))return;

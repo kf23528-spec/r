@@ -1022,6 +1022,11 @@ io.on('connection', (socket) => {
   });
 
   // playerShootがダメージ判定の唯一の入口。サーバーがHPを確定しdamage-resultを全員に同一配信する
+  // ★修正: ヒット有無に関わらず、必ずFXイベント(playerShot/playerShotFX)をルームへ中継する。
+  //   これを送らないとヒット時に相手クライアント側のmarkAvatarShooting()が発火せず、
+  //   相手プレイヤーの射撃アニメーション(shine.fbx)への切り替えが行われないため。
+  //   (AIは同一クライアント内でlastShotAtを直接更新しているため発生しないが、
+  //    人間プレイヤー同士はソケット越しのこの通知が無いと切り替わらない)
   socket.on('playerShoot', (shotData = {}) => {
     const p = players[socket.id];
     if (!p || !p.room) return;
@@ -1029,7 +1034,7 @@ io.on('connection', (socket) => {
     const roomId = p.room;
     const meta = roomMeta[roomId];
 
-    // 見た目用のFX(マズルフラッシュ・弾の軌跡)はそのまま中継する
+    // 見た目用のFX(マズルフラッシュ・弾の軌跡・射撃アニメーション切り替え用通知)を必ず中継する
     const fxPayload = Object.assign({}, shotData, {
       id: socket.id,
       playerId: socket.id,
@@ -1122,6 +1127,26 @@ io.on('connection', (socket) => {
 
     broadcastRoomPlayers(roomId);
     checkRoundEndCondition(roomId, 'player-eliminated');
+  });
+
+  // playerShot: クライアントが「空振り(誰にも当たっていない)」時に送ってくる発射通知。
+  // ★修正: 以前はここでも何も中継処理をしておらず、空振り射撃時に相手側の
+  //   射撃アニメーション切り替え(markAvatarShooting)が一切発火しなかった。
+  //   ダメージ判定は行わず、見た目用のFX中継のみ行う。
+  socket.on('playerShot', (shotData = {}) => {
+    const p = players[socket.id];
+    if (!p || !p.room) return;
+
+    const roomId = p.room;
+    const fxPayload = Object.assign({}, shotData, {
+      id: socket.id,
+      playerId: socket.id,
+      name: p.name,
+      team: p.team,
+      room: roomId
+    });
+    socket.to(roomId).emit('playerShot', fxPayload);
+    socket.to(roomId).emit('playerShotFX', fxPayload);
   });
 
   // AI攻撃もサーバー権威で確定。クライアントは攻撃意図のみ送信、重複はクールダウンで間引く

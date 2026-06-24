@@ -330,7 +330,7 @@ var AI_DAMAGE_PER_HIT = 4;
 var PLAYER_SPEED = 5.5;
 var CAM_FOV_NORMAL = 70;
 var CAM_FOV_ADS = 56;
-var RANK_KEY = 'arena_rank_v8';
+var RANK_KEY = 'arena_rank_v9'; /* v9: 新ランクシステム */
 var SEND_HZ = 50;
 var MATCH_PLAYER_MIN = 2;
 var MAX_PLAYERS = 8;
@@ -347,7 +347,11 @@ var AI_RESPAWN_ENABLED = false;
 var AI_HIT_BOX_HEIGHT = 1.9;
 var AI_HIT_BOX_HALF_W = 0.45;
 
-/* FBX キャッシュ */
+/* =============================================
+   FBXキャッシュ
+   polo.fbx  = 移動アニメーション (walk/run)
+   shine.fbx = 射撃アニメーション (shoot)
+   ============================================= */
 var poloFbxTemplate = null;
 var poloFbxReady    = false;
 var poloFbxWaiters  = [];
@@ -364,24 +368,49 @@ var POLO_ROT_Y = Math.PI;
 var POLO_ROT_X = 0;
 var POLO_ROT_Z = 0;
 
-/* FIX: 上半身ボーン名リスト - Mixamoの一般的なボーン名を網羅 */
-var UPPER_BODY_BONE_NAMES = [
-  'Spine','Spine01','Spine02','Spine1','Spine2','neck','Neck','Head','head',
-  'LeftShoulder','RightShoulder','LeftArm','RightArm','LeftForeArm','RightForeArm',
-  'LeftHand','RightHand','head_end','headfront',
-  'mixamorigSpine','mixamorigSpine1','mixamorigSpine2',
-  'mixamorigNeck','mixamorigHead',
-  'mixamorigLeftShoulder','mixamorigRightShoulder',
-  'mixamorigLeftArm','mixamorigRightArm',
-  'mixamorigLeftForeArm','mixamorigRightForeArm',
-  'mixamorigLeftHand','mixamorigRightHand'
+/* =============================================
+   ボーン名定義 - FBX解析で確認済みの正確な名前
+   ============================================= */
+var EXACT_ROOT_BONE = 'Hips'; /* polo.fbx / shine.fbx 共通ルートボーン */
+
+/* 上半身ボーン - 正確な名前のみ (FBXLoader生成トラック名と一致させる) */
+var UPPER_BODY_EXACT_NAMES = [
+  'Spine', 'Spine01', 'Spine02',
+  'LeftShoulder', 'RightShoulder',
+  'LeftArm', 'RightArm',
+  'LeftForeArm', 'RightForeArm',
+  'LeftHand', 'RightHand',
+  'Head', 'Neck'
 ];
-function isUpperBodyBoneName(name){
-  if(!name) return false;
-  var n = name.toLowerCase();
-  var upper = ['spine','neck','head','shoulder','arm','forearm','hand'];
-  for(var i=0;i<upper.length;i++){
-    if(n.indexOf(upper[i])!==-1) return true;
+
+/* 下半身ボーン - 正確な名前 */
+var LOWER_BODY_EXACT_NAMES = [
+  'Hips', 'LeftUpLeg', 'LeftLeg', 'LeftFoot',
+  'RightUpLeg', 'RightLeg', 'RightFoot'
+];
+
+/* ボーン名が上半身かどうか判定 (完全一致 + 部分一致フォールバック) */
+function isUpperBodyBone(boneName) {
+  if (!boneName) return false;
+  /* 完全一致チェック */
+  if (UPPER_BODY_EXACT_NAMES.indexOf(boneName) !== -1) return true;
+  /* 小文字部分一致フォールバック */
+  var n = boneName.toLowerCase();
+  var keywords = ['spine', 'neck', 'head', 'shoulder', 'arm', 'forearm', 'hand'];
+  for (var i = 0; i < keywords.length; i++) {
+    if (n.indexOf(keywords[i]) !== -1) return true;
+  }
+  return false;
+}
+
+/* ボーン名が下半身かどうか判定 */
+function isLowerBodyBone(boneName) {
+  if (!boneName) return false;
+  if (LOWER_BODY_EXACT_NAMES.indexOf(boneName) !== -1) return true;
+  var n = boneName.toLowerCase();
+  var keywords = ['hip', 'leg', 'foot', 'knee', 'ankle', 'toe', 'pelvis'];
+  for (var i = 0; i < keywords.length; i++) {
+    if (n.indexOf(keywords[i]) !== -1) return true;
   }
   return false;
 }
@@ -501,7 +530,76 @@ var matchMode = 'ranked';
 var isRandomMatch = false;
 var randomCountdownTimer = null;
 var randomCountdownSec = RANDOM_MATCH_WAIT;
+
+/* =============================================
+   ランクシステム v2
+   - 各段階: 200XP (神の前のランクは1000XP)
+   - 神ランクは到達者順位を表示
+   ============================================= */
+var RANK_XP_PER_TIER = 200;   /* 各ランク tier の必要XP */
+var RANK_XP_LAST_BEFORE_GOD = 1000; /* 神の一つ前ランク: 1000XP必要 */
+var RANK_WIN_XP = 18;
+var RANK_LOSS_XP = -6;
+var RANK_ROUND_BONUS = 4;
+
+var RANK_TIERS = [
+  /* name, thresholdXP (そのランク到達に必要な累積XP) */
+  { name: 'ブロンズ I',    xp: 0 },
+  { name: 'ブロンズ II',   xp: 200 },
+  { name: 'ブロンズ III',  xp: 400 },
+  { name: 'シルバー I',    xp: 600 },
+  { name: 'シルバー II',   xp: 800 },
+  { name: 'シルバー III',  xp: 1000 },
+  { name: 'ゴールド I',    xp: 1200 },
+  { name: 'ゴールド II',   xp: 1400 },
+  { name: 'ゴールド III',  xp: 1600 },
+  { name: 'プラチナ I',    xp: 1800 },
+  { name: 'プラチナ II',   xp: 2000 },
+  { name: 'プラチナ III',  xp: 2200 },
+  { name: 'ダイヤ I',      xp: 2400 },
+  { name: 'ダイヤ II',     xp: 2600 },
+  { name: 'ダイヤ III',    xp: 2800 },
+  { name: '覇者 I',        xp: 3000 },
+  { name: '覇者 II',       xp: 3200 },
+  { name: '覇者 III',      xp: 3400 },
+  { name: 'マスター I',    xp: 3600 },
+  { name: 'マスター II',   xp: 3800 },
+  { name: 'マスター III',  xp: 4000 },
+  /* 神の一つ前: マスターIIIから神まで 1000XP */
+  { name: '神',            xp: 5000 }
+];
+
 var rankXp = 0;
+/* 神ランク昇格時刻を記録してローカル順位を計算 */
+var godRankTimestamp = 0;
+
+function getRankInfo(xp) {
+  var tiers = RANK_TIERS;
+  /* 神ランク */
+  if (xp >= tiers[tiers.length - 1].xp) {
+    return { idx: tiers.length - 1, name: '神', isGod: true, pct: 1.0, nextXp: 0, curXp: 0 };
+  }
+  /* 現在のランクを検索 */
+  var idx = 0;
+  for (var i = tiers.length - 2; i >= 0; i--) {
+    if (xp >= tiers[i].xp) { idx = i; break; }
+  }
+  var cur = tiers[idx];
+  var next = tiers[idx + 1];
+  var span = next.xp - cur.xp;
+  var prog = xp - cur.xp;
+  return {
+    idx: idx,
+    name: cur.name,
+    isGod: false,
+    pct: span > 0 ? Math.min(1, prog / span) : 1,
+    nextXp: next.xp,
+    curXp: cur.xp,
+    span: span,
+    prog: prog
+  };
+}
+
 var blueScore = 0, redScore = 0, roundIndex = 1;
 var matchOver = false, roundResolved = false, resultShown = false;
 var portraitMode = false;
@@ -519,8 +617,7 @@ var remoteStates = {};
 var bullets = [];
 var aiUnits = [];
 var aiMatchSeed = 1;
-/* FIX #3: AI時計をperformance.now()ベースに変更。roundTimerMsへの依存を排除 */
-var aiClockOffset = 0; // ラウンド開始時のperformance.now()を記録
+var aiClockOffset = 0;
 var gunRoot = null, gunLoaded = false;
 var gunPosNormal = new T.Vector3(0.48,-0.55,-0.70);
 var gunPosAds    = new T.Vector3(0.00,-0.20,-0.30);
@@ -632,7 +729,9 @@ function clampVecToMap(v){v.x=clamp(v.x,-MAP_BORDER,MAP_BORDER);v.z=clamp(v.z,-M
 function isInteractiveTarget(el){return !!(el&&el.closest&&el.closest('button,input,textarea,select,label,a,#lobbyOverlay,#waitingOverlay,#loadingOverlay,#resultOverlay'));}
 function addColliderBox(x,y,z,w,h,d,mesh){colliders.push({x:x,y:y,z:z,w:w,h:h,d:d,mesh:mesh||null});}
 
-/* FIX #2: polo.fbx ルートモーション除去 - SkeletonUtils.clone後に適用 */
+/* =============================================
+   FBXローダー
+   ============================================= */
 function loadPoloFbx(){
   var loader = new FBXLoader();
   loader.load(
@@ -655,13 +754,20 @@ function loadPoloFbx(){
       fbx.updateMatrixWorld(true);
       poloFbxTemplate = fbx;
       poloFbxReady = true;
+
+      /* デバッグ: トラック名を確認 */
+      if(fbx.animations && fbx.animations.length > 0){
+        var trackNames = fbx.animations[0].tracks.slice(0,10).map(function(t){return t.name;});
+        console.log('[POLO] first 10 tracks:', trackNames.join(' | '));
+      }
+
       poloFbxWaiters.forEach(function(fn){ fn(poloFbxTemplate); });
       poloFbxWaiters = [];
-      console.log('[POLO] loaded. scale=' + finalScale.toFixed(5) + ' animations:', fbx.animations ? fbx.animations.length : 0);
+      console.log('[POLO] loaded. scale=' + finalScale.toFixed(5));
     },
     undefined,
     function(err){
-      console.warn('[POLO] polo.fbx load failed:', err);
+      console.warn('[POLO] load failed:', err);
       poloFbxReady = true;
       poloFbxTemplate = null;
       poloFbxWaiters.forEach(function(fn){ fn(null); });
@@ -697,23 +803,19 @@ function loadShineFbx(){
       fbx.updateMatrixWorld(true);
       shineFbxTemplate = fbx;
       shineFbxReady = true;
+
+      if(fbx.animations && fbx.animations.length > 0){
+        var trackNames = fbx.animations[0].tracks.slice(0,10).map(function(t){return t.name;});
+        console.log('[SHINE] first 10 tracks:', trackNames.join(' | '));
+      }
+
       shineFbxWaiters.forEach(function(fn){ fn(shineFbxTemplate); });
       shineFbxWaiters = [];
-      /* FIX: shine.fbxのボーン名をログ出力して確認 */
-      if(fbx.animations && fbx.animations.length > 0){
-        var boneNames = [];
-        fbx.animations[0].tracks.forEach(function(t){
-          var dot=t.name.lastIndexOf('.');
-          var bn=dot>=0?t.name.slice(0,dot):t.name;
-          if(boneNames.indexOf(bn)===-1) boneNames.push(bn);
-        });
-        console.log('[SHINE] bone names in animation:', boneNames.join(', '));
-      }
-      console.log('[SHINE] loaded. scale=' + finalScale.toFixed(5) + ' animations:', fbx.animations ? fbx.animations.length : 0);
+      console.log('[SHINE] loaded. scale=' + finalScale.toFixed(5));
     },
     undefined,
     function(err){
-      console.warn('[SHINE] shine.fbx load failed:', err);
+      console.warn('[SHINE] load failed:', err);
       shineFbxReady = true;
       shineFbxTemplate = null;
       shineFbxWaiters.forEach(function(fn){ fn(null); });
@@ -746,6 +848,7 @@ function onGunGlbReady(fn){
   gunGlbWaiters.push(fn);
 }
 
+/* テクスチャ強制不透明化 */
 function forceOpaqueTexture(texture){
   if(!texture || !texture.image) return texture;
   try{
@@ -852,81 +955,130 @@ function cloneGunForAvatar(){
   return clone;
 }
 
-/* FIX #2: ルートモーション除去 - X/Z位置トラックを最初のキーフレームに固定 */
-function stripRootMotionXZ(clip, rootBoneName){
-  if(!clip) return clip;
-  var newTracks = clip.tracks.map(function(track){
-    var dot = track.name.lastIndexOf('.');
-    var boneName = dot>=0 ? track.name.slice(0,dot) : track.name;
-    var prop = dot>=0 ? track.name.slice(dot+1) : '';
-    if(boneName!==rootBoneName || prop!=='position') return track;
-    var values = track.values.slice();
-    var firstX = values[0], firstZ = values[2];
-    for(var i=0;i<values.length;i+=3){
-      values[i]   = firstX;
-      values[i+2] = firstZ;
+/* =============================================
+   アニメーション処理
+   
+   【根本的な問題と解決策】
+   polo.fbx = Hipsボーンがルートモーション(X/Z移動)を持つ
+   → stripRootMotionXZ で Hips.position の X/Z を最初のフレームに固定
+   
+   【アニメーション切り替え】
+   - 移動中かつ射撃中 → 下半身:polo(walk) + 上半身:shine(shoot) = split
+   - 射撃中のみ → shine全身 (full-shine)
+   - それ以外 → polo全身 (full-polo)
+   ============================================= */
+
+/* トラック名からボーン名を抽出 */
+function getBoneNameFromTrack(trackName) {
+  var dot = trackName.lastIndexOf('.');
+  return dot >= 0 ? trackName.slice(0, dot) : trackName;
+}
+
+/* ルートモーション除去: Hips.position の X/Z を初期フレームに固定 */
+function stripRootMotionXZ(clip, rootBoneName) {
+  if (!clip) return clip;
+  var rootName = rootBoneName || EXACT_ROOT_BONE;
+  var modified = false;
+  var newTracks = clip.tracks.map(function(track) {
+    var boneName = getBoneNameFromTrack(track.name);
+    var prop = track.name.slice(boneName.length + 1); /* 'position', 'quaternion', 'scale' */
+    if (boneName !== rootName || prop !== 'position') return track;
+    /* X/Z を最初のキーフレーム値に固定 (Y=高さは維持) */
+    var values = Array.from(track.values);
+    if (values.length < 3) return track;
+    var firstX = values[0];
+    var firstZ = values[2];
+    for (var i = 0; i < values.length; i += 3) {
+      values[i]     = firstX; /* X固定 */
+      /* values[i+1] = Y (維持) */
+      values[i + 2] = firstZ; /* Z固定 */
     }
     var newTrack = track.clone();
-    newTrack.values = values;
+    newTrack.values = new Float32Array(values);
+    modified = true;
+    console.log('[ANIM] stripped root motion XZ from:', track.name, 'bone:', rootName);
     return newTrack;
   });
-  return new T.AnimationClip(clip.name+'_noRootXZ', clip.duration, newTracks);
+  if (!modified) {
+    console.warn('[ANIM] stripRootMotionXZ: no position track found for bone:', rootName);
+  }
+  return new T.AnimationClip(clip.name + '_noRootXZ', clip.duration, newTracks);
 }
 
-/* FIX #1: アニメーション上半身フィルタ - ボーン名の大文字小文字を無視 */
-function filterClipByBoneName(clip, trackPredicate){
-  if(!clip) return null;
-  var filteredTracks = clip.tracks.filter(function(track){
-    var dot = track.name.lastIndexOf('.');
-    var boneName = dot>=0 ? track.name.slice(0,dot) : track.name;
-    return trackPredicate(boneName);
+/* 上半身のみのクリップを生成 */
+function makeUpperBodyClip(clip) {
+  if (!clip) return null;
+  var filtered = clip.tracks.filter(function(track) {
+    var boneName = getBoneNameFromTrack(track.name);
+    return isUpperBodyBone(boneName);
   });
-  if(filteredTracks.length===0) return null;
-  return new T.AnimationClip(clip.name+'_filtered', clip.duration, filteredTracks);
-}
-function makeLowerBodyClip(clip){
-  return filterClipByBoneName(clip, function(boneName){ return !isUpperBodyBoneName(boneName); });
-}
-function makeUpperBodyClip(clip){
-  return filterClipByBoneName(clip, function(boneName){ return isUpperBodyBoneName(boneName); });
+  if (filtered.length === 0) {
+    console.warn('[ANIM] makeUpperBodyClip: no upper body tracks found. Track names:', clip.tracks.slice(0,5).map(function(t){return t.name;}).join(', '));
+    return null;
+  }
+  console.log('[ANIM] upper body clip tracks:', filtered.length, 'sample:', filtered[0].name);
+  return new T.AnimationClip(clip.name + '_upper', clip.duration, filtered);
 }
 
-function decideAnimationMode(isMoving, isShooting, hasShineFull){
-  if(isShooting){
-    if(isMoving) return 'split';
-    return hasShineFull ? 'full-shine' : 'full-polo';
+/* 下半身のみのクリップを生成 */
+function makeLowerBodyClip(clip) {
+  if (!clip) return null;
+  var filtered = clip.tracks.filter(function(track) {
+    var boneName = getBoneNameFromTrack(track.name);
+    return !isUpperBodyBone(boneName); /* 上半身でなければ下半身として扱う */
+  });
+  if (filtered.length === 0) {
+    console.warn('[ANIM] makeLowerBodyClip: no lower body tracks found.');
+    return null;
+  }
+  console.log('[ANIM] lower body clip tracks:', filtered.length, 'sample:', filtered[0].name);
+  return new T.AnimationClip(clip.name + '_lower', clip.duration, filtered);
+}
+
+/* アニメーションモード決定 */
+function decideAnimMode(isMoving, isShooting, hasShine) {
+  if (isShooting) {
+    if (isMoving && hasShine) return 'split';
+    if (hasShine) return 'full-shine';
   }
   return 'full-polo';
 }
 
-function updateAvatarAnimationMode(av, isMoving, isShooting){
-  if(!av || !av.userData) return;
-  var hasShineFull = !!av.userData._actionFullShine;
-  var mode = decideAnimationMode(isMoving, isShooting, hasShineFull);
-  if(mode==='split' && !av.userData._actionUpperShine) mode='full-polo';
-  if(av.userData._animMode === mode) return;
+/* アバターのアニメーション状態を更新 */
+function updateAvatarAnimationMode(av, isMoving, isShooting) {
+  if (!av || !av.userData) return;
+  var ud = av.userData;
 
-  var fullPolo = av.userData._actionFullPolo;
-  var lowerPolo = av.userData._actionLowerPolo;
-  var upperShine = av.userData._actionUpperShine;
-  var fullShine = av.userData._actionFullShine;
+  var hasShine = !!(ud._actionUpperShine || ud._actionFullShine);
+  var mode = decideAnimMode(isMoving, isShooting, hasShine);
 
-  if(fullPolo) fullPolo.stop();
-  if(lowerPolo) lowerPolo.stop();
-  if(upperShine) upperShine.stop();
-  if(fullShine) fullShine.stop();
+  /* splitモードでupper shineがない場合はfull-poloにフォールバック */
+  if (mode === 'split' && !ud._actionUpperShine) mode = 'full-polo';
 
-  if(mode==='split' && lowerPolo && upperShine){
-    lowerPolo.play(); upperShine.play();
-  }else if(mode==='full-shine' && fullShine){
-    fullShine.play();
-  }else if(fullPolo){
-    fullPolo.play();
+  if (ud._animMode === mode) return;
+  ud._animMode = mode;
+
+  /* 全アクションを停止 */
+  if (ud._actionFullPolo)  ud._actionFullPolo.stop();
+  if (ud._actionLowerPolo) ud._actionLowerPolo.stop();
+  if (ud._actionUpperShine) ud._actionUpperShine.stop();
+  if (ud._actionFullShine)  ud._actionFullShine.stop();
+
+  /* 新しいモードを開始 */
+  if (mode === 'split') {
+    if (ud._actionLowerPolo)  ud._actionLowerPolo.play();
+    if (ud._actionUpperShine) ud._actionUpperShine.play();
+  } else if (mode === 'full-shine') {
+    if (ud._actionFullShine) ud._actionFullShine.play();
+    else if (ud._actionFullPolo) ud._actionFullPolo.play();
+  } else {
+    /* full-polo */
+    if (ud._actionFullPolo) ud._actionFullPolo.play();
   }
-  av.userData._animMode = mode;
 }
 
-function makeRemoteAvatar(team, name){
+/* アバター作成 */
+function makeRemoteAvatar(team, name) {
   var outer = new T.Group();
   outer.userData = { isRemoteAvatar:true, team:team, name:name||'' };
 
@@ -944,131 +1096,126 @@ function makeRemoteAvatar(team, name){
   correctionGroup.rotation.set(POLO_ROT_X, POLO_ROT_Y, POLO_ROT_Z);
   outer.add(correctionGroup);
 
-  onPoloReady(function(fbx){
+  onPoloReady(function(fbx) {
     var usedProcedural = false;
 
-    if(fbx){
+    if (fbx) {
       var clone = null;
-      try{
+      try {
         clone = SkeletonUtils.clone(fbx);
-      }catch(e){
+      } catch(e) {
         console.warn('[POLO] SkeletonUtils.clone failed:', e);
         clone = null;
       }
 
-      if(clone){
+      if (clone) {
         var box = new T.Box3().setFromObject(clone);
         var size = new T.Vector3();
         box.getSize(size);
         var maxDim = Math.max(size.x, size.y, size.z);
-        if(!Number.isFinite(maxDim) || maxDim <= 0.05 || maxDim > 8){
+        if (!Number.isFinite(maxDim) || maxDim <= 0.05 || maxDim > 8) {
           console.warn('[POLO] clone bounding broken:', maxDim);
           clone = null;
         }
       }
 
-      if(clone){
+      if (clone) {
         clone.visible = true;
-        clone.traverse(function(child){
-          if(!child.isMesh) return;
+        clone.traverse(function(child) {
+          if (!child.isMesh) return;
           child.visible = true; child.castShadow = true;
           child.receiveShadow = true; child.frustumCulled = false;
         });
         applyTeamColor(clone, team);
         correctionGroup.add(clone);
 
-        if(fbx.animations && fbx.animations.length > 0){
+        if (fbx.animations && fbx.animations.length > 0) {
           var mixer = new T.AnimationMixer(clone);
-
-          /* FIX #2: クローン後にルートモーション除去を適用 */
-          /* FBXのアニメーションクリップのトラックはボーン名で参照するため
-             テンプレートのアニメーションをそのまま使ってもクローンのmixerで動作する
-             ただしstripRootMotionXZで新しいクリップを生成してclipActionに渡す */
           var rawClip = fbx.animations[0];
-          var fullPoloClip = stripRootMotionXZ(rawClip, 'Hips');
-          /* mixamorigリグの場合はmixamorigHipsもチェック */
-          if(fullPoloClip.tracks.every(function(t){
-            return t.name.indexOf('Hips.position')===-1 && t.name.indexOf('mixamorigHips.position')===-1;
-          })){
-            /* ルートモーショントラックが存在しなかった場合、もう一方の名前で試みる */
-            var altClip = stripRootMotionXZ(rawClip, 'mixamorigHips');
-            if(altClip && altClip !== rawClip) fullPoloClip = altClip;
-          }
 
+          /* ルートモーション除去 */
+          var fullPoloClip = stripRootMotionXZ(rawClip, EXACT_ROOT_BONE);
+
+          /* 下半身クリップ (polo walk) */
+          var lowerClip = makeLowerBodyClip(fullPoloClip);
+
+          /* アクション登録 */
           var actionFullPolo = mixer.clipAction(fullPoloClip);
           actionFullPolo.setLoop(T.LoopRepeat, Infinity);
           actionFullPolo.clampWhenFinished = false;
 
-          var lowerClip = makeLowerBodyClip(fullPoloClip);
           var actionLowerPolo = lowerClip ? mixer.clipAction(lowerClip) : null;
-          if(actionLowerPolo){ actionLowerPolo.setLoop(T.LoopRepeat, Infinity); actionLowerPolo.clampWhenFinished=false; }
+          if (actionLowerPolo) {
+            actionLowerPolo.setLoop(T.LoopRepeat, Infinity);
+            actionLowerPolo.clampWhenFinished = false;
+          }
 
           outer.userData._mixer = mixer;
-          outer.userData._actionFullPolo = actionFullPolo;
+          outer.userData._actionFullPolo  = actionFullPolo;
           outer.userData._actionLowerPolo = actionLowerPolo;
           outer.userData._actionUpperShine = null;
-          outer.userData._actionFullShine = null;
+          outer.userData._actionFullShine  = null;
           outer.userData._animMode = 'none';
+          outer.userData._baseClip = fullPoloClip; /* 上半身フォールバック用 */
 
+          /* デフォルト再生 */
           actionFullPolo.play();
           outer.userData._animMode = 'full-polo';
 
-          onShineReady(function(shineFbx){
-            if(!shineFbx || !shineFbx.animations || !shineFbx.animations.length) return;
-            try{
+          /* shine.fbx の射撃アクションを追加 */
+          onShineReady(function(shineFbx) {
+            if (!shineFbx || !shineFbx.animations || !shineFbx.animations.length) return;
+            try {
               var rawShineClip = shineFbx.animations[0];
-              /* FIX: shine.fbxのルートボーン名を自動検出 */
-              var shineRootBone = 'Hips';
-              rawShineClip.tracks.forEach(function(t){
-                if(t.name.indexOf('.position')!==-1){
-                  var bn = t.name.slice(0, t.name.lastIndexOf('.'));
-                  if(bn.toLowerCase().indexOf('hip')!==-1) shineRootBone = bn;
-                }
-              });
-              var shineClip = stripRootMotionXZ(rawShineClip, shineRootBone);
+              var shineClip = stripRootMotionXZ(rawShineClip, EXACT_ROOT_BONE);
+
+              /* 上半身クリップ (shine shoot) */
               var upperClip = makeUpperBodyClip(shineClip);
 
-              /* FIX: upperClipがnull(ボーン名不一致)の場合はpoloクリップで上半身を代用 */
-              if(!upperClip){
-                console.warn('[SHINE] upper body clip is empty, using polo upper body instead');
+              /* upperClipが空の場合: poloの上半身で代用 */
+              if (!upperClip) {
+                console.warn('[SHINE] upper clip empty, fallback to polo upper');
                 upperClip = makeUpperBodyClip(fullPoloClip);
               }
 
-              if(upperClip){
-                var actionUpperShine = mixer.clipAction(upperClip);
-                actionUpperShine.setLoop(T.LoopRepeat, Infinity);
-                actionUpperShine.clampWhenFinished = false;
-                outer.userData._actionUpperShine = actionUpperShine;
-              }
+              /* 全身shine */
               var actionFullShine = mixer.clipAction(shineClip);
               actionFullShine.setLoop(T.LoopRepeat, Infinity);
               actionFullShine.clampWhenFinished = false;
               outer.userData._actionFullShine = actionFullShine;
-              console.log('[SHINE] actions ready for avatar, upperClip tracks:', upperClip ? upperClip.tracks.length : 0);
-            }catch(e){
+
+              /* 上半身shine */
+              if (upperClip) {
+                var actionUpperShine = mixer.clipAction(upperClip);
+                actionUpperShine.setLoop(T.LoopRepeat, Infinity);
+                actionUpperShine.clampWhenFinished = false;
+                outer.userData._actionUpperShine = actionUpperShine;
+                console.log('[SHINE] upper action ready, tracks:', upperClip.tracks.length);
+              }
+            } catch(e) {
               console.warn('[SHINE] failed to build shine actions:', e);
             }
           });
         }
-      }else{
+      } else {
         usedProcedural = true;
       }
-    }else{
+    } else {
       usedProcedural = true;
     }
 
-    if(usedProcedural){
+    if (usedProcedural) {
       var avatar = buildProceduralAvatar(team);
       avatar.visible = true;
       correctionGroup.add(avatar);
-      correctionGroup.traverse(function(child){
-        if(!child.isMesh) return;
+      correctionGroup.traverse(function(child) {
+        if (!child.isMesh) return;
         child.visible = true; child.castShadow = true;
         child.receiveShadow = true; child.frustumCulled = false;
       });
     }
 
-    onGunGlbReady(function(){
+    onGunGlbReady(function() {
       var gunGroup = new T.Group();
       gunGroup.name = 'avatarGun';
       gunGroup.position.set(AVATAR_GUN_POS.x, AVATAR_GUN_POS.y, AVATAR_GUN_POS.z);
@@ -1153,17 +1300,55 @@ function updateMuzzleFlashes(dt){
 
 function setNetBadge(s,t){netBadge.className=s;netBadge.textContent=t;lobbyNetValue.textContent=s==='online'?'ONLINE':s==='offline'?'OFFLINE':'接続中...';}
 function updateOrientationUI(){portraitMode=window.innerHeight>window.innerWidth;rotateOverlay.style.display=portraitMode?'flex':'none';}
-function updateRankUI(){
-  var xpP=100;
-  var ranks=['ブロンズ I','ブロンズ II','ブロンズ III','シルバー I','シルバー II','シルバー III','ゴールド I','ゴールド II','ゴールド III','プラチナ I','プラチナ II','プラチナ III','ダイヤ I','ダイヤ II','ダイヤ III','ブラックダイヤ I','ブラックダイヤ II','ブラックダイヤ III','マスター I','マスター II','マスター III','将軍','神'];
-  var idx=Math.min(Math.floor(rankXp/xpP),ranks.length-1);
-  var pct=idx===ranks.length-1?1:clamp01((rankXp-idx*xpP)/xpP);
-  rankNameEl.textContent=ranks[idx]; rankPctEl.textContent=Math.round(pct*100)+'%';
-  rankFillEl.style.width=Math.max(4,pct*100)+'%';
+
+/* =============================================
+   ランクUI更新
+   ============================================= */
+function updateRankUI() {
+  var info = getRankInfo(rankXp);
+  if (info.isGod) {
+    /* 神ランク: XP合計と概算順位を表示 */
+    var excess = rankXp - RANK_TIERS[RANK_TIERS.length - 1].xp;
+    /* ローカルストレージから神ランク人数の概算 (擬似値) */
+    rankNameEl.textContent = '神';
+    rankPctEl.textContent = '神 RANK';
+    rankFillEl.style.width = '100%';
+    rankFillEl.style.background = 'linear-gradient(90deg,#ffd84d,#ff9900,#ff4400)';
+    document.getElementById('rankHint').textContent = '神ランク到達 | 総XP: ' + rankXp;
+  } else {
+    rankNameEl.textContent = info.name;
+    rankPctEl.textContent = Math.round(info.pct * 100) + '%';
+    rankFillEl.style.width = Math.max(4, info.pct * 100) + '%';
+    rankFillEl.style.background = 'linear-gradient(90deg,#68b7ff,#aa67ff)';
+    var needed = info.span - info.prog;
+    document.getElementById('rankHint').textContent = '次のランクまで ' + needed + ' XP';
+  }
 }
-function saveRank(){try{localStorage.setItem('arena_rank_v8',JSON.stringify({xp:rankXp}));}catch(e){}}
-function loadRank(){try{var d=JSON.parse(localStorage.getItem('arena_rank_v8')||'{}');if(Number.isFinite(d&&d.xp))rankXp=Math.max(0,d.xp);}catch(e){}}
-function addRankXp(amt){if(matchMode!=='ranked')return;rankXp=Math.max(0,Math.min(999999,rankXp+Math.round(amt)));saveRank();updateRankUI();}
+
+function saveRank(){
+  try{
+    localStorage.setItem(RANK_KEY, JSON.stringify({xp: rankXp, godTs: godRankTimestamp}));
+  }catch(e){}
+}
+function loadRank(){
+  try{
+    var d = JSON.parse(localStorage.getItem(RANK_KEY) || '{}');
+    if (Number.isFinite(d && d.xp)) rankXp = Math.max(0, d.xp);
+    if (Number.isFinite(d && d.godTs)) godRankTimestamp = d.godTs;
+  }catch(e){}
+}
+function addRankXp(amt) {
+  if (matchMode !== 'ranked') return;
+  var wasGod = rankXp >= RANK_TIERS[RANK_TIERS.length - 1].xp;
+  rankXp = Math.max(0, Math.min(9999999, rankXp + Math.round(amt)));
+  var isGodNow = rankXp >= RANK_TIERS[RANK_TIERS.length - 1].xp;
+  if (!wasGod && isGodNow) {
+    godRankTimestamp = Date.now();
+  }
+  saveRank();
+  updateRankUI();
+}
+
 function updateScoreUI(){blueScoreEl.textContent=String(blueScore);redScoreEl.textContent=String(redScore);roundTextEl.textContent=String(roundIndex);}
 
 var ROUND_TIME_LIMIT_MS = 180000;
@@ -1411,7 +1596,6 @@ function resetRoundState(){
   syncRoundStateToRoom({alive:true,hp:100,phase:GAME_MODE.BATTLE});
 }
 
-/* FIX #4: リザルト画面 - matchOverガード追加 */
 function showResult(wt){if(resultShown)return;resultShown=true;matchOver=true;gameMode=GAME_MODE.RESULT;setModeUI();resultOverlay.style.display='flex';resultTextEl.textContent=wt===TEAM_BLUE?'BLUE WINS':'RED WINS';resultSubEl.textContent='LOADING BACK TO THE HUB...';}
 
 function playRoundEndFx(winnerTeam){
@@ -1523,15 +1707,13 @@ function makeAIUnit(team,index){
   var spawnPoints=getSpawnPointsForMap(currentMapId,tk);
   var sp=spawnPoints[index%spawnPoints.length];
   var spawn=new T.Vector3(sp.x,0,sp.z);
-  /* FIX #3: AI時計はperformance.now()ベース。lastShotAtも同じ基準 */
+  var nowSec = performance.now()/1000;
   var unit={id:'ai-'+tk+'-'+index,team:tk,avatar:avatar,rng:rng,seed:seed,spawn:spawn,x:spawn.x,z:spawn.z,
     yaw:tk==='red'?Math.PI:0,hp:100,maxHp:100,alive:true,state:'patrol',
     moveSpeed:2.2+rng()*0.7,strafe:rng()>0.5?1:-1,
-    fireCooldown:0,  /* FIX: performance.now()/1000ベースで初期化 - makeAIUnit呼び出し後にsetする */
+    fireCooldown: nowSec + 0.5 + rng()*1.0,
     lastShotAt:0,
     stuckTimer:0,lastCheckPos:{x:spawn.x,z:spawn.z},unstuckDir:null,unstuckUntil:0};
-  /* fireCooldownはperformance.now()ベースの秒数。ゲーム開始後すぐに攻撃できるよう短く設定 */
-  unit.fireCooldown = performance.now()/1000 + 0.5 + rng()*1.0;
   avatar.position.set(unit.x,0,unit.z); avatar.rotation.y=unit.yaw; avatar.visible=true;
   updateAvatarHPBar(avatar,unit.hp); return unit;
 }
@@ -1566,7 +1748,6 @@ function aiCanSee(unit,targetPos){
   return true;
 }
 
-/* FIX #3: nowSecはperformance.now()/1000を使用 */
 function damageEntityFromAI(unit,target,dist,nowSec){
   if(nowSec<unit.lastShotAt+0.45)return;
   unit.lastShotAt=nowSec; unit.fireCooldown=nowSec+0.7+unit.rng()*1.1;
@@ -1590,7 +1771,6 @@ function damageEntityFromAI(unit,target,dist,nowSec){
   }
 }
 
-/* FIX #3: updateAIUnit - nowSecはperformance.now()/1000 */
 function updateAIUnit(unit,dt,nowSec){
   if(!unit||!unit.alive) return;
   var nearest=getNearestTarget(unit);
@@ -1672,22 +1852,26 @@ function updateAIUnit(unit,dt,nowSec){
   unit.avatar.visible=true;
   updateAvatarHPBar(unit.avatar,unit.hp);
 
-  var aiIsMoving=mag2>0.05;
-  var SHOOTING_FLAG_DURATION_MS=260;
-  var aiIsShooting=!!(unit.lastShotAt&&(nowSec-unit.lastShotAt)*1000<SHOOTING_FLAG_DURATION_MS);
-  updateAvatarAnimationMode(unit.avatar,aiIsMoving,aiIsShooting);
+  /* =============================================
+     AI アニメーション切り替え
+     ============================================= */
+  var aiIsMoving = mag2 > 0.05;
+  var AI_SHOOTING_FLAG_MS = 280;
+  var aiIsShooting = !!(unit.lastShotAt && (nowSec - unit.lastShotAt) * 1000 < AI_SHOOTING_FLAG_MS);
+  updateAvatarAnimationMode(unit.avatar, aiIsMoving, aiIsShooting);
 }
 
-/* FIX #3: updateAI - nowSecはperformance.now()/1000を直接使用 */
 function updateAI(dt){
   if(gameMode!==GAME_MODE.BATTLE&&gameMode!==GAME_MODE.SPECTATE)return;
   if(!aiUnits.length)return;
-  var nowSec = performance.now()/1000; /* FIX: roundTimerMsではなくperformance.now()を使用 */
+  var nowSec = performance.now()/1000;
   for(var i=0;i<aiUnits.length;i++) updateAIUnit(aiUnits[i],dt,nowSec);
-  for(var _mi=0;_mi<aiUnits.length;_mi++){
-    var _mu=aiUnits[_mi];
-    if(_mu&&_mu.avatar&&_mu.avatar.userData._mixer) _mu.avatar.userData._mixer.update(dt);
+  /* AIアバターのmixer更新 */
+  for(var mi=0;mi<aiUnits.length;mi++){
+    var mu=aiUnits[mi];
+    if(mu&&mu.avatar&&mu.avatar.userData._mixer) mu.avatar.userData._mixer.update(dt);
   }
+  /* リモートプレイヤーのmixer更新 */
   remoteAvatars.forEach(function(av){
     if(av&&av.userData._mixer) av.userData._mixer.update(dt);
   });
@@ -1721,20 +1905,22 @@ function initAIForMatch(data){
   for(var j=0;j<aiCount;j++) aiUnits.push(makeAIUnit(TEAM_RED,j));
 }
 
-/* FIX #3: resetAIForRound - fireCooldownをperformance.now()ベースに */
 function resetAIForRound(){
   var nowSec=performance.now()/1000;
   for(var i=0;i<aiUnits.length;i++){
     var u=aiUnits[i];if(!u)continue;
     u.alive=true;u.hp=u.maxHp;u.x=u.spawn.x;u.z=u.spawn.z;
     u.yaw=u.team===TEAM_RED?Math.PI:0;u.state='patrol';
-    u.fireCooldown=nowSec+0.5+u.rng()*0.8; /* FIX: performance.now()ベース */
+    u.fireCooldown=nowSec+0.5+u.rng()*0.8;
     u.lastShotAt=0;
     u.stuckTimer=0;u.lastCheckPos={x:u.x,z:u.z};u.unstuckDir=null;u.unstuckUntil=0;
     if(u.avatar){
       u.avatar.visible=true;u.avatar.position.set(u.x,0,u.z);
       u.avatar.rotation.y=u.yaw;ensureNameTag(u.avatar,'AI',u.team);
       updateAvatarHPBar(u.avatar,u.hp);
+      /* アニメーションをfull-poloにリセット */
+      u.avatar.userData._animMode = 'none';
+      updateAvatarAnimationMode(u.avatar, false, false);
     }
   }
 }
@@ -1764,8 +1950,12 @@ function applyRemoteState(id,s){
     }
   }
 }
-var REMOTE_MOVING_THRESHOLD = 0.012;
-var SHOOTING_FLAG_DURATION_MS = 260;
+
+/* =============================================
+   リモートプレイヤー状態更新 (アニメーション切り替え含む)
+   ============================================= */
+var REMOTE_MOVING_THRESHOLD = 0.012; /* この距離以上動いたら「移動中」と判定 */
+var SHOOTING_FLAG_DURATION_MS = 280;  /* 最後の射撃から何ms以内なら「射撃中」と判定 */
 
 function markAvatarShooting(id){
   var av=remoteAvatars.get(id);
@@ -1777,24 +1967,43 @@ function updateRemotePlayersFromState(){
   var ids={};
   Object.keys(roomPlayers||{}).forEach(function(id){ids[id]=true;});
   Object.keys(remoteStates||{}).forEach(function(id){ids[id]=true;});
+
   Object.keys(ids).forEach(function(id){
     if(socket&&id===socket.id)return;
     var p=remoteStates[id]||roomPlayers[id]; if(!p)return;
+
     var av=ensureAvatar(id,p.team||TEAM_BLUE,p.name||id);
-    var nx=Number(p.x)||0,nz=Number(p.z)||0;
+
+    var nx=Number(p.x)||0, nz=Number(p.z)||0;
     var prevX=Number.isFinite(av.userData._prevX)?av.userData._prevX:nx;
     var prevZ=Number.isFinite(av.userData._prevZ)?av.userData._prevZ:nz;
     var movedDist=Math.hypot(nx-prevX,nz-prevZ);
     av.userData._prevX=nx; av.userData._prevZ=nz;
-    av.position.set(nx,0,nz); av.rotation.y=Number(p.ry)||0;
+
+    av.position.set(nx,0,nz);
+    av.rotation.y=Number(p.ry)||0;
     av.visible=p.alive!==false;
-    ensureNameTag(av,p.name||id,p.team||TEAM_BLUE); updateAvatarHPBar(av,Number.isFinite(p.hp)?p.hp:100);
-    var isMoving=movedDist>REMOTE_MOVING_THRESHOLD;
-    var isShooting=!!(av.userData._lastShotAt&&(performance.now()-av.userData._lastShotAt)<SHOOTING_FLAG_DURATION_MS);
-    updateAvatarAnimationMode(av,isMoving,isShooting);
+
+    ensureNameTag(av,p.name||id,p.team||TEAM_BLUE);
+    updateAvatarHPBar(av,Number.isFinite(p.hp)?p.hp:100);
+
+    /* =============================================
+       アニメーション判定
+       移動判定: 前フレームからの移動距離
+       射撃判定: markAvatarShooting() で記録した時刻
+       ============================================= */
+    var isMoving = movedDist > REMOTE_MOVING_THRESHOLD;
+    var nowMs = performance.now();
+    var lastShotMs = av.userData._lastShotAt || 0;
+    var isShooting = (nowMs - lastShotMs) < SHOOTING_FLAG_DURATION_MS;
+
+    updateAvatarAnimationMode(av, isMoving, isShooting);
   });
+
+  /* 不要なアバターを削除 */
   remoteAvatars.forEach(function(_,id){
-    if(socket&&id===socket.id)return; if(!ids[id])removeAvatar(id);
+    if(socket&&id===socket.id)return;
+    if(!ids[id])removeAvatar(id);
   });
 }
 
@@ -2006,7 +2215,16 @@ function startRound(data){
   syncRoundStateToRoom();
 }
 
-function computeMatchRankDelta(didWin){if(matchMode!=='ranked')return 0;return didWin?35:-10;}
+/* =============================================
+   ランクXP計算
+   勝利: +18XP, 敗北: -6XP, ラウンドボーナス: +4XP/round
+   ============================================= */
+function computeMatchRankDelta(didWin, roundsWon) {
+  if (matchMode !== 'ranked') return 0;
+  var base = didWin ? RANK_WIN_XP : RANK_LOSS_XP;
+  var bonus = Math.round((roundsWon || 0) * RANK_ROUND_BONUS);
+  return base + bonus;
+}
 
 function showFinalResultByServer(data){
   if(resultShown)return;resultShown=true;matchOver=true;battleBeginLock=true;
@@ -2027,9 +2245,12 @@ function showFinalResultByServer(data){
   resultFinalScoreEl.textContent=(Number.isFinite(data&&data.blue)?data.blue:blueScore)+' - '+(Number.isFinite(data&&data.red)?data.red:redScore);
 
   var didWin=(player.team||TEAM_BLUE)===winnerTeam;
-  var delta=computeMatchRankDelta(didWin);
+  var myRoundsWon = didWin ? (Number.isFinite(data&&data.blue)?data.blue:blueScore) : 0;
+  var delta = computeMatchRankDelta(didWin, myRoundsWon);
   if(delta!==0) addRankXp(delta);
-  resultRankNameEl.textContent=rankNameEl.textContent;
+
+  var info = getRankInfo(rankXp);
+  resultRankNameEl.textContent = info.name;
   resultRankDeltaEl.textContent=(delta>=0?'+':'')+delta+' XP';
   resultRankDeltaEl.classList.toggle('positive',delta>0);
   resultRankDeltaEl.classList.toggle('negative',delta<0);
@@ -2140,7 +2361,7 @@ function initSocket(){
     if(Number.isFinite(data.roundIndex))roundIndex=data.roundIndex;
     updateScoreUI();
     playRoundEndFx(data.winner||'');
-    if(matchMode==='ranked'&&!data.final) addRankXp(20);
+    if(matchMode==='ranked'&&!data.final) addRankXp(RANK_ROUND_BONUS);
   });
   socket.on('playerState',function(d){
     if(!d||!d.playerId)return;
@@ -2180,10 +2401,8 @@ function initSocket(){
     if(!battleBeginLock){ beginBattle(data||{}); syncRoundStateToRoom({phase:GAME_MODE.LOADING}); }
   });
 
-  /* FIX #4: round-reset/round-started でRESULT/FINISHED状態を上書きしない */
   function handleServerRoundRestart(data){
     if(data&&data.room&&currentRoom&&data.room!==currentRoom)return;
-    /* FIX: リザルト表示中や試合終了後はラウンドリセットを無視 */
     if(matchOver||resultShown||gameMode===GAME_MODE.RESULT||gameMode===GAME_MODE.LOBBY)return;
     if(Number.isFinite(data&&data.roundIndex))roundIndex=data.roundIndex;
     if(Number.isFinite(data&&data.blue))blueScore=data.blue;
@@ -2202,11 +2421,8 @@ function initSocket(){
   socket.on('scoreUpdate',function(data){
     if(data&&data.room&&currentRoom&&data.room!==currentRoom)return;
     setServerScore(data);
-    /* FIX #4: scoreUpdateでスコアが勝利条件に達していたらリザルト表示のトリガーにする
-       (matchFinishedが届かない場合のフォールバック) */
     if(!resultShown&&!matchOver){
       if(blueScore>=WIN_SCORE||redScore>=WIN_SCORE){
-        /* matchFinishedを500ms待ってから、来ない場合はスコアから判断して表示 */
         setTimeout(function(){
           if(!resultShown&&!matchOver&&(blueScore>=WIN_SCORE||redScore>=WIN_SCORE)){
             var winner=blueScore>=WIN_SCORE?TEAM_BLUE:TEAM_RED;

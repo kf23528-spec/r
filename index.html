@@ -1869,7 +1869,7 @@ function updateAvatarBillboard(av){
   if(hpBg)hpBg.lookAt(camera.position);
 }
 function ensureAvatar(id,team,name){
-  if(remoteAvatars.has(id)){var ex=remoteAvatars.get(id);if(ex){ex.userData.entityId=id;ex.userData.team=team||TEAM_BLUE;ensureNameTag(ex,name||id,team||TEAM_BLUE);if(remoteShotMarks[id]&&!ex.userData._lastShotAt)ex.userData._lastShotAt=remoteShotMarks[id];}return ex;}
+  if(remoteAvatars.has(id)){var ex=remoteAvatars.get(id);if(ex){ex.userData.entityId=id;ex.userData.team=team||TEAM_BLUE;ensureNameTag(ex,name||id,team||TEAM_BLUE);var _lastShot = remoteShotMarks[id] || (remoteStates[id] && remoteStates[id]._lastShotAt) || (roomPlayers[id] && roomPlayers[id]._lastShotAt) || 0;if(_lastShot && !ex.userData._lastShotAt) ex.userData._lastShotAt=_lastShot;}return ex;}
   var av=makeRemoteAvatar(team||TEAM_BLUE,name||id); av.userData.entityId=id; av.userData.entityType='human'; av.userData.team=team||TEAM_BLUE;
   if(remoteShotMarks[id]) av.userData._lastShotAt=remoteShotMarks[id];
   scene.add(av); remoteAvatars.set(id,av); return av;
@@ -2136,6 +2136,7 @@ function applyRemoteState(id,s){
     alive:s.alive!==false,hp:Number.isFinite(s.hp)?s.hp:(remoteStates[id].hp||100)
   };
   Object.assign(remoteStates[id],normalized);
+  if (remoteStates[id]._lastShotAt && !Number.isFinite(remoteStates[id]._lastShotAt)) delete remoteStates[id]._lastShotAt;
   roomPlayers[id]=roomPlayers[id]||{};
   Object.assign(roomPlayers[id],{name:normalized.name,team:normalized.team,room:normalized.room,x:normalized.x,y:normalized.y,z:normalized.z,ry:normalized.ry,alive:normalized.alive,hp:normalized.hp});
   var av=ensureAvatar(id,normalized.team,normalized.name);
@@ -2156,7 +2157,15 @@ function applyRemoteState(id,s){
    リモートプレイヤー状態更新 (アニメーション切り替え含む)
    ============================================= */
 var REMOTE_MOVING_THRESHOLD = 0.012; /* この距離以上動いたら「移動中」と判定 */
-var SHOOTING_FLAG_DURATION_MS = 280;  /* 最後の射撃から何ms以内なら「射撃中」と判定 */
+var SHOOTING_FLAG_DURATION_MS = 1100;  /* 射撃イベントの受信遅延を吸収する長めの保持時間 */
+
+function getRemoteLastShotAt(id, av){
+  var t1 = av && av.userData ? (av.userData._lastShotAt || 0) : 0;
+  var t2 = remoteShotMarks[id] || 0;
+  var t3 = remoteStates[id] && remoteStates[id]._lastShotAt ? remoteStates[id]._lastShotAt : 0;
+  var t4 = roomPlayers[id] && roomPlayers[id]._lastShotAt ? roomPlayers[id]._lastShotAt : 0;
+  return Math.max(t1, t2, t3, t4);
+}
 
 function forceUpdateRemoteAvatarAnimation(id){
   if(socket&&id===socket.id)return;
@@ -2171,20 +2180,30 @@ function forceUpdateRemoteAvatarAnimation(id){
   var movedDist=Math.hypot(nx-prevX,nz-prevZ);
   var isMoving=movedDist>REMOTE_MOVING_THRESHOLD;
   var nowMs=performance.now();
-  var lastShotMs=av.userData._lastShotAt||remoteShotMarks[id]||0;
-  if(!av.userData._lastShotAt && lastShotMs) av.userData._lastShotAt=lastShotMs;
-  var isShooting=(nowMs-lastShotMs)<SHOOTING_FLAG_DURATION_MS;
+  var lastShotMs=getRemoteLastShotAt(id,av);
+  if(lastShotMs && !av.userData._lastShotAt) av.userData._lastShotAt = lastShotMs;
+  var isShooting=lastShotMs > 0 && nowMs < (lastShotMs + SHOOTING_FLAG_DURATION_MS);
   updateAvatarAnimationMode(av,isMoving,isShooting);
 }
 
 function markAvatarShooting(id){
   var now = performance.now();
-  remoteShotMarks[id] = now;
-  var av=remoteAvatars.get(id);
-  if(av&&av.userData){
-    av.userData._lastShotAt=now;
+  var expiresAt = now + SHOOTING_FLAG_DURATION_MS;
+  remoteShotMarks[id] = expiresAt;
+
+  var av = remoteAvatars.get(id);
+  if (av && av.userData) {
+    av.userData._lastShotAt = now;
   }
+
+  if (remoteStates[id]) remoteStates[id]._lastShotAt = now;
+  if (roomPlayers[id]) roomPlayers[id]._lastShotAt = now;
+
   forceUpdateRemoteAvatarAnimation(id);
+
+  // モデル生成・同期の順番が前後しても拾えるよう、次フレームでも再評価する
+  requestAnimationFrame(function(){ forceUpdateRemoteAvatarAnimation(id); });
+  setTimeout(function(){ forceUpdateRemoteAvatarAnimation(id); }, 120);
 }
 
 function updateRemotePlayersFromState(){
@@ -2218,9 +2237,9 @@ function updateRemotePlayersFromState(){
        ============================================= */
     var isMoving = movedDist > REMOTE_MOVING_THRESHOLD;
     var nowMs = performance.now();
-    var lastShotMs = av.userData._lastShotAt || remoteShotMarks[id] || 0;
-    if (!av.userData._lastShotAt && lastShotMs) av.userData._lastShotAt = lastShotMs;
-    var isShooting = (nowMs - lastShotMs) < SHOOTING_FLAG_DURATION_MS;
+    var lastShotMs = getRemoteLastShotAt(id, av);
+    if (lastShotMs && !av.userData._lastShotAt) av.userData._lastShotAt = lastShotMs;
+    var isShooting = lastShotMs > 0 && nowMs < (lastShotMs + SHOOTING_FLAG_DURATION_MS);
 
     updateAvatarAnimationMode(av, isMoving, isShooting);
   });
@@ -2545,8 +2564,26 @@ function initSocket(){
   }
   socket.on('playerMoved',handleRemoteMovement);
   socket.on('playerMovement',handleRemoteMovement);
-  socket.on('playerShot',function(d){if(!d)return;if(socket&&d.id===socket.id)return;spawnRemoteShotFX(d);markAvatarShooting(d.id);forceUpdateRemoteAvatarAnimation(d.id);updateRemotePlayersFromState();});
-  socket.on('playerShotFX',function(d){if(!d)return;if(socket&&d.id===socket.id)return;spawnRemoteShotFX(d);markAvatarShooting(d.id);forceUpdateRemoteAvatarAnimation(d.id);updateRemotePlayersFromState();});
+  socket.on('playerShot',function(d){
+    if(!d)return;
+    var id=d.id||d.playerId||d.sourceId;
+    if(socket&&id===socket.id)return;
+    if(id){ remoteShotMarks[id] = performance.now() + SHOOTING_FLAG_DURATION_MS; }
+    spawnRemoteShotFX(d);
+    markAvatarShooting(id);
+    forceUpdateRemoteAvatarAnimation(id);
+    updateRemotePlayersFromState();
+  });
+  socket.on('playerShotFX',function(d){
+    if(!d)return;
+    var id=d.id||d.playerId||d.sourceId;
+    if(socket&&id===socket.id)return;
+    if(id){ remoteShotMarks[id] = performance.now() + SHOOTING_FLAG_DURATION_MS; }
+    spawnRemoteShotFX(d);
+    markAvatarShooting(id);
+    forceUpdateRemoteAvatarAnimation(id);
+    updateRemotePlayersFromState();
+  });
 
   socket.on('damage-result',function(d){
     if(!d||(d.room&&currentRoom&&d.room!==currentRoom))return;

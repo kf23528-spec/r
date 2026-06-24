@@ -156,19 +156,54 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 #loadingFill{width:35%;height:100%;border-radius:inherit;background:linear-gradient(90deg,#62e0ff,#6d7bff,#d06dff);animation:loadingFlow 1.2s ease-in-out infinite}
 @keyframes loadingFlow{0%{transform:translateX(-70%)}50%{transform:translateX(90%)}100%{transform:translateX(-70%)}}
 #spectateOverlay{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);z-index:90;display:none;padding:10px 16px;border-radius:999px;background:rgba(0,0,0,0.55);border:1px solid rgba(255,255,255,0.12);color:#fff;font-size:12px;font-weight:800;letter-spacing:0.08em;pointer-events:none;backdrop-filter:blur(6px)}
-#resultOverlay{position:absolute;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;background:radial-gradient(circle at center,rgba(15,20,33,0.58),rgba(0,0,0,0.94));z-index:130;pointer-events:none;color:#fff;text-align:center}
-#resultText{font-size:clamp(38px,8.5vw,86px);font-weight:1000;letter-spacing:0.12em;text-shadow:0 0 18px rgba(255,255,255,0.25),0 0 28px rgba(120,180,255,0.22),0 8px 24px rgba(0,0,0,0.8);animation:resultPop 0.95s ease-out infinite alternate}
-#resultSub{margin-top:14px;font-size:clamp(14px,3vw,20px);opacity:0.88;letter-spacing:0.08em}
-#resultStatsPanel{margin-top:22px;width:min(86vw,420px);padding:18px 20px;border-radius:20px;background:linear-gradient(180deg,rgba(255,255,255,0.10),rgba(255,255,255,0.04));border:1px solid rgba(255,255,255,0.14);box-shadow:0 16px 40px rgba(0,0,0,0.4);backdrop-filter:blur(10px)}
-#resultStatsGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
-.resultStatCard{padding:10px 8px;border-radius:14px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.10)}
-.resultStatLabel{font-size:11px;letter-spacing:0.14em;opacity:0.65}
-.resultStatValue{margin-top:4px;font-size:22px;font-weight:1000;letter-spacing:0.04em}
-#resultRankRow{margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.10);display:flex;align-items:center;justify-content:space-between;font-size:13px;letter-spacing:0.06em}
+#resultOverlay{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:radial-gradient(circle at center,rgba(25,35,60,0.50),rgba(0,0,0,0.97));z-index:130;pointer-events:none;color:#fff;text-align:center;overflow:hidden}
+#resultOverlay::before{content:"";position:absolute;inset:-20%;background:
+  radial-gradient(circle at 20% 20%,rgba(80,180,255,0.22),transparent 22%),
+  radial-gradient(circle at 80% 18%,rgba(255,105,160,0.18),transparent 22%),
+  radial-gradient(circle at 50% 80%,rgba(255,216,77,0.12),transparent 26%);
+  filter:blur(16px);animation:resultDrift 12s linear infinite}
+#resultOverlay::after{content:"";position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px),linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px);background-size:48px 48px;opacity:0.15;transform:perspective(600px) rotateX(62deg) translateY(46%);transform-origin:center bottom;animation:gridMove 8s linear infinite}
+.resultBackdrop{position:absolute;inset:0;background:radial-gradient(circle at center,rgba(8,12,20,0.15),rgba(0,0,0,0.55))}
+.resultScanlines{position:absolute;inset:0;background:repeating-linear-gradient(to bottom, rgba(255,255,255,0.04) 0 1px, transparent 1px 5px);opacity:0.16;mix-blend-mode:screen;animation:scanMove 0.9s linear infinite;pointer-events:none}
+.resultGlow{position:absolute;border-radius:50%;filter:blur(12px);pointer-events:none;opacity:0.9}
+.resultGlowA{width:34vw;height:34vw;left:-8vw;top:-4vw;background:radial-gradient(circle,rgba(75,170,255,0.45),transparent 60%);animation:glowPulse 4s ease-in-out infinite}
+.resultGlowB{width:28vw;height:28vw;right:-5vw;top:7vh;background:radial-gradient(circle,rgba(255,100,160,0.32),transparent 60%);animation:glowPulse 5.2s ease-in-out infinite reverse}
+.resultGlowC{width:38vw;height:38vw;left:28vw;bottom:-18vw;background:radial-gradient(circle,rgba(255,216,77,0.20),transparent 62%);animation:glowPulse 6.1s ease-in-out infinite}
+.resultCard{position:relative;z-index:2;width:min(90vw,720px);padding:28px 22px 24px;border-radius:30px;background:linear-gradient(180deg,rgba(255,255,255,0.14),rgba(255,255,255,0.05));border:1px solid rgba(255,255,255,0.18);box-shadow:0 30px 80px rgba(0,0,0,0.50),inset 0 0 36px rgba(255,255,255,0.05);backdrop-filter:blur(14px);animation:cardPop 0.8s cubic-bezier(.2,1.2,.2,1) both}
+#resultMedal{display:inline-flex;align-items:center;justify-content:center;margin:0 auto 12px;padding:8px 18px;border-radius:999px;font-size:12px;font-weight:1000;letter-spacing:0.28em;background:linear-gradient(90deg,rgba(79,171,255,0.18),rgba(255,255,255,0.12),rgba(255,108,170,0.18));border:1px solid rgba(255,255,255,0.20);box-shadow:0 0 0 1px rgba(255,255,255,0.04), 0 10px 24px rgba(0,0,0,0.24)}
+#resultText{font-size:clamp(38px,8.5vw,92px);font-weight:1000;letter-spacing:0.12em;text-shadow:0 0 18px rgba(255,255,255,0.25),0 0 28px rgba(120,180,255,0.22),0 8px 24px rgba(0,0,0,0.8);animation:resultPop 0.95s ease-out infinite alternate}
+#resultSub{margin-top:12px;font-size:clamp(14px,3vw,20px);opacity:0.92;letter-spacing:0.12em}
+#resultPromo{display:none;margin:16px auto 0;width:fit-content;max-width:100%;padding:10px 18px;border-radius:999px;background:linear-gradient(90deg,rgba(50,161,255,0.22),rgba(139,92,255,0.22),rgba(255,91,189,0.22));border:1px solid rgba(255,255,255,0.16);font-size:clamp(14px,2.4vw,18px);font-weight:1000;letter-spacing:0.16em;box-shadow:0 0 18px rgba(145,120,255,0.22),0 12px 30px rgba(0,0,0,0.26);animation:promoPulse 0.9s ease-out infinite alternate}
+#resultOverlay.promo #resultPromo{display:inline-flex}
+#resultOverlay.promo #resultMedal{background:linear-gradient(90deg,rgba(255,216,77,0.25),rgba(255,255,255,0.12),rgba(255,140,0,0.22));border-color:rgba(255,216,77,0.45)}
+#resultOverlay.win #resultText{color:#f5fbff}
+#resultOverlay.lose #resultText{color:#ffd9dc}
+#resultStatsPanel{margin:22px auto 0;width:min(86vw,520px);padding:18px 20px 16px;border-radius:22px;background:linear-gradient(180deg,rgba(255,255,255,0.10),rgba(255,255,255,0.04));border:1px solid rgba(255,255,255,0.14);box-shadow:0 16px 40px rgba(0,0,0,0.42);backdrop-filter:blur(10px);position:relative;overflow:hidden}
+#resultStatsPanel::before{content:"";position:absolute;inset:-2px;background:linear-gradient(90deg,transparent 0%, rgba(255,255,255,0.10) 50%, transparent 100%);transform:translateX(-120%);animation:shineSweep 2.8s ease-in-out infinite}
+#resultStatsGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;position:relative;z-index:1}
+.resultStatCard{padding:12px 10px;border-radius:16px;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.10);box-shadow:inset 0 0 16px rgba(255,255,255,0.03)}
+.resultStatLabel{font-size:11px;letter-spacing:0.16em;opacity:0.70}
+.resultStatValue{margin-top:4px;font-size:24px;font-weight:1000;letter-spacing:0.04em}
+#resultRankRow{margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.10);display:flex;align-items:center;justify-content:space-between;font-size:13px;letter-spacing:0.06em;position:relative;z-index:1}
+#resultRankName{font-size:14px;font-weight:1000}
 #resultRankDelta{font-weight:1000;font-size:16px}
 #resultRankDelta.positive{color:#3dff88}
 #resultRankDelta.negative{color:#ff6a6a}
-@keyframes resultPop{from{transform:scale(0.98);filter:brightness(1.0)}to{transform:scale(1.03);filter:brightness(1.2)}}
+#resultOverlay.promo #resultRankDelta{color:#ffd84d;text-shadow:0 0 10px rgba(255,216,77,0.45)}
+@keyframes resultPop{from{transform:scale(0.96);filter:brightness(1.0)}to{transform:scale(1.03);filter:brightness(1.18)}}
+@keyframes cardPop{0%{transform:translateY(20px) scale(0.88);opacity:0}70%{transform:translateY(-4px) scale(1.02);opacity:1}100%{transform:translateY(0) scale(1)}}
+@keyframes promoPulse{from{transform:scale(0.98);filter:brightness(1.0)}to{transform:scale(1.02);filter:brightness(1.18)}}
+@keyframes resultDrift{from{transform:translate3d(-2%, -1%, 0)}to{transform:translate3d(2%, 1%, 0)}}
+@keyframes gridMove{from{background-position:0 0,0 0}to{background-position:0 48px,48px 0}}
+@keyframes scanMove{from{transform:translateY(-8px)}to{transform:translateY(8px)}}
+@keyframes glowPulse{0%,100%{transform:scale(0.94);opacity:0.60}50%{transform:scale(1.05);opacity:1}}
+@keyframes shineSweep{0%{transform:translateX(-120%)}45%{transform:translateX(0%)}100%{transform:translateX(120%)}}
+
+.resultSpark{position:absolute;z-index:3;width:10px;height:10px;border-radius:50%;pointer-events:none;left:50%;top:44%;transform:translate(-50%,-50%);animation:resultSparkFly 1.15s cubic-bezier(.15,.8,.2,1) forwards;box-shadow:0 0 10px rgba(255,255,255,0.34)}
+.resultSpark.blue{background:radial-gradient(circle,rgba(87,183,255,1),rgba(87,183,255,0.15))}
+.resultSpark.red{background:radial-gradient(circle,rgba(255,104,139,1),rgba(255,104,139,0.15))}
+.resultSpark.promoted{background:radial-gradient(circle,rgba(255,216,77,1),rgba(255,216,77,0.20));box-shadow:0 0 16px rgba(255,216,77,0.65)}
+@keyframes resultSparkFly{0%{opacity:0;transform:translate(-50%,-50%) scale(0.35) rotate(0deg)}10%{opacity:1}100%{opacity:0;transform:translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(1.35) rotate(var(--rot))}}
 #rotateOverlay{position:absolute;inset:0;display:none;align-items:center;justify-content:center;text-align:center;background:rgba(4,8,14,0.96);color:#ffffff;z-index:200;pointer-events:all;padding:24px;box-sizing:border-box;font-size:clamp(18px,4.5vw,30px);font-weight:800;letter-spacing:0.05em;line-height:1.6}
 @media (orientation:portrait){#rotateOverlay{display:flex}}
 input,button{-webkit-appearance:none;appearance:none}
@@ -291,22 +326,34 @@ input,button{-webkit-appearance:none;appearance:none}
       </div>
     </div>
     <div id="resultOverlay">
-      <div id="resultText">YOUR TEAM WON</div>
-      <div id="resultSub">LOADING BACK TO THE HUB...</div>
-      <div id="resultStatsPanel">
-        <div id="resultStatsGrid">
-          <div class="resultStatCard"><div class="resultStatLabel">KILLS</div><div class="resultStatValue" id="resultKills">0</div></div>
-          <div class="resultStatCard"><div class="resultStatLabel">DEATHS</div><div class="resultStatValue" id="resultDeaths">0</div></div>
-          <div class="resultStatCard"><div class="resultStatLabel">K/D RATIO</div><div class="resultStatValue" id="resultKdr">0.00</div></div>
-          <div class="resultStatCard"><div class="resultStatLabel">FINAL SCORE</div><div class="resultStatValue" id="resultFinalScore">0 - 0</div></div>
-        </div>
-        <div id="resultRankRow">
-          <span id="resultRankName">ブロンズ I</span>
-          <span id="resultRankDelta">+0 XP</span>
+      <div class="resultBackdrop"></div>
+      <div class="resultScanlines"></div>
+      <div class="resultGlow resultGlowA"></div>
+      <div class="resultGlow resultGlowB"></div>
+      <div class="resultGlow resultGlowC"></div>
+
+      <div class="resultCard">
+        <div id="resultMedal">VICTORY</div>
+        <div id="resultText">YOUR TEAM WON</div>
+        <div id="resultSub">LOADING BACK TO THE HUB...</div>
+
+        <div id="resultPromo" aria-hidden="true"></div>
+
+        <div id="resultStatsPanel">
+          <div id="resultStatsGrid">
+            <div class="resultStatCard"><div class="resultStatLabel">KILLS</div><div class="resultStatValue" id="resultKills">0</div></div>
+            <div class="resultStatCard"><div class="resultStatLabel">DEATHS</div><div class="resultStatValue" id="resultDeaths">0</div></div>
+            <div class="resultStatCard"><div class="resultStatLabel">K/D RATIO</div><div class="resultStatValue" id="resultKdr">0.00</div></div>
+            <div class="resultStatCard"><div class="resultStatLabel">FINAL SCORE</div><div class="resultStatValue" id="resultFinalScore">0 - 0</div></div>
+          </div>
+          <div id="resultRankRow">
+            <span id="resultRankName">ブロンズ I</span>
+            <span id="resultRankDelta">+0 XP</span>
+          </div>
         </div>
       </div>
     </div>
-    <div id="spectateOverlay">SPECTATING</div>
+    <div id="spectateOverlay"><div id="spectateOverlay">SPECTATING</div>
     <div id="rotateOverlay">📱 画面を横向きにしてください</div>
   </div>
 </div>
@@ -488,6 +535,8 @@ var resultKdrEl = document.getElementById('resultKdr');
 var resultFinalScoreEl = document.getElementById('resultFinalScore');
 var resultRankNameEl = document.getElementById('resultRankName');
 var resultRankDeltaEl = document.getElementById('resultRankDelta');
+var resultMedalEl = document.getElementById('resultMedal');
+var resultPromoEl = document.getElementById('resultPromo');
 var netBadge = document.getElementById('netBadge');
 var onlineCountEl = document.getElementById('onlineCount');
 var lobbyNetValue = document.getElementById('lobbyNetValue');
@@ -1661,7 +1710,93 @@ function resetRoundState(){
   syncRoundStateToRoom({alive:true,hp:100,phase:GAME_MODE.BATTLE});
 }
 
-function showResult(wt){if(resultShown)return;resultShown=true;matchOver=true;gameMode=GAME_MODE.RESULT;setModeUI();resultOverlay.style.display='flex';resultTextEl.textContent=wt===TEAM_BLUE?'BLUE WINS':'RED WINS';resultSubEl.textContent='LOADING BACK TO THE HUB...';}
+function showResult(wt){
+  if(resultShown)return;
+  resultShown=true;
+  matchOver=true;
+  gameMode=GAME_MODE.RESULT;
+  setModeUI();
+  resultOverlay.style.display='flex';
+  clearResultOverlayState();
+  resultOverlay.classList.add(wt===TEAM_BLUE ? 'win' : 'lose');
+  resultTextEl.textContent=wt===TEAM_BLUE?'BLUE WINS':'RED WINS';
+  resultSubEl.textContent='LOADING BACK TO THE HUB...';
+  if (resultMedalEl) resultMedalEl.textContent = wt===TEAM_BLUE ? 'VICTORY' : 'DEFEAT';
+  if (resultPromoEl) {
+    resultPromoEl.style.display = 'inline-flex';
+    resultPromoEl.textContent = wt===TEAM_BLUE ? 'TEAM BLUE TAKES THE ROUND' : 'TEAM RED TAKES THE ROUND';
+  }
+}
+
+
+function clearResultOverlayState(){
+  resultOverlay.classList.remove('win','lose','promo');
+  if (resultPromoEl) {
+    resultPromoEl.style.display = 'none';
+    resultPromoEl.textContent = '';
+  }
+  if (resultMedalEl) resultMedalEl.textContent = 'MATCH COMPLETE';
+}
+
+function spawnResultParticles(team, promoted){
+  if (!resultOverlay) return;
+  for (var i = 0; i < 20; i++) {
+    var spark = document.createElement('div');
+    spark.className = 'resultSpark ' + (promoted ? 'promoted' : (team === TEAM_BLUE ? 'blue' : 'red'));
+    var angle = Math.random() * Math.PI * 2;
+    var dist = 70 + Math.random() * 200;
+    spark.style.left = (50 + Math.cos(angle) * 7) + '%';
+    spark.style.top = (44 + Math.sin(angle) * 7) + '%';
+    spark.style.setProperty('--dx', (Math.cos(angle) * dist).toFixed(1) + 'px');
+    spark.style.setProperty('--dy', (Math.sin(angle) * dist).toFixed(1) + 'px');
+    spark.style.setProperty('--rot', (Math.random() * 720 - 360).toFixed(1) + 'deg');
+    spark.style.animationDelay = (Math.random() * 120) + 'ms';
+    resultOverlay.appendChild(spark);
+    setTimeout(function(node){ return function(){ if(node && node.parentNode) node.parentNode.removeChild(node); }; }(spark), 1200);
+  }
+}
+
+function updateResultPresentation(winnerTeam, didWin, beforeInfo, afterInfo, delta) {
+  clearResultOverlayState();
+  resultOverlay.classList.add(didWin ? 'win' : 'lose');
+
+  resultTextEl.textContent = didWin ? 'VICTORY' : 'DEFEAT';
+  resultSubEl.textContent = didWin ? 'YOUR TEAM DOMINATED THE MATCH' : 'REGROUP AND COME BACK STRONGER';
+  if (resultMedalEl) resultMedalEl.textContent = didWin ? 'WINNER' : 'ELIMINATED';
+
+  var promo = '';
+  var promoted = false;
+  if (matchMode === 'ranked' && beforeInfo && afterInfo) {
+    if (afterInfo.isGod && !beforeInfo.isGod) {
+      promo = 'GOD RANK UNLOCKED';
+      promoted = true;
+    } else if (afterInfo.idx > beforeInfo.idx) {
+      promo = 'RANK UP!  ' + beforeInfo.name + ' → ' + afterInfo.name;
+      promoted = true;
+    } else if (delta > 0) {
+      promo = 'XP +' + delta;
+    } else if (delta < 0) {
+      promo = 'XP ' + delta;
+    } else {
+      promo = 'RANK STABLE';
+    }
+  } else {
+    promo = didWin ? 'CASUAL VICTORY' : 'CASUAL DEFEAT';
+  }
+
+  if (resultPromoEl) {
+    resultPromoEl.textContent = promo;
+    resultPromoEl.style.display = 'inline-flex';
+  }
+
+  resultOverlay.classList.toggle('promo', promoted);
+  resultRankNameEl.textContent = afterInfo ? afterInfo.name : getRankInfo(rankXp).name;
+  resultRankDeltaEl.textContent = (delta >= 0 ? '+' : '') + delta + ' XP';
+  resultRankDeltaEl.classList.toggle('positive', delta > 0);
+  resultRankDeltaEl.classList.toggle('negative', delta < 0);
+
+  spawnResultParticles(didWin ? winnerTeam : (winnerTeam === TEAM_BLUE ? TEAM_RED : TEAM_BLUE), promoted);
+}
 
 function playRoundEndFx(winnerTeam){
   showKillAnnouncement(winnerTeam===TEAM_BLUE?'BLUE ROUND':(winnerTeam===TEAM_RED?'RED ROUND':'ROUND END'));
@@ -2317,12 +2452,16 @@ function computeMatchRankDelta(didWin, roundsWon) {
 }
 
 function showFinalResultByServer(data){
-  if(resultShown)return;resultShown=true;matchOver=true;battleBeginLock=true;
-  gameMode=GAME_MODE.RESULT;setModeUI();
+  if(resultShown)return;
+  resultShown=true;
+  matchOver=true;
+  battleBeginLock=true;
+  gameMode=GAME_MODE.RESULT;
+  setModeUI();
   resultOverlay.style.display='flex';
+
   var winnerTeam=(data&&data.winner)?data.winner:(blueScore>=WIN_SCORE?TEAM_BLUE:TEAM_RED);
-  resultTextEl.textContent=winnerTeam===TEAM_BLUE?'BLUE WINS':'RED WINS';
-  resultSubEl.textContent='LOADING BACK TO THE HUB...';
+  var didWin=(player.team||TEAM_BLUE)===winnerTeam;
 
   var myStats=null;
   if(data&&data.players&&socket&&socket.id&&data.players[socket.id]){myStats=data.players[socket.id];}
@@ -2334,16 +2473,14 @@ function showFinalResultByServer(data){
   resultKdrEl.textContent=kdr.toFixed(2);
   resultFinalScoreEl.textContent=(Number.isFinite(data&&data.blue)?data.blue:blueScore)+' - '+(Number.isFinite(data&&data.red)?data.red:redScore);
 
-  var didWin=(player.team||TEAM_BLUE)===winnerTeam;
+  var beforeInfo = getRankInfo(rankXp);
   var myRoundsWon = didWin ? (Number.isFinite(data&&data.blue)?data.blue:blueScore) : 0;
   var delta = computeMatchRankDelta(didWin, myRoundsWon);
   if(delta!==0) addRankXp(delta);
+  var afterInfo = getRankInfo(rankXp);
 
-  var info = getRankInfo(rankXp);
-  resultRankNameEl.textContent = info.name;
-  resultRankDeltaEl.textContent=(delta>=0?'+':'')+delta+' XP';
-  resultRankDeltaEl.classList.toggle('positive',delta>0);
-  resultRankDeltaEl.classList.toggle('negative',delta<0);
+  updateResultPresentation(winnerTeam, didWin, beforeInfo, afterInfo, delta);
+  resultOverlay.classList.add(didWin ? 'win' : 'lose');
 
   setTimeout(function(){
     if(socket&&socket.connected&&currentRoom)socket.emit('leave-room',{room:currentRoom,name:PLAYER_NAME});
@@ -2351,8 +2488,9 @@ function showFinalResultByServer(data){
     gameMode=GAME_MODE.LOBBY; matchOver=false; resultShown=false;
     player.alive=true;player.spectating=false;player.hp=player.maxHp;
     roomPlayers={};spectateTargetId='';
-    setModeUI();setRoomInputValid();
-  },5000);
+    setModeUI();setNetBadge(netOnline?'online':'connecting',netOnline?'🟢 接続中':'🟡 接続中...');
+    loadingOverlay.style.display='none';resultOverlay.style.display='none';updateScoreUI();updatePlayerHPUI();updateAmmoUI();clearAllAvatars();joinLobbyUIReset();
+  },7000);
 }
 
 function showResultFromMatchFinished(data){

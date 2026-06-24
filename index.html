@@ -1154,7 +1154,7 @@ function decideAnimMode(isMoving, isShooting, hasShine) {
 }
 
 /* アバターのアニメーション状態を更新 */
-function updateAvatarAnimationMode(av, isMoving, isShooting) {
+function updateAvatarAnimationMode(av, isMoving, isShooting, forceRestart) {
   if (!av || !av.userData) return;
   var ud = av.userData;
 
@@ -1166,7 +1166,12 @@ function updateAvatarAnimationMode(av, isMoving, isShooting) {
   /* splitモードでupper shineがない場合はfull-poloにフォールバック */
   if (mode === 'split' && !ud._actionUpperShine) mode = 'full-polo';
 
-  if (ud._animMode === mode) return;
+  var restart = !!forceRestart;
+  var isSameMode = (ud._animMode === mode);
+
+  /* 同じモードでも「新しい射撃通知」なら必ず再生し直す */
+  if (isSameMode && !restart) return;
+
   ud._animMode = mode;
 
   /* 全アクションを停止 */
@@ -1188,7 +1193,7 @@ function updateAvatarAnimationMode(av, isMoving, isShooting) {
   }
 }
 
-/* アバター作成 */
+/* アバター作成/* アバター作成 */
 function makeRemoteAvatar(team, name) {
   var outer = new T.Group();
   outer.userData = { isRemoteAvatar:true, team:team, name:name||'' };
@@ -2143,6 +2148,7 @@ function applyRemoteState(id,s){
   av.position.set(normalized.x,0,normalized.z); av.rotation.y=normalized.ry;
   av.visible=normalized.alive!==false;
   ensureNameTag(av,normalized.name,normalized.team); updateAvatarHPBar(av,normalized.hp);
+  if(remoteShotMarks[id] && av.userData){ av.userData._lastShotAt = remoteShotMarks[id]; av.userData._lastShotAppliedAt = 0; }
   if(socket&&id===socket.id&&normalized.alive!==false){
     player.team=normalized.team||player.team||TEAM_BLUE;
     player.hp=Number.isFinite(normalized.hp)?normalized.hp:player.hp;
@@ -2167,7 +2173,7 @@ function getRemoteLastShotAt(id, av){
   return Math.max(t1, t2, t3, t4);
 }
 
-function forceUpdateRemoteAvatarAnimation(id){
+function forceUpdateRemoteAvatarAnimation(id, forceRestart){
   if(socket&&id===socket.id)return;
   var av=remoteAvatars.get(id);
   if(!av||!av.userData)return;
@@ -2183,7 +2189,9 @@ function forceUpdateRemoteAvatarAnimation(id){
   var lastShotMs=getRemoteLastShotAt(id,av);
   if(lastShotMs && !av.userData._lastShotAt) av.userData._lastShotAt = lastShotMs;
   var isShooting=lastShotMs > 0 && nowMs < (lastShotMs + SHOOTING_FLAG_DURATION_MS);
-  updateAvatarAnimationMode(av,isMoving,isShooting);
+  var restart = !!forceRestart || (isShooting && lastShotMs > (av.userData._lastShotAppliedAt || 0));
+  if (restart) av.userData._lastShotAppliedAt = lastShotMs;
+  updateAvatarAnimationMode(av,isMoving,isShooting,restart);
 }
 
 function markAvatarShooting(id){
@@ -2194,16 +2202,17 @@ function markAvatarShooting(id){
   var av = remoteAvatars.get(id);
   if (av && av.userData) {
     av.userData._lastShotAt = now;
+    av.userData._lastShotAppliedAt = 0; // 次回必ず再生し直す
   }
 
   if (remoteStates[id]) remoteStates[id]._lastShotAt = now;
   if (roomPlayers[id]) roomPlayers[id]._lastShotAt = now;
 
-  forceUpdateRemoteAvatarAnimation(id);
+  forceUpdateRemoteAvatarAnimation(id, true);
 
   // モデル生成・同期の順番が前後しても拾えるよう、次フレームでも再評価する
-  requestAnimationFrame(function(){ forceUpdateRemoteAvatarAnimation(id); });
-  setTimeout(function(){ forceUpdateRemoteAvatarAnimation(id); }, 120);
+  requestAnimationFrame(function(){ forceUpdateRemoteAvatarAnimation(id, true); });
+  setTimeout(function(){ forceUpdateRemoteAvatarAnimation(id, true); }, 120);
 }
 
 function updateRemotePlayersFromState(){
@@ -2240,8 +2249,10 @@ function updateRemotePlayersFromState(){
     var lastShotMs = getRemoteLastShotAt(id, av);
     if (lastShotMs && !av.userData._lastShotAt) av.userData._lastShotAt = lastShotMs;
     var isShooting = lastShotMs > 0 && nowMs < (lastShotMs + SHOOTING_FLAG_DURATION_MS);
+    var restart = isShooting && lastShotMs > (av.userData._lastShotAppliedAt || 0);
+    if (restart) av.userData._lastShotAppliedAt = lastShotMs;
 
-    updateAvatarAnimationMode(av, isMoving, isShooting);
+    updateAvatarAnimationMode(av, isMoving, isShooting, restart);
   });
 
   /* 不要なアバターを削除 */

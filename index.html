@@ -1156,48 +1156,126 @@ function decideAnimMode(isMoving, isShooting, hasShine) {
 }
 
 /* アバターのアニメーション状態を更新 */
+
 function updateAvatarAnimationMode(av, isMoving, isShooting, forceRestart) {
   if (!av || !av.userData) return;
   var ud = av.userData;
 
   ud._animState = { isMoving: !!isMoving, isShooting: !!isShooting };
 
-  var hasShine = !!(ud._actionUpperShine || ud._actionFullShine);
-  var mode = decideAnimMode(isMoving, isShooting, hasShine);
+  function stopAction(a) {
+    if (!a) return;
+    try { a.stop(); a.reset(); } catch (e) {}
+  }
+  function playAction(a, restart) {
+    if (!a) return;
+    try {
+      a.enabled = true;
+      a.setEffectiveWeight(1);
+      a.setEffectiveTimeScale(1);
+      if (restart || !a.isRunning || !a.isRunning()) {
+        a.reset();
+      }
+      a.play();
+    } catch (e) {}
+  }
 
-  /* splitモードでupper shineがない場合はfull-poloにフォールバック */
-  if (mode === 'split' && !ud._actionUpperShine) mode = 'full-polo';
+  var hasLower = !!ud._actionLowerPolo;
+  var hasUpper = !!ud._actionUpperShine;
+  var hasFullPolo = !!ud._actionFullPolo;
+  var hasFullShine = !!ud._actionFullShine;
 
-  var restart = !!forceRestart;
-  var isSameMode = (ud._animMode === mode);
+  var desiredBase = 'full-polo';
+  var desiredOverlay = 'none';
 
-  if (isSameMode && !restart) return;
+  // 走行中は下半身を固定して維持し、射撃は上半身だけを重ねる。
+  // これで射撃が来ても歩行モーションが再スタートしなくなる。
+  if (isMoving && hasLower) {
+    desiredBase = 'lower';
+    if (isShooting) {
+      if (hasUpper) {
+        desiredOverlay = 'upper-shine';
+      } else if (hasFullShine) {
+        desiredBase = 'full-shine';
+      }
+    }
+  } else if (isShooting && hasFullShine) {
+    desiredBase = 'full-shine';
+  }
 
-  ud._animMode = mode;
+  // ベースアニメの切替
+  if (ud._baseAnimMode !== desiredBase) {
+    // 低速切替でも歩きが飛ばないよう、ベースが変わる時だけ切り替える
+    stopAction(ud._actionFullPolo);
+    stopAction(ud._actionLowerPolo);
+    stopAction(ud._actionUpperShine);
+    stopAction(ud._actionFullShine);
 
-  function stopAction(a){ if (a) { try { a.stop(); a.reset(); } catch(e){} } }
-  function playAction(a){ if (a) { try { a.reset(); a.enabled = true; a.setEffectiveWeight(1); a.setEffectiveTimeScale(1); a.play(); } catch(e){} } }
+    if (desiredBase === 'lower') {
+      playAction(ud._actionLowerPolo, true);
+    } else if (desiredBase === 'full-shine') {
+      if (ud._actionFullShine) playAction(ud._actionFullShine, true);
+      else playAction(ud._actionFullPolo, true);
+    } else {
+      playAction(ud._actionFullPolo, true);
+    }
+    ud._baseAnimMode = desiredBase;
+    ud._overlayAnimMode = 'none';
+    ud._animMode = desiredOverlay === 'upper-shine' ? 'split' : desiredBase;
+  }
 
-  /* 全アクションを停止 */
-  stopAction(ud._actionFullPolo);
-  stopAction(ud._actionLowerPolo);
-  stopAction(ud._actionUpperShine);
-  stopAction(ud._actionFullShine);
-
-  /* 新しいモードを開始 */
-  if (mode === 'split') {
-    playAction(ud._actionLowerPolo);
-    playAction(ud._actionUpperShine);
-  } else if (mode === 'full-shine') {
-    if (ud._actionFullShine) playAction(ud._actionFullShine);
-    else playAction(ud._actionFullPolo);
+  // オーバーレイ(射撃)の切替
+  if (desiredBase === 'lower') {
+    if (desiredOverlay === 'upper-shine') {
+      if (ud._overlayAnimMode !== 'upper-shine' || !!forceRestart) {
+        stopAction(ud._actionUpperShine);
+        playAction(ud._actionUpperShine, true);
+        ud._overlayAnimMode = 'upper-shine';
+      } else {
+        playAction(ud._actionUpperShine, false);
+      }
+      if (ud._actionFullShine) stopAction(ud._actionFullShine);
+      ud._animMode = 'split';
+    } else {
+      if (ud._overlayAnimMode !== 'none') {
+        stopAction(ud._actionUpperShine);
+        stopAction(ud._actionFullShine);
+        ud._overlayAnimMode = 'none';
+      }
+      ud._animMode = 'lower';
+    }
+  } else if (desiredBase === 'full-shine') {
+    if (ud._overlayAnimMode !== 'full-shine' || !!forceRestart) {
+      stopAction(ud._actionFullPolo);
+      stopAction(ud._actionLowerPolo);
+      stopAction(ud._actionUpperShine);
+      stopAction(ud._actionFullShine);
+      playAction(ud._actionFullShine, true);
+      ud._overlayAnimMode = 'full-shine';
+    } else {
+      playAction(ud._actionFullShine, false);
+    }
+    ud._animMode = 'full-shine';
   } else {
-    /* full-polo */
-    playAction(ud._actionFullPolo);
+    // full-polo
+    if (ud._overlayAnimMode !== 'none') {
+      stopAction(ud._actionUpperShine);
+      stopAction(ud._actionFullShine);
+      ud._overlayAnimMode = 'none';
+    }
+    if (ud._baseAnimMode !== 'full-polo') {
+      stopAction(ud._actionLowerPolo);
+      stopAction(ud._actionFullShine);
+      playAction(ud._actionFullPolo, true);
+      ud._baseAnimMode = 'full-polo';
+    } else {
+      playAction(ud._actionFullPolo, false);
+    }
+    ud._animMode = 'full-polo';
   }
 }
 
-/* アバター作成/* アバター作成 */
+/* アバター作成 */
 function makeRemoteAvatar(team, name) {
   var outer = new T.Group();
   outer.userData = { isRemoteAvatar:true, team:team, name:name||'' };
@@ -2630,7 +2708,6 @@ function initSocket(){
     }
     spawnRemoteShotFX(d);
     markAvatarShooting(id, d.shotSeq, d.shotAt || d.lastShotAt);
-    forceUpdateRemoteAvatarAnimation(id, true);
     updateRemotePlayersFromState();
   });
   socket.on('playerShotFX',function(d){
@@ -2643,7 +2720,6 @@ function initSocket(){
     }
     spawnRemoteShotFX(d);
     markAvatarShooting(id, d.shotSeq, d.shotAt || d.lastShotAt);
-    forceUpdateRemoteAvatarAnimation(id, true);
     updateRemotePlayersFromState();
   });
 
@@ -2699,8 +2775,10 @@ function initSocket(){
       if(d.z!==undefined)roomPlayers[d.playerId].z=d.z;
       if(d.ry!==undefined)roomPlayers[d.playerId].ry=d.ry;
       if(Number.isFinite(d.shotSeq)) roomPlayers[d.playerId].shotSeq = d.shotSeq;
+      if(Number.isFinite(d.lastShotAt)) roomPlayers[d.playerId]._lastShotAt = d.lastShotAt;
     }
     if(Number.isFinite(d.shotSeq)) remoteShotSeq[d.playerId] = Math.max(remoteShotSeq[d.playerId]||0, d.shotSeq);
+    if(Number.isFinite(d.lastShotAt)) remoteShotAt[d.playerId] = Math.max(remoteShotAt[d.playerId]||0, d.lastShotAt);
     if(inWaiting)updateWaitingUI(); updateRemotePlayersFromState();
   });
   socket.on('playerDisconnected',function(d){var id=d&&(d.id||d);if(!id)return;removeAvatar(id);delete roomPlayers[id];delete remoteStates[id];if(inWaiting)updateWaitingUI();});

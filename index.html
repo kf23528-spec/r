@@ -685,6 +685,8 @@ var colliders = [];
 var remoteAvatars = new Map();
 var remoteStates = {};
 var remoteShotMarks = Object.create(null);
+var remoteShotSeq = Object.create(null);
+var remoteShotAt = Object.create(null);
 var bullets = [];
 var aiUnits = [];
 var aiMatchSeed = 1;
@@ -1169,27 +1171,29 @@ function updateAvatarAnimationMode(av, isMoving, isShooting, forceRestart) {
   var restart = !!forceRestart;
   var isSameMode = (ud._animMode === mode);
 
-  /* 同じモードでも「新しい射撃通知」なら必ず再生し直す */
   if (isSameMode && !restart) return;
 
   ud._animMode = mode;
 
+  function stopAction(a){ if (a) { try { a.stop(); a.reset(); } catch(e){} } }
+  function playAction(a){ if (a) { try { a.reset(); a.enabled = true; a.setEffectiveWeight(1); a.setEffectiveTimeScale(1); a.play(); } catch(e){} } }
+
   /* 全アクションを停止 */
-  if (ud._actionFullPolo)  ud._actionFullPolo.stop();
-  if (ud._actionLowerPolo) ud._actionLowerPolo.stop();
-  if (ud._actionUpperShine) ud._actionUpperShine.stop();
-  if (ud._actionFullShine)  ud._actionFullShine.stop();
+  stopAction(ud._actionFullPolo);
+  stopAction(ud._actionLowerPolo);
+  stopAction(ud._actionUpperShine);
+  stopAction(ud._actionFullShine);
 
   /* 新しいモードを開始 */
   if (mode === 'split') {
-    if (ud._actionLowerPolo)  ud._actionLowerPolo.play();
-    if (ud._actionUpperShine) ud._actionUpperShine.play();
+    playAction(ud._actionLowerPolo);
+    playAction(ud._actionUpperShine);
   } else if (mode === 'full-shine') {
-    if (ud._actionFullShine) ud._actionFullShine.play();
-    else if (ud._actionFullPolo) ud._actionFullPolo.play();
+    if (ud._actionFullShine) playAction(ud._actionFullShine);
+    else playAction(ud._actionFullPolo);
   } else {
     /* full-polo */
-    if (ud._actionFullPolo) ud._actionFullPolo.play();
+    playAction(ud._actionFullPolo);
   }
 }
 
@@ -1877,9 +1881,10 @@ function ensureAvatar(id,team,name){
   if(remoteAvatars.has(id)){var ex=remoteAvatars.get(id);if(ex){ex.userData.entityId=id;ex.userData.team=team||TEAM_BLUE;ensureNameTag(ex,name||id,team||TEAM_BLUE);var _lastShot = remoteShotMarks[id] || (remoteStates[id] && remoteStates[id]._lastShotAt) || (roomPlayers[id] && roomPlayers[id]._lastShotAt) || 0;if(_lastShot && !ex.userData._lastShotAt) ex.userData._lastShotAt=_lastShot;}return ex;}
   var av=makeRemoteAvatar(team||TEAM_BLUE,name||id); av.userData.entityId=id; av.userData.entityType='human'; av.userData.team=team||TEAM_BLUE;
   if(remoteShotMarks[id]) av.userData._lastShotAt=remoteShotMarks[id];
+  if(remoteShotSeq[id]) av.userData._lastShotSeq=remoteShotSeq[id];
   scene.add(av); remoteAvatars.set(id,av); return av;
 }
-function removeAvatar(id){var av=remoteAvatars.get(id);if(!av)return;if(av.userData._mixer){av.userData._mixer.stopAllAction();av.userData._mixer=null;}scene.remove(av);remoteAvatars.delete(id);delete remoteShotMarks[id];}
+function removeAvatar(id){var av=remoteAvatars.get(id);if(!av)return;if(av.userData._mixer){av.userData._mixer.stopAllAction();av.userData._mixer=null;}scene.remove(av);remoteAvatars.delete(id);delete remoteShotMarks[id];delete remoteShotSeq[id];delete remoteShotAt[id];}
 function clearAllAvatars(){remoteAvatars.forEach(function(_,id){removeAvatar(id);});}
 function updateAvatarHPBar(av,hp){
   var hpBar=av.getObjectByName('hpBar'); if(!hpBar)return;
@@ -2138,17 +2143,28 @@ function applyRemoteState(id,s){
   var normalized={
     id:id,name:s.name||id,team:s.team||TEAM_BLUE,room:s.room||currentRoom,
     x:Number(s.x)||0,y:Number(s.y)||PLAYER_HEIGHT,z:Number(s.z)||0,ry:Number(s.ry)||0,
-    alive:s.alive!==false,hp:Number.isFinite(s.hp)?s.hp:(remoteStates[id].hp||100)
+    alive:s.alive!==false,hp:Number.isFinite(s.hp)?s.hp:(remoteStates[id].hp||100),
+    shotSeq:Number.isFinite(s.shotSeq)?s.shotSeq:(remoteStates[id].shotSeq||0)
   };
   Object.assign(remoteStates[id],normalized);
   if (remoteStates[id]._lastShotAt && !Number.isFinite(remoteStates[id]._lastShotAt)) delete remoteStates[id]._lastShotAt;
+  if (remoteStates[id]._lastShotSeq && !Number.isFinite(remoteStates[id]._lastShotSeq)) delete remoteStates[id]._lastShotSeq;
   roomPlayers[id]=roomPlayers[id]||{};
-  Object.assign(roomPlayers[id],{name:normalized.name,team:normalized.team,room:normalized.room,x:normalized.x,y:normalized.y,z:normalized.z,ry:normalized.ry,alive:normalized.alive,hp:normalized.hp});
+  Object.assign(roomPlayers[id],{name:normalized.name,team:normalized.team,room:normalized.room,x:normalized.x,y:normalized.y,z:normalized.z,ry:normalized.ry,alive:normalized.alive,hp:normalized.hp,shotSeq:normalized.shotSeq,lastShotAt:normalized.lastShotAt});
   var av=ensureAvatar(id,normalized.team,normalized.name);
   av.position.set(normalized.x,0,normalized.z); av.rotation.y=normalized.ry;
   av.visible=normalized.alive!==false;
   ensureNameTag(av,normalized.name,normalized.team); updateAvatarHPBar(av,normalized.hp);
-  if(remoteShotMarks[id] && av.userData){ av.userData._lastShotAt = remoteShotMarks[id]; av.userData._lastShotAppliedAt = 0; }
+  if(normalized.shotSeq>0){
+    var prevSeq = remoteShotSeq[id] || 0;
+    remoteShotSeq[id] = Math.max(remoteShotSeq[id]||0, normalized.shotSeq);
+    if(remoteShotSeq[id] > prevSeq) remoteShotAt[id] = performance.now();
+    if(av.userData){
+      av.userData._lastShotSeq = remoteShotSeq[id];
+      av.userData._lastShotAt = remoteShotAt[id] || performance.now();
+      av.userData._lastShotAppliedSeq = av.userData._lastShotAppliedSeq || 0;
+    }
+  }
   if(socket&&id===socket.id&&normalized.alive!==false){
     player.team=normalized.team||player.team||TEAM_BLUE;
     player.hp=Number.isFinite(normalized.hp)?normalized.hp:player.hp;
@@ -2173,6 +2189,22 @@ function getRemoteLastShotAt(id, av){
   return Math.max(t1, t2, t3, t4);
 }
 
+function getRemoteShotSeq(id, av){
+  var s1 = av && av.userData ? Number(av.userData._lastShotSeq || 0) : 0;
+  var s2 = Number(remoteShotSeq[id] || 0);
+  var s3 = remoteStates[id] && Number(remoteStates[id].shotSeq || remoteStates[id]._lastShotSeq || 0) || 0;
+  var s4 = roomPlayers[id] && Number(roomPlayers[id].shotSeq || roomPlayers[id]._lastShotSeq || 0) || 0;
+  return Math.max(s1, s2, s3, s4);
+}
+
+function getRemoteLastShotAt(id, av){
+  var t1 = av && av.userData ? Number(av.userData._lastShotAt || 0) : 0;
+  var t2 = Number(remoteShotAt[id] || 0);
+  var t3 = remoteStates[id] && Number(remoteStates[id]._lastShotAt || 0) || 0;
+  var t4 = roomPlayers[id] && Number(roomPlayers[id]._lastShotAt || 0) || 0;
+  return Math.max(t1, t2, t3, t4);
+}
+
 function forceUpdateRemoteAvatarAnimation(id, forceRestart){
   if(socket&&id===socket.id)return;
   var av=remoteAvatars.get(id);
@@ -2185,28 +2217,45 @@ function forceUpdateRemoteAvatarAnimation(id, forceRestart){
   var prevZ=Number.isFinite(av.userData._prevZ)?av.userData._prevZ:nz;
   var movedDist=Math.hypot(nx-prevX,nz-prevZ);
   var isMoving=movedDist>REMOTE_MOVING_THRESHOLD;
+
   var nowMs=performance.now();
-  var lastShotMs=getRemoteLastShotAt(id,av);
-  if(lastShotMs && !av.userData._lastShotAt) av.userData._lastShotAt = lastShotMs;
-  var isShooting=lastShotMs > 0 && nowMs < (lastShotMs + SHOOTING_FLAG_DURATION_MS);
-  var restart = !!forceRestart || (isShooting && lastShotMs > (av.userData._lastShotAppliedAt || 0));
-  if (restart) av.userData._lastShotAppliedAt = lastShotMs;
+  var lastShotSeq=getRemoteShotSeq(id,av);
+  var lastShotAt=getRemoteLastShotAt(id,av);
+  if(lastShotSeq && !av.userData._lastShotSeq) av.userData._lastShotSeq = lastShotSeq;
+  if(lastShotAt && !av.userData._lastShotAt) av.userData._lastShotAt = lastShotAt;
+
+  var isShooting = lastShotAt > 0 && nowMs < (lastShotAt + SHOOTING_FLAG_DURATION_MS);
+  var restart = !!forceRestart || (lastShotSeq > (av.userData._lastShotAppliedSeq || 0));
+  if (restart) av.userData._lastShotAppliedSeq = lastShotSeq;
+
   updateAvatarAnimationMode(av,isMoving,isShooting,restart);
 }
 
-function markAvatarShooting(id){
+function markAvatarShooting(id, shotSeq, shotAt){
+  if(!id) return;
   var now = performance.now();
-  var expiresAt = now + SHOOTING_FLAG_DURATION_MS;
-  remoteShotMarks[id] = expiresAt;
+  remoteShotAt[id] = now;
+  if(Number.isFinite(shotSeq) && shotSeq > 0){
+    remoteShotSeq[id] = Math.max(remoteShotSeq[id] || 0, shotSeq);
+  }
 
   var av = remoteAvatars.get(id);
   if (av && av.userData) {
     av.userData._lastShotAt = now;
-    av.userData._lastShotAppliedAt = 0; // 次回必ず再生し直す
+    av.userData._lastShotSeq = remoteShotSeq[id] || av.userData._lastShotSeq || 0;
+    av.userData._lastShotAppliedSeq = 0; // 次回必ず再生し直す
   }
 
-  if (remoteStates[id]) remoteStates[id]._lastShotAt = now;
-  if (roomPlayers[id]) roomPlayers[id]._lastShotAt = now;
+  if (remoteStates[id]) {
+    remoteStates[id]._lastShotAt = now;
+    remoteStates[id]._lastShotSeq = remoteShotSeq[id] || remoteStates[id]._lastShotSeq || 0;
+    if (Number.isFinite(shotAt)) remoteStates[id]._serverShotAt = shotAt;
+  }
+  if (roomPlayers[id]) {
+    roomPlayers[id]._lastShotAt = now;
+    roomPlayers[id]._lastShotSeq = remoteShotSeq[id] || roomPlayers[id]._lastShotSeq || 0;
+    if (Number.isFinite(shotAt)) roomPlayers[id]._serverShotAt = shotAt;
+  }
 
   forceUpdateRemoteAvatarAnimation(id, true);
 
@@ -2239,23 +2288,19 @@ function updateRemotePlayersFromState(){
     ensureNameTag(av,p.name||id,p.team||TEAM_BLUE);
     updateAvatarHPBar(av,Number.isFinite(p.hp)?p.hp:100);
 
-    /* =============================================
-       アニメーション判定
-       移動判定: 前フレームからの移動距離
-       射撃判定: markAvatarShooting() で記録した時刻
-       ============================================= */
     var isMoving = movedDist > REMOTE_MOVING_THRESHOLD;
     var nowMs = performance.now();
-    var lastShotMs = getRemoteLastShotAt(id, av);
-    if (lastShotMs && !av.userData._lastShotAt) av.userData._lastShotAt = lastShotMs;
-    var isShooting = lastShotMs > 0 && nowMs < (lastShotMs + SHOOTING_FLAG_DURATION_MS);
-    var restart = isShooting && lastShotMs > (av.userData._lastShotAppliedAt || 0);
-    if (restart) av.userData._lastShotAppliedAt = lastShotMs;
+    var lastShotSeq = getRemoteShotSeq(id, av);
+    var lastShotAt = getRemoteLastShotAt(id, av);
+    if (lastShotSeq && !av.userData._lastShotSeq) av.userData._lastShotSeq = lastShotSeq;
+    if (lastShotAt && !av.userData._lastShotAt) av.userData._lastShotAt = lastShotAt;
+    var isShooting = lastShotAt > 0 && nowMs < (lastShotAt + SHOOTING_FLAG_DURATION_MS);
+    var restart = isShooting && lastShotSeq > (av.userData._lastShotAppliedSeq || 0);
+    if (restart) av.userData._lastShotAppliedSeq = lastShotSeq;
 
     updateAvatarAnimationMode(av, isMoving, isShooting, restart);
   });
 
-  /* 不要なアバターを削除 */
   remoteAvatars.forEach(function(_,id){
     if(socket&&id===socket.id)return;
     if(!ids[id])removeAvatar(id);
@@ -2314,7 +2359,7 @@ function fireOnce(){
     if(hitInfo.type==='obstacle'){flashKillFx(hitInfo.point);return;}
     if(hitInfo.type==='human'){
       if(socket&&socket.connected){
-        socket.emit('playerShoot',{room:currentRoom,ox:rayOrigin.x,oy:rayOrigin.y,oz:rayOrigin.z,dx:dir.x,dy:dir.y,dz:dir.z,targetId:hitInfo.id,team:player.team||TEAM_BLUE});
+        socket.emit('playerShoot',{room:currentRoom,ox:rayOrigin.x,oy:rayOrigin.y,oz:rayOrigin.z,dx:dir.x,dy:dir.y,dz:dir.z,targetId:hitInfo.id,team:player.team||TEAM_BLUE,shotSeq:(lastShotTime||0),shotAt:Date.now()});
         flashHitIndicator(); flashKillFx(hitInfo.point); addKillFeed('💥 HIT!'); showKillAnnouncement('HIT!');
       }
       return;
@@ -2322,12 +2367,12 @@ function fireOnce(){
     if(hitInfo.type==='ai'){
       applyLocalShotHit(hitInfo,hitInfo.point);
       if(socket&&socket.connected&&hitInfo.unit&&hitInfo.unit.id){
-        socket.emit('playerShoot',{room:currentRoom,ox:rayOrigin.x,oy:rayOrigin.y,oz:rayOrigin.z,dx:dir.x,dy:dir.y,dz:dir.z,targetId:hitInfo.unit.id,team:player.team||TEAM_BLUE});
+        socket.emit('playerShoot',{room:currentRoom,ox:rayOrigin.x,oy:rayOrigin.y,oz:rayOrigin.z,dx:dir.x,dy:dir.y,dz:dir.z,targetId:hitInfo.unit.id,team:player.team||TEAM_BLUE,shotSeq:(lastShotTime||0),shotAt:Date.now()});
       }
       return;
     }
   }else if(socket&&socket.connected){
-    socket.emit('playerShot',{room:currentRoom,ox:rayOrigin.x,oy:rayOrigin.y,oz:rayOrigin.z,dx:dir.x,dy:dir.y,dz:dir.z,team:player.team||TEAM_BLUE});
+    socket.emit('playerShot',{room:currentRoom,ox:rayOrigin.x,oy:rayOrigin.y,oz:rayOrigin.z,dx:dir.x,dy:dir.y,dz:dir.z,team:player.team||TEAM_BLUE,shotSeq:(lastShotTime||0),shotAt:Date.now()});
   }
 }
 
@@ -2566,12 +2611,12 @@ function initSocket(){
       updateRemotePlayersFromState();
     }
   });
-  socket.on('newPlayer',function(d){if(!d||!d.id||(socket&&d.id===socket.id))return;applyRemoteState(d.id,d);forceUpdateRemoteAvatarAnimation(d.id);if(inWaiting&&d.room&&d.room===currentRoom){if(!roomPlayers[d.id])roomPlayers[d.id]={name:d.name||'??',team:d.team||TEAM_BLUE,alive:true,room:currentRoom};updateWaitingUI();}updateRemotePlayersFromState();});
+  socket.on('newPlayer',function(d){if(!d||!d.id||(socket&&d.id===socket.id))return;applyRemoteState(d.id,d);forceUpdateRemoteAvatarAnimation(d.id,true);if(inWaiting&&d.room&&d.room===currentRoom){if(!roomPlayers[d.id])roomPlayers[d.id]={name:d.name||'??',team:d.team||TEAM_BLUE,alive:true,room:currentRoom};updateWaitingUI();}updateRemotePlayersFromState();});
   function handleRemoteMovement(d){
     if(!d)return; var id=d.id||d.playerId||d.userId;
     if(!id||(socket&&id===socket.id))return;
     if(gameMode!==GAME_MODE.BATTLE&&gameMode!==GAME_MODE.SPECTATE)return;
-    applyRemoteState(id,d); forceUpdateRemoteAvatarAnimation(id); updateRemotePlayersFromState();
+    applyRemoteState(id,d); forceUpdateRemoteAvatarAnimation(id,true); updateRemotePlayersFromState();
   }
   socket.on('playerMoved',handleRemoteMovement);
   socket.on('playerMovement',handleRemoteMovement);
@@ -2579,20 +2624,26 @@ function initSocket(){
     if(!d)return;
     var id=d.id||d.playerId||d.sourceId;
     if(socket&&id===socket.id)return;
-    if(id){ remoteShotMarks[id] = performance.now() + SHOOTING_FLAG_DURATION_MS; }
+    if(id){
+      remoteShotMarks[id] = performance.now();
+      if(Number.isFinite(d.shotSeq)) remoteShotSeq[id] = Math.max(remoteShotSeq[id]||0, d.shotSeq);
+    }
     spawnRemoteShotFX(d);
-    markAvatarShooting(id);
-    forceUpdateRemoteAvatarAnimation(id);
+    markAvatarShooting(id, d.shotSeq, d.shotAt || d.lastShotAt);
+    forceUpdateRemoteAvatarAnimation(id, true);
     updateRemotePlayersFromState();
   });
   socket.on('playerShotFX',function(d){
     if(!d)return;
     var id=d.id||d.playerId||d.sourceId;
     if(socket&&id===socket.id)return;
-    if(id){ remoteShotMarks[id] = performance.now() + SHOOTING_FLAG_DURATION_MS; }
+    if(id){
+      remoteShotMarks[id] = performance.now();
+      if(Number.isFinite(d.shotSeq)) remoteShotSeq[id] = Math.max(remoteShotSeq[id]||0, d.shotSeq);
+    }
     spawnRemoteShotFX(d);
-    markAvatarShooting(id);
-    forceUpdateRemoteAvatarAnimation(id);
+    markAvatarShooting(id, d.shotSeq, d.shotAt || d.lastShotAt);
+    forceUpdateRemoteAvatarAnimation(id, true);
     updateRemotePlayersFromState();
   });
 
@@ -2647,7 +2698,9 @@ function initSocket(){
       if(d.y!==undefined)roomPlayers[d.playerId].y=d.y;
       if(d.z!==undefined)roomPlayers[d.playerId].z=d.z;
       if(d.ry!==undefined)roomPlayers[d.playerId].ry=d.ry;
+      if(Number.isFinite(d.shotSeq)) roomPlayers[d.playerId].shotSeq = d.shotSeq;
     }
+    if(Number.isFinite(d.shotSeq)) remoteShotSeq[d.playerId] = Math.max(remoteShotSeq[d.playerId]||0, d.shotSeq);
     if(inWaiting)updateWaitingUI(); updateRemotePlayersFromState();
   });
   socket.on('playerDisconnected',function(d){var id=d&&(d.id||d);if(!id)return;removeAvatar(id);delete roomPlayers[id];delete remoteStates[id];if(inWaiting)updateWaitingUI();});

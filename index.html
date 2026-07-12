@@ -881,11 +881,38 @@ function onShineReady(fn){
 }
 
 function loadGunGlbForAvatars(){
-  /* 重い外部銃モデルをやめて、軽い内蔵プロシージャ銃を使う */
-  gunGlbTemplate = buildProceduralGun();
-  gunGlbReady = true;
-  gunGlbWaiters.forEach(function(fn){ fn(gunGlbTemplate); });
-  gunGlbWaiters = [];
+  var loader = new GLTFLoader();
+  loader.load(
+    'ju.glb',
+    function(gltf){
+      var sceneObj = gltf && gltf.scene ? gltf.scene : (gltf && gltf.scenes && gltf.scenes[0] ? gltf.scenes[0] : null);
+      if(!sceneObj){
+        throw new Error('ju.glb loaded but scene was empty');
+      }
+      sceneObj.updateMatrixWorld(true);
+      gunGlbTemplate = sceneObj;
+      gunGlbReady = true;
+      gunGlbWaiters.forEach(function(fn){ try{ fn(gunGlbTemplate); }catch(e){} });
+      gunGlbWaiters = [];
+
+      try{
+        var freshGun = cloneGunForAvatar();
+        attachGunToCamera(freshGun);
+      }catch(e){
+        console.warn('[GUN] attach after load failed:', e);
+      }
+
+      console.log('[GUN] ju.glb loaded');
+    },
+    undefined,
+    function(err){
+      console.warn('[GUN] ju.glb load failed, using procedural fallback:', err);
+      gunGlbTemplate = buildProceduralGun();
+      gunGlbReady = true;
+      gunGlbWaiters.forEach(function(fn){ try{ fn(gunGlbTemplate); }catch(e){} });
+      gunGlbWaiters = [];
+    }
+  );
 }
 
 function onGunGlbReady(fn){
@@ -993,9 +1020,9 @@ function cloneGunForAvatar(){
   var clone = gunGlbTemplate.clone(true);
   clone.traverse(function(c){
     if(!c.isMesh) return;
-    c.castShadow = true;
-    c.receiveShadow = true;
-    c.frustumCulled = false;
+    c.castShadow = false;
+    c.receiveShadow = false;
+    c.frustumCulled = true;
   });
   return clone;
 }
@@ -2847,6 +2874,7 @@ function init(){
   buildMap('arena');gameMode=GAME_MODE.LOBBY;camera.position.set(0,16,33);camera.lookAt(0,0,0);
   setModeUI();setRoomInputValid();updateRoomUI();onlineCountEl.textContent='👥 同室: 1人';
   loadPoloFbx();
+  loadGunGlbForAvatars();
     initSocket();animate();
 }
 init();

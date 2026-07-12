@@ -483,15 +483,28 @@ function isLowerBodyBone(boneName) {
   return false;
 }
 
+function findBoneByNames(root, names) {
+  if (!root || !names || !names.length) return null;
+  var want = names.map(function(n){ return normalizeBoneKey(n); });
+  var found = null;
+  root.traverse(function(node) {
+    if (found || !node) return;
+    if (!node.isBone && !node.isSkinnedMesh && !node.isObject3D) return;
+    var key = normalizeBoneKey(node.name);
+    if (want.indexOf(key) !== -1) found = node;
+  });
+  return found;
+}
+
 var TEAM_COLOR_BLUE = { color: 0x3a6ed4, emissive: 0x0a1a55, emissiveIntensity: 0.55 };
 var TEAM_COLOR_RED  = { color: 0xc43030, emissive: 0x550505, emissiveIntensity: 0.55 };
 
 var NAMETAG_Y  = 2.15;
 var HPBAR_Y    = 1.90;
 
-var AVATAR_GUN_POS = { x: 0.32, y: 0.80, z: -0.18 };
-var AVATAR_GUN_ROT = { x: 0, y: 0, z: 0 };
-var AVATAR_GUN_SCALE = 0.88;
+var AVATAR_GUN_POS = { x: 0.15, y: -0.04, z: 0.10 };
+var AVATAR_GUN_ROT = { x: -0.10, y: 1.55, z: -0.12 };
+var AVATAR_GUN_SCALE = 0.58;
 
 /* DOM */
 var canvas = document.getElementById('c');
@@ -692,8 +705,8 @@ var aiUnits = [];
 var aiMatchSeed = 1;
 var aiClockOffset = 0;
 var gunRoot = null, gunLoaded = false;
-var gunPosNormal = new T.Vector3(0.48,-0.55,-0.70);
-var gunPosAds    = new T.Vector3(0.00,-0.20,-0.30);
+var gunPosNormal = new T.Vector3(0.62,-0.62,-0.92);
+var gunPosAds    = new T.Vector3(0.16,-0.30,-0.62);
 var gunPosCurrent = gunPosNormal.clone();
 var gunPosTarget  = gunPosNormal.clone();
 var gunFovCurrent = CAM_FOV_NORMAL;
@@ -902,18 +915,11 @@ function onShineReady(fn){
 }
 
 function loadGunGlbForAvatars(){
-  var loader = new GLTFLoader();
-  loader.load('ju.glb', function(gltf){
-    gunGlbTemplate = gltf.scene;
-    gunGlbReady = true;
-    gunGlbWaiters.forEach(function(fn){ fn(gltf.scene); });
-    gunGlbWaiters = [];
-  }, undefined, function(err){
-    gunGlbReady    = true;
-    gunGlbTemplate = null;
-    gunGlbWaiters.forEach(function(fn){ fn(null); });
-    gunGlbWaiters = [];
-  });
+  /* 重い外部銃モデルをやめて、軽い内蔵プロシージャ銃を使う */
+  gunGlbTemplate = buildProceduralGun();
+  gunGlbReady = true;
+  gunGlbWaiters.forEach(function(fn){ fn(gunGlbTemplate); });
+  gunGlbWaiters = [];
 }
 
 function onGunGlbReady(fn){
@@ -1016,15 +1022,15 @@ function buildProceduralAvatar(team){
 
 function cloneGunForAvatar(){
   if(!gunGlbTemplate){
-    var fb=new T.Group();
-    var bm=new T.MeshStandardMaterial({color:0x222222,roughness:0.35,metalness:0.78});
-    fb.add(new T.Mesh(new T.BoxGeometry(0.045,0.055,0.28),bm));
-    var bar=new T.Mesh(new T.CylinderGeometry(0.010,0.012,0.20,10),bm);
-    bar.rotation.x=Math.PI/2; bar.position.set(0,0.01,-0.20); fb.add(bar);
-    return fb;
+    gunGlbTemplate = buildProceduralGun();
   }
-  var clone=gunGlbTemplate.clone(true);
-  clone.traverse(function(c){ if(!c.isMesh) return; c.castShadow=true; c.frustumCulled=false; });
+  var clone = gunGlbTemplate.clone(true);
+  clone.traverse(function(c){
+    if(!c.isMesh) return;
+    c.castShadow = true;
+    c.receiveShadow = true;
+    c.frustumCulled = false;
+  });
   return clone;
 }
 
@@ -1276,15 +1282,31 @@ function makeRemoteAvatar(team, name) {
       outer.userData._animMode = 'full-polo';
     }
 
-    onGunGlbReady(function() {
-      var gunGroup = new T.Group();
-      gunGroup.name = 'avatarGun';
+    var handBone =
+      findBoneByNames(clone, [
+        'RightHand', 'RightForeArm', 'RightArm',
+        'mixamorigRightHand', 'mixamorigRightForeArm', 'mixamorigRightArm',
+        'Hand_R', 'ForeArm_R', 'Arm_R'
+      ]) ||
+      findBoneByNames(clone, [
+        'leftHand', 'leftForeArm', 'leftArm'
+      ]);
+
+    var gunGroup = new T.Group();
+    gunGroup.name = 'avatarGun';
+    gunGroup.add(cloneGunForAvatar());
+
+    if (handBone) {
+      handBone.add(gunGroup);
       gunGroup.position.set(AVATAR_GUN_POS.x, AVATAR_GUN_POS.y, AVATAR_GUN_POS.z);
       gunGroup.rotation.set(AVATAR_GUN_ROT.x, AVATAR_GUN_ROT.y, AVATAR_GUN_ROT.z);
       gunGroup.scale.setScalar(AVATAR_GUN_SCALE);
-      gunGroup.add(cloneGunForAvatar());
+    } else {
+      gunGroup.position.set(0.18, 0.78, -0.08);
+      gunGroup.rotation.set(-0.08, 1.55, -0.12);
+      gunGroup.scale.setScalar(0.56);
       correctionGroup.add(gunGroup);
-    });
+    }
   });
 
   ensureNameTag(outer, name||'PLAYER', team);
@@ -1312,9 +1334,10 @@ function buildProceduralGun(){
 function attachGunToCamera(obj){
   if(gunRoot&&gunRoot.parent) gunRoot.parent.remove(gunRoot);
   gunRoot=obj; camera.add(gunRoot);
-  gunRoot.position.set(0.40,-0.34,-0.62);
-  gunRoot.rotation.set(0,0,0);
-  gunRoot.scale.set(1.14,1.14,1.14);
+  /* 腕に近い見た目になるよう、右手っぽい位置へ寄せる */
+  gunRoot.position.set(0.60,-0.52,-0.82);
+  gunRoot.rotation.set(-0.06,-0.32,-0.18);
+  gunRoot.scale.set(1.02,1.02,1.02);
   gunRoot.traverse(function(c){
     if(!c.isMesh) return;
     c.castShadow=true; c.receiveShadow=true; c.frustumCulled=false;
@@ -1325,15 +1348,7 @@ function attachGunToCamera(obj){
   gunLoaded=true;
 }
 
-(function(){
-  var loader=new GLTFLoader();
-  loader.load('ju.glb',function(gltf){
-    attachGunToCamera(gltf.scene);
-  },undefined,function(err){
-    console.warn('ju.glb (camera) load failed:', err);
-    attachGunToCamera(buildProceduralGun());
-  });
-})();
+attachGunToCamera(buildProceduralGun());
 
 function createMuzzleFlash(){
   if(!gunRoot) return;
@@ -2877,9 +2892,7 @@ function init(){
   buildMap('arena');gameMode=GAME_MODE.LOBBY;camera.position.set(0,16,33);camera.lookAt(0,0,0);
   setModeUI();setRoomInputValid();updateRoomUI();onlineCountEl.textContent='👥 同室: 1人';
   loadPoloFbx();
-  loadShineFbx();
-  loadGunGlbForAvatars();
-  initSocket();animate();
+    initSocket();animate();
 }
 init();
 })();

@@ -502,9 +502,9 @@ var TEAM_COLOR_RED  = { color: 0xc43030, emissive: 0x550505, emissiveIntensity: 
 var NAMETAG_Y  = 2.15;
 var HPBAR_Y    = 1.90;
 
-var AVATAR_GUN_POS = { x: 0.15, y: -0.04, z: 0.10 };
-var AVATAR_GUN_ROT = { x: -0.10, y: 1.55, z: -0.12 };
-var AVATAR_GUN_SCALE = 0.58;
+var AVATAR_GUN_POS = { x: 0.12, y: -0.03, z: 0.10 };
+var AVATAR_GUN_ROT = { x: -0.16, y: 1.60, z: -0.24 };
+var AVATAR_GUN_SCALE = 0.52;
 
 /* DOM */
 var canvas = document.getElementById('c');
@@ -880,6 +880,34 @@ function onShineReady(fn){
   try { fn(null); } catch (e) {}
 }
 
+function normalizeGunTemplate(sceneObj){
+  if(!sceneObj) return null;
+  try{
+    sceneObj.updateMatrixWorld(true);
+    var box = new T.Box3().setFromObject(sceneObj);
+    var size = new T.Vector3();
+    var center = new T.Vector3();
+    box.getSize(size);
+    box.getCenter(center);
+    var wrapper = new T.Group();
+    wrapper.name = 'normalizedGunTemplate';
+    sceneObj.position.sub(center);
+    wrapper.add(sceneObj);
+    var maxDim = Math.max(size.x, size.y, size.z);
+    if(Number.isFinite(maxDim) && maxDim > 0.0001){
+      var s = 0.72 / maxDim;
+      if(Number.isFinite(s) && s > 0.02 && s < 20){
+        wrapper.scale.setScalar(s);
+      }
+    }
+    wrapper.updateMatrixWorld(true);
+    return wrapper;
+  }catch(e){
+    console.warn('[GUN] normalizeGunTemplate failed:', e);
+    return sceneObj;
+  }
+}
+
 function loadGunGlbForAvatars(){
   var loader = new GLTFLoader();
   loader.load(
@@ -889,7 +917,10 @@ function loadGunGlbForAvatars(){
       if(!sceneObj){
         throw new Error('ju.glb loaded but scene was empty');
       }
-      sceneObj.updateMatrixWorld(true);
+      sceneObj = normalizeGunTemplate(sceneObj);
+      if(sceneObj){
+        sceneObj.updateMatrixWorld(true);
+      }
       gunGlbTemplate = sceneObj;
       gunGlbReady = true;
       gunGlbWaiters.forEach(function(fn){ try{ fn(gunGlbTemplate); }catch(e){} });
@@ -1022,7 +1053,17 @@ function cloneGunForAvatar(){
     if(!c.isMesh) return;
     c.castShadow = false;
     c.receiveShadow = false;
-    c.frustumCulled = true;
+    c.frustumCulled = false;
+    var mats = Array.isArray(c.material) ? c.material : [c.material];
+    mats.forEach(function(m){
+      if(!m) return;
+      try{
+        if(m.map) m.map = forceOpaqueTexture(m.map);
+        m.transparent = false;
+        m.alphaTest = 0;
+        m.needsUpdate = true;
+      }catch(e){}
+    });
   });
   return clone;
 }
@@ -1266,12 +1307,13 @@ function makeRemoteAvatar(team, name) {
 
     var handBone =
       findBoneByNames(clone, [
-        'RightHand', 'RightForeArm', 'RightArm',
-        'mixamorigRightHand', 'mixamorigRightForeArm', 'mixamorigRightArm',
-        'Hand_R', 'ForeArm_R', 'Arm_R'
+        'RightHand', 'mixamorigRightHand', 'Hand_R'
       ]) ||
       findBoneByNames(clone, [
-        'leftHand', 'leftForeArm', 'leftArm'
+        'RightForeArm', 'mixamorigRightForeArm', 'ForeArm_R'
+      ]) ||
+      findBoneByNames(clone, [
+        'RightArm', 'mixamorigRightArm', 'Arm_R'
       ]);
 
     var gunGroup = new T.Group();
@@ -1284,9 +1326,9 @@ function makeRemoteAvatar(team, name) {
       gunGroup.rotation.set(AVATAR_GUN_ROT.x, AVATAR_GUN_ROT.y, AVATAR_GUN_ROT.z);
       gunGroup.scale.setScalar(AVATAR_GUN_SCALE);
     } else {
-      gunGroup.position.set(0.18, 0.78, -0.08);
-      gunGroup.rotation.set(-0.08, 1.55, -0.12);
-      gunGroup.scale.setScalar(0.56);
+      gunGroup.position.set(0.10, 0.72, 0.12);
+      gunGroup.rotation.set(-0.18, 1.62, -0.24);
+      gunGroup.scale.setScalar(0.48);
       correctionGroup.add(gunGroup);
     }
   });
@@ -1316,15 +1358,15 @@ function buildProceduralGun(){
 function attachGunToCamera(obj){
   if(gunRoot&&gunRoot.parent) gunRoot.parent.remove(gunRoot);
   gunRoot=obj; camera.add(gunRoot);
-  /* 腕に近い見た目になるよう、右手っぽい位置へ寄せる */
-  gunRoot.position.set(0.60,-0.52,-0.82);
-  gunRoot.rotation.set(-0.06,-0.32,-0.18);
-  gunRoot.scale.set(1.02,1.02,1.02);
+  /* 画面右下の手元っぽい位置 */
+  gunRoot.position.set(0.52,-0.42,-0.78);
+  gunRoot.rotation.set(-0.10,-0.28,-0.16);
+  gunRoot.scale.set(0.95,0.95,0.95);
   gunRoot.traverse(function(c){
     if(!c.isMesh) return;
-    c.castShadow=false; c.receiveShadow=false; c.frustumCulled=true;
+    c.castShadow=false; c.receiveShadow=false; c.frustumCulled=false;
     var mats=Array.isArray(c.material)?c.material:[c.material];
-    mats.forEach(function(m){ if(!m) return; try{ m.needsUpdate=true; }catch(e){} });
+    mats.forEach(function(m){ if(!m) return; try{ if(m.map) m.map = forceOpaqueTexture(m.map); m.transparent=false; m.alphaTest=0; m.needsUpdate=true; }catch(e){} });
   });
   gunRoot.visible=(gameMode===GAME_MODE.BATTLE);
   gunLoaded=true;

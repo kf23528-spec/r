@@ -502,9 +502,9 @@ var TEAM_COLOR_RED  = { color: 0xc43030, emissive: 0x550505, emissiveIntensity: 
 var NAMETAG_Y  = 2.15;
 var HPBAR_Y    = 1.90;
 
-var AVATAR_GUN_POS = { x: 0.12, y: -0.03, z: 0.10 };
-var AVATAR_GUN_ROT = { x: -0.16, y: 1.60, z: -0.24 };
-var AVATAR_GUN_SCALE = 0.52;
+var AVATAR_GUN_POS = { x: 0.15, y: -0.04, z: 0.10 };
+var AVATAR_GUN_ROT = { x: -0.10, y: 1.55, z: -0.12 };
+var AVATAR_GUN_SCALE = 0.58;
 
 /* DOM */
 var canvas = document.getElementById('c');
@@ -580,6 +580,9 @@ renderer.setPixelRatio(1);
 renderer.setSize(window.innerWidth,window.innerHeight,false);
 renderer.shadowMap.enabled = false;
 renderer.shadowMap.type = T.PCFSoftShadowMap;
+renderer.outputEncoding = T.sRGBEncoding;
+renderer.toneMapping = T.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.08;
 renderer.setClearColor(0x09111e,1);
 
 var scene = new T.Scene();
@@ -601,6 +604,33 @@ sunLight.shadow.camera.top=50; sunLight.shadow.camera.bottom=-50;
 scene.add(sunLight);
 var fillLight = new T.PointLight(0x69d0ff,1.4,60,2);
 fillLight.position.set(0,8,0); scene.add(fillLight);
+
+function buildNeutralEnvironment(){
+  try{
+    var cv = document.createElement('canvas');
+    cv.width = 64; cv.height = 32;
+    var ctx = cv.getContext('2d');
+    if(!ctx) return;
+    var grad = ctx.createLinearGradient(0, 0, 0, cv.height);
+    grad.addColorStop(0.00, '#e9f7ff');
+    grad.addColorStop(0.25, '#9ec2e8');
+    grad.addColorStop(0.70, '#2a3e5b');
+    grad.addColorStop(1.00, '#0f1722');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, cv.width, cv.height);
+    ctx.fillStyle = 'rgba(255,255,255,0.18)';
+    ctx.fillRect(0, 0, cv.width, 4);
+    var tex = new T.CanvasTexture(cv);
+    tex.mapping = T.EquirectangularReflectionMapping;
+    tex.encoding = T.sRGBEncoding;
+    var pmrem = new T.PMREMGenerator(renderer);
+    pmrem.compileEquirectangularShader();
+    scene.environment = pmrem.fromEquirectangular(tex).texture;
+    tex.dispose();
+    pmrem.dispose();
+  }catch(e){}
+}
+buildNeutralEnvironment();
 
 var clock = new T.Clock();
 var socket = null;
@@ -880,34 +910,6 @@ function onShineReady(fn){
   try { fn(null); } catch (e) {}
 }
 
-function normalizeGunTemplate(sceneObj){
-  if(!sceneObj) return null;
-  try{
-    sceneObj.updateMatrixWorld(true);
-    var box = new T.Box3().setFromObject(sceneObj);
-    var size = new T.Vector3();
-    var center = new T.Vector3();
-    box.getSize(size);
-    box.getCenter(center);
-    var wrapper = new T.Group();
-    wrapper.name = 'normalizedGunTemplate';
-    sceneObj.position.sub(center);
-    wrapper.add(sceneObj);
-    var maxDim = Math.max(size.x, size.y, size.z);
-    if(Number.isFinite(maxDim) && maxDim > 0.0001){
-      var s = 0.72 / maxDim;
-      if(Number.isFinite(s) && s > 0.02 && s < 20){
-        wrapper.scale.setScalar(s);
-      }
-    }
-    wrapper.updateMatrixWorld(true);
-    return wrapper;
-  }catch(e){
-    console.warn('[GUN] normalizeGunTemplate failed:', e);
-    return sceneObj;
-  }
-}
-
 function loadGunGlbForAvatars(){
   var loader = new GLTFLoader();
   loader.load(
@@ -917,10 +919,7 @@ function loadGunGlbForAvatars(){
       if(!sceneObj){
         throw new Error('ju.glb loaded but scene was empty');
       }
-      sceneObj = normalizeGunTemplate(sceneObj);
-      if(sceneObj){
-        sceneObj.updateMatrixWorld(true);
-      }
+      sceneObj.updateMatrixWorld(true);
       gunGlbTemplate = sceneObj;
       gunGlbReady = true;
       gunGlbWaiters.forEach(function(fn){ try{ fn(gunGlbTemplate); }catch(e){} });
@@ -1053,17 +1052,7 @@ function cloneGunForAvatar(){
     if(!c.isMesh) return;
     c.castShadow = false;
     c.receiveShadow = false;
-    c.frustumCulled = false;
-    var mats = Array.isArray(c.material) ? c.material : [c.material];
-    mats.forEach(function(m){
-      if(!m) return;
-      try{
-        if(m.map) m.map = forceOpaqueTexture(m.map);
-        m.transparent = false;
-        m.alphaTest = 0;
-        m.needsUpdate = true;
-      }catch(e){}
-    });
+    c.frustumCulled = true;
   });
   return clone;
 }
@@ -1307,13 +1296,12 @@ function makeRemoteAvatar(team, name) {
 
     var handBone =
       findBoneByNames(clone, [
-        'RightHand', 'mixamorigRightHand', 'Hand_R'
+        'RightHand', 'RightForeArm', 'RightArm',
+        'mixamorigRightHand', 'mixamorigRightForeArm', 'mixamorigRightArm',
+        'Hand_R', 'ForeArm_R', 'Arm_R'
       ]) ||
       findBoneByNames(clone, [
-        'RightForeArm', 'mixamorigRightForeArm', 'ForeArm_R'
-      ]) ||
-      findBoneByNames(clone, [
-        'RightArm', 'mixamorigRightArm', 'Arm_R'
+        'leftHand', 'leftForeArm', 'leftArm'
       ]);
 
     var gunGroup = new T.Group();
@@ -1326,9 +1314,9 @@ function makeRemoteAvatar(team, name) {
       gunGroup.rotation.set(AVATAR_GUN_ROT.x, AVATAR_GUN_ROT.y, AVATAR_GUN_ROT.z);
       gunGroup.scale.setScalar(AVATAR_GUN_SCALE);
     } else {
-      gunGroup.position.set(0.10, 0.72, 0.12);
-      gunGroup.rotation.set(-0.18, 1.62, -0.24);
-      gunGroup.scale.setScalar(0.48);
+      gunGroup.position.set(0.18, 0.78, -0.08);
+      gunGroup.rotation.set(-0.08, 1.55, -0.12);
+      gunGroup.scale.setScalar(0.56);
       correctionGroup.add(gunGroup);
     }
   });
@@ -1358,15 +1346,15 @@ function buildProceduralGun(){
 function attachGunToCamera(obj){
   if(gunRoot&&gunRoot.parent) gunRoot.parent.remove(gunRoot);
   gunRoot=obj; camera.add(gunRoot);
-  /* 画面右下の手元っぽい位置 */
-  gunRoot.position.set(0.52,-0.42,-0.78);
-  gunRoot.rotation.set(-0.10,-0.28,-0.16);
-  gunRoot.scale.set(0.95,0.95,0.95);
+  /* 腕に近い見た目になるよう、右手っぽい位置へ寄せる */
+  gunRoot.position.set(0.60,-0.52,-0.82);
+  gunRoot.rotation.set(-0.06,-0.32,-0.18);
+  gunRoot.scale.set(1.02,1.02,1.02);
   gunRoot.traverse(function(c){
     if(!c.isMesh) return;
-    c.castShadow=false; c.receiveShadow=false; c.frustumCulled=false;
+    c.castShadow=false; c.receiveShadow=false; c.frustumCulled=true;
     var mats=Array.isArray(c.material)?c.material:[c.material];
-    mats.forEach(function(m){ if(!m) return; try{ if(m.map) m.map = forceOpaqueTexture(m.map); m.transparent=false; m.alphaTest=0; m.needsUpdate=true; }catch(e){} });
+    mats.forEach(function(m){ if(!m) return; try{ m.needsUpdate=true; }catch(e){} });
   });
   gunRoot.visible=(gameMode===GAME_MODE.BATTLE);
   gunLoaded=true;

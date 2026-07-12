@@ -575,10 +575,10 @@ var waitingHint = document.getElementById('waitingHint');
 
 /* THREE.js setup */
 var T = THREE_NS;
-var renderer = new T.WebGLRenderer({canvas:canvas,antialias:true,alpha:false,powerPreference:'high-performance'});
-renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,1.75));
+var renderer = new T.WebGLRenderer({canvas:canvas,antialias:false,alpha:false,powerPreference:'high-performance'});
+renderer.setPixelRatio(1);
 renderer.setSize(window.innerWidth,window.innerHeight,false);
-renderer.shadowMap.enabled = true;
+renderer.shadowMap.enabled = false;
 renderer.shadowMap.type = T.PCFSoftShadowMap;
 renderer.setClearColor(0x09111e,1);
 
@@ -593,7 +593,7 @@ scene.add(camera);
 
 scene.add(new T.HemisphereLight(0x8fc7ff,0x203019,1.35));
 var sunLight = new T.DirectionalLight(0xf3fbff,1.55);
-sunLight.position.set(-18,42,8); sunLight.castShadow=true;
+sunLight.position.set(-18,42,8); sunLight.castShadow=false;
 sunLight.shadow.mapSize.width=2048; sunLight.shadow.mapSize.height=2048;
 sunLight.shadow.camera.near=0.5; sunLight.shadow.camera.far=120;
 sunLight.shadow.camera.left=-50; sunLight.shadow.camera.right=50;
@@ -868,50 +868,16 @@ function onPoloReady(fn){
 }
 
 function loadShineFbx(){
-  var loader = new FBXLoader();
-  loader.load(
-    'shine.fbx',
-    function(fbx){
-      fbx.scale.setScalar(1);
-      fbx.updateMatrixWorld(true);
-      var rawBox = new T.Box3().setFromObject(fbx);
-      var rawSize = new T.Vector3();
-      rawBox.getSize(rawSize);
-      var rawHeight = rawSize.y;
-      var finalScale = POLO_FBX_SCALE;
-      if(Number.isFinite(rawHeight) && rawHeight > 0.0001){
-        var computed = POLO_TARGET_HEIGHT / rawHeight;
-        if(Number.isFinite(computed) && computed > 0.00001 && computed < 1000){
-          finalScale = computed;
-        }
-      }
-      fbx.scale.setScalar(finalScale);
-      fbx.updateMatrixWorld(true);
-      shineFbxTemplate = fbx;
-      shineFbxReady = true;
-
-      if(fbx.animations && fbx.animations.length > 0){
-        var trackNames = fbx.animations[0].tracks.slice(0,10).map(function(t){return t.name;});
-        console.log('[SHINE] first 10 tracks:', trackNames.join(' | '));
-      }
-
-      shineFbxWaiters.forEach(function(fn){ fn(shineFbxTemplate); });
-      shineFbxWaiters = [];
-      console.log('[SHINE] loaded. scale=' + finalScale.toFixed(5));
-    },
-    undefined,
-    function(err){
-      console.warn('[SHINE] load failed:', err);
-      shineFbxReady = true;
-      shineFbxTemplate = null;
-      shineFbxWaiters.forEach(function(fn){ fn(null); });
-      shineFbxWaiters = [];
-    }
-  );
+  /* 軽量版: shine.fbx は読み込まず、常に未使用にする */
+  shineFbxTemplate = null;
+  shineFbxReady = true;
+  while (shineFbxWaiters.length) {
+    try { shineFbxWaiters.shift()(null); } catch (e) {}
+  }
+  shineFbxWaiters = [];
 }
 function onShineReady(fn){
-  if(shineFbxReady){ fn(shineFbxTemplate); return; }
-  shineFbxWaiters.push(fn);
+  try { fn(null); } catch (e) {}
 }
 
 function loadGunGlbForAvatars(){
@@ -981,7 +947,7 @@ function normalizeAvatarMaterial(m, team, forceOpaque){
 function applyTeamColor(object, team){
   object.traverse(function(child){
     if(!child.isMesh) return;
-    child.castShadow = true; child.receiveShadow = true; child.frustumCulled = false;
+    child.castShadow = false; child.receiveShadow = false; child.frustumCulled = true;
     var mats = Array.isArray(child.material) ? child.material : [child.material];
     mats.forEach(function(m){ normalizeAvatarMaterial(m, team, true); });
   });
@@ -1238,17 +1204,6 @@ function makeRemoteAvatar(team, name) {
       return;
     }
 
-    if (clone) {
-      var box = new T.Box3().setFromObject(clone);
-      var size = new T.Vector3();
-      box.getSize(size);
-      var maxDim = Math.max(size.x, size.y, size.z);
-      if (!Number.isFinite(maxDim) || maxDim <= 0.05 || maxDim > 8) {
-        console.warn('[POLO] clone bounding broken:', maxDim);
-        return;
-      }
-    }
-
     clone.visible = true;
     clone.traverse(function(child) {
       if (!child.isMesh) return;
@@ -1340,7 +1295,7 @@ function attachGunToCamera(obj){
   gunRoot.scale.set(1.02,1.02,1.02);
   gunRoot.traverse(function(c){
     if(!c.isMesh) return;
-    c.castShadow=true; c.receiveShadow=true; c.frustumCulled=false;
+    c.castShadow=false; c.receiveShadow=false; c.frustumCulled=true;
     var mats=Array.isArray(c.material)?c.material:[c.material];
     mats.forEach(function(m){ if(!m) return; try{ m.needsUpdate=true; }catch(e){} });
   });

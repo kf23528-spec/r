@@ -59,12 +59,12 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 #adsButton{position:absolute;right:calc(8px + min(17vw,100px) + 12px - 2px);bottom:calc(24px + min(14vw,84px) + 10px);width:min(14vw,84px);height:min(14vw,84px);max-width:84px;max-height:84px;min-width:64px;min-height:64px;border:none;border-radius:50%;background:linear-gradient(160deg,#1a2e44,#0d1e30);border:2px solid rgba(100,200,255,0.50);box-shadow:0 6px 20px rgba(0,0,0,0.50),inset 0 0 12px rgba(100,200,255,0.08);pointer-events:auto;z-index:100;touch-action:none;-webkit-tap-highlight-color:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center}
 #adsButton:active{transform:scale(0.92);filter:brightness(1.16)}
 #adsButton.ads-active{border-color:rgba(100,220,255,0.9);box-shadow:0 0 18px rgba(100,200,255,0.5),inset 0 0 12px rgba(100,200,255,0.2)}
-
-#bombButton{position:absolute;right:calc(8px + min(17vw,100px) + 12px - 2px);bottom:calc(24px + min(14vw,84px) + 10px);width:min(14vw,84px);height:min(14vw,84px);max-width:84px;max-height:84px;min-width:64px;min-height:64px;border:none;border-radius:50%;background:linear-gradient(160deg,#4b1f12,#2d130a);border:2px solid rgba(255,170,70,0.56);box-shadow:0 6px 20px rgba(0,0,0,0.48),inset 0 0 12px rgba(255,170,70,0.09);pointer-events:auto;z-index:100;touch-action:none;-webkit-tap-highlight-color:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:clamp(13px,2.4vw,17px);font-weight:900;letter-spacing:0.08em;color:#ffe7c8;text-shadow:0 0 8px rgba(255,165,70,0.45)}
-#bombButton:active{transform:scale(0.92);filter:brightness(1.12)}
-#bombButton.bomb-active{border-color:rgba(255,196,90,0.95);box-shadow:0 0 18px rgba(255,165,66,0.52),inset 0 0 12px rgba(255,180,90,0.18)}
-#bombButton.bomb-empty{opacity:0.42;filter:saturate(0.55)}
 #adsButton::before{content:"◎";font-size:20px;color:rgba(130,210,255,0.9);text-shadow:0 0 6px rgba(100,200,255,0.6)}
+#bombButton{position:absolute;right:calc(8px + min(17vw,100px) + 12px - 2px);bottom:calc(24px + min(14vw,84px) + 10px + min(14vw,84px) + 10px);width:min(14vw,84px);height:min(14vw,84px);max-width:84px;max-height:84px;min-width:64px;min-height:64px;border:none;border-radius:50%;background:linear-gradient(160deg,#5a3710,#2b1605);border:2px solid rgba(255,176,84,0.65);box-shadow:0 6px 20px rgba(0,0,0,0.50),inset 0 0 12px rgba(255,176,84,0.08);pointer-events:auto;z-index:100;touch-action:none;-webkit-tap-highlight-color:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center}
+#bombButton:active{transform:scale(0.92);filter:brightness(1.16)}
+#bombButton.bomb-active{border-color:rgba(255,214,126,0.95);box-shadow:0 0 18px rgba(255,176,84,0.48),inset 0 0 12px rgba(255,176,84,0.18)}
+#bombButton:disabled{opacity:0.42;filter:grayscale(0.35);cursor:not-allowed}
+#bombButton::before{content:"💣";font-size:20px;color:rgba(255,214,126,0.96);text-shadow:0 0 8px rgba(255,176,84,0.55)}
 #lobbyOverlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 18% 18%,rgba(54,126,255,0.28),transparent 24%),radial-gradient(circle at 82% 24%,rgba(168,92,255,0.20),transparent 22%),radial-gradient(circle at center,rgba(10,16,28,0.54),rgba(3,6,12,0.96));z-index:120;pointer-events:auto;color:#fff;overflow-x:hidden;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
 #lobbyOverlay::before,#lobbyOverlay::after{content:"";position:absolute;inset:-20%;background:linear-gradient(115deg,transparent 0 44%,rgba(255,255,255,0.07) 50%,transparent 56% 100%);transform:rotate(-8deg);pointer-events:none}
 #lobbyOverlay::before{animation:lobbySweep 8s linear infinite;opacity:0.55}
@@ -227,14 +227,13 @@ var WIN_SCORE = 5;
 var MAG_SIZE = 30;
 var FIRE_INTERVAL = 0.10;
 var RELOAD_TIME = 1.4;
-var PLAYER_SPEED = 5.5;
-var BOMB_COUNT_PER_ROUND = 1;
 var BOMB_FUSE_TIME = 5.0;
 var BOMB_DAMAGE = 30;
-var BOMB_RADIUS = 5.8;
+var BOMB_RADIUS = 4.6;
 var BOMB_THROW_SPEED = 16.0;
-var BOMB_THROW_UP = 2.1;
-var BOMB_GRAVITY = 18.0;
+var BOMB_THROW_UP = 6.4;
+var BOMB_GRAVITY = 22.0;
+var PLAYER_SPEED = 5.5;
 var CAM_FOV_NORMAL = 70;
 var CAM_FOV_ADS = 56;
 var RANK_KEY = 'arena_rank_v9';
@@ -324,8 +323,8 @@ var HPBAR_Y    = 1.90;
 var canvas = document.getElementById('c');
 var shootButton = document.getElementById('shootButton');
 var reloadButton = document.getElementById('reloadButton');
-var adsButton = document.getElementById('adsButton');
 var bombButton = document.getElementById('bombButton');
+var adsButton = document.getElementById('adsButton');
 var announceEl = document.getElementById('announce');
 var blueScoreEl = document.getElementById('blueScore');
 var redScoreEl = document.getElementById('redScore');
@@ -508,6 +507,9 @@ var blueScore = 0, redScore = 0, roundIndex = 1;
 var matchOver = false, roundResolved = false, resultShown = false;
 var portraitMode = false;
 var ammo = MAG_SIZE, reloading = false, reloadTimer = 0;
+var bombModeActive = false, bombCharges = 1;
+var bombs = [];
+var bombSeq = 0;
 var firingHeld = false, fireLoopTimer = null;
 var yaw = Math.PI, pitch = 0;
 var moveVel = new T.Vector2(0,0);
@@ -522,12 +524,9 @@ var remoteShotMarks = Object.create(null);
 var remoteShotSeq = Object.create(null);
 var remoteShotAt = Object.create(null);
 var bullets = [];
-var bombs = [];
-var processedBombEvents = Object.create(null);
 var aiUnits = [];
 var aiMatchSeed = 1;
 var gunRoot = null, gunLoaded = false;
-var bombStock = 0, bombMode = false;
 var gunPosNormal = new T.Vector3(0.62,-0.62,-0.92);
 var gunPosAds    = new T.Vector3(0.16,-0.30,-0.62);
 var gunPosCurrent = gunPosNormal.clone();
@@ -1180,39 +1179,12 @@ function restoreBattleViewAfterRespawn(){
   camera.position.copy(getSpawnForTeam(player.team || TEAM_BLUE));
   if(player.team===TEAM_RED) yaw = 0; else yaw = Math.PI;
   pitch = 0; syncCameraRotation();
-  updatePlayerHPUI(); updateAmmoUI();
+  updatePlayerHPUI(); updateAmmoUI(); updateBombUI();
 }
 function updateAmmoUI(){
   ammoCountEl.textContent=String(ammo);
   if(reloading){reloadIndicator.style.display='block';reloadBarEl.style.display='block';reloadBarFill.style.width=(Math.max(0,Math.min(1,1-reloadTimer/RELOAD_TIME))*100)+'%';}
   else{reloadIndicator.style.display='none';reloadBarEl.style.display='none';reloadBarFill.style.width='0%';}
-}
-function updateBombUI(){
-  if(!bombButton)return;
-  bombButton.textContent='💣 ' + String(Math.max(0,bombStock));
-  bombButton.classList.toggle('bomb-active',bombMode && bombStock>0);
-  bombButton.classList.toggle('bomb-empty',bombStock<=0);
-  bombButton.disabled = (bombStock<=0 && !bombMode);
-  if(shootButton) shootButton.textContent = bombMode && bombStock>0 ? 'THROW' : 'FIRE';
-}
-function setBombMode(on){
-  var next = !!on && bombStock>0;
-  bombMode = next;
-  updateBombUI();
-}
-function toggleBombMode(){
-  if(gameMode!==GAME_MODE.BATTLE || matchOver || !player.alive) return;
-  if(bombStock<=0){
-    setBombMode(false);
-    showAnnouncement('BOMB 0');
-    return;
-  }
-  setBombMode(!bombMode);
-  showAnnouncement(bombMode ? 'BOMB MODE' : 'GUN MODE');
-}
-function resetBombStateForRound(){
-  bombStock = BOMB_COUNT_PER_ROUND;
-  bombMode = false;
   updateBombUI();
 }
 function updatePlayerHPUI(){
@@ -1228,11 +1200,12 @@ function setModeUI(){
   resultOverlay.style.display=gameMode===GAME_MODE.RESULT?'flex':'none';
   spectateOverlay.style.display=gameMode===GAME_MODE.SPECTATE?'block':'none';
   var show=gameMode===GAME_MODE.BATTLE;
-  [shootButton,reloadButton,bombButton,adsButton,joystickContainer].forEach(function(el){el.style.display=show?'':'none';});
+  [shootButton,reloadButton,bombButton,adsButton,joystickContainer].forEach(function(el){if(el)el.style.display=show?'':'none';});
   document.getElementById('crosshair').style.display=show?'':'none';
   document.getElementById('crosshairDot').style.display=show?'':'none';
   hitIndicator.style.display=show?'':'none';
   if(gunRoot) gunRoot.visible=show;
+  if(bombButton) bombButton.style.display=show?'':'none';
   document.getElementById('hpBlock').style.display=show?'':'none';
   document.getElementById('status').style.display=show?'':'none';
   killFeedEl.style.display=show?'':'none';
@@ -1348,148 +1321,6 @@ function makeBullet(origin,dir,ownerId,ownerTeam,isRemote){
 }
 function addBullet(origin,dir,ownerId,ownerTeam,isRemote){var b=makeBullet(origin,dir,ownerId,ownerTeam,isRemote);bullets.push(b);return b;}
 function hitPointInBox(p,b){return Math.abs(p.x-b.x)<=b.w/2&&Math.abs(p.y-b.y)<=b.h/2&&Math.abs(p.z-b.z)<=b.d/2;}
-function clearBombs(){
-  for(var i=0;i<bombs.length;i++){
-    var bm=bombs[i];
-    if(bm&&bm.mesh&&bm.mesh.parent) bm.mesh.parent.remove(bm.mesh);
-  }
-  bombs.length=0;
-}
-function getBombId(){
-  return 'b_'+Math.floor(Date.now())+'_'+Math.floor(Math.random()*1e6);
-}
-function makeBombMesh(){
-  var geo=new T.SphereGeometry(0.14,14,14);
-  var mat=new T.MeshStandardMaterial({color:0x22110a,emissive:0xffa24d,emissiveIntensity:0.35,roughness:0.55,metalness:0.12});
-  return new T.Mesh(geo,mat);
-}
-function spawnBomb(origin,dir,ownerId,ownerTeam,isRemote,bombId){
-  var mesh=makeBombMesh();
-  mesh.position.copy(origin);
-  scene.add(mesh);
-  var vel=dir.clone().normalize().multiplyScalar(BOMB_THROW_SPEED);
-  vel.y += BOMB_THROW_UP;
-  var bomb={id:bombId||getBombId(),mesh:mesh,pos:origin.clone(),vel:vel,age:0,fuse:BOMB_FUSE_TIME,ownerId:ownerId||'',ownerTeam:ownerTeam||TEAM_BLUE,isRemote:!!isRemote,dead:false};
-  bombs.push(bomb);
-  return bomb;
-}
-function bombDamageForDistance(dist){
-  if(dist>BOMB_RADIUS) return 0;
-  return Math.max(0,Math.round(BOMB_DAMAGE*(1-(dist/BOMB_RADIUS))));
-}
-function applyExplosionToLocalState(center, sourceId){
-  var affected=[];
-  var localPos=camera.position.clone();
-  var localDist=localPos.distanceTo(center);
-  if(localDist<=BOMB_RADIUS){
-    var dmg=bombDamageForDistance(localDist);
-    if(dmg>0){
-      player.hp=Math.max(0,player.hp-dmg);
-      updatePlayerHPUI();
-      flashHitIndicator();
-      if(player.alive && player.hp<=0){
-        player.alive=false;
-        player.spectating=true;
-        player.hp=0;
-        addKillFeed('💀 BOMB!');
-        if(gameMode===GAME_MODE.BATTLE) enterSpectate();
-      }
-      affected.push({type:'self',damage:dmg});
-    }
-  }
-  Object.keys(roomPlayers||{}).forEach(function(id){
-    if(socket&&id===socket.id) return;
-    var p=roomPlayers[id];
-    if(!p) return;
-    var px=Number(p.x)||0, py=Number(p.y)||PLAYER_HEIGHT, pz=Number(p.z)||0;
-    var d=center.distanceTo(new T.Vector3(px,py,pz));
-    if(d>BOMB_RADIUS) return;
-    var dmg=bombDamageForDistance(d);
-    if(dmg<=0) return;
-    p.hp=Math.max(0,(Number(p.hp)||100)-dmg);
-    p.alive = p.hp>0;
-    remoteStates[id]=remoteStates[id]||{};
-    Object.assign(remoteStates[id],p);
-    var av=remoteAvatars.get(id);
-    if(av){ updateAvatarHPBar(av,p.hp); if(!p.alive) av.visible=false; }
-    affected.push({type:'human',id:id,damage:dmg});
-  });
-  for(var i=0;i<aiUnits.length;i++){
-    var u=aiUnits[i];
-    if(!u||!u.alive) continue;
-    var d2=center.distanceTo(new T.Vector3(u.x,PLAYER_HEIGHT,u.z));
-    if(d2>BOMB_RADIUS) continue;
-    var dmg2=bombDamageForDistance(d2);
-    if(dmg2<=0) continue;
-    u.hp=Math.max(0,(u.hp||100)-dmg2);
-    if(u.avatar) updateAvatarHPBar(u.avatar,u.hp);
-    if(u.hp<=0){
-      u.alive=false;
-      if(u.avatar) u.avatar.visible=false;
-      flashKillFx(new T.Vector3(u.x,PLAYER_HEIGHT,u.z));
-    }
-    affected.push({type:'ai',id:u.id,damage:dmg2});
-  }
-  if(affected.length){
-    updateRemotePlayersFromState();
-  }
-  return affected;
-}
-function detonateBomb(bomb, reason){
-  if(!bomb || bomb.dead) return;
-  bomb.dead=true;
-  var center=bomb.pos.clone();
-  if(bomb.mesh&&bomb.mesh.parent) bomb.mesh.parent.remove(bomb.mesh);
-  bomb.mesh=null;
-  flashKillFx(center);
-  showAnnouncement('BOOM!');
-  addKillFeed('💥 BOMB!');
-  var key=bomb.id||String(center.x)+String(center.y)+String(center.z);
-  processedBombEvents[key]=true;
-  applyExplosionToLocalState(center,bomb.ownerId);
-  if(socket&&socket.connected){
-    socket.emit('bombExploded',{room:currentRoom,id:bomb.id,ownerId:bomb.ownerId||'',x:center.x,y:center.y,z:center.z,reason:reason||'local',ts:Date.now()});
-  }
-}
-function updateBombs(dt){
-  for(var i=bombs.length-1;i>=0;i--){
-    var b=bombs[i];
-    if(!b||b.dead){ if(b&&b.mesh&&b.mesh.parent) b.mesh.parent.remove(b.mesh); bombs.splice(i,1); continue; }
-    b.age += dt;
-    if(!b.isRemote){
-      b.vel.y -= BOMB_GRAVITY * dt;
-      b.pos.addScaledVector(b.vel, dt);
-      if(b.pos.y < 0.18){
-        b.pos.y = 0.18;
-        b.vel.x *= 0.55;
-        b.vel.z *= 0.55;
-        b.vel.y *= -0.28;
-        if(Math.abs(b.vel.y) < 1.2) b.vel.y = 0;
-        if(Math.hypot(b.vel.x,b.vel.z) < 0.35) { b.vel.x = 0; b.vel.z = 0; }
-      }
-      if(b.mesh) b.mesh.position.copy(b.pos);
-    }
-    if(b.age >= b.fuse){
-      detonateBomb(b,'fuse');
-      bombs.splice(i,1);
-      continue;
-    }
-  }
-}
-function throwBomb(){
-  if(gameMode!==GAME_MODE.BATTLE||matchOver||!player.alive||reloading||bombStock<=0) return;
-  bombStock = Math.max(0, bombStock - 1);
-  updateBombUI();
-  var dir=getForwardVectorFromCamera();
-  var origin=camera.position.clone().add(dir.clone().multiplyScalar(0.72));
-  origin.y = camera.position.y - 0.08;
-  var bomb=spawnBomb(origin,dir,socket&&socket.id?socket.id:'local',player.team||TEAM_BLUE,false);
-  bombMode=false;
-  updateBombUI();
-  if(socket&&socket.connected){
-    socket.emit('playerBomb',{room:currentRoom,id:bomb.id,ownerId:bomb.ownerId,team:player.team||TEAM_BLUE,x:bomb.pos.x,y:bomb.pos.y,z:bomb.pos.z,dx:dir.x,dy:dir.y,dz:dir.z,fuse:BOMB_FUSE_TIME,ts:Date.now()});
-  }
-}
 function raySegmentHitsBox(prev,next,box){
   var totalDist=prev.distanceTo(next);
   if(totalDist<1e-6) return hitPointInBox(prev,box)?prev.clone():null;
@@ -1532,18 +1363,191 @@ function flashKillFx(at){
   g.position.copy(at); scene.add(g);
   setTimeout(function(){if(g.parent)g.parent.remove(g);},420);
 }
+function flashBombFx(at){
+  var g=new T.Group();
+  var core=new T.Mesh(new T.SphereGeometry(0.18,10,10),new T.MeshStandardMaterial({color:0xffd36a,emissive:0xff9d1f,emissiveIntensity:1.4,transparent:true,opacity:0.88}));
+  var ring=new T.Mesh(new T.RingGeometry(0.5,1.9,24),new T.MeshBasicMaterial({color:0xffc14d,transparent:true,opacity:0.55,side:T.DoubleSide}));
+  ring.rotation.x=-Math.PI/2;
+  g.add(core); g.add(ring); g.position.copy(at);
+  scene.add(g);
+  setTimeout(function(){if(g.parent)g.parent.remove(g);},520);
+}
+function updateBombUI(){
+  if(!bombButton||!shootButton)return;
+  var canBomb = gameMode===GAME_MODE.BATTLE && player.alive && !matchOver && bombCharges>0;
+  bombButton.disabled = !canBomb;
+  bombButton.classList.toggle('bomb-active', bombModeActive && canBomb);
+  shootButton.textContent = bombModeActive && canBomb ? 'THROW' : 'FIRE';
+  if(!canBomb && bombModeActive){
+    bombModeActive = false;
+  }
+  if(!canBomb) shootButton.textContent = 'FIRE';
+}
+function setBombMode(on){
+  bombModeActive = !!on && bombCharges > 0 && gameMode===GAME_MODE.BATTLE && player.alive && !matchOver;
+  updateBombUI();
+}
+function toggleBombMode(){
+  if(bombCharges<=0 || gameMode!==GAME_MODE.BATTLE || !player.alive || matchOver) return;
+  setBombMode(!bombModeActive);
+}
+function resetBombState(){
+  bombCharges = 1;
+  bombModeActive = false;
+  bombs.length = 0;
+  updateBombUI();
+}
+function addBombProjectile(startPos, dir, ownerId, team){
+  var bomb = {
+    id: ++bombSeq,
+    ownerId: ownerId,
+    team: team,
+    pos: startPos.clone(),
+    vel: dir.clone().multiplyScalar(BOMB_THROW_SPEED).add(new T.Vector3(0, BOMB_THROW_UP, 0)),
+    life: BOMB_FUSE_TIME,
+    exploded: false
+  };
+  bomb.mesh = new T.Mesh(
+    new T.SphereGeometry(0.18, 12, 12),
+    new T.MeshStandardMaterial({color:0x3b2a18,emissive:0x8a4d11,emissiveIntensity:0.25,roughness:0.75,metalness:0.2})
+  );
+  bomb.mesh.castShadow = false;
+  bomb.mesh.position.copy(bomb.pos);
+  scene.add(bomb.mesh);
+  bombs.push(bomb);
+  return bomb;
+}
+function applyExplosionDamage(center, ownerId, team){
+  var radius = BOMB_RADIUS;
+  var affected = [];
+  function pushDamage(targetType, id, pos, applyFn){
+    if(!pos) return;
+    var dist = center.distanceTo(pos);
+    if(dist > radius) return;
+    var hpFactor = 1 - dist / radius;
+    var dmg = Math.max(1, Math.round(BOMB_DAMAGE * Math.max(0.25, hpFactor)));
+    applyFn(dmg, dist);
+    affected.push({type:targetType, id:id, dmg:dmg, dist:dist});
+  }
+  Object.keys(roomPlayers||{}).forEach(function(id){
+    var p = roomPlayers[id];
+    if(!p || p.alive===false) return;
+    var pos = (socket && id===socket.id) ? camera.position.clone() : new T.Vector3(Number(p.x)||0, PLAYER_HEIGHT, Number(p.z)||0);
+    pushDamage('human', id, pos, function(dmg){
+      var nextHp = Math.max(0, Math.round((Number(p.hp)||100) - dmg));
+      p.hp = nextHp;
+      p.alive = nextHp > 0;
+      roomPlayers[id] = roomPlayers[id] || {};
+      roomPlayers[id].hp = p.hp;
+      roomPlayers[id].alive = p.alive;
+      if(id === (socket&&socket.id)) {
+        player.hp = nextHp;
+        updatePlayerHPUI();
+        if(nextHp <= 0 && player.alive){
+          player.alive = false;
+          addKillFeed('💥 BOMB KO');
+          if(gameMode===GAME_MODE.BATTLE) enterSpectate();
+        } else {
+          flashHitIndicator();
+        }
+      } else {
+        remoteStates[id] = remoteStates[id] || {};
+        remoteStates[id].hp = p.hp;
+        remoteStates[id].alive = p.alive;
+        applyRemoteState(id, roomPlayers[id]);
+        if(!p.alive && remoteAvatars.has(id)) flashKillFx(remoteAvatars.get(id).position.clone());
+      }
+      if(socket && socket.connected){
+        socket.emit('damage-result', {room: currentRoom, targetType:'human', targetId:id, hp:p.hp, alive:p.alive, team:p.team || TEAM_BLUE, damage:dmg, sourceType:'bomb', sourceId:ownerId});
+      }
+    });
+  });
+  for(var i=0;i<aiUnits.length;i++){
+    var u=aiUnits[i];
+    if(!u || !u.alive) continue;
+    pushDamage('ai', u.id, new T.Vector3(u.x, PLAYER_HEIGHT, u.z), function(dmg){
+      u.hp = Math.max(0, Math.round((Number(u.hp)||100) - dmg));
+      u.alive = u.hp > 0;
+      if(u.avatar){ updateAvatarHPBar(u.avatar,u.hp); if(!u.alive) u.avatar.visible=false; }
+      if(!u.alive) flashKillFx(new T.Vector3(u.x,1.0,u.z));
+      if(socket && socket.connected){
+        socket.emit('damage-result', {room: currentRoom, targetType:'ai', targetId:u.id, hp:u.hp, alive:u.alive, team:u.team || TEAM_BLUE, damage:dmg, sourceType:'bomb', sourceId:ownerId});
+      }
+    });
+  }
+  if(socket && socket.connected){
+    socket.emit('bomb-explode', {room: currentRoom, x:center.x, y:center.y, z:center.z, ownerId:ownerId, team:team, damage:BOMB_DAMAGE, radius:radius});
+  }
+  if(affected.length){
+    flashBombFx(center.clone());
+    addKillFeed('💣 BOMB EXPLODED');
+    showKillAnnouncement('BOMB!');
+    flashHitIndicator();
+  }
+}
+function explodeBomb(bomb){
+  if(!bomb || bomb.exploded) return;
+  bomb.exploded = true;
+  var pos = bomb.pos.clone();
+  flashBombFx(pos);
+  applyExplosionDamage(pos, bomb.ownerId, bomb.team);
+}
+function throwBomb(){
+  if(gameMode!==GAME_MODE.BATTLE || matchOver || !player.alive || bombCharges<=0) return;
+  var dir = getForwardVectorFromCamera();
+  var start = camera.position.clone().add(dir.clone().multiplyScalar(0.8));
+  start.y = camera.position.y - 0.15;
+  addBombProjectile(start, dir, socket&&socket.id ? socket.id : 'local', player.team || TEAM_BLUE);
+  bombCharges = 0;
+  setBombMode(false);
+  updateBombUI();
+  if(socket && socket.connected){
+    socket.emit('bomb-thrown', {room: currentRoom, x:start.x, y:start.y, z:start.z, dx:dir.x, dy:dir.y, dz:dir.z, team:player.team || TEAM_BLUE, ownerId:socket.id || 'local'});
+  }
+}
+function updateBombs(dt){
+  for(var i=bombs.length-1;i>=0;i--){
+    var b=bombs[i];
+    if(!b){bombs.splice(i,1);continue;}
+    b.life -= dt;
+    if(!b.exploded){
+      b.vel.y -= BOMB_GRAVITY * dt;
+      b.pos.addScaledVector(b.vel, dt);
+      if(b.pos.y < 0.34){
+        b.pos.y = 0.34;
+        b.vel.y *= -0.15;
+        b.vel.x *= 0.72;
+        b.vel.z *= 0.72;
+      }
+      for(var c=0;c<colliders.length;c++){
+        if(hitPointInBox(b.pos, colliders[c])){
+          b.vel.multiplyScalar(0.08);
+          break;
+        }
+      }
+      if(b.mesh) b.mesh.position.copy(b.pos);
+    }
+    if(b.life <= 0){
+      explodeBomb(b);
+      if(b.mesh && b.mesh.parent) b.mesh.parent.remove(b.mesh);
+      b.mesh = null;
+      bombs.splice(i,1);
+      continue;
+    }
+  }
+}
 function addKillFeed(text){var d=document.createElement('div');d.className='kfItem';d.textContent=text;killFeedEl.appendChild(d);setTimeout(function(){if(d.parentNode)d.parentNode.removeChild(d);},2600);}
 function flashHitIndicator(){hitIndicator.classList.add('active');setTimeout(function(){hitIndicator.classList.remove('active');},120);}
 function showKillAnnouncement(text){announceEl.textContent=text||'HIT!';announceEl.classList.remove('show');void announceEl.offsetWidth;announceEl.classList.add('show');}
 function resetRoundState(){
   roundResolved=false;matchOver=false;player.alive=true;player.spectating=false;spectateTargetId='';
   player.hp=player.maxHp=100;ammo=MAG_SIZE;reloading=false;reloadTimer=0;
+  bombCharges=1;bombModeActive=false;bombs.length=0;
   gunState.reloadAnim=false;gunState.reloadAnimT=0;gunState.recoil=0;moveVel.set(0,0);
-  clearBombs();
-  resetBombStateForRound();
   resetTouchAndInputState();
   reviveHumansForNewRound();
   restoreBattleViewAfterRespawn();
+  updateBombUI();
   if(socket&&socket.id){
     roomPlayers[socket.id]=roomPlayers[socket.id]||{name:PLAYER_NAME,team:player.team||TEAM_BLUE,room:currentRoom};
     roomPlayers[socket.id].alive=true; roomPlayers[socket.id].hp=100;
@@ -2102,7 +2106,13 @@ function applyLocalShotHit(hitInfo,point){
   flashKillFx(point); addKillFeed('💥 AI HIT!'); showKillAnnouncement('HIT!');
 }
 function fireOnce(){
-  if(gameMode!==GAME_MODE.BATTLE||matchOver||!player.alive||reloading||ammo<=0)return;
+  if(gameMode!==GAME_MODE.BATTLE||matchOver||!player.alive)return;
+  if(bombModeActive){
+    if(bombCharges<=0){updateBombUI();return;}
+    throwBomb();
+    return;
+  }
+  if(reloading||ammo<=0)return;
   if(performance.now()-lastShotTime<FIRE_INTERVAL*900)return;
   lastShotTime=performance.now(); ammo--;updateAmmoUI();
   playGunSound(false);triggerRecoil();createMuzzleFlash();
@@ -2226,14 +2236,14 @@ function enterRoom(){
   if(netOnline&&socket&&socket.connected){socket.emit('join-room',Object.assign({},buildLocalPlayerStateForJoin(),{matchMode:matchMode}));socket.emit('request-room-players',{room:currentRoom});setTimeout(function(){if(socket&&socket.connected)socket.emit('request-room-players',{room:currentRoom});},800);}
 }
 function enterRandomRoom(){
-  unlockAudio(); currentRoom='R0001'; roomPlayers={}; inWaiting=true; roomStarted=false; isRandomMatch=true; battleBeginLock=false;
+  unlockAudio(); currentRoom='R0001'; roomPlayers={}; inWaiting=true; roomStarted=false; isRandomMatch=true; battleBeginLock=false;bombModeActive=false;bombCharges=1;bombs.length=0;updateBombUI();
   gameMode=GAME_MODE.WAITING; waitingRoomNum.textContent='RANDOM QUEUE #0001';
   if(socket&&socket.id)roomPlayers[socket.id]={name:PLAYER_NAME,team:TEAM_BLUE,alive:true,hp:player.hp,room:currentRoom,x:camera.position.x,y:camera.position.y,z:camera.position.z,ry:yaw};
   setModeUI();updateWaitingUI();startRandomCountdown();
   if(netOnline&&socket&&socket.connected){socket.emit('join-room',Object.assign({},buildLocalPlayerStateForJoin(),{room:currentRoom,matchMode:'casual',isRandom:true}));socket.emit('request-room-players',{room:currentRoom});}
 }
 function leaveWaiting(){
-  stopRandomCountdown(); inWaiting=false;roomStarted=false;isRandomMatch=false;roomPlayers={};battleBeginLock=false;
+  stopRandomCountdown(); inWaiting=false;roomStarted=false;isRandomMatch=false;roomPlayers={};battleBeginLock=false;bombModeActive=false;bombCharges=1;bombs.length=0;updateBombUI();
   if(socket&&socket.connected&&currentRoom)socket.emit('leave-room',{room:currentRoom,name:PLAYER_NAME});
   currentRoom='';gameMode=GAME_MODE.LOBBY;setModeUI();setRoomInputValid();
 }
@@ -2259,7 +2269,6 @@ function startRound(data){
   updateScoreUI(); resetRoundState();
   player.alive=true; player.spectating=false; player.hp=100;
   reviveHumansForNewRound(); restoreBattleViewAfterRespawn();
-  resetBombStateForRound();
   gameMode=GAME_MODE.BATTLE; setModeUI();
   loadingOverlay.style.display='none'; resultOverlay.style.display='none'; spectateOverlay.style.display='none';
   if(socket&&socket.id){
@@ -2380,19 +2389,6 @@ function initSocket(){
     }
     spawnRemoteShotFX(d);
     markAvatarShooting(id, d.shotSeq, d.shotAt || d.lastShotAt);
-    updateRemotePlayersFromState();
-  });
-  socket.on('bombExploded',function(d){
-    if(!d) return;
-    if(d.room && currentRoom && d.room!==currentRoom) return;
-    var bid = String(d.id || d.bombId || '');
-    if(bid && processedBombEvents[bid]) return;
-    if(bid) processedBombEvents[bid] = true;
-    var center = new T.Vector3(Number(d.x)||0, Number(d.y)||0.2, Number(d.z)||0);
-    flashKillFx(center);
-    showAnnouncement('BOOM!');
-    addKillFeed('💥 BOMB!');
-    applyExplosionToLocalState(center,d.ownerId||d.sourceId||'');
     updateRemotePlayersFromState();
   });
   socket.on('damage-result',function(d){
@@ -2528,18 +2524,7 @@ joystickContainer.addEventListener('pointercancel',function(e){if(joyTouchId!==e
 function updateJoystickVisual(){var rect=joystickContainer.getBoundingClientRect();var max=rect.width*0.32;knobEl.style.left=(50+joy.x*50*(max/(rect.width/2)))+'%';knobEl.style.top=(50+joy.y*50*(max/(rect.height/2)))+'%';}
 function updateKeyboardInput(){if(gameMode!==GAME_MODE.BATTLE)return;var jx=0,jy=0;if(keys['KeyW']||keys['ArrowUp'])jy=-1;if(keys['KeyS']||keys['ArrowDown'])jy=1;if(keys['KeyA']||keys['ArrowLeft'])jx=-1;if(keys['KeyD']||keys['ArrowRight'])jx=1;if((jx||jy)&&joyTouchId===null){joy.x=jx;joy.y=jy;}else if(joyTouchId===null){joy.x=0;joy.y=0;}}
 var lastShootTouchAt=0;
-function handleShootDown(e){
-  e.preventDefault();e.stopPropagation();unlockAudio();
-  if(gameMode!==GAME_MODE.BATTLE) return;
-  firingHeld=true;
-  if(bombMode&&bombStock>0){ throwBomb(); firingHeld=false; return; }
-  fireOnce();
-  if(!fireLoopTimer)fireLoopTimer=setInterval(function(){
-    if(!firingHeld){clearInterval(fireLoopTimer);fireLoopTimer=null;return;}
-    if(bombMode&&bombStock>0){ clearInterval(fireLoopTimer); fireLoopTimer=null; throwBomb(); firingHeld=false; return; }
-    fireOnce();
-  },Math.max(30,FIRE_INTERVAL*1000));
-}
+function handleShootDown(e){e.preventDefault();e.stopPropagation();unlockAudio();if(gameMode!==GAME_MODE.BATTLE)return;if(bombModeActive){fireOnce();return;}firingHeld=true;fireOnce();if(!fireLoopTimer)fireLoopTimer=setInterval(function(){if(!firingHeld){clearInterval(fireLoopTimer);fireLoopTimer=null;return;}fireOnce();},Math.max(30,FIRE_INTERVAL*1000));}
 shootButton.addEventListener('pointerdown',function(e){if(e.pointerType==='touch'&&(Date.now()-lastShootTouchAt)<140)return;handleShootDown(e);});
 shootButton.addEventListener('pointerup',function(e){e.preventDefault();e.stopPropagation();firingHeld=false;if(fireLoopTimer){clearInterval(fireLoopTimer);fireLoopTimer=null;}});
 shootButton.addEventListener('pointercancel',function(){firingHeld=false;if(fireLoopTimer){clearInterval(fireLoopTimer);fireLoopTimer=null;}});
@@ -2547,8 +2532,8 @@ shootButton.addEventListener('touchstart',function(e){lastShootTouchAt=Date.now(
 shootButton.addEventListener('touchend',function(e){e.preventDefault();e.stopPropagation();firingHeld=false;},{passive:false});
 shootButton.addEventListener('touchcancel',function(e){e.preventDefault();firingHeld=false;},{passive:false});
 reloadButton.addEventListener('pointerdown',function(e){e.preventDefault();e.stopPropagation();unlockAudio();startReload();});
-bombButton.addEventListener('pointerdown',function(e){e.preventDefault();e.stopPropagation();unlockAudio();if(gameMode!==GAME_MODE.BATTLE)return;toggleBombMode();});
 adsButton.addEventListener('pointerdown',function(e){e.preventDefault();e.stopPropagation();unlockAudio();setADS(!adsActive);});
+bombButton.addEventListener('pointerdown',function(e){e.preventDefault();e.stopPropagation();unlockAudio();toggleBombMode();});
 lobbyStartBtn.addEventListener('pointerdown',function(e){e.preventDefault();e.stopPropagation();unlockAudio();enterRoom();});
 randomBattleBtn.addEventListener('pointerdown',function(e){e.preventDefault();e.stopPropagation();unlockAudio();enterRandomRoom();});
 battleLaunchBtn.addEventListener('pointerdown',function(e){e.preventDefault();e.stopPropagation();unlockAudio();startBattleFromLobby();});
@@ -2683,9 +2668,9 @@ function animate(){
   renderer.render(scene,camera);
 }
 function init(){
-  loadRank();setMatchMode('ranked',false);updateRankUI();updateScoreUI();updateAmmoUI();updatePlayerHPUI();updateOrientationUI();
+  loadRank();setMatchMode('ranked',false);updateRankUI();updateScoreUI();updateAmmoUI();updateBombUI();updatePlayerHPUI();updateOrientationUI();
   buildMap('arena');gameMode=GAME_MODE.LOBBY;camera.position.set(0,16,33);camera.lookAt(0,0,0);
-  setModeUI();setRoomInputValid();updateBombUI();updateRoomUI();onlineCountEl.textContent='👥 同室: 1人';
+  setModeUI();setRoomInputValid();updateRoomUI();onlineCountEl.textContent='👥 同室: 1人';
   loadPoloFbx();
   loadGunGlbForAvatars();
     initSocket();animate();

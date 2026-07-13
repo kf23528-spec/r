@@ -747,6 +747,12 @@ var roomStarted = false, spectateTargetId = '';
 var battleBeginLock = false;
 var lastShotTime = 0;
 
+/* 右手ソケット用：他プレイヤーから見える銃位置 */
+var REMOTE_GUN_SOCKET_POS = new T.Vector3(0.20, -0.10, 0.12);
+var REMOTE_GUN_SOCKET_ROT = new T.Euler(-0.18, 1.60, -0.22);
+var REMOTE_GUN_SOCKET_SCALE = 0.86;
+var REMOTE_GUN_MODEL_SCALE = 0.72;
+
 /* 共有ジオメトリ / マテリアル */
 var BULLET_GEOMETRY   = new T.SphereGeometry(0.045,8,8);
 var BULLET_MAT_LOCAL  = new T.MeshStandardMaterial({color:0xffffff,emissive:0x88e8ff,emissiveIntensity:2.0,transparent:true,opacity:0.92});
@@ -920,6 +926,7 @@ function loadGunGlbForAvatars(){
         throw new Error('ju.glb loaded but scene was empty');
       }
       sceneObj.updateMatrixWorld(true);
+      prepareGunTemplate(sceneObj);
       gunGlbTemplate = sceneObj;
       gunGlbReady = true;
       gunGlbWaiters.forEach(function(fn){ try{ fn(gunGlbTemplate); }catch(e){} });
@@ -938,6 +945,7 @@ function loadGunGlbForAvatars(){
     function(err){
       console.warn('[GUN] ju.glb load failed, using procedural fallback:', err);
       gunGlbTemplate = buildProceduralGun();
+      prepareGunTemplate(gunGlbTemplate);
       gunGlbReady = true;
       gunGlbWaiters.forEach(function(fn){ try{ fn(gunGlbTemplate); }catch(e){} });
       gunGlbWaiters = [];
@@ -948,6 +956,59 @@ function loadGunGlbForAvatars(){
 function onGunGlbReady(fn){
   if(gunGlbReady){ fn(gunGlbTemplate); return; }
   gunGlbWaiters.push(fn);
+}
+
+function cloneGunMaterial(mat){
+  if(!mat) return mat;
+  var m = mat.clone();
+  try{
+    m.transparent = false;
+    m.opacity = 1;
+    m.alphaTest = 0;
+    m.depthWrite = true;
+    m.depthTest = true;
+    m.side = T.FrontSide;
+    m.flatShading = false;
+    if(m.color && m.color.convertSRGBToLinear) {
+      // keep material color in current encoding path; nothing extra needed
+    }
+    if(m.map && m.map.encoding !== undefined) m.map.encoding = T.sRGBEncoding;
+    if(m.normalMap && m.normalScale && m.normalScale.set){
+      m.normalScale.set(0.9, 0.9);
+    }
+    if(m.roughness !== undefined) m.roughness = Math.min(0.78, Math.max(0.28, (m.roughness * 1.03) + 0.04));
+    if(m.metalness !== undefined) m.metalness = Math.min(0.92, Math.max(0.18, (m.metalness * 0.98) + 0.04));
+    if(m.envMapIntensity !== undefined) m.envMapIntensity = 1.35;
+    if(m.clearcoat !== undefined) m.clearcoat = Math.max(m.clearcoat || 0, 0.15);
+    if(m.clearcoatRoughness !== undefined) m.clearcoatRoughness = Math.min(0.45, Math.max(m.clearcoatRoughness || 0, 0.18));
+    m.needsUpdate = true;
+  }catch(e){}
+  return m;
+}
+
+function prepareGunTemplate(root){
+  if(!root) return root;
+  try{
+    root.updateMatrixWorld(true);
+    var box = new T.Box3().setFromObject(root);
+    if(!box.isEmpty()){
+      var size = new T.Vector3();
+      var center = new T.Vector3();
+      box.getSize(size);
+      box.getCenter(center);
+      root.position.sub(center);
+      var longest = Math.max(size.x, size.y, size.z);
+      if(longest > 0){
+        var target = REMOTE_GUN_MODEL_SCALE;
+        var s = target / longest;
+        root.scale.multiplyScalar(s);
+      }
+      root.updateMatrixWorld(true);
+    }
+  }catch(e){
+    console.warn('[GUN] prepareGunTemplate failed:', e);
+  }
+  return root;
 }
 
 /* テクスチャ強制不透明化 */
@@ -1046,6 +1107,7 @@ function buildProceduralAvatar(team){
 function cloneGunForAvatar(){
   if(!gunGlbTemplate){
     gunGlbTemplate = buildProceduralGun();
+    prepareGunTemplate(gunGlbTemplate);
   }
   var clone = gunGlbTemplate.clone(true);
   clone.traverse(function(c){
@@ -1053,6 +1115,13 @@ function cloneGunForAvatar(){
     c.castShadow = false;
     c.receiveShadow = false;
     c.frustumCulled = true;
+    if(c.material){
+      if(Array.isArray(c.material)){
+        c.material = c.material.map(cloneGunMaterial);
+      }else{
+        c.material = cloneGunMaterial(c.material);
+      }
+    }
   });
   return clone;
 }
@@ -1296,27 +1365,39 @@ function makeRemoteAvatar(team, name) {
 
     var handBone =
       findBoneByNames(clone, [
-        'RightHand', 'RightForeArm', 'RightArm',
-        'mixamorigRightHand', 'mixamorigRightForeArm', 'mixamorigRightArm',
-        'Hand_R', 'ForeArm_R', 'Arm_R'
+        'RightHand', 'mixamorigRightHand', 'Hand_R'
+      ]) ||
+      findBoneByNames(clone, [
+        'RightForeArm', 'mixamorigRightForeArm', 'ForeArm_R'
+      ]) ||
+      findBoneByNames(clone, [
+        'RightArm', 'mixamorigRightArm', 'Arm_R'
       ]) ||
       findBoneByNames(clone, [
         'leftHand', 'leftForeArm', 'leftArm'
       ]);
+
+    var gunSocket = new T.Group();
+    gunSocket.name = 'avatarGunSocket';
 
     var gunGroup = new T.Group();
     gunGroup.name = 'avatarGun';
     gunGroup.add(cloneGunForAvatar());
 
     if (handBone) {
-      handBone.add(gunGroup);
-      gunGroup.position.set(AVATAR_GUN_POS.x, AVATAR_GUN_POS.y, AVATAR_GUN_POS.z);
-      gunGroup.rotation.set(AVATAR_GUN_ROT.x, AVATAR_GUN_ROT.y, AVATAR_GUN_ROT.z);
-      gunGroup.scale.setScalar(AVATAR_GUN_SCALE);
+      handBone.add(gunSocket);
+      gunSocket.position.set(REMOTE_GUN_SOCKET_POS.x, REMOTE_GUN_SOCKET_POS.y, REMOTE_GUN_SOCKET_POS.z);
+      gunSocket.rotation.set(REMOTE_GUN_SOCKET_ROT.x, REMOTE_GUN_SOCKET_ROT.y, REMOTE_GUN_SOCKET_ROT.z);
+      gunSocket.scale.setScalar(REMOTE_GUN_SOCKET_SCALE);
+
+      gunSocket.add(gunGroup);
+      gunGroup.position.set(0, 0, 0);
+      gunGroup.rotation.set(0, 0, 0);
+      gunGroup.scale.setScalar(1);
     } else {
-      gunGroup.position.set(0.18, 0.78, -0.08);
-      gunGroup.rotation.set(-0.08, 1.55, -0.12);
-      gunGroup.scale.setScalar(0.56);
+      gunGroup.position.set(0.24, 0.70, 0.10);
+      gunGroup.rotation.set(-0.18, 1.50, -0.18);
+      gunGroup.scale.setScalar(0.62);
       correctionGroup.add(gunGroup);
     }
   });

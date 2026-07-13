@@ -76,7 +76,18 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 .bombSlider::-webkit-slider-thumb{appearance:none;-webkit-appearance:none;width:18px;height:18px;margin-top:-6px;border-radius:50%;background:#fff4da;border:2px solid rgba(255,176,84,0.92);box-shadow:0 0 8px rgba(255,176,84,0.35)}
 .bombSlider::-moz-range-track{height:6px;border-radius:999px;background:linear-gradient(90deg,rgba(255,176,84,0.95),rgba(255,214,126,0.95))}
 .bombSlider::-moz-range-thumb{width:18px;height:18px;border-radius:50%;background:#fff4da;border:2px solid rgba(255,176,84,0.92)}
-#bombHint{margin-top:8px;font-size:10px;line-height:1.4;letter-spacing:0.05em;color:rgba(255,230,190,0.68)}#bombAdjustRow{display:flex;gap:8px;margin-top:8px}.bombAdjustRow{display:flex;gap:8px;margin-top:8px}.bombAdjustBtn{flex:1;border:none;border-radius:12px;padding:11px 0;background:linear-gradient(180deg,rgba(255,221,160,0.18),rgba(255,180,84,0.10));border:1px solid rgba(255,190,110,0.45);color:#fff0cc;font-size:18px;font-weight:1000;letter-spacing:0.06em;box-shadow:inset 0 0 10px rgba(255,255,255,0.04);pointer-events:auto;touch-action:none;-webkit-tap-highlight-color:transparent;cursor:pointer}.bombAdjustBtnWide{flex:1.25}.bombAdjustBtn:active{transform:scale(0.96);filter:brightness(1.12)}#bombAimOverlay{position:absolute;left:50%;top:19%;transform:translateX(-50%);z-index:96;display:none;pointer-events:none;width:min(72vw,280px);text-align:center}#bombAimArrow{position:relative;width:100%;height:74px;transform-origin:center center;--rot:0deg;--len:140px;transform:rotate(var(--rot));filter:drop-shadow(0 0 10px rgba(255,190,105,0.32))}#bombAimLine{position:absolute;left:50%;top:50%;width:var(--len);height:5px;transform:translate(-50%,-50%);border-radius:999px;background:linear-gradient(90deg,rgba(255,224,160,0.10),rgba(255,224,160,0.92) 42%,rgba(255,176,84,0.98) 100%)}#bombAimHead{position:absolute;right:calc(50% - var(--len)/2 + 1px);top:50%;width:0;height:0;transform:translate(50%,-50%) rotate(45deg);border-top:12px solid rgba(255,240,200,0.98);border-right:12px solid rgba(255,240,200,0.98);border-bottom:12px solid transparent;border-left:12px solid transparent}#bombAimMeta{margin-top:8px;display:inline-flex;align-items:center;gap:10px;padding:8px 12px;border-radius:999px;background:rgba(20,12,5,0.72);border:1px solid rgba(255,190,110,0.24);backdrop-filter:blur(6px);font-size:12px;font-weight:900;letter-spacing:0.08em;color:#ffe2b6;box-shadow:0 10px 24px rgba(0,0,0,0.24)}#bombAimDirection{font-size:16px;color:#ffd98a}#bombAimInfo{white-space:nowrap}
+#bombHint{margin-top:8px;font-size:10px;line-height:1.4;letter-spacing:0.05em;color:rgba(255,230,190,0.68)}
+#bombQuickControls{position:absolute;right:calc(8px + min(17vw,100px) + 12px - 2px);bottom:calc(24px + min(14vw,84px) + 10px + min(14vw,84px) + 10px + 8px);display:none;flex-direction:column;gap:8px;align-items:stretch;z-index:101;pointer-events:auto}
+#bombQuickControls.show{display:flex}
+.bombQuickButton{width:min(18vw,96px);height:48px;border:none;border-radius:16px;background:linear-gradient(180deg,rgba(73,44,12,0.96),rgba(38,21,7,0.96));border:2px solid rgba(255,198,116,0.72);color:#ffe4ba;font-size:12px;font-weight:1000;letter-spacing:0.10em;box-shadow:0 8px 22px rgba(0,0,0,0.46),inset 0 0 14px rgba(255,198,116,0.09);touch-action:none;-webkit-tap-highlight-color:transparent;cursor:pointer}
+.bombQuickButton:active{transform:scale(0.95);filter:brightness(1.14)}
+.bombQuickButton .sub{display:block;font-size:10px;opacity:0.72;letter-spacing:0.06em;margin-top:2px}
+#bombTrajectory{position:absolute;inset:0;pointer-events:none;z-index:88;display:none;overflow:hidden}
+#bombTrajectory.show{display:block}
+#bombTrajectoryLine{position:absolute;height:3px;transform-origin:0 50%;border-radius:999px;background:linear-gradient(90deg,rgba(255,240,190,0.20),rgba(255,196,86,0.95),rgba(255,154,48,0.95));box-shadow:0 0 14px rgba(255,196,86,0.55)}
+#bombTrajectoryTip{position:absolute;width:0;height:0;border-left:14px solid rgba(255,196,86,0.96);border-top:9px solid transparent;border-bottom:9px solid transparent;filter:drop-shadow(0 0 6px rgba(255,196,86,0.5))}
+#bombTrajectoryText{position:absolute;transform:translate(-50%,-100%);padding:6px 10px;border-radius:999px;background:rgba(0,0,0,0.58);border:1px solid rgba(255,214,126,0.30);color:#ffe3b0;font-size:11px;font-weight:900;letter-spacing:0.08em;white-space:nowrap;box-shadow:0 8px 18px rgba(0,0,0,0.32)}
+
 #lobbyOverlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 18% 18%,rgba(54,126,255,0.28),transparent 24%),radial-gradient(circle at 82% 24%,rgba(168,92,255,0.20),transparent 22%),radial-gradient(circle at center,rgba(10,16,28,0.54),rgba(3,6,12,0.96));z-index:120;pointer-events:auto;color:#fff;overflow-x:hidden;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
 #lobbyOverlay::before,#lobbyOverlay::after{content:"";position:absolute;inset:-20%;background:linear-gradient(115deg,transparent 0 44%,rgba(255,255,255,0.07) 50%,transparent 56% 100%);transform:rotate(-8deg);pointer-events:none}
 #lobbyOverlay::before{animation:lobbySweep 8s linear infinite;opacity:0.55}
@@ -227,7 +238,9 @@ input,button{-webkit-appearance:none;appearance:none}
   #hpBlock{width:min(52vw,220px);top:12px;left:12px}
   #onlineCount{top:54px;right:12px}
   #status{top:72px;left:12px}
-}</style></head><body><div id="game"><canvas id="c"></canvas><div id="hud"><div id="touchLookArea"></div><div id="hpBlock"><div id="hpLabel"><span>💚 HP</span><span id="hpText">100 / 100</span></div><div id="hpBarOuter"><div id="hpBarInner"></div></div></div><div class="connecting" id="netBadge">🟡 接続中...</div><div id="onlineCount">👥 同室: 1人</div><div id="status"><div id="scoreBoard">BLUE <span id="blueScore">0</span> / RED <span id="redScore">0</span></div><div id="roundState">ROUND: <span id="roundText">1</span> | 先に5点で勝利</div><span id="ammo">AMMO: <span id="ammoCount">30</span> / ∞</span><span id="reloadIndicator">⟳ RELOADING...</span><div id="reloadBar"><div id="reloadBarFill"></div></div></div><div id="hitIndicator"></div><div id="crosshair"></div><div id="crosshairDot"></div><div id="announce"></div><div id="killFeed"></div><div id="joystickContainer"><div class="base"></div><div class="knob" id="knob"></div></div><button id="shootButton">FIRE</button><button aria-label="リロード" id="reloadButton"></button><button aria-label="爆弾" id="bombButton"></button><div id="bombSettingsPanel"><div id="bombSettingsTitle">BOMB CONTROL</div><div class="bombSettingRow"><div class="bombSettingLabel"><span>ANGLE</span><span class="bombSettingValue" id="bombAngleValue">35°</span></div><div class="bombAdjustRow"><button class="bombAdjustBtn" id="bombAngleDown" type="button">−</button><button class="bombAdjustBtn bombAdjustBtnWide" id="bombAngleUp" type="button">＋</button></div></div><div class="bombSettingRow"><div class="bombSettingLabel"><span>DISTANCE</span><span class="bombSettingValue" id="bombPowerValue">100%</span></div><div class="bombAdjustRow"><button class="bombAdjustBtn" id="bombPowerDown" type="button">−</button><button class="bombAdjustBtn bombAdjustBtnWide" id="bombPowerUp" type="button">＋</button></div></div><div id="bombHint">長押しで連続調整できます</div></div><div id="bombAimOverlay" aria-hidden="true"><div id="bombAimArrow"><div id="bombAimLine"></div><div id="bombAimHead"></div></div><div id="bombAimMeta"><span id="bombAimDirection">↗</span><span id="bombAimInfo">ANGLE 35° / DIST 0.0m</span></div></div><button aria-label="ADS" id="adsButton"></button><div id="lobbyOverlay"><div id="lobbyShell"><div id="lobbyCard"><div id="lobbyBadge">NEON // ONLINE ARENA</div><div id="lobbyTitle">NEON ARENA<br/>ONLINE</div><div id="lobbySub">部屋番号を入力して、同じ番号のプレイヤーとマッチング。</div><div id="roomPanel"><div id="roomPanelLabel">ROOM NUMBER（4桁）</div><div id="roomInputRow"><input autocomplete="off" autocorrect="off" id="roomInput" inputmode="numeric" maxlength="4" pattern="[0-9]*" placeholder="0000" spellcheck="false" type="tel"/><button id="roomGenBtn" title="ランダム生成">🎲</button></div><div id="roomHint">同じ番号の相手が入室するとマッチング開始</div></div><div id="rankPanel"><div id="rankRow"><span id="rankName">ブロンズ I</span><span id="rankPct">0%</span></div><div id="rankBar"><div id="rankFill"></div></div><div id="rankHint">RANK SAVED TO LOCAL STORAGE</div></div><button id="randomBattleBtn">⚡ RANDOM BATTLE</button><button disabled="" id="lobbyStartBtn">部屋に入る →</button></div><div id="lobbySide"><div id="lobbyStats"><div class="statCard"><div class="statLabel">MODE</div><div class="statValue" id="lobbyModeValue">RANKED</div><div class="statSub">CASUAL / RANKED</div></div><div class="statCard"><div class="statLabel">GOAL</div><div class="statValue">5</div><div class="statSub">FIRST TO FIVE</div></div><div class="statCard"><div class="statLabel">NET</div><div class="statValue" id="lobbyNetValue">--</div><div class="statSub">SOCKET.IO STATUS</div></div><div class="statCard"><div class="statLabel">ROOM</div><div class="statValue" id="lobbyRoomValue">----</div><div class="statSub">4-DIGIT NUMBER</div></div></div><div id="modePanel"><div id="modeLabelLine">MATCH TYPE</div><div id="modeButtons"><button class="modeBtn" id="casualModeBtn" type="button">CASUAL</button><button class="modeBtn active" id="rankedModeBtn" type="button">RANKED</button><button class="modeBtn" id="randomModeBtn" type="button">⚡ RANDOM</button></div><div id="modeDesc">ランク戦はXP獲得。先に5点で勝利。</div></div></div></div></div><div id="waitingOverlay"><div id="waitingCard"><div id="waitingRoomNum">ROOM NUMBER</div><div id="waitingTitle">WAITING FOR PLAYERS</div><div id="waitingSubtitle">同じ部屋の本物のプレイヤーを待っています</div><div id="randomCountdownWrap"><div id="randomCountdownLabel">RANDOM MATCH STARTING IN</div><div id="randomCountdownNum">30</div><div id="randomCountdownBar"><div id="randomCountdownFill"></div></div></div><div id="playerCountBadge">🟢 <span id="waitingCountText">あなたのみ</span></div><div id="playerListWrap"><div id="playerListLabel">IN THIS ROOM</div><div id="playerList"></div></div><div id="waitingProgress"><div id="waitingProgressFill"></div></div><div id="waitingHint">2人以上で出撃ボタンが表示されます</div><button id="battleLaunchBtn">出撃</button><button id="waitingCancelBtn">← 戻る</button></div></div><div id="loadingOverlay"><div id="loadingCard"><div id="loadingSpinner"></div><div id="loadingText">DEPLOYING</div><div id="loadingSub">戦場を同期しています...</div><div id="loadingBar"><div id="loadingFill"></div></div></div></div><div id="resultOverlay"><div class="resultBackdrop"></div><div class="resultScanlines"></div><div class="resultGlow resultGlowA"></div><div class="resultGlow resultGlowB"></div><div class="resultGlow resultGlowC"></div><div class="resultCard"><div id="resultMedal">VICTORY</div><div id="resultText">YOUR TEAM WON</div><div id="resultSub">LOADING BACK TO THE HUB...</div><div aria-hidden="true" id="resultPromo"></div><div id="resultStatsPanel"><div id="resultStatsGrid"><div class="resultStatCard"><div class="resultStatLabel">KILLS</div><div class="resultStatValue" id="resultKills">0</div></div><div class="resultStatCard"><div class="resultStatLabel">DEATHS</div><div class="resultStatValue" id="resultDeaths">0</div></div><div class="resultStatCard"><div class="resultStatLabel">K/D RATIO</div><div class="resultStatValue" id="resultKdr">0.00</div></div><div class="resultStatCard"><div class="resultStatLabel">FINAL SCORE</div><div class="resultStatValue" id="resultFinalScore">0 - 0</div></div></div><div id="resultRankRow"><span id="resultRankName">ブロンズ I</span><span id="resultRankDelta">+0 XP</span></div></div></div></div><div id="spectateOverlay"><div id="spectateOverlay">SPECTATING</div><div id="rotateOverlay">📱 画面を横向きにしてください</div></div></div><script type="module">import * as THREE_NS from 'three';
+}</style></head><body><div id="game"><canvas id="c"></canvas><div id="hud"><div id="touchLookArea"></div><div id="hpBlock"><div id="hpLabel"><span>💚 HP</span><span id="hpText">100 / 100</span></div><div id="hpBarOuter"><div id="hpBarInner"></div></div></div><div class="connecting" id="netBadge">🟡 接続中...</div><div id="onlineCount">👥 同室: 1人</div><div id="status"><div id="scoreBoard">BLUE <span id="blueScore">0</span> / RED <span id="redScore">0</span></div><div id="roundState">ROUND: <span id="roundText">1</span> | 先に5点で勝利</div><span id="ammo">AMMO: <span id="ammoCount">30</span> / ∞</span><span id="reloadIndicator">⟳ RELOADING...</span><div id="reloadBar"><div id="reloadBarFill"></div></div></div><div id="hitIndicator"></div><div id="crosshair"></div><div id="crosshairDot"></div><div id="announce"></div><div id="killFeed"></div><div id="joystickContainer"><div class="base"></div><div class="knob" id="knob"></div></div><button id="shootButton">FIRE</button><button aria-label="リロード" id="reloadButton"></button><button aria-label="爆弾" id="bombButton"></button><div id="bombSettingsPanel"><div id="bombSettingsTitle">BOMB CONTROL</div><div class="bombSettingRow"><div class="bombSettingLabel"><span>ANGLE</span><span class="bombSettingValue" id="bombAngleValue">35°</span></div><input class="bombSlider" id="bombAngleSlider" type="range" min="10" max="70" step="1" value="35"/></div><div class="bombSettingRow"><div class="bombSettingLabel"><span>DISTANCE</span><span class="bombSettingValue" id="bombPowerValue">100%</span></div><input class="bombSlider" id="bombPowerSlider" type="range" min="70" max="160" step="1" value="100"/></div><div id="bombHint">爆弾モード中に投擲角度と飛距離を調整できます</div></div><button aria-label="ADS" id="adsButton"></button>
+<div id="bombTrajectory"><div id="bombTrajectoryLine"></div><div id="bombTrajectoryTip"></div><div id="bombTrajectoryText"></div></div>
+<div id="bombQuickControls"><button class="bombQuickButton" id="bombAngleButton" type="button">角度<span class="sub" id="bombAngleButtonValue">35°</span></button><button class="bombQuickButton" id="bombDistanceButton" type="button">距離<span class="sub" id="bombDistanceButtonValue">100%</span></button></div><div id="lobbyOverlay"><div id="lobbyShell"><div id="lobbyCard"><div id="lobbyBadge">NEON // ONLINE ARENA</div><div id="lobbyTitle">NEON ARENA<br/>ONLINE</div><div id="lobbySub">部屋番号を入力して、同じ番号のプレイヤーとマッチング。</div><div id="roomPanel"><div id="roomPanelLabel">ROOM NUMBER（4桁）</div><div id="roomInputRow"><input autocomplete="off" autocorrect="off" id="roomInput" inputmode="numeric" maxlength="4" pattern="[0-9]*" placeholder="0000" spellcheck="false" type="tel"/><button id="roomGenBtn" title="ランダム生成">🎲</button></div><div id="roomHint">同じ番号の相手が入室するとマッチング開始</div></div><div id="rankPanel"><div id="rankRow"><span id="rankName">ブロンズ I</span><span id="rankPct">0%</span></div><div id="rankBar"><div id="rankFill"></div></div><div id="rankHint">RANK SAVED TO LOCAL STORAGE</div></div><button id="randomBattleBtn">⚡ RANDOM BATTLE</button><button disabled="" id="lobbyStartBtn">部屋に入る →</button></div><div id="lobbySide"><div id="lobbyStats"><div class="statCard"><div class="statLabel">MODE</div><div class="statValue" id="lobbyModeValue">RANKED</div><div class="statSub">CASUAL / RANKED</div></div><div class="statCard"><div class="statLabel">GOAL</div><div class="statValue">5</div><div class="statSub">FIRST TO FIVE</div></div><div class="statCard"><div class="statLabel">NET</div><div class="statValue" id="lobbyNetValue">--</div><div class="statSub">SOCKET.IO STATUS</div></div><div class="statCard"><div class="statLabel">ROOM</div><div class="statValue" id="lobbyRoomValue">----</div><div class="statSub">4-DIGIT NUMBER</div></div></div><div id="modePanel"><div id="modeLabelLine">MATCH TYPE</div><div id="modeButtons"><button class="modeBtn" id="casualModeBtn" type="button">CASUAL</button><button class="modeBtn active" id="rankedModeBtn" type="button">RANKED</button><button class="modeBtn" id="randomModeBtn" type="button">⚡ RANDOM</button></div><div id="modeDesc">ランク戦はXP獲得。先に5点で勝利。</div></div></div></div></div><div id="waitingOverlay"><div id="waitingCard"><div id="waitingRoomNum">ROOM NUMBER</div><div id="waitingTitle">WAITING FOR PLAYERS</div><div id="waitingSubtitle">同じ部屋の本物のプレイヤーを待っています</div><div id="randomCountdownWrap"><div id="randomCountdownLabel">RANDOM MATCH STARTING IN</div><div id="randomCountdownNum">30</div><div id="randomCountdownBar"><div id="randomCountdownFill"></div></div></div><div id="playerCountBadge">🟢 <span id="waitingCountText">あなたのみ</span></div><div id="playerListWrap"><div id="playerListLabel">IN THIS ROOM</div><div id="playerList"></div></div><div id="waitingProgress"><div id="waitingProgressFill"></div></div><div id="waitingHint">2人以上で出撃ボタンが表示されます</div><button id="battleLaunchBtn">出撃</button><button id="waitingCancelBtn">← 戻る</button></div></div><div id="loadingOverlay"><div id="loadingCard"><div id="loadingSpinner"></div><div id="loadingText">DEPLOYING</div><div id="loadingSub">戦場を同期しています...</div><div id="loadingBar"><div id="loadingFill"></div></div></div></div><div id="resultOverlay"><div class="resultBackdrop"></div><div class="resultScanlines"></div><div class="resultGlow resultGlowA"></div><div class="resultGlow resultGlowB"></div><div class="resultGlow resultGlowC"></div><div class="resultCard"><div id="resultMedal">VICTORY</div><div id="resultText">YOUR TEAM WON</div><div id="resultSub">LOADING BACK TO THE HUB...</div><div aria-hidden="true" id="resultPromo"></div><div id="resultStatsPanel"><div id="resultStatsGrid"><div class="resultStatCard"><div class="resultStatLabel">KILLS</div><div class="resultStatValue" id="resultKills">0</div></div><div class="resultStatCard"><div class="resultStatLabel">DEATHS</div><div class="resultStatValue" id="resultDeaths">0</div></div><div class="resultStatCard"><div class="resultStatLabel">K/D RATIO</div><div class="resultStatValue" id="resultKdr">0.00</div></div><div class="resultStatCard"><div class="resultStatLabel">FINAL SCORE</div><div class="resultStatValue" id="resultFinalScore">0 - 0</div></div></div><div id="resultRankRow"><span id="resultRankName">ブロンズ I</span><span id="resultRankDelta">+0 XP</span></div></div></div></div><div id="spectateOverlay"><div id="spectateOverlay">SPECTATING</div><div id="rotateOverlay">📱 画面を横向きにしてください</div></div></div><script type="module">import * as THREE_NS from 'three';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { SkeletonUtils } from 'three/examples/jsm/utils/SkeletonUtils.js';
@@ -251,6 +264,13 @@ var BOMB_ANGLE_MIN = 10;
 var BOMB_ANGLE_MAX = 70;
 var BOMB_POWER_MIN = 70;
 var BOMB_POWER_MAX = 160;
+var BOMB_ANGLE_STEP = 1;
+var BOMB_POWER_STEP = 2;
+var BOMB_HOLD_DELAY_MS = 220;
+var BOMB_HOLD_REPEAT_MS = 65;
+var BOMB_TRAJECTORY_GROUND_Y = 0.34;
+var BOMB_TRAJECTORY_MAX_DISTANCE = 42;
+
 var PLAYER_SPEED = 5.5;
 var CAM_FOV_NORMAL = 70;
 var CAM_FOV_ADS = 56;
@@ -343,17 +363,21 @@ var shootButton = document.getElementById('shootButton');
 var reloadButton = document.getElementById('reloadButton');
 var bombButton = document.getElementById('bombButton');
 var bombSettingsPanel = document.getElementById('bombSettingsPanel');
-var bombAngleDownBtn = document.getElementById('bombAngleDown');
-var bombAngleUpBtn = document.getElementById('bombAngleUp');
-var bombPowerDownBtn = document.getElementById('bombPowerDown');
-var bombPowerUpBtn = document.getElementById('bombPowerUp');
+var bombAngleSlider = document.getElementById('bombAngleSlider');
+var bombPowerSlider = document.getElementById('bombPowerSlider');
 var bombAngleValue = document.getElementById('bombAngleValue');
 var bombPowerValue = document.getElementById('bombPowerValue');
-var bombAimOverlay = document.getElementById('bombAimOverlay');
-var bombAimArrow = document.getElementById('bombAimArrow');
-var bombAimDirection = document.getElementById('bombAimDirection');
-var bombAimInfo = document.getElementById('bombAimInfo');
 var adsButton = document.getElementById('adsButton');
+var bombQuickControls = document.getElementById('bombQuickControls');
+var bombAngleButton = document.getElementById('bombAngleButton');
+var bombDistanceButton = document.getElementById('bombDistanceButton');
+var bombAngleButtonValue = document.getElementById('bombAngleButtonValue');
+var bombDistanceButtonValue = document.getElementById('bombDistanceButtonValue');
+var bombTrajectory = document.getElementById('bombTrajectory');
+var bombTrajectoryLine = document.getElementById('bombTrajectoryLine');
+var bombTrajectoryTip = document.getElementById('bombTrajectoryTip');
+var bombTrajectoryText = document.getElementById('bombTrajectoryText');
+
 var announceEl = document.getElementById('announce');
 var blueScoreEl = document.getElementById('blueScore');
 var redScoreEl = document.getElementById('redScore');
@@ -1404,84 +1428,45 @@ function flashBombFx(at){
 function syncBombSettingValues(){
   if(bombAngleValue) bombAngleValue.textContent = String(BOMB_ANGLE_DEG) + '°';
   if(bombPowerValue) bombPowerValue.textContent = String(BOMB_POWER_PCT) + '%';
-  updateBombAimUI();
+  if(bombAngleSlider) bombAngleSlider.value = String(BOMB_ANGLE_DEG);
+  if(bombPowerSlider) bombPowerSlider.value = String(BOMB_POWER_PCT);
+  if(bombAngleButtonValue) bombAngleButtonValue.textContent = String(BOMB_ANGLE_DEG) + '°';
+  if(bombDistanceButtonValue) bombDistanceButtonValue.textContent = String(BOMB_POWER_PCT) + '%';
 }
-function clampBombAngle(v){ return clamp(Math.round(v), BOMB_ANGLE_MIN, BOMB_ANGLE_MAX); }
-function clampBombPower(v){ return clamp(Math.round(v), BOMB_POWER_MIN, BOMB_POWER_MAX); }
-function adjustBombAngle(delta){
-  BOMB_ANGLE_DEG = clampBombAngle((Number(BOMB_ANGLE_DEG)||35) + delta);
+function changeBombAngle(delta){
+  BOMB_ANGLE_DEG = clamp((Number(BOMB_ANGLE_DEG)||35) + delta, BOMB_ANGLE_MIN, BOMB_ANGLE_MAX);
   syncBombSettingValues();
+  updateBombTrajectoryUI();
 }
-function adjustBombPower(delta){
-  BOMB_POWER_PCT = clampBombPower((Number(BOMB_POWER_PCT)||100) + delta);
+function changeBombPower(delta){
+  BOMB_POWER_PCT = clamp((Number(BOMB_POWER_PCT)||100) + delta, BOMB_POWER_MIN, BOMB_POWER_MAX);
   syncBombSettingValues();
+  updateBombTrajectoryUI();
 }
-function getBombEstimateDistance(){
-  var speed = getBombThrowSpeed();
-  var ang = T.MathUtils.degToRad(clamp(BOMB_ANGLE_DEG, BOMB_ANGLE_MIN, BOMB_ANGLE_MAX));
-  var horiz = speed * Math.cos(ang);
-  var vy = speed * Math.sin(ang) + BOMB_THROW_UP * 0.55;
-  var startY = Math.max(0.15, camera && camera.position ? (camera.position.y - 0.34) : 1.2);
-  var time = (vy + Math.sqrt(Math.max(0, vy * vy + 2 * BOMB_GRAVITY * startY))) / BOMB_GRAVITY;
-  return Math.max(0, horiz * time);
+var bombHoldState = { angle:null, power:null };
+function stopBombHold(kind){
+  var st = bombHoldState[kind];
+  if(!st) return;
+  if(st.t1) clearTimeout(st.t1);
+  if(st.t2) clearInterval(st.t2);
+  bombHoldState[kind] = null;
 }
-function getBombDirectionLabelFromYaw(yawRad){
-  var deg = ((yawRad * 180 / Math.PI) % 360 + 360) % 360;
-  var idx = Math.round(deg / 45) % 8;
-  return ['→','↘','↓','↙','←','↖','↑','↗'][idx];
-}
-function updateBombAimUI(){
-  if(!bombAimOverlay || !bombAimArrow || !bombAimDirection || !bombAimInfo) return;
-  var canShow = !!(bombModeActive && gameMode===GAME_MODE.BATTLE && player.alive && !matchOver);
-  bombAimOverlay.style.display = canShow ? 'block' : 'none';
-  if(!canShow) return;
-  var forward = getForwardVectorFromCamera().clone();
-  forward.y = 0;
-  if(forward.lengthSq() < 1e-6) forward.set(0,0,-1);
-  else forward.normalize();
-  var yawRad = Math.atan2(forward.x, -forward.z);
-  var angle = clamp(BOMB_ANGLE_DEG, BOMB_ANGLE_MIN, BOMB_ANGLE_MAX);
-  var power = clamp(BOMB_POWER_PCT, BOMB_POWER_MIN, BOMB_POWER_MAX);
-  var dist = getBombEstimateDistance();
-  bombAimArrow.style.setProperty('--rot', (yawRad * 180 / Math.PI).toFixed(1) + 'deg');
-  bombAimArrow.style.setProperty('--len', (78 + power * 0.7).toFixed(1) + 'px');
-  bombAimDirection.textContent = getBombDirectionLabelFromYaw(yawRad);
-  bombAimInfo.textContent = 'ANGLE ' + angle + '° / DIST ' + dist.toFixed(1) + 'm';
-}
-function setupBombHoldButton(btn, onStep){
-  if(!btn) return;
-  var timer = null;
-  var active = false;
-  var delay = 180;
-  var stepCount = 0;
-  function clearHold(){
-    active = false;
-    stepCount = 0;
-    delay = 180;
-    if(timer){ clearTimeout(timer); timer = null; }
-  }
-  function tick(){
+function startBombHold(kind, delta){
+  stopBombHold(kind);
+  var active = true;
+  function step(){
     if(!active) return;
-    onStep();
-    stepCount++;
-    delay = Math.max(42, 180 - stepCount * 12);
-    timer = setTimeout(tick, delay);
+    if(kind === 'angle') changeBombAngle(delta);
+    else changeBombPower(delta);
   }
-  btn.addEventListener('pointerdown', function(e){
-    if(e.pointerType === 'mouse' && e.button !== 0) return;
-    e.preventDefault();
-    e.stopPropagation();
-    unlockAudio();
-    active = true;
-    btn.setPointerCapture && btn.setPointerCapture(e.pointerId);
-    onStep();
-    stepCount = 1;
-    delay = 160;
-    timer = setTimeout(tick, delay);
-  });
-  ['pointerup','pointercancel','pointerleave','lostpointercapture'].forEach(function(ev){
-    btn.addEventListener(ev, clearHold);
-  });
+  step();
+  var st = { t1:null, t2:null };
+  st.t1 = setTimeout(function(){
+    if(!active) return;
+    st.t2 = setInterval(step, BOMB_HOLD_REPEAT_MS);
+  }, BOMB_HOLD_DELAY_MS);
+  bombHoldState[kind] = st;
+  return function(){ active = false; stopBombHold(kind); };
 }
 function getBombThrowVector(){
   var base = getForwardVectorFromCamera().clone();
@@ -1497,6 +1482,73 @@ function getBombThrowVector(){
 function getBombThrowSpeed(){
   return BOMB_THROW_SPEED * clamp(BOMB_POWER_PCT / 100, BOMB_POWER_MIN / 100, BOMB_POWER_MAX / 100);
 }
+function getBombPrediction(){
+  if(gameMode!==GAME_MODE.BATTLE || !player.alive || matchOver) return null;
+  var dir = getBombThrowVector();
+  var speed = getBombThrowSpeed();
+  var start = camera.position.clone().add(dir.clone().multiplyScalar(0.8));
+  start.y = camera.position.y - 0.15;
+  var vel = dir.clone().multiplyScalar(speed);
+  vel.y += BOMB_THROW_UP * 0.55;
+  var g = BOMB_GRAVITY;
+  var a = 0.5 * g;
+  var b = -vel.y;
+  var c = start.y - BOMB_TRAJECTORY_GROUND_Y;
+  var disc = b*b - 4*a*c;
+  if(disc < 0) return null;
+  var sqrt = Math.sqrt(disc);
+  var t = (-b + sqrt) / (2*a);
+  if(t < 0) t = (-b - sqrt) / (2*a);
+  if(t < 0) return null;
+  if(t > 5.0) t = 5.0;
+  var land = start.clone().addScaledVector(vel, t);
+  land.y = BOMB_TRAJECTORY_GROUND_Y;
+  var dist = Math.sqrt((land.x-start.x)*(land.x-start.x) + (land.z-start.z)*(land.z-start.z));
+  if(!isFinite(dist)) return null;
+  return { start:start, land:land, dist:dist, t:t, dir:dir, speed:speed };
+}
+function worldToScreen(vec){
+  var v = vec.clone().project(camera);
+  return {
+    x: (v.x + 1) * 0.5 * window.innerWidth,
+    y: (-v.y + 1) * 0.5 * window.innerHeight,
+    z: v.z
+  };
+}
+function updateBombTrajectoryUI(){
+  if(!bombTrajectory || !bombTrajectoryLine || !bombTrajectoryTip || !bombTrajectoryText) return;
+  var canBomb = gameMode===GAME_MODE.BATTLE && player.alive && !matchOver && bombCharges>0;
+  var show = !!(bombModeActive && canBomb);
+  bombTrajectory.classList.toggle('show', show);
+  if(!show) return;
+  var pred = getBombPrediction();
+  if(!pred){
+    bombTrajectory.classList.remove('show');
+    return;
+  }
+  var s = worldToScreen(pred.start);
+  var e = worldToScreen(pred.land);
+  if(!isFinite(s.x) || !isFinite(s.y) || !isFinite(e.x) || !isFinite(e.y) || s.z > 1 || e.z > 1){
+    bombTrajectory.classList.remove('show');
+    return;
+  }
+  var mx = 14, my = 14;
+  e.x = clamp(e.x, mx, window.innerWidth - mx);
+  e.y = clamp(e.y, my, window.innerHeight - my);
+  var dx = e.x - s.x, dy = e.y - s.y;
+  var len = Math.max(24, Math.hypot(dx, dy));
+  var ang = Math.atan2(dy, dx);
+  bombTrajectoryLine.style.left = s.x + 'px';
+  bombTrajectoryLine.style.top = s.y + 'px';
+  bombTrajectoryLine.style.width = len + 'px';
+  bombTrajectoryLine.style.transform = 'rotate(' + ang + 'rad)';
+  bombTrajectoryTip.style.left = e.x + 'px';
+  bombTrajectoryTip.style.top = e.y + 'px';
+  bombTrajectoryTip.style.transform = 'translate(-2px,-50%) rotate(' + ang + 'rad)';
+  bombTrajectoryText.style.left = (s.x + dx * 0.58) + 'px';
+  bombTrajectoryText.style.top = (s.y + dy * 0.58 - 12) + 'px';
+  bombTrajectoryText.textContent = '→ ' + Math.round(pred.dist) + 'm / ' + BOMB_ANGLE_DEG + '° / ' + BOMB_POWER_PCT + '%';
+}
 function updateBombUI(){
   if(!bombButton||!shootButton)return;
   var canBomb = gameMode===GAME_MODE.BATTLE && player.alive && !matchOver && bombCharges>0;
@@ -1504,21 +1556,22 @@ function updateBombUI(){
   bombButton.classList.toggle('bomb-active', bombModeActive && canBomb);
   shootButton.textContent = bombModeActive && canBomb ? 'THROW' : 'FIRE';
   if(bombSettingsPanel) bombSettingsPanel.classList.toggle('show', !!(bombModeActive && canBomb));
-  if(bombAimOverlay) bombAimOverlay.style.display = (bombModeActive && canBomb) ? 'block' : 'none';
+  if(bombQuickControls) bombQuickControls.classList.toggle('show', !!(bombModeActive && canBomb));
+  if(bombTrajectory) bombTrajectory.classList.toggle('show', !!(bombModeActive && canBomb));
   if(gunRoot) gunRoot.visible = (gameMode===GAME_MODE.BATTLE && !bombModeActive);
   if(!canBomb && bombModeActive){
     bombModeActive = false;
   }
   if(!canBomb) shootButton.textContent = 'FIRE';
-  updateBombAimUI();
+  if(!bombModeActive && bombTrajectory) bombTrajectory.classList.remove('show');
 }
 syncBombSettingValues();
 function setBombMode(on){
   bombModeActive = !!on && bombCharges > 0 && gameMode===GAME_MODE.BATTLE && player.alive && !matchOver;
   if(!bombModeActive && bombSettingsPanel) bombSettingsPanel.classList.remove('show');
-  if(bombAimOverlay) bombAimOverlay.style.display = bombModeActive ? 'block' : 'none';
   if(gunRoot) gunRoot.visible = (gameMode===GAME_MODE.BATTLE && !bombModeActive);
   updateBombUI();
+  updateBombTrajectoryUI();
 }
 function toggleBombMode(){
   if(bombCharges<=0 || gameMode!==GAME_MODE.BATTLE || !player.alive || matchOver) return;
@@ -1528,8 +1581,11 @@ function resetBombState(){
   bombCharges = 1;
   bombModeActive = false;
   bombs.length = 0;
+  stopBombHold('angle');
+  stopBombHold('power');
   syncBombSettingValues();
   updateBombUI();
+  updateBombTrajectoryUI();
 }
 function addBombProjectile(startPos, dir, ownerId, team, throwSpeed){
   var actualSpeed = Number.isFinite(throwSpeed) ? throwSpeed : BOMB_THROW_SPEED;
@@ -2372,14 +2428,14 @@ function enterRoom(){
   if(netOnline&&socket&&socket.connected){socket.emit('join-room',Object.assign({},buildLocalPlayerStateForJoin(),{matchMode:matchMode}));socket.emit('request-room-players',{room:currentRoom});setTimeout(function(){if(socket&&socket.connected)socket.emit('request-room-players',{room:currentRoom});},800);}
 }
 function enterRandomRoom(){
-  unlockAudio(); currentRoom='R0001'; roomPlayers={}; inWaiting=true; roomStarted=false; isRandomMatch=true; battleBeginLock=false;bombModeActive=false;bombCharges=1;bombs.length=0;updateBombUI();
+  unlockAudio(); currentRoom='R0001'; roomPlayers={}; inWaiting=true; roomStarted=false; isRandomMatch=true; battleBeginLock=false;bombModeActive=false;bombCharges=1;bombs.length=0;updateBombUI();updateBombTrajectoryUI();
   gameMode=GAME_MODE.WAITING; waitingRoomNum.textContent='RANDOM QUEUE #0001';
   if(socket&&socket.id)roomPlayers[socket.id]={name:PLAYER_NAME,team:TEAM_BLUE,alive:true,hp:player.hp,room:currentRoom,x:camera.position.x,y:camera.position.y,z:camera.position.z,ry:yaw};
   setModeUI();updateWaitingUI();startRandomCountdown();
   if(netOnline&&socket&&socket.connected){socket.emit('join-room',Object.assign({},buildLocalPlayerStateForJoin(),{room:currentRoom,matchMode:'casual',isRandom:true}));socket.emit('request-room-players',{room:currentRoom});}
 }
 function leaveWaiting(){
-  stopRandomCountdown(); inWaiting=false;roomStarted=false;isRandomMatch=false;roomPlayers={};battleBeginLock=false;bombModeActive=false;bombCharges=1;bombs.length=0;updateBombUI();
+  stopRandomCountdown(); inWaiting=false;roomStarted=false;isRandomMatch=false;roomPlayers={};battleBeginLock=false;bombModeActive=false;bombCharges=1;bombs.length=0;updateBombUI();updateBombTrajectoryUI();
   if(socket&&socket.connected&&currentRoom)socket.emit('leave-room',{room:currentRoom,name:PLAYER_NAME});
   currentRoom='';gameMode=GAME_MODE.LOBBY;setModeUI();setRoomInputValid();
 }
@@ -2670,10 +2726,20 @@ shootButton.addEventListener('touchcancel',function(e){e.preventDefault();firing
 reloadButton.addEventListener('pointerdown',function(e){e.preventDefault();e.stopPropagation();unlockAudio();startReload();});
 adsButton.addEventListener('pointerdown',function(e){e.preventDefault();e.stopPropagation();unlockAudio();setADS(!adsActive);});
 bombButton.addEventListener('pointerdown',function(e){e.preventDefault();e.stopPropagation();unlockAudio();toggleBombMode();});
-setupBombHoldButton(bombAngleDownBtn, function(){ adjustBombAngle(-1); });
-setupBombHoldButton(bombAngleUpBtn, function(){ adjustBombAngle(1); });
-setupBombHoldButton(bombPowerDownBtn, function(){ adjustBombPower(-1); });
-setupBombHoldButton(bombPowerUpBtn, function(){ adjustBombPower(1); });
+if(bombAngleButton){
+  bombAngleButton.addEventListener('pointerdown',function(e){e.preventDefault();e.stopPropagation();unlockAudio();startBombHold('angle', BOMB_ANGLE_STEP);});
+  bombAngleButton.addEventListener('pointerup',function(){stopBombHold('angle');});
+  bombAngleButton.addEventListener('pointercancel',function(){stopBombHold('angle');});
+  bombAngleButton.addEventListener('pointerleave',function(){stopBombHold('angle');});
+}
+if(bombDistanceButton){
+  bombDistanceButton.addEventListener('pointerdown',function(e){e.preventDefault();e.stopPropagation();unlockAudio();startBombHold('power', BOMB_POWER_STEP);});
+  bombDistanceButton.addEventListener('pointerup',function(){stopBombHold('power');});
+  bombDistanceButton.addEventListener('pointercancel',function(){stopBombHold('power');});
+  bombDistanceButton.addEventListener('pointerleave',function(){stopBombHold('power');});
+}
+if(bombAngleSlider) bombAngleSlider.addEventListener('input',function(){BOMB_ANGLE_DEG=clamp(parseInt(this.value,10)||35,BOMB_ANGLE_MIN,BOMB_ANGLE_MAX);syncBombSettingValues();updateBombTrajectoryUI();});
+if(bombPowerSlider) bombPowerSlider.addEventListener('input',function(){BOMB_POWER_PCT=clamp(parseInt(this.value,10)||100,BOMB_POWER_MIN,BOMB_POWER_MAX);syncBombSettingValues();updateBombTrajectoryUI();});
 lobbyStartBtn.addEventListener('pointerdown',function(e){e.preventDefault();e.stopPropagation();unlockAudio();enterRoom();});
 randomBattleBtn.addEventListener('pointerdown',function(e){e.preventDefault();e.stopPropagation();unlockAudio();enterRandomRoom();});
 battleLaunchBtn.addEventListener('pointerdown',function(e){e.preventDefault();e.stopPropagation();unlockAudio();startBattleFromLobby();});
@@ -2703,7 +2769,6 @@ function updateGun(dt){
   var r=gunState.recoil;
   gunRoot.position.set(gunPosCurrent.x+bx+r*0.006,gunPosCurrent.y+by+r*0.018+ry,gunPosCurrent.z+r*0.045);
   gunRoot.rotation.set(0,0,-r*0.07);
-  updateBombAimUI();
 }
 function triggerRecoil(){gunState.recoil=Math.min(1.0,gunState.recoil+(adsActive?0.035:0.10));}
 var currentMapId = 'arena';
@@ -2799,17 +2864,17 @@ function animate(){
   if(gameMode===GAME_MODE.LOBBY||gameMode===GAME_MODE.WAITING||gameMode===GAME_MODE.LOADING){
     updateLobbyCamera(dt);
   }else if(gameMode===GAME_MODE.BATTLE){
-    syncCameraRotation();movePlayer(dt);updateGun(dt);updateMuzzleFlashes(dt);updateBullets(dt);updateBombs(dt);
+    syncCameraRotation();movePlayer(dt);updateGun(dt);updateMuzzleFlashes(dt);updateBullets(dt);updateBombs(dt);updateBombTrajectoryUI();
     updateAI(dt);updateReload(dt);updatePlayerHPUI();updateSendLoop(dt);updateRemotePlayersFromState();updateRoundTimer(dt);updateRoundIfEnded();
   }else if(gameMode===GAME_MODE.SPECTATE){
-    updateSpectateCamera(dt);updateGun(dt);updateMuzzleFlashes(dt);updateBullets(dt);updateBombs(dt);
+    updateSpectateCamera(dt);updateGun(dt);updateMuzzleFlashes(dt);updateBullets(dt);updateBombs(dt);updateBombTrajectoryUI();
     updateAI(dt);updateSendLoop(dt);updateRemotePlayersFromState();updateRoundTimer(dt);updateRoundIfEnded();
   }else if(gameMode===GAME_MODE.RESULT){updateSendLoop(0);}
   if(gunRoot&&gameMode===GAME_MODE.BATTLE)gunPosTarget.copy(adsActive?gunPosAds:gunPosNormal);
   renderer.render(scene,camera);
 }
 function init(){
-  loadRank();setMatchMode('ranked',false);updateRankUI();updateScoreUI();updateAmmoUI();updateBombUI();updatePlayerHPUI();updateOrientationUI();
+  loadRank();setMatchMode('ranked',false);updateRankUI();updateScoreUI();updateAmmoUI();updateBombUI();updateBombTrajectoryUI();updatePlayerHPUI();updateOrientationUI();
   buildMap('arena');gameMode=GAME_MODE.LOBBY;camera.position.set(0,16,33);camera.lookAt(0,0,0);
   setModeUI();setRoomInputValid();updateRoomUI();onlineCountEl.textContent='👥 同室: 1人';
   loadPoloFbx();

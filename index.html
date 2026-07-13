@@ -1,11 +1,4 @@
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-<title>NEON ARENA – Online Multiplayer</title>
-
-<script type="importmap">
+<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/><title>NEON ARENA – Online Multiplayer</title><script type="importmap">
 {
   "imports": {
     "three": "https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.module.js",
@@ -15,11 +8,7 @@
     "three/examples/jsm/utils/SkeletonUtils.js": "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/utils/SkeletonUtils.js"
   }
 }
-</script>
-<script src="https://cdn.socket.io/4.7.5/socket.io.min.js" crossorigin="anonymous"></script>
-
-<style>
-:root{
+</script><script crossorigin="anonymous" src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script><style>:root{
   --bg0:#050810;--bg1:#0a1120;--bg2:#121c30;--line:rgba(255,255,255,.10);
   --muted:rgba(255,255,255,.68);--txt:rgba(255,255,255,.94);
   --blue:#43a3ff;--red:#ff4968;--violet:#9c6bff;--cyan:#5ff4ff;--gold:#ffd84d;
@@ -198,7 +187,6 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 @keyframes scanMove{from{transform:translateY(-8px)}to{transform:translateY(8px)}}
 @keyframes glowPulse{0%,100%{transform:scale(0.94);opacity:0.60}50%{transform:scale(1.05);opacity:1}}
 @keyframes shineSweep{0%{transform:translateX(-120%)}45%{transform:translateX(0%)}100%{transform:translateX(120%)}}
-
 .resultSpark{position:absolute;z-index:3;width:10px;height:10px;border-radius:50%;pointer-events:none;left:50%;top:44%;transform:translate(-50%,-50%);animation:resultSparkFly 1.15s cubic-bezier(.15,.8,.2,1) forwards;box-shadow:0 0 10px rgba(255,255,255,0.34)}
 .resultSpark.blue{background:radial-gradient(circle,rgba(87,183,255,1),rgba(87,183,255,0.15))}
 .resultSpark.red{background:radial-gradient(circle,rgba(255,104,139,1),rgba(255,104,139,0.15))}
@@ -222,162 +210,22 @@ input,button{-webkit-appearance:none;appearance:none}
   #hpBlock{width:min(52vw,220px);top:12px;left:12px}
   #onlineCount{top:54px;right:12px}
   #status{top:72px;left:12px}
-}
-</style>
-</head>
-<body>
-<div id="game">
-  <canvas id="c"></canvas>
-  <div id="hud">
-    <div id="touchLookArea"></div>
-    <div id="hpBlock">
-      <div id="hpLabel"><span>💚 HP</span><span id="hpText">100 / 100</span></div>
-      <div id="hpBarOuter"><div id="hpBarInner"></div></div>
-    </div>
-    <div id="netBadge" class="connecting">🟡 接続中...</div>
-    <div id="onlineCount">👥 同室: 1人</div>
-    <div id="status">
-      <div id="scoreBoard">BLUE <span id="blueScore">0</span> / RED <span id="redScore">0</span></div>
-      <div id="roundState">ROUND: <span id="roundText">1</span> | 先に5点で勝利</div>
-      <span id="ammo">AMMO: <span id="ammoCount">30</span> / ∞</span>
-      <span id="reloadIndicator">⟳ RELOADING...</span>
-      <div id="reloadBar"><div id="reloadBarFill"></div></div>
-    </div>
-    <div id="hitIndicator"></div>
-    <div id="crosshair"></div>
-    <div id="crosshairDot"></div>
-    <div id="announce"></div>
-    <div id="killFeed"></div>
-    <div id="joystickContainer"><div class="base"></div><div class="knob" id="knob"></div></div>
-    <button id="shootButton">FIRE</button>
-    <button id="reloadButton" aria-label="リロード"></button>
-    <button id="adsButton" aria-label="ADS"></button>
-
-    <div id="lobbyOverlay">
-      <div id="lobbyShell">
-        <div id="lobbyCard">
-          <div id="lobbyBadge">NEON // ONLINE ARENA</div>
-          <div id="lobbyTitle">NEON ARENA<br>ONLINE</div>
-          <div id="lobbySub">部屋番号を入力して、同じ番号のプレイヤーとマッチング。</div>
-          <div id="roomPanel">
-            <div id="roomPanelLabel">ROOM NUMBER（4桁）</div>
-            <div id="roomInputRow">
-              <input id="roomInput" type="tel" inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="0000" autocomplete="off" spellcheck="false" autocorrect="off" />
-              <button id="roomGenBtn" title="ランダム生成">🎲</button>
-            </div>
-            <div id="roomHint">同じ番号の相手が入室するとマッチング開始</div>
-          </div>
-          <div id="rankPanel">
-            <div id="rankRow"><span id="rankName">ブロンズ I</span><span id="rankPct">0%</span></div>
-            <div id="rankBar"><div id="rankFill"></div></div>
-            <div id="rankHint">RANK SAVED TO LOCAL STORAGE</div>
-          </div>
-          <button id="randomBattleBtn">⚡ RANDOM BATTLE</button>
-          <button id="lobbyStartBtn" disabled>部屋に入る →</button>
-        </div>
-        <div id="lobbySide">
-          <div id="lobbyStats">
-            <div class="statCard"><div class="statLabel">MODE</div><div class="statValue" id="lobbyModeValue">RANKED</div><div class="statSub">CASUAL / RANKED</div></div>
-            <div class="statCard"><div class="statLabel">GOAL</div><div class="statValue">5</div><div class="statSub">FIRST TO FIVE</div></div>
-            <div class="statCard"><div class="statLabel">NET</div><div class="statValue" id="lobbyNetValue">--</div><div class="statSub">SOCKET.IO STATUS</div></div>
-            <div class="statCard"><div class="statLabel">ROOM</div><div class="statValue" id="lobbyRoomValue">----</div><div class="statSub">4-DIGIT NUMBER</div></div>
-          </div>
-          <div id="modePanel">
-            <div id="modeLabelLine">MATCH TYPE</div>
-            <div id="modeButtons">
-              <button id="casualModeBtn" class="modeBtn" type="button">CASUAL</button>
-              <button id="rankedModeBtn" class="modeBtn active" type="button">RANKED</button>
-              <button id="randomModeBtn" class="modeBtn" type="button">⚡ RANDOM</button>
-            </div>
-            <div id="modeDesc">ランク戦はXP獲得。先に5点で勝利。</div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div id="waitingOverlay">
-      <div id="waitingCard">
-        <div id="waitingRoomNum">ROOM NUMBER</div>
-        <div id="waitingTitle">WAITING FOR PLAYERS</div>
-        <div id="waitingSubtitle">同じ部屋の本物のプレイヤーを待っています</div>
-        <div id="randomCountdownWrap">
-          <div id="randomCountdownLabel">RANDOM MATCH STARTING IN</div>
-          <div id="randomCountdownNum">30</div>
-          <div id="randomCountdownBar"><div id="randomCountdownFill"></div></div>
-        </div>
-        <div id="playerCountBadge">🟢 <span id="waitingCountText">あなたのみ</span></div>
-        <div id="playerListWrap">
-          <div id="playerListLabel">IN THIS ROOM</div>
-          <div id="playerList"></div>
-        </div>
-        <div id="waitingProgress"><div id="waitingProgressFill"></div></div>
-        <div id="waitingHint">2人以上で出撃ボタンが表示されます</div>
-        <button id="battleLaunchBtn">出撃</button>
-        <button id="waitingCancelBtn">← 戻る</button>
-      </div>
-    </div>
-
-    <div id="loadingOverlay">
-      <div id="loadingCard">
-        <div id="loadingSpinner"></div>
-        <div id="loadingText">DEPLOYING</div>
-        <div id="loadingSub">戦場を同期しています...</div>
-        <div id="loadingBar"><div id="loadingFill"></div></div>
-      </div>
-    </div>
-    <div id="resultOverlay">
-      <div class="resultBackdrop"></div>
-      <div class="resultScanlines"></div>
-      <div class="resultGlow resultGlowA"></div>
-      <div class="resultGlow resultGlowB"></div>
-      <div class="resultGlow resultGlowC"></div>
-
-      <div class="resultCard">
-        <div id="resultMedal">VICTORY</div>
-        <div id="resultText">YOUR TEAM WON</div>
-        <div id="resultSub">LOADING BACK TO THE HUB...</div>
-
-        <div id="resultPromo" aria-hidden="true"></div>
-
-        <div id="resultStatsPanel">
-          <div id="resultStatsGrid">
-            <div class="resultStatCard"><div class="resultStatLabel">KILLS</div><div class="resultStatValue" id="resultKills">0</div></div>
-            <div class="resultStatCard"><div class="resultStatLabel">DEATHS</div><div class="resultStatValue" id="resultDeaths">0</div></div>
-            <div class="resultStatCard"><div class="resultStatLabel">K/D RATIO</div><div class="resultStatValue" id="resultKdr">0.00</div></div>
-            <div class="resultStatCard"><div class="resultStatLabel">FINAL SCORE</div><div class="resultStatValue" id="resultFinalScore">0 - 0</div></div>
-          </div>
-          <div id="resultRankRow">
-            <span id="resultRankName">ブロンズ I</span>
-            <span id="resultRankDelta">+0 XP</span>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div id="spectateOverlay"><div id="spectateOverlay">SPECTATING</div>
-    <div id="rotateOverlay">📱 画面を横向きにしてください</div>
-  </div>
-</div>
-<script type="module">
-import * as THREE_NS from 'three';
+}</style></head><body><div id="game"><canvas id="c"></canvas><div id="hud"><div id="touchLookArea"></div><div id="hpBlock"><div id="hpLabel"><span>💚 HP</span><span id="hpText">100 / 100</span></div><div id="hpBarOuter"><div id="hpBarInner"></div></div></div><div class="connecting" id="netBadge">🟡 接続中...</div><div id="onlineCount">👥 同室: 1人</div><div id="status"><div id="scoreBoard">BLUE <span id="blueScore">0</span> / RED <span id="redScore">0</span></div><div id="roundState">ROUND: <span id="roundText">1</span> | 先に5点で勝利</div><span id="ammo">AMMO: <span id="ammoCount">30</span> / ∞</span><span id="reloadIndicator">⟳ RELOADING...</span><div id="reloadBar"><div id="reloadBarFill"></div></div></div><div id="hitIndicator"></div><div id="crosshair"></div><div id="crosshairDot"></div><div id="announce"></div><div id="killFeed"></div><div id="joystickContainer"><div class="base"></div><div class="knob" id="knob"></div></div><button id="shootButton">FIRE</button><button aria-label="リロード" id="reloadButton"></button><button aria-label="ADS" id="adsButton"></button><div id="lobbyOverlay"><div id="lobbyShell"><div id="lobbyCard"><div id="lobbyBadge">NEON // ONLINE ARENA</div><div id="lobbyTitle">NEON ARENA<br/>ONLINE</div><div id="lobbySub">部屋番号を入力して、同じ番号のプレイヤーとマッチング。</div><div id="roomPanel"><div id="roomPanelLabel">ROOM NUMBER（4桁）</div><div id="roomInputRow"><input autocomplete="off" autocorrect="off" id="roomInput" inputmode="numeric" maxlength="4" pattern="[0-9]*" placeholder="0000" spellcheck="false" type="tel"/><button id="roomGenBtn" title="ランダム生成">🎲</button></div><div id="roomHint">同じ番号の相手が入室するとマッチング開始</div></div><div id="rankPanel"><div id="rankRow"><span id="rankName">ブロンズ I</span><span id="rankPct">0%</span></div><div id="rankBar"><div id="rankFill"></div></div><div id="rankHint">RANK SAVED TO LOCAL STORAGE</div></div><button id="randomBattleBtn">⚡ RANDOM BATTLE</button><button disabled="" id="lobbyStartBtn">部屋に入る →</button></div><div id="lobbySide"><div id="lobbyStats"><div class="statCard"><div class="statLabel">MODE</div><div class="statValue" id="lobbyModeValue">RANKED</div><div class="statSub">CASUAL / RANKED</div></div><div class="statCard"><div class="statLabel">GOAL</div><div class="statValue">5</div><div class="statSub">FIRST TO FIVE</div></div><div class="statCard"><div class="statLabel">NET</div><div class="statValue" id="lobbyNetValue">--</div><div class="statSub">SOCKET.IO STATUS</div></div><div class="statCard"><div class="statLabel">ROOM</div><div class="statValue" id="lobbyRoomValue">----</div><div class="statSub">4-DIGIT NUMBER</div></div></div><div id="modePanel"><div id="modeLabelLine">MATCH TYPE</div><div id="modeButtons"><button class="modeBtn" id="casualModeBtn" type="button">CASUAL</button><button class="modeBtn active" id="rankedModeBtn" type="button">RANKED</button><button class="modeBtn" id="randomModeBtn" type="button">⚡ RANDOM</button></div><div id="modeDesc">ランク戦はXP獲得。先に5点で勝利。</div></div></div></div></div><div id="waitingOverlay"><div id="waitingCard"><div id="waitingRoomNum">ROOM NUMBER</div><div id="waitingTitle">WAITING FOR PLAYERS</div><div id="waitingSubtitle">同じ部屋の本物のプレイヤーを待っています</div><div id="randomCountdownWrap"><div id="randomCountdownLabel">RANDOM MATCH STARTING IN</div><div id="randomCountdownNum">30</div><div id="randomCountdownBar"><div id="randomCountdownFill"></div></div></div><div id="playerCountBadge">🟢 <span id="waitingCountText">あなたのみ</span></div><div id="playerListWrap"><div id="playerListLabel">IN THIS ROOM</div><div id="playerList"></div></div><div id="waitingProgress"><div id="waitingProgressFill"></div></div><div id="waitingHint">2人以上で出撃ボタンが表示されます</div><button id="battleLaunchBtn">出撃</button><button id="waitingCancelBtn">← 戻る</button></div></div><div id="loadingOverlay"><div id="loadingCard"><div id="loadingSpinner"></div><div id="loadingText">DEPLOYING</div><div id="loadingSub">戦場を同期しています...</div><div id="loadingBar"><div id="loadingFill"></div></div></div></div><div id="resultOverlay"><div class="resultBackdrop"></div><div class="resultScanlines"></div><div class="resultGlow resultGlowA"></div><div class="resultGlow resultGlowB"></div><div class="resultGlow resultGlowC"></div><div class="resultCard"><div id="resultMedal">VICTORY</div><div id="resultText">YOUR TEAM WON</div><div id="resultSub">LOADING BACK TO THE HUB...</div><div aria-hidden="true" id="resultPromo"></div><div id="resultStatsPanel"><div id="resultStatsGrid"><div class="resultStatCard"><div class="resultStatLabel">KILLS</div><div class="resultStatValue" id="resultKills">0</div></div><div class="resultStatCard"><div class="resultStatLabel">DEATHS</div><div class="resultStatValue" id="resultDeaths">0</div></div><div class="resultStatCard"><div class="resultStatLabel">K/D RATIO</div><div class="resultStatValue" id="resultKdr">0.00</div></div><div class="resultStatCard"><div class="resultStatLabel">FINAL SCORE</div><div class="resultStatValue" id="resultFinalScore">0 - 0</div></div></div><div id="resultRankRow"><span id="resultRankName">ブロンズ I</span><span id="resultRankDelta">+0 XP</span></div></div></div></div><div id="spectateOverlay"><div id="spectateOverlay">SPECTATING</div><div id="rotateOverlay">📱 画面を横向きにしてください</div></div></div><script type="module">import * as THREE_NS from 'three';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { SkeletonUtils } from 'three/examples/jsm/utils/SkeletonUtils.js';
-
 (function(){
 'use strict';
-
 var RENDER_SERVER_URL = 'https://r-cjyh.onrender.com';
 var PLAYER_NAME = new URLSearchParams(location.search).get('name') || ('P'+Math.floor(Math.random()*9000+1000));
 var WIN_SCORE = 5;
 var MAG_SIZE = 30;
 var FIRE_INTERVAL = 0.10;
 var RELOAD_TIME = 1.4;
-var DAMAGE_PER_BULLET = 4;
-var AI_DAMAGE_PER_HIT = 4;
 var PLAYER_SPEED = 5.5;
 var CAM_FOV_NORMAL = 70;
 var CAM_FOV_ADS = 56;
-var RANK_KEY = 'arena_rank_v9'; /* v9: 新ランクシステム */
+var RANK_KEY = 'arena_rank_v9';
 var SEND_HZ = 50;
 var MATCH_PLAYER_MIN = 2;
 var MAX_PLAYERS = 8;
@@ -390,40 +238,23 @@ var RANDOM_MATCH_WAIT = 30;
 var TEAM_BLUE = 'blue';
 var TEAM_RED = 'red';
 var GAME_MODE = {LOBBY:'lobby',WAITING:'waiting',LOADING:'loading',BATTLE:'battle',SPECTATE:'spectate',RESULT:'result'};
-var AI_RESPAWN_ENABLED = false;
 var AI_HIT_BOX_HEIGHT = 1.9;
 var AI_HIT_BOX_HALF_W = 0.45;
-
-/* =============================================
-   FBXキャッシュ
-   polo.fbx  = 移動アニメーション (walk/run)
-   shine.fbx = 射撃アニメーション (shoot)
-   ============================================= */
 var poloFbxTemplate = null;
 var poloFbxReady    = false;
 var poloFbxWaiters  = [];
-var shineFbxTemplate = null;
-var shineFbxReady    = false;
-var shineFbxWaiters  = [];
 var gunGlbTemplate  = null;
 var gunGlbReady     = false;
 var gunGlbWaiters   = [];
-
 var POLO_FBX_SCALE = 0.01;
 var POLO_TARGET_HEIGHT = 1.78;
 var POLO_ROT_Y = Math.PI;
 var POLO_ROT_X = 0;
 var POLO_ROT_Z = 0;
-
-/* =============================================
-   ボーン名定義 - FBX解析で確認済みの正確な名前
-   ============================================= */
-var EXACT_ROOT_BONE = 'Hips'; /* polo.fbx / shine.fbx 共通ルートボーン */
-
+var EXACT_ROOT_BONE = 'Hips';
 function normalizeBoneKey(name) {
   return String(name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 }
-
 function isRootMotionBone(boneName) {
   if (!boneName) return false;
   if (boneName === EXACT_ROOT_BONE) return true;
@@ -440,8 +271,6 @@ function isRootMotionBone(boneName) {
     n.indexOf('armaturehips') !== -1
   );
 }
-
-/* 上半身ボーン - 正確な名前のみ (FBXLoader生成トラック名と一致させる) */
 var UPPER_BODY_EXACT_NAMES = [
   'Spine', 'Spine01', 'Spine02',
   'LeftShoulder', 'RightShoulder',
@@ -450,19 +279,13 @@ var UPPER_BODY_EXACT_NAMES = [
   'LeftHand', 'RightHand',
   'Head', 'Neck'
 ];
-
-/* 下半身ボーン - 正確な名前 */
 var LOWER_BODY_EXACT_NAMES = [
   'Hips', 'LeftUpLeg', 'LeftLeg', 'LeftFoot',
   'RightUpLeg', 'RightLeg', 'RightFoot'
 ];
-
-/* ボーン名が上半身かどうか判定 (完全一致 + 部分一致フォールバック) */
 function isUpperBodyBone(boneName) {
   if (!boneName) return false;
-  /* 完全一致チェック */
   if (UPPER_BODY_EXACT_NAMES.indexOf(boneName) !== -1) return true;
-  /* 小文字部分一致フォールバック */
   var n = boneName.toLowerCase();
   var keywords = ['spine', 'neck', 'head', 'shoulder', 'arm', 'forearm', 'hand'];
   for (var i = 0; i < keywords.length; i++) {
@@ -470,19 +293,6 @@ function isUpperBodyBone(boneName) {
   }
   return false;
 }
-
-/* ボーン名が下半身かどうか判定 */
-function isLowerBodyBone(boneName) {
-  if (!boneName) return false;
-  if (LOWER_BODY_EXACT_NAMES.indexOf(boneName) !== -1) return true;
-  var n = boneName.toLowerCase();
-  var keywords = ['hip', 'leg', 'foot', 'knee', 'ankle', 'toe', 'pelvis'];
-  for (var i = 0; i < keywords.length; i++) {
-    if (n.indexOf(keywords[i]) !== -1) return true;
-  }
-  return false;
-}
-
 function findBoneByNames(root, names) {
   if (!root || !names || !names.length) return null;
   var want = names.map(function(n){ return normalizeBoneKey(n); });
@@ -495,18 +305,10 @@ function findBoneByNames(root, names) {
   });
   return found;
 }
-
 var TEAM_COLOR_BLUE = { color: 0x3a6ed4, emissive: 0x0a1a55, emissiveIntensity: 0.55 };
 var TEAM_COLOR_RED  = { color: 0xc43030, emissive: 0x550505, emissiveIntensity: 0.55 };
-
 var NAMETAG_Y  = 2.15;
 var HPBAR_Y    = 1.90;
-
-var AVATAR_GUN_POS = { x: 0.15, y: -0.04, z: 0.10 };
-var AVATAR_GUN_ROT = { x: -0.10, y: 1.55, z: -0.12 };
-var AVATAR_GUN_SCALE = 0.58;
-
-/* DOM */
 var canvas = document.getElementById('c');
 var shootButton = document.getElementById('shootButton');
 var reloadButton = document.getElementById('reloadButton');
@@ -572,8 +374,6 @@ var randomCountdownWrap = document.getElementById('randomCountdownWrap');
 var randomCountdownNum = document.getElementById('randomCountdownNum');
 var randomCountdownFill = document.getElementById('randomCountdownFill');
 var waitingHint = document.getElementById('waitingHint');
-
-/* THREE.js setup */
 var T = THREE_NS;
 var renderer = new T.WebGLRenderer({canvas:canvas,antialias:false,alpha:false,powerPreference:'high-performance'});
 renderer.setPixelRatio(1);
@@ -584,16 +384,13 @@ renderer.outputEncoding = T.sRGBEncoding;
 renderer.toneMapping = T.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.08;
 renderer.setClearColor(0x09111e,1);
-
 var scene = new T.Scene();
 scene.background = new T.Color(0x1b2742);
 scene.fog = new T.FogExp2(0x1b2742,0.010);
-
 var camera = new T.PerspectiveCamera(CAM_FOV_NORMAL,window.innerWidth/window.innerHeight,0.05,300);
 camera.rotation.order = 'YXZ';
 camera.position.set(0,1.6,15);
 scene.add(camera);
-
 scene.add(new T.HemisphereLight(0x8fc7ff,0x203019,1.35));
 var sunLight = new T.DirectionalLight(0xf3fbff,1.55);
 sunLight.position.set(-18,42,8); sunLight.castShadow=false;
@@ -604,7 +401,6 @@ sunLight.shadow.camera.top=50; sunLight.shadow.camera.bottom=-50;
 scene.add(sunLight);
 var fillLight = new T.PointLight(0x69d0ff,1.4,60,2);
 fillLight.position.set(0,8,0); scene.add(fillLight);
-
 function buildNeutralEnvironment(){
   try{
     var cv = document.createElement('canvas');
@@ -631,7 +427,6 @@ function buildNeutralEnvironment(){
   }catch(e){}
 }
 buildNeutralEnvironment();
-
 var clock = new T.Clock();
 var socket = null;
 var netOnline = false;
@@ -643,20 +438,10 @@ var matchMode = 'ranked';
 var isRandomMatch = false;
 var randomCountdownTimer = null;
 var randomCountdownSec = RANDOM_MATCH_WAIT;
-
-/* =============================================
-   ランクシステム v2
-   - 各段階: 200XP (神の前のランクは1000XP)
-   - 神ランクは到達者順位を表示
-   ============================================= */
-var RANK_XP_PER_TIER = 200;   /* 各ランク tier の必要XP */
-var RANK_XP_LAST_BEFORE_GOD = 1000; /* 神の一つ前ランク: 1000XP必要 */
 var RANK_WIN_XP = 18;
 var RANK_LOSS_XP = -6;
 var RANK_ROUND_BONUS = 4;
-
 var RANK_TIERS = [
-  /* name, thresholdXP (そのランク到達に必要な累積XP) */
   { name: 'ブロンズ I',    xp: 0 },
   { name: 'ブロンズ II',   xp: 200 },
   { name: 'ブロンズ III',  xp: 400 },
@@ -678,21 +463,15 @@ var RANK_TIERS = [
   { name: 'マスター I',    xp: 3600 },
   { name: 'マスター II',   xp: 3800 },
   { name: 'マスター III',  xp: 4000 },
-  /* 神の一つ前: マスターIIIから神まで 1000XP */
   { name: '神',            xp: 5000 }
 ];
-
 var rankXp = 0;
-/* 神ランク昇格時刻を記録してローカル順位を計算 */
 var godRankTimestamp = 0;
-
 function getRankInfo(xp) {
   var tiers = RANK_TIERS;
-  /* 神ランク */
   if (xp >= tiers[tiers.length - 1].xp) {
     return { idx: tiers.length - 1, name: '神', isGod: true, pct: 1.0, nextXp: 0, curXp: 0 };
   }
-  /* 現在のランクを検索 */
   var idx = 0;
   for (var i = tiers.length - 2; i >= 0; i--) {
     if (xp >= tiers[i].xp) { idx = i; break; }
@@ -712,7 +491,6 @@ function getRankInfo(xp) {
     prog: prog
   };
 }
-
 var blueScore = 0, redScore = 0, roundIndex = 1;
 var matchOver = false, roundResolved = false, resultShown = false;
 var portraitMode = false;
@@ -733,7 +511,6 @@ var remoteShotAt = Object.create(null);
 var bullets = [];
 var aiUnits = [];
 var aiMatchSeed = 1;
-var aiClockOffset = 0;
 var gunRoot = null, gunLoaded = false;
 var gunPosNormal = new T.Vector3(0.62,-0.62,-0.92);
 var gunPosAds    = new T.Vector3(0.16,-0.30,-0.62);
@@ -746,14 +523,10 @@ var muzzleFlashes = [];
 var roomStarted = false, spectateTargetId = '';
 var battleBeginLock = false;
 var lastShotTime = 0;
-
-/* 右手ソケット用：他プレイヤーから見える銃位置 */
 var REMOTE_GUN_SOCKET_POS = new T.Vector3(0.20, -0.10, 0.12);
 var REMOTE_GUN_SOCKET_ROT = new T.Euler(-0.18, 1.60, -0.22);
 var REMOTE_GUN_SOCKET_SCALE = 0.86;
 var REMOTE_GUN_MODEL_SCALE = 0.72;
-
-/* 共有ジオメトリ / マテリアル */
 var BULLET_GEOMETRY   = new T.SphereGeometry(0.045,8,8);
 var BULLET_MAT_LOCAL  = new T.MeshStandardMaterial({color:0xffffff,emissive:0x88e8ff,emissiveIntensity:2.0,transparent:true,opacity:0.92});
 var BULLET_MAT_REMOTE = new T.MeshStandardMaterial({color:0xffa5a5,emissive:0xff5555,emissiveIntensity:2.5,transparent:true,opacity:0.92});
@@ -768,8 +541,6 @@ var KILL_FX_MATS = [
   new T.MeshStandardMaterial({color:0xffc94d,emissive:0xffb100,emissiveIntensity:6,transparent:true,opacity:0.8}),
   new T.MeshStandardMaterial({color:0xff4d6b,emissive:0xff2b4d,emissiveIntensity:5,transparent:true,opacity:0.72})
 ];
-
-/* FX Line プール */
 var FX_LINE_POOL_SIZE = 24;
 var fxLinePool = [];
 (function(){
@@ -786,7 +557,6 @@ var fxLinePool = [];
   }
 })();
 var fxLinePoolIdx = 0;
-
 function makeBulletFxLine(origin, dir, color, lifeMs){
   var line = null;
   for(var i=0;i<FX_LINE_POOL_SIZE;i++){
@@ -813,8 +583,6 @@ function makeBulletFxLine(origin, dir, color, lifeMs){
   line.userData.expireAt = performance.now() + (lifeMs||80);
   setTimeout(function(){ line.visible=false; line.userData.inUse=false; }, lifeMs||80);
 }
-
-/* 音声 */
 var audioUnlocked = false;
 var myShootSound   = new Audio('ju.mp3');
 var enemyShootSound= new Audio('ju.mp3');
@@ -822,7 +590,6 @@ myShootSound.preload='auto'; enemyShootSound.preload='auto';
 myShootSound.volume=0.95; enemyShootSound.volume=0.7;
 try{ myShootSound.load(); }catch(e){}
 try{ enemyShootSound.load(); }catch(e){}
-
 function unlockAudio(){
   if(audioUnlocked) return; audioUnlocked=true;
   try{
@@ -840,8 +607,6 @@ function playGunSound(isBot){
     var p=a.play(); if(p&&p.catch) p.catch(function(){});
   }catch(e){}
 }
-
-/* ユーティリティ */
 function clamp(v,mn,mx){return Math.max(mn,Math.min(mx,v));}
 function clamp01(v){return clamp(v,0,1);}
 function lerp(a,b,t){return a+(b-a)*t;}
@@ -850,10 +615,6 @@ function getRoomInput(){return (roomInput.value||'').replace(/[^0-9]/g,'').slice
 function clampVecToMap(v){v.x=clamp(v.x,-MAP_BORDER,MAP_BORDER);v.z=clamp(v.z,-MAP_BORDER,MAP_BORDER);return v;}
 function isInteractiveTarget(el){return !!(el&&el.closest&&el.closest('button,input,textarea,select,label,a,#lobbyOverlay,#waitingOverlay,#loadingOverlay,#resultOverlay'));}
 function addColliderBox(x,y,z,w,h,d,mesh){colliders.push({x:x,y:y,z:z,w:w,h:h,d:d,mesh:mesh||null});}
-
-/* =============================================
-   FBXローダー
-   ============================================= */
 function loadPoloFbx(){
   var loader = new FBXLoader();
   loader.load(
@@ -876,13 +637,10 @@ function loadPoloFbx(){
       fbx.updateMatrixWorld(true);
       poloFbxTemplate = fbx;
       poloFbxReady = true;
-
-      /* デバッグ: トラック名を確認 */
       if(fbx.animations && fbx.animations.length > 0){
         var trackNames = fbx.animations[0].tracks.slice(0,10).map(function(t){return t.name;});
         console.log('[POLO] first 10 tracks:', trackNames.join(' | '));
       }
-
       poloFbxWaiters.forEach(function(fn){ fn(poloFbxTemplate); });
       poloFbxWaiters = [];
       console.log('[POLO] loaded. scale=' + finalScale.toFixed(5));
@@ -897,25 +655,10 @@ function loadPoloFbx(){
     }
   );
 }
-
 function onPoloReady(fn){
   if(poloFbxReady){ fn(poloFbxTemplate); return; }
   poloFbxWaiters.push(fn);
 }
-
-function loadShineFbx(){
-  /* 軽量版: shine.fbx は読み込まず、常に未使用にする */
-  shineFbxTemplate = null;
-  shineFbxReady = true;
-  while (shineFbxWaiters.length) {
-    try { shineFbxWaiters.shift()(null); } catch (e) {}
-  }
-  shineFbxWaiters = [];
-}
-function onShineReady(fn){
-  try { fn(null); } catch (e) {}
-}
-
 function loadGunGlbForAvatars(){
   var loader = new GLTFLoader();
   loader.load(
@@ -931,14 +674,12 @@ function loadGunGlbForAvatars(){
       gunGlbReady = true;
       gunGlbWaiters.forEach(function(fn){ try{ fn(gunGlbTemplate); }catch(e){} });
       gunGlbWaiters = [];
-
       try{
         var freshGun = cloneGunForAvatar();
         attachGunToCamera(freshGun);
       }catch(e){
         console.warn('[GUN] attach after load failed:', e);
       }
-
       console.log('[GUN] ju.glb loaded');
     },
     undefined,
@@ -952,12 +693,6 @@ function loadGunGlbForAvatars(){
     }
   );
 }
-
-function onGunGlbReady(fn){
-  if(gunGlbReady){ fn(gunGlbTemplate); return; }
-  gunGlbWaiters.push(fn);
-}
-
 function cloneGunMaterial(mat){
   if(!mat) return mat;
   var m = mat.clone();
@@ -970,7 +705,6 @@ function cloneGunMaterial(mat){
     m.side = T.FrontSide;
     m.flatShading = false;
     if(m.color && m.color.convertSRGBToLinear) {
-      // keep material color in current encoding path; nothing extra needed
     }
     if(m.map && m.map.encoding !== undefined) m.map.encoding = T.sRGBEncoding;
     if(m.normalMap && m.normalScale && m.normalScale.set){
@@ -985,7 +719,6 @@ function cloneGunMaterial(mat){
   }catch(e){}
   return m;
 }
-
 function prepareGunTemplate(root){
   if(!root) return root;
   try{
@@ -1010,8 +743,6 @@ function prepareGunTemplate(root){
   }
   return root;
 }
-
-/* テクスチャ強制不透明化 */
 function forceOpaqueTexture(texture){
   if(!texture || !texture.image) return texture;
   try{
@@ -1045,7 +776,6 @@ function forceOpaqueTexture(texture){
     return tex;
   }catch(e){ return texture; }
 }
-
 function normalizeAvatarMaterial(m, team, forceOpaque){
   if(!m) return;
   var tc = team === TEAM_RED ? TEAM_COLOR_RED : TEAM_COLOR_BLUE;
@@ -1061,7 +791,6 @@ function normalizeAvatarMaterial(m, team, forceOpaque){
     m.needsUpdate = true;
   } catch(e){}
 }
-
 function applyTeamColor(object, team){
   object.traverse(function(child){
     if(!child.isMesh) return;
@@ -1070,40 +799,6 @@ function applyTeamColor(object, team){
     mats.forEach(function(m){ normalizeAvatarMaterial(m, team, true); });
   });
 }
-
-function buildProceduralAvatar(team){
-  var g = new T.Group();
-  g.userData.isTestAvatar = true;
-  var isBlue = team === TEAM_BLUE;
-  var bodyMat = new T.MeshStandardMaterial({color:isBlue?0x2f7dff:0xd72626,roughness:0.55,metalness:0.06,emissive:isBlue?0x0b1e70:0x440000,emissiveIntensity:0.18});
-  var headMat = new T.MeshStandardMaterial({color:isBlue?0x9ed0ff:0xff9a9a,roughness:0.42,metalness:0.02,emissive:isBlue?0x122d55:0x551111,emissiveIntensity:0.10});
-  var trimMat = new T.MeshStandardMaterial({color:0xffffff,roughness:0.25,metalness:0.15,emissive:0xffffff,emissiveIntensity:1.6});
-  var darkMat = new T.MeshStandardMaterial({color:0x111827,roughness:0.75,metalness:0.12});
-  function addCapsule(parent,rTop,rBottom,height,mat,x,y,z,rx,ry,rz){
-    var grp=new T.Group();
-    var cyl=new T.Mesh(new T.CylinderGeometry(rTop,rBottom,height,18,1,false),mat);
-    cyl.position.y=height*0.5; grp.add(cyl);
-    var capTop=new T.Mesh(new T.SphereGeometry(rTop,18,12),mat); capTop.position.y=height; grp.add(capTop);
-    var capBottom=new T.Mesh(new T.SphereGeometry(rBottom,18,12),mat); capBottom.position.y=0; grp.add(capBottom);
-    grp.position.set(x||0,y||0,z||0); grp.rotation.set(rx||0,ry||0,rz||0); parent.add(grp); return grp;
-  }
-  var torso=new T.Mesh(new T.BoxGeometry(0.72,0.96,0.42),bodyMat); torso.position.y=0.95; g.add(torso);
-  var chest=new T.Mesh(new T.BoxGeometry(0.32,0.22,0.08),trimMat); chest.position.set(0,1.00,0.23); g.add(chest);
-  var pelvis=new T.Mesh(new T.BoxGeometry(0.56,0.30,0.36),darkMat); pelvis.position.y=0.38; g.add(pelvis);
-  var head=new T.Mesh(new T.SphereGeometry(0.28,18,14),headMat); head.position.y=1.62; g.add(head);
-  var eyeL=new T.Mesh(new T.SphereGeometry(0.035,8,8),trimMat); eyeL.position.set(0.10,1.67,0.22); g.add(eyeL);
-  var eyeR=new T.Mesh(new T.SphereGeometry(0.035,8,8),trimMat); eyeR.position.set(-0.10,1.67,0.22); g.add(eyeR);
-  addCapsule(g,0.10,0.10,0.58,bodyMat,0.48,1.28,0.04,0,0,-0.25);
-  addCapsule(g,0.10,0.10,0.58,bodyMat,-0.48,1.28,0.04,0,0,0.25);
-  addCapsule(g,0.12,0.12,0.72,darkMat,0.18,0.02,0,0,0,0.06);
-  addCapsule(g,0.12,0.12,0.72,darkMat,-0.18,0.02,0,0,0,-0.06);
-  var bootL=new T.Mesh(new T.BoxGeometry(0.20,0.10,0.30),darkMat); bootL.position.set(0.18,-0.02,0.05); g.add(bootL);
-  var bootR=new T.Mesh(new T.BoxGeometry(0.20,0.10,0.30),darkMat); bootR.position.set(-0.18,-0.02,0.05); g.add(bootR);
-  var glow=new T.Mesh(new T.SphereGeometry(0.10,10,10),new T.MeshStandardMaterial({color:isBlue?0x7ad4ff:0xff7a7a,emissive:isBlue?0x7ad4ff:0xff7a7a,emissiveIntensity:2.2,transparent:false,opacity:1}));
-  glow.position.set(0,1.02,0.26); g.add(glow);
-  g.position.y=0; g.scale.setScalar(1.0); return g;
-}
-
 function cloneGunForAvatar(){
   if(!gunGlbTemplate){
     gunGlbTemplate = buildProceduralGun();
@@ -1125,33 +820,15 @@ function cloneGunForAvatar(){
   });
   return clone;
 }
-
-/* =============================================
-   アニメーション処理
-   
-   【根本的な問題と解決策】
-   polo.fbx = Hipsボーンがルートモーション(X/Z移動)を持つ
-   → stripRootMotionXZ で Hips.position の X/Z を最初のフレームに固定
-   
-   【アニメーション切り替え】
-   - 移動中かつ射撃中 → 下半身:polo(walk) + 上半身:shine(shoot) = split
-   - 射撃中のみ → shine全身 (full-shine)
-   - それ以外 → polo全身 (full-polo)
-   ============================================= */
-
-/* トラック名からボーン名を抽出 */
 function getBoneNameFromTrack(trackName) {
   var dot = trackName.lastIndexOf('.');
   return dot >= 0 ? trackName.slice(0, dot) : trackName;
 }
-
-/* ルートモーション除去: Hips.position の X/Z を初期フレームに固定 */
 function stripRootMotionXZ(clip, rootBoneName) {
   if (!clip) return clip;
   var rootName = rootBoneName || EXACT_ROOT_BONE;
   var modified = false;
   var firstPositionTrack = null;
-
   function shouldStrip(track) {
     var boneName = getBoneNameFromTrack(track.name);
     var prop = track.name.slice(boneName.length + 1);
@@ -1163,22 +840,18 @@ function stripRootMotionXZ(clip, rootBoneName) {
       /hips|hip|pelvis|root|armature/i.test(String(boneName || ''))
     );
   }
-
   var newTracks = clip.tracks.map(function(track) {
     var boneName = getBoneNameFromTrack(track.name);
-    var prop = track.name.slice(boneName.length + 1); /* 'position', 'quaternion', 'scale' */
+    var prop = track.name.slice(boneName.length + 1);
     if (prop !== 'position') return track;
     if (!shouldStrip(track)) return track;
-
-    /* X/Z を最初のキーフレーム値に固定 (Y=高さは維持) */
     var values = Array.from(track.values);
     if (values.length < 3) return track;
     var firstX = values[0];
     var firstZ = values[2];
     for (var i = 0; i < values.length; i += 3) {
-      values[i] = firstX; /* X固定 */
-      /* values[i+1] = Y (維持) */
-      values[i + 2] = firstZ; /* Z固定 */
+      values[i] = firstX;
+      values[i + 2] = firstZ;
     }
     var newTrack = track.clone();
     newTrack.values = new Float32Array(values);
@@ -1186,8 +859,6 @@ function stripRootMotionXZ(clip, rootBoneName) {
     console.log('[ANIM] stripped root motion XZ from:', track.name, 'bone:', rootName);
     return newTrack;
   });
-
-  /* ルート名が想定と違っても、positionトラックが1本しかないFBXならそれを保険で剥がす */
   if (!modified && firstPositionTrack) {
     var boneName2 = getBoneNameFromTrack(firstPositionTrack.name);
     var values2 = Array.from(firstPositionTrack.values);
@@ -1207,14 +878,11 @@ function stripRootMotionXZ(clip, rootBoneName) {
       console.warn('[ANIM] stripRootMotionXZ fallback used for track:', firstPositionTrack.name, 'bone:', boneName2);
     }
   }
-
   if (!modified) {
     console.warn('[ANIM] stripRootMotionXZ: no position track found for bone:', rootName);
   }
   return new T.AnimationClip(clip.name + '_noRootXZ', clip.duration, newTracks);
 }
-
-/* 上半身のみのクリップを生成 */
 function makeUpperBodyClip(clip) {
   if (!clip) return null;
   var filtered = clip.tracks.filter(function(track) {
@@ -1228,13 +896,11 @@ function makeUpperBodyClip(clip) {
   console.log('[ANIM] upper body clip tracks:', filtered.length, 'sample:', filtered[0].name);
   return new T.AnimationClip(clip.name + '_upper', clip.duration, filtered);
 }
-
-/* 下半身のみのクリップを生成 */
 function makeLowerBodyClip(clip) {
   if (!clip) return null;
   var filtered = clip.tracks.filter(function(track) {
     var boneName = getBoneNameFromTrack(track.name);
-    return !isUpperBodyBone(boneName); /* 上半身でなければ下半身として扱う */
+    return !isUpperBodyBone(boneName);
   });
   if (filtered.length === 0) {
     console.warn('[ANIM] makeLowerBodyClip: no lower body tracks found.');
@@ -1243,25 +909,10 @@ function makeLowerBodyClip(clip) {
   console.log('[ANIM] lower body clip tracks:', filtered.length, 'sample:', filtered[0].name);
   return new T.AnimationClip(clip.name + '_lower', clip.duration, filtered);
 }
-
-/* アニメーションモード決定 */
-function decideAnimMode(isMoving, isShooting, hasShine) {
-  if (isShooting) {
-    if (isMoving && hasShine) return 'split';
-    if (hasShine) return 'full-shine';
-  }
-  return 'full-polo';
-}
-
-/* アバターのアニメーション状態を更新 */
-
-
 function updateAvatarAnimationMode(av, isMoving, isShooting, forceRestart) {
   if (!av || !av.userData) return;
   var ud = av.userData;
-
   ud._animState = { isMoving: !!isMoving, isShooting: !!isShooting };
-
   function stopAction(a) {
     if (!a) return;
     try { a.stop(); a.reset(); } catch (e) {}
@@ -1278,50 +929,37 @@ function updateAvatarAnimationMode(av, isMoving, isShooting, forceRestart) {
       a.play();
     } catch (e) {}
   }
-
-  // すべての見た目を polo.fbx の全身アニメだけに固定する
   stopAction(ud._actionLowerPolo);
   stopAction(ud._actionUpperShine);
   stopAction(ud._actionFullShine);
-
   if (ud._baseAnimMode !== 'full-polo' || !!forceRestart) {
     playAction(ud._actionFullPolo, true);
     ud._baseAnimMode = 'full-polo';
   } else {
     playAction(ud._actionFullPolo, false);
   }
-
   ud._overlayAnimMode = 'none';
   ud._animMode = 'full-polo';
 }
-
-
-
-/* アバター作成 */
 function makeRemoteAvatar(team, name) {
   var outer = new T.Group();
   outer.userData = { isRemoteAvatar:true, team:team, name:name||'' };
-
   var hpBg = new T.Mesh(
     new T.PlaneGeometry(0.8,0.09),
     new T.MeshStandardMaterial({color:0x222222,transparent:true,opacity:0.72,side:T.DoubleSide})
   );
   hpBg.position.y = HPBAR_Y; hpBg.name = 'hpBarBg'; outer.add(hpBg);
-
   var hpMat = new T.MeshStandardMaterial({color:0x00ff44,emissive:0x00ff44,emissiveIntensity:1.4,transparent:true,opacity:0.95,side:T.DoubleSide});
   var hpBar = new T.Mesh(new T.PlaneGeometry(0.8,0.07),hpMat);
   hpBar.position.y = HPBAR_Y; hpBar.name = 'hpBar'; outer.add(hpBar);
-
   var correctionGroup = new T.Group();
   correctionGroup.rotation.set(POLO_ROT_X, POLO_ROT_Y, POLO_ROT_Z);
   outer.add(correctionGroup);
-
   onPoloReady(function(fbx) {
     if (!fbx) {
       console.warn('[POLO] not ready, avatar skipped');
       return;
     }
-
     var clone = null;
     try {
       clone = SkeletonUtils.clone(fbx);
@@ -1329,7 +967,6 @@ function makeRemoteAvatar(team, name) {
       console.warn('[POLO] SkeletonUtils.clone failed:', e);
       return;
     }
-
     clone.visible = true;
     clone.traverse(function(child) {
       if (!child.isMesh) return;
@@ -1338,19 +975,15 @@ function makeRemoteAvatar(team, name) {
       child.receiveShadow = true;
       child.frustumCulled = false;
     });
-
     applyTeamColor(clone, team);
     correctionGroup.add(clone);
-
     if (fbx.animations && fbx.animations.length > 0) {
       var mixer = new T.AnimationMixer(clone);
       var rawClip = fbx.animations[0];
-
       var fullPoloClip = stripRootMotionXZ(rawClip, EXACT_ROOT_BONE);
       var actionFullPolo = mixer.clipAction(fullPoloClip);
       actionFullPolo.setLoop(T.LoopRepeat, Infinity);
       actionFullPolo.clampWhenFinished = false;
-
       outer.userData._mixer = mixer;
       outer.userData._actionFullPolo  = actionFullPolo;
       outer.userData._actionLowerPolo = null;
@@ -1358,11 +991,9 @@ function makeRemoteAvatar(team, name) {
       outer.userData._actionFullShine  = null;
       outer.userData._animMode = 'none';
       outer.userData._baseClip = fullPoloClip;
-
       actionFullPolo.play();
       outer.userData._animMode = 'full-polo';
     }
-
     var handBone =
       findBoneByNames(clone, [
         'RightHand', 'mixamorigRightHand', 'Hand_R'
@@ -1376,20 +1007,16 @@ function makeRemoteAvatar(team, name) {
       findBoneByNames(clone, [
         'leftHand', 'leftForeArm', 'leftArm'
       ]);
-
     var gunSocket = new T.Group();
     gunSocket.name = 'avatarGunSocket';
-
     var gunGroup = new T.Group();
     gunGroup.name = 'avatarGun';
     gunGroup.add(cloneGunForAvatar());
-
     if (handBone) {
       handBone.add(gunSocket);
       gunSocket.position.set(REMOTE_GUN_SOCKET_POS.x, REMOTE_GUN_SOCKET_POS.y, REMOTE_GUN_SOCKET_POS.z);
       gunSocket.rotation.set(REMOTE_GUN_SOCKET_ROT.x, REMOTE_GUN_SOCKET_ROT.y, REMOTE_GUN_SOCKET_ROT.z);
       gunSocket.scale.setScalar(REMOTE_GUN_SOCKET_SCALE);
-
       gunSocket.add(gunGroup);
       gunGroup.position.set(0, 0, 0);
       gunGroup.rotation.set(0, 0, 0);
@@ -1401,11 +1028,9 @@ function makeRemoteAvatar(team, name) {
       correctionGroup.add(gunGroup);
     }
   });
-
   ensureNameTag(outer, name||'PLAYER', team);
   return outer;
 }
-
 function buildProceduralGun(){
   var g=new T.Group();
   var s=1.14;
@@ -1423,11 +1048,9 @@ function buildProceduralGun(){
   g.add(new T.Mesh(new T.BoxGeometry(0.003*s,0.003*s,0.08*s),gm)).position.set(-0.028*s,0.010*s,-0.06*s);
   return g;
 }
-
 function attachGunToCamera(obj){
   if(gunRoot&&gunRoot.parent) gunRoot.parent.remove(gunRoot);
   gunRoot=obj; camera.add(gunRoot);
-  /* 腕に近い見た目になるよう、右手っぽい位置へ寄せる */
   gunRoot.position.set(0.60,-0.52,-0.82);
   gunRoot.rotation.set(-0.06,-0.32,-0.18);
   gunRoot.scale.set(1.02,1.02,1.02);
@@ -1440,9 +1063,7 @@ function attachGunToCamera(obj){
   gunRoot.visible=(gameMode===GAME_MODE.BATTLE);
   gunLoaded=true;
 }
-
 attachGunToCamera(buildProceduralGun());
-
 function createMuzzleFlash(){
   if(!gunRoot) return;
   var fg=new T.Group();
@@ -1466,19 +1087,11 @@ function updateMuzzleFlashes(dt){
     f.scale.setScalar(1+(1-t)*1.8);
   }
 }
-
 function setNetBadge(s,t){netBadge.className=s;netBadge.textContent=t;lobbyNetValue.textContent=s==='online'?'ONLINE':s==='offline'?'OFFLINE':'接続中...';}
 function updateOrientationUI(){portraitMode=window.innerHeight>window.innerWidth;rotateOverlay.style.display=portraitMode?'flex':'none';}
-
-/* =============================================
-   ランクUI更新
-   ============================================= */
 function updateRankUI() {
   var info = getRankInfo(rankXp);
   if (info.isGod) {
-    /* 神ランク: XP合計と概算順位を表示 */
-    var excess = rankXp - RANK_TIERS[RANK_TIERS.length - 1].xp;
-    /* ローカルストレージから神ランク人数の概算 (擬似値) */
     rankNameEl.textContent = '神';
     rankPctEl.textContent = '神 RANK';
     rankFillEl.style.width = '100%';
@@ -1493,7 +1106,6 @@ function updateRankUI() {
     document.getElementById('rankHint').textContent = '次のランクまで ' + needed + ' XP';
   }
 }
-
 function saveRank(){
   try{
     localStorage.setItem(RANK_KEY, JSON.stringify({xp: rankXp, godTs: godRankTimestamp}));
@@ -1517,12 +1129,9 @@ function addRankXp(amt) {
   saveRank();
   updateRankUI();
 }
-
 function updateScoreUI(){blueScoreEl.textContent=String(blueScore);redScoreEl.textContent=String(redScore);roundTextEl.textContent=String(roundIndex);}
-
 var ROUND_TIME_LIMIT_MS = 180000;
 var roundTimerMs = 0;
-
 function resetTouchAndInputState(){
   firingHeld = false;
   if(fireLoopTimer){ clearInterval(fireLoopTimer); fireLoopTimer = null; }
@@ -1531,7 +1140,6 @@ function resetTouchAndInputState(){
   if(knobEl){ knobEl.style.left = '50%'; knobEl.style.top = '50%'; }
   setADS(false);
 }
-
 function syncRoundStateToRoom(extra){
   if(!socket || !socket.connected || !currentRoom) return;
   var payload = Object.assign({
@@ -1542,7 +1150,6 @@ function syncRoundStateToRoom(extra){
   socket.emit('playerMovement', payload);
   socket.emit('request-room-players', {room: currentRoom});
 }
-
 function restoreBattleViewAfterRespawn(){
   player.alive = true; player.spectating = false; spectateTargetId = '';
   gameMode = GAME_MODE.BATTLE; setModeUI();
@@ -1557,7 +1164,6 @@ function restoreBattleViewAfterRespawn(){
   pitch = 0; syncCameraRotation();
   updatePlayerHPUI(); updateAmmoUI();
 }
-
 function updateAmmoUI(){
   ammoCountEl.textContent=String(ammo);
   if(reloading){reloadIndicator.style.display='block';reloadBarEl.style.display='block';reloadBarFill.style.width=(Math.max(0,Math.min(1,1-reloadTimer/RELOAD_TIME))*100)+'%';}
@@ -1631,7 +1237,6 @@ function updateWaitingUI(){
 function getSpawnForTeam(team){return team===TEAM_RED?new T.Vector3(12,1.6,-20):new T.Vector3(-12,1.6,20);}
 function updateLobbyCamera(dt){camera.position.lerp(new T.Vector3(0,16,33),1-Math.exp(-2.5*dt));camera.lookAt(0,1.2,0);}
 function syncCameraRotation(){camera.rotation.x=pitch;camera.rotation.y=yaw;}
-
 var AI_RADIUS=0.5;
 function resolveCollision(next){
   var safe=next.clone(); safe.y=PLAYER_HEIGHT; var r=PLAYER_RADIUS;
@@ -1668,7 +1273,6 @@ function aiWouldHitWall(nx,nz){
   }
   return Math.abs(nx)>=MAP_BORDER||Math.abs(nz)>=MAP_BORDER;
 }
-
 function movePlayer(dt){
   if(!player.alive||gameMode!==GAME_MODE.BATTLE) return;
   syncCameraRotation();
@@ -1687,12 +1291,10 @@ function movePlayer(dt){
   camera.position.copy(resolveCollision(nx));
   player.x=camera.position.x; player.y=camera.position.y; player.z=camera.position.z;
 }
-
 function startReload(){if(reloading||ammo>=MAG_SIZE||!player.alive||matchOver||gameMode!==GAME_MODE.BATTLE)return;reloading=true;reloadTimer=0;gunState.reloadAnim=true;gunState.reloadAnimT=0;updateAmmoUI();}
 function updateReload(dt){if(!reloading)return;reloadTimer+=dt;updateAmmoUI();if(reloadTimer>=RELOAD_TIME){ammo=MAG_SIZE;reloading=false;reloadTimer=0;gunState.reloadAnim=false;updateAmmoUI();}}
 function setADS(on){adsActive=!!on;adsButton.classList.toggle('ads-active',adsActive);gunPosTarget.copy(adsActive?gunPosAds:gunPosNormal);}
 function getForwardVectorFromCamera(){var d=new T.Vector3();camera.getWorldDirection(d);if(d.lengthSq()<1e-8)d.set(0,0,-1);return d.normalize();}
-
 function makeBullet(origin,dir,ownerId,ownerTeam,isRemote){
   var mat=isRemote?BULLET_MAT_REMOTE:BULLET_MAT_LOCAL;
   var m=new T.Mesh(BULLET_GEOMETRY,mat); m.position.copy(origin); scene.add(m);
@@ -1736,7 +1338,6 @@ function bulletHitsAvatar(prev,next,ap){return raySegmentHitsBox(prev,next,{x:ap
 function bulletHitsAIAvatar(prev,next,aiX,aiZ){
   return raySegmentHitsBox(prev,next,{x:aiX,y:AI_HIT_BOX_HEIGHT/2,z:aiZ,w:AI_HIT_BOX_HALF_W*2,h:AI_HIT_BOX_HEIGHT,d:AI_HIT_BOX_HALF_W*2});
 }
-
 function flashKillFx(at){
   var g=new T.Group();
   KILL_FX_GEO.forEach(function(geo,i){g.add(new T.Mesh(geo,KILL_FX_MATS[i]));});
@@ -1746,7 +1347,6 @@ function flashKillFx(at){
 function addKillFeed(text){var d=document.createElement('div');d.className='kfItem';d.textContent=text;killFeedEl.appendChild(d);setTimeout(function(){if(d.parentNode)d.parentNode.removeChild(d);},2600);}
 function flashHitIndicator(){hitIndicator.classList.add('active');setTimeout(function(){hitIndicator.classList.remove('active');},120);}
 function showKillAnnouncement(text){announceEl.textContent=text||'HIT!';announceEl.classList.remove('show');void announceEl.offsetWidth;announceEl.classList.add('show');}
-
 function resetRoundState(){
   roundResolved=false;matchOver=false;player.alive=true;player.spectating=false;spectateTargetId='';
   player.hp=player.maxHp=100;ammo=MAG_SIZE;reloading=false;reloadTimer=0;
@@ -1764,26 +1364,6 @@ function resetRoundState(){
   resetAIForRound();updatePlayerHPUI();updateAmmoUI();if(gunRoot)gunRoot.visible=true;spectateOverlay.style.display='none';
   syncRoundStateToRoom({alive:true,hp:100,phase:GAME_MODE.BATTLE});
 }
-
-function showResult(wt){
-  if(resultShown)return;
-  resultShown=true;
-  matchOver=true;
-  gameMode=GAME_MODE.RESULT;
-  setModeUI();
-  resultOverlay.style.display='flex';
-  clearResultOverlayState();
-  resultOverlay.classList.add(wt===TEAM_BLUE ? 'win' : 'lose');
-  resultTextEl.textContent=wt===TEAM_BLUE?'BLUE WINS':'RED WINS';
-  resultSubEl.textContent='LOADING BACK TO THE HUB...';
-  if (resultMedalEl) resultMedalEl.textContent = wt===TEAM_BLUE ? 'VICTORY' : 'DEFEAT';
-  if (resultPromoEl) {
-    resultPromoEl.style.display = 'inline-flex';
-    resultPromoEl.textContent = wt===TEAM_BLUE ? 'TEAM BLUE TAKES THE ROUND' : 'TEAM RED TAKES THE ROUND';
-  }
-}
-
-
 function clearResultOverlayState(){
   resultOverlay.classList.remove('win','lose','promo');
   if (resultPromoEl) {
@@ -1792,7 +1372,6 @@ function clearResultOverlayState(){
   }
   if (resultMedalEl) resultMedalEl.textContent = 'MATCH COMPLETE';
 }
-
 function spawnResultParticles(team, promoted){
   if (!resultOverlay) return;
   for (var i = 0; i < 20; i++) {
@@ -1810,15 +1389,12 @@ function spawnResultParticles(team, promoted){
     setTimeout(function(node){ return function(){ if(node && node.parentNode) node.parentNode.removeChild(node); }; }(spark), 1200);
   }
 }
-
 function updateResultPresentation(winnerTeam, didWin, beforeInfo, afterInfo, delta) {
   clearResultOverlayState();
   resultOverlay.classList.add(didWin ? 'win' : 'lose');
-
   resultTextEl.textContent = didWin ? 'VICTORY' : 'DEFEAT';
   resultSubEl.textContent = didWin ? 'YOUR TEAM DOMINATED THE MATCH' : 'REGROUP AND COME BACK STRONGER';
   if (resultMedalEl) resultMedalEl.textContent = didWin ? 'WINNER' : 'ELIMINATED';
-
   var promo = '';
   var promoted = false;
   if (matchMode === 'ranked' && beforeInfo && afterInfo) {
@@ -1838,27 +1414,22 @@ function updateResultPresentation(winnerTeam, didWin, beforeInfo, afterInfo, del
   } else {
     promo = didWin ? 'CASUAL VICTORY' : 'CASUAL DEFEAT';
   }
-
   if (resultPromoEl) {
     resultPromoEl.textContent = promo;
     resultPromoEl.style.display = 'inline-flex';
   }
-
   resultOverlay.classList.toggle('promo', promoted);
   resultRankNameEl.textContent = afterInfo ? afterInfo.name : getRankInfo(rankXp).name;
   resultRankDeltaEl.textContent = (delta >= 0 ? '+' : '') + delta + ' XP';
   resultRankDeltaEl.classList.toggle('positive', delta > 0);
   resultRankDeltaEl.classList.toggle('negative', delta < 0);
-
   spawnResultParticles(didWin ? winnerTeam : (winnerTeam === TEAM_BLUE ? TEAM_RED : TEAM_BLUE), promoted);
 }
-
 function playRoundEndFx(winnerTeam){
   showKillAnnouncement(winnerTeam===TEAM_BLUE?'BLUE ROUND':(winnerTeam===TEAM_RED?'RED ROUND':'ROUND END'));
   addKillFeed((winnerTeam===TEAM_BLUE?'🔵 ':(winnerTeam===TEAM_RED?'🔴 ':'⚪ '))+'ROUND WIN');
   flashHitIndicator();
 }
-
 function canvasRoundRect(ctx,x,y,w,h,r,fill,stroke){
   if(typeof r==='number') r={tl:r,tr:r,br:r,bl:r};
   else r=r||{};
@@ -1941,10 +1512,8 @@ function updateAvatarHPBar(av,hp){
   ensureNameTag(av,av.userData&&av.userData.nameTagText||av.userData.name||'',av.userData&&av.userData.team||TEAM_BLUE);
   updateAvatarBillboard(av);
 }
-
 function hashRoomSeed(room){var str=String(room||'0000'),h=2166136261>>>0;for(var i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,16777619);}return h>>>0;}
 function mulberry32(a){return function(){var t=a+=0x6D2B79F5;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return((t^t>>>14)>>>0)/4294967296;};}
-
 function clearAIUnits(){
   for(var i=0;i<aiUnits.length;i++){
     var u=aiUnits[i];
@@ -1952,7 +1521,6 @@ function clearAIUnits(){
   }
   aiUnits.length=0;
 }
-
 function makeAIUnit(team,index){
   var tk=team===TEAM_RED?'red':'blue';
   var seed=(aiMatchSeed+index*97+(tk==='red'?999:111))>>>0;
@@ -1974,7 +1542,6 @@ function makeAIUnit(team,index){
   avatar.position.set(unit.x,0,unit.z); avatar.rotation.y=unit.yaw; avatar.visible=true;
   updateAvatarHPBar(avatar,unit.hp); return unit;
 }
-
 function getCombatTargetsFor(team){
   var targets=[];
   Object.keys(roomPlayers||{}).forEach(function(id){
@@ -2004,7 +1571,6 @@ function aiCanSee(unit,targetPos){
   for(var i=0;i<colliders.length;i++){if(raySegmentHitsBox(from,to,colliders[i]))return false;}
   return true;
 }
-
 function damageEntityFromAI(unit,target,dist,nowSec){
   if(nowSec<unit.lastShotAt+0.45)return;
   unit.lastShotAt=nowSec; unit.fireCooldown=nowSec+0.7+unit.rng()*1.1;
@@ -2027,12 +1593,10 @@ function damageEntityFromAI(unit,target,dist,nowSec){
     }
   }
 }
-
 function updateAIUnit(unit,dt,nowSec){
   if(!unit||!unit.alive) return;
   var nearest=getNearestTarget(unit);
   var move=new T.Vector2(0,0);
-
   if(nearest){
     var t=nearest.target,tp=t.pos;
     var dx=tp.x-unit.x,dz=tp.z-unit.z;
@@ -2065,11 +1629,9 @@ function updateAIUnit(unit,dt,nowSec){
     move.x=wx2/wd2; move.y=wz3/wd2; unit.yaw=Math.atan2(move.x,move.y);
     if(nowSec>=unit.fireCooldown) unit.fireCooldown=nowSec+1.2+unit.rng()*1.2;
   }
-
   var speed=unit.state==='attack'?2.0:(unit.state==='chase'?2.8:1.5);
   var mag2=Math.hypot(move.x,move.y);
   if(mag2>0.01){move.x/=mag2;move.y/=mag2;}
-
   if(unit.unstuckUntil&&nowSec<unit.unstuckUntil&&unit.unstuckDir){
     move.x=unit.unstuckDir.x; move.y=unit.unstuckDir.y;
   }else{
@@ -2088,9 +1650,7 @@ function updateAIUnit(unit,dt,nowSec){
       if(!found){move.x=-move.x;move.y=-move.y;}
     }
   }
-
   var resolved=resolveCollisionForAI(unit.x+move.x*speed*dt,unit.z+move.y*speed*dt);
-
   unit.stuckTimer=(unit.stuckTimer||0)+dt;
   if(unit.stuckTimer>=0.6){
     var movedDist=Math.hypot(resolved.x-unit.lastCheckPos.x,resolved.z-unit.lastCheckPos.z);
@@ -2102,38 +1662,29 @@ function updateAIUnit(unit,dt,nowSec){
     unit.lastCheckPos={x:resolved.x,z:resolved.z};
     unit.stuckTimer=0;
   }
-
   unit.x=resolved.x; unit.z=resolved.z;
   unit.avatar.position.set(unit.x,0,unit.z);
   unit.avatar.rotation.y=unit.yaw;
   unit.avatar.visible=true;
   updateAvatarHPBar(unit.avatar,unit.hp);
-
-  /* =============================================
-     AI アニメーション切り替え
-     ============================================= */
   var aiIsMoving = mag2 > 0.05;
   var AI_SHOOTING_FLAG_MS = 280;
   var aiIsShooting = !!(unit.lastShotAt && (nowSec - unit.lastShotAt) * 1000 < AI_SHOOTING_FLAG_MS);
   updateAvatarAnimationMode(unit.avatar, aiIsMoving, aiIsShooting);
 }
-
 function updateAI(dt){
   if(gameMode!==GAME_MODE.BATTLE&&gameMode!==GAME_MODE.SPECTATE)return;
   if(!aiUnits.length)return;
   var nowSec = performance.now()/1000;
   for(var i=0;i<aiUnits.length;i++) updateAIUnit(aiUnits[i],dt,nowSec);
-  /* AIアバターのmixer更新 */
   for(var mi=0;mi<aiUnits.length;mi++){
     var mu=aiUnits[mi];
     if(mu&&mu.avatar&&mu.avatar.userData._mixer) mu.avatar.userData._mixer.update(dt);
   }
-  /* リモートプレイヤーのmixer更新 */
   remoteAvatars.forEach(function(av){
     if(av&&av.userData._mixer) av.userData._mixer.update(dt);
   });
 }
-
 function reviveHumansForNewRound(){
   var ids={};
   Object.keys(roomPlayers||{}).forEach(function(id){ids[id]=true;});
@@ -2152,7 +1703,6 @@ function reviveHumansForNewRound(){
   });
   updateRemotePlayersFromState();
 }
-
 function initAIForMatch(data){
   var startedAt=Number(data&&data.startedAt)||Date.now();
   aiMatchSeed=(hashRoomSeed(currentRoom)^(startedAt>>>0)^((startedAt/65536)>>>0))>>>0;
@@ -2161,7 +1711,6 @@ function initAIForMatch(data){
   for(var i=0;i<aiCount;i++) aiUnits.push(makeAIUnit(TEAM_BLUE,i));
   for(var j=0;j<aiCount;j++) aiUnits.push(makeAIUnit(TEAM_RED,j));
 }
-
 function resetAIForRound(){
   var nowSec=performance.now()/1000;
   for(var i=0;i<aiUnits.length;i++){
@@ -2175,14 +1724,11 @@ function resetAIForRound(){
       u.avatar.visible=true;u.avatar.position.set(u.x,0,u.z);
       u.avatar.rotation.y=u.yaw;ensureNameTag(u.avatar,'AI',u.team);
       updateAvatarHPBar(u.avatar,u.hp);
-      /* アニメーションをfull-poloにリセット */
       u.avatar.userData._animMode = 'none';
       updateAvatarAnimationMode(u.avatar, false, false);
     }
   }
 }
-
-function updatePlayerStateToRoom(patch){if(!socket||!socket.connected)return;socket.emit('playerState',Object.assign({room:currentRoom},patch||{}));}
 function applyRemoteState(id,s){
   if(!s)return;
   remoteStates[id]=remoteStates[id]||{};
@@ -2220,13 +1766,8 @@ function applyRemoteState(id,s){
     }
   }
 }
-
-/* =============================================
-   リモートプレイヤー状態更新 (アニメーション切り替え含む)
-   ============================================= */
-var REMOTE_MOVING_THRESHOLD = 0.012; /* この距離以上動いたら「移動中」と判定 */
-var SHOOTING_FLAG_DURATION_MS = 1100;  /* 射撃イベントの受信遅延を吸収する長めの保持時間 */
-
+var REMOTE_MOVING_THRESHOLD = 0.012;
+var SHOOTING_FLAG_DURATION_MS = 1100;
 function getRemoteLastShotAt(id, av){
   var t1 = av && av.userData ? (av.userData._lastShotAt || 0) : 0;
   var t2 = remoteShotMarks[id] || 0;
@@ -2234,7 +1775,6 @@ function getRemoteLastShotAt(id, av){
   var t4 = roomPlayers[id] && roomPlayers[id]._lastShotAt ? roomPlayers[id]._lastShotAt : 0;
   return Math.max(t1, t2, t3, t4);
 }
-
 function getRemoteShotSeq(id, av){
   var s1 = av && av.userData ? Number(av.userData._lastShotSeq || 0) : 0;
   var s2 = Number(remoteShotSeq[id] || 0);
@@ -2242,7 +1782,6 @@ function getRemoteShotSeq(id, av){
   var s4 = roomPlayers[id] && Number(roomPlayers[id].shotSeq || roomPlayers[id]._lastShotSeq || 0) || 0;
   return Math.max(s1, s2, s3, s4);
 }
-
 function getRemoteLastShotAt(id, av){
   var t1 = av && av.userData ? Number(av.userData._lastShotAt || 0) : 0;
   var t2 = Number(remoteShotAt[id] || 0);
@@ -2250,33 +1789,27 @@ function getRemoteLastShotAt(id, av){
   var t4 = roomPlayers[id] && Number(roomPlayers[id]._lastShotAt || 0) || 0;
   return Math.max(t1, t2, t3, t4);
 }
-
 function forceUpdateRemoteAvatarAnimation(id, forceRestart){
   if(socket&&id===socket.id)return;
   var av=remoteAvatars.get(id);
   if(!av||!av.userData)return;
   var p=remoteStates[id]||roomPlayers[id];
   if(!p)return;
-
   var nx=Number(p.x)||0, nz=Number(p.z)||0;
   var prevX=Number.isFinite(av.userData._prevX)?av.userData._prevX:nx;
   var prevZ=Number.isFinite(av.userData._prevZ)?av.userData._prevZ:nz;
   var movedDist=Math.hypot(nx-prevX,nz-prevZ);
   var isMoving=movedDist>REMOTE_MOVING_THRESHOLD;
-
   var nowMs=performance.now();
   var lastShotSeq=getRemoteShotSeq(id,av);
   var lastShotAt=getRemoteLastShotAt(id,av);
   if(lastShotSeq && !av.userData._lastShotSeq) av.userData._lastShotSeq = lastShotSeq;
   if(lastShotAt && !av.userData._lastShotAt) av.userData._lastShotAt = lastShotAt;
-
   var isShooting = lastShotAt > 0 && nowMs < (lastShotAt + SHOOTING_FLAG_DURATION_MS);
   var restart = !!forceRestart || (lastShotSeq > (av.userData._lastShotAppliedSeq || 0));
   if (restart) av.userData._lastShotAppliedSeq = lastShotSeq;
-
   updateAvatarAnimationMode(av,isMoving,isShooting,restart);
 }
-
 function markAvatarShooting(id, shotSeq, shotAt){
   if(!id) return;
   var now = performance.now();
@@ -2284,14 +1817,12 @@ function markAvatarShooting(id, shotSeq, shotAt){
   if(Number.isFinite(shotSeq) && shotSeq > 0){
     remoteShotSeq[id] = Math.max(remoteShotSeq[id] || 0, shotSeq);
   }
-
   var av = remoteAvatars.get(id);
   if (av && av.userData) {
     av.userData._lastShotAt = now;
     av.userData._lastShotSeq = remoteShotSeq[id] || av.userData._lastShotSeq || 0;
     av.userData._lastShotAppliedSeq = 0; // 次回必ず再生し直す
   }
-
   if (remoteStates[id]) {
     remoteStates[id]._lastShotAt = now;
     remoteStates[id]._lastShotSeq = remoteShotSeq[id] || remoteStates[id]._lastShotSeq || 0;
@@ -2302,38 +1833,28 @@ function markAvatarShooting(id, shotSeq, shotAt){
     roomPlayers[id]._lastShotSeq = remoteShotSeq[id] || roomPlayers[id]._lastShotSeq || 0;
     if (Number.isFinite(shotAt)) roomPlayers[id]._serverShotAt = shotAt;
   }
-
   forceUpdateRemoteAvatarAnimation(id, true);
-
-  // モデル生成・同期の順番が前後しても拾えるよう、次フレームでも再評価する
   requestAnimationFrame(function(){ forceUpdateRemoteAvatarAnimation(id, true); });
   setTimeout(function(){ forceUpdateRemoteAvatarAnimation(id, true); }, 120);
 }
-
 function updateRemotePlayersFromState(){
   var ids={};
   Object.keys(roomPlayers||{}).forEach(function(id){ids[id]=true;});
   Object.keys(remoteStates||{}).forEach(function(id){ids[id]=true;});
-
   Object.keys(ids).forEach(function(id){
     if(socket&&id===socket.id)return;
     var p=remoteStates[id]||roomPlayers[id]; if(!p)return;
-
     var av=ensureAvatar(id,p.team||TEAM_BLUE,p.name||id);
-
     var nx=Number(p.x)||0, nz=Number(p.z)||0;
     var prevX=Number.isFinite(av.userData._prevX)?av.userData._prevX:nx;
     var prevZ=Number.isFinite(av.userData._prevZ)?av.userData._prevZ:nz;
     var movedDist=Math.hypot(nx-prevX,nz-prevZ);
     av.userData._prevX=nx; av.userData._prevZ=nz;
-
     av.position.set(nx,0,nz);
     av.rotation.y=Number(p.ry)||0;
     av.visible=p.alive!==false;
-
     ensureNameTag(av,p.name||id,p.team||TEAM_BLUE);
     updateAvatarHPBar(av,Number.isFinite(p.hp)?p.hp:100);
-
     var isMoving = movedDist > REMOTE_MOVING_THRESHOLD;
     var nowMs = performance.now();
     var lastShotSeq = getRemoteShotSeq(id, av);
@@ -2343,23 +1864,19 @@ function updateRemotePlayersFromState(){
     var isShooting = lastShotAt > 0 && nowMs < (lastShotAt + SHOOTING_FLAG_DURATION_MS);
     var restart = isShooting && lastShotSeq > (av.userData._lastShotAppliedSeq || 0);
     if (restart) av.userData._lastShotAppliedSeq = lastShotSeq;
-
     updateAvatarAnimationMode(av, isMoving, isShooting, restart);
   });
-
   remoteAvatars.forEach(function(_,id){
     if(socket&&id===socket.id)return;
     if(!ids[id])removeAvatar(id);
   });
 }
-
 function updateSendLoop(dt){
   if(!socket||!socket.connected||gameMode!==GAME_MODE.BATTLE)return;
   if(!player.alive)return;
   sendTimer+=dt*1000;
   if(sendTimer>=SEND_HZ){sendTimer=0;socket.emit('playerMovement',{room:currentRoom,name:PLAYER_NAME,team:player.team,x:camera.position.x,y:camera.position.y,z:camera.position.z,ry:yaw,alive:player.alive,hp:player.hp});}
 }
-
 function checkLocalShotHit(origin,dir){
   var MAX_RANGE=60;
   var end=origin.clone().addScaledVector(dir,MAX_RANGE);
@@ -2388,7 +1905,6 @@ function applyLocalShotHit(hitInfo,point){
   var u=hitInfo.unit; if(!u||!u.alive)return;
   flashKillFx(point); addKillFeed('💥 AI HIT!'); showKillAnnouncement('HIT!');
 }
-
 function fireOnce(){
   if(gameMode!==GAME_MODE.BATTLE||matchOver||!player.alive||reloading||ammo<=0)return;
   if(performance.now()-lastShotTime<FIRE_INTERVAL*900)return;
@@ -2421,7 +1937,6 @@ function fireOnce(){
     socket.emit('playerShot',{room:currentRoom,ox:rayOrigin.x,oy:rayOrigin.y,oz:rayOrigin.z,dx:dir.x,dy:dir.y,dz:dir.z,team:player.team||TEAM_BLUE,shotSeq:(lastShotTime||0),shotAt:Date.now()});
   }
 }
-
 function updateBullets(dt){
   var myId=socket&&socket.id?socket.id:'local';
   for(var i=bullets.length-1;i>=0;i--){
@@ -2444,7 +1959,6 @@ function updateBullets(dt){
     }else if(Math.abs(b.pos.x)>MAP_BORDER+2||Math.abs(b.pos.z)>MAP_BORDER+2){b.dead=true;if(b.mesh&&b.mesh.parent)b.mesh.parent.remove(b.mesh);b.mesh=null;bullets.splice(i,1);}
   }
 }
-
 function enterSpectate(){player.spectating=true;gameMode=GAME_MODE.SPECTATE;setModeUI();spectateTargetId='';spectateOverlay.style.display='block';if(gunRoot)gunRoot.visible=false;}
 function getSpectateTargetState(){
   var sid=spectateTargetId;
@@ -2483,11 +1997,9 @@ function spawnRemoteShotFX(data){
   var origin=new T.Vector3(Number(data.ox??data.x)||0,Number(data.oy??data.y)||1.6,Number(data.oz??data.z)||0);
   makeBulletFxLine(origin,dir,0xffb1b1,90); playGunSound(true);
 }
-
 function handleRoomPlayers(data){if(!data||!data.room||data.room!==currentRoom)return;roomPlayers=data.players||{};Object.keys(roomPlayers).forEach(function(id){applyRemoteState(id,roomPlayers[id]);});if(inWaiting&&gameMode===GAME_MODE.WAITING)updateWaitingUI();updateWaitingLaunchBtn();}
 function setServerScore(data){if(!data)return;if(Number.isFinite(data.blue))blueScore=data.blue;if(Number.isFinite(data.red))redScore=data.red;if(Number.isFinite(data.round))roundIndex=data.round;updateScoreUI();}
 function buildLocalPlayerStateForJoin(){return{room:currentRoom,name:PLAYER_NAME,team:player.team||TEAM_BLUE,x:camera.position.x,y:camera.position.y,z:camera.position.z,ry:yaw,alive:player.alive,hp:player.hp,maxHp:player.maxHp};}
-
 function startRandomCountdown(){
   randomCountdownSec=RANDOM_MATCH_WAIT; randomCountdownWrap.style.display='block';
   randomCountdownNum.textContent=String(randomCountdownSec); randomCountdownFill.style.width='100%';
@@ -2509,7 +2021,6 @@ function forceStartRandomBattle(){
   }
   socket.emit('request-start-match',{room:currentRoom,isRandom:true});
 }
-
 function enterRoom(){
   var num=getRoomInput(); if(num.length!==4)return;
   unlockAudio(); currentRoom=num; roomPlayers={};inWaiting=true;roomStarted=false;isRandomMatch=false;battleBeginLock=false;
@@ -2531,7 +2042,6 @@ function leaveWaiting(){
   currentRoom='';gameMode=GAME_MODE.LOBBY;setModeUI();setRoomInputValid();
 }
 function startBattleFromLobby(){if(!socket||!socket.connected||!currentRoom)return;socket.emit('request-start-match',{room:currentRoom});syncRoundStateToRoom({phase:GAME_MODE.LOADING});}
-
 function beginBattle(data){
   if(battleBeginLock)return; battleBeginLock=true; stopRandomCountdown();
   roomStarted=true;inWaiting=false;gameMode=GAME_MODE.LOADING;setModeUI();
@@ -2560,18 +2070,12 @@ function startRound(data){
   }
   syncRoundStateToRoom();
 }
-
-/* =============================================
-   ランクXP計算
-   勝利: +18XP, 敗北: -6XP, ラウンドボーナス: +4XP/round
-   ============================================= */
 function computeMatchRankDelta(didWin, roundsWon) {
   if (matchMode !== 'ranked') return 0;
   var base = didWin ? RANK_WIN_XP : RANK_LOSS_XP;
   var bonus = Math.round((roundsWon || 0) * RANK_ROUND_BONUS);
   return base + bonus;
 }
-
 function showFinalResultByServer(data){
   if(resultShown)return;
   resultShown=true;
@@ -2580,10 +2084,8 @@ function showFinalResultByServer(data){
   gameMode=GAME_MODE.RESULT;
   setModeUI();
   resultOverlay.style.display='flex';
-
   var winnerTeam=(data&&data.winner)?data.winner:(blueScore>=WIN_SCORE?TEAM_BLUE:TEAM_RED);
   var didWin=(player.team||TEAM_BLUE)===winnerTeam;
-
   var myStats=null;
   if(data&&data.players&&socket&&socket.id&&data.players[socket.id]){myStats=data.players[socket.id];}
   var kills=myStats?(Number(myStats.kills)||0):0;
@@ -2593,16 +2095,13 @@ function showFinalResultByServer(data){
   resultDeathsEl.textContent=String(deaths);
   resultKdrEl.textContent=kdr.toFixed(2);
   resultFinalScoreEl.textContent=(Number.isFinite(data&&data.blue)?data.blue:blueScore)+' - '+(Number.isFinite(data&&data.red)?data.red:redScore);
-
   var beforeInfo = getRankInfo(rankXp);
   var myRoundsWon = didWin ? (Number.isFinite(data&&data.blue)?data.blue:blueScore) : 0;
   var delta = computeMatchRankDelta(didWin, myRoundsWon);
   if(delta!==0) addRankXp(delta);
   var afterInfo = getRankInfo(rankXp);
-
   updateResultPresentation(winnerTeam, didWin, beforeInfo, afterInfo, delta);
   resultOverlay.classList.add(didWin ? 'win' : 'lose');
-
   setTimeout(function(){
     if(socket&&socket.connected&&currentRoom)socket.emit('leave-room',{room:currentRoom,name:PLAYER_NAME});
     currentRoom='';inWaiting=false;roomStarted=false;isRandomMatch=false;battleBeginLock=false;
@@ -2613,7 +2112,6 @@ function showFinalResultByServer(data){
     loadingOverlay.style.display='none';resultOverlay.style.display='none';updateScoreUI();updatePlayerHPUI();updateAmmoUI();clearAllAvatars();joinLobbyUIReset();
   },7000);
 }
-
 function showResultFromMatchFinished(data){
   if(data&&data.room&&currentRoom&&data.room!==currentRoom)return;
   if(data&&data.final===false)return;
@@ -2622,11 +2120,8 @@ function showResultFromMatchFinished(data){
   if(Number.isFinite(data.roundIndex))roundIndex=data.roundIndex;
   updateScoreUI();showFinalResultByServer(data||{});
 }
-
 function updateRoundIfEnded(){}
 function updateRoundTimer(dt){}
-
-/* Socket.IO */
 function initSocket(){
   if(typeof io!=='function'){setNetBadge('offline','🔴 Socket未接続');return;}
   setNetBadge('connecting','🟡 接続中.');
@@ -2690,7 +2185,6 @@ function initSocket(){
     markAvatarShooting(id, d.shotSeq, d.shotAt || d.lastShotAt);
     updateRemotePlayersFromState();
   });
-
   socket.on('damage-result',function(d){
     if(!d||(d.room&&currentRoom&&d.room!==currentRoom))return;
     if(d.targetType==='human'){
@@ -2724,7 +2218,6 @@ function initSocket(){
     if(!d||(d.room&&currentRoom&&d.room!==currentRoom))return;
     if(d.targetType==='human'&&!(socket&&d.targetId===socket.id)){addKillFeed('💥 KILL!');showKillAnnouncement('KILL!');}
   });
-
   socket.on('round-ended',function(data){
     if(!data||(data.room&&currentRoom&&data.room!==currentRoom))return;
     if(Number.isFinite(data.blue))blueScore=data.blue;
@@ -2775,7 +2268,6 @@ function initSocket(){
     if(Number.isFinite(data&&data.roundIndex))roundIndex=data.roundIndex;
     if(!battleBeginLock){ beginBattle(data||{}); syncRoundStateToRoom({phase:GAME_MODE.LOADING}); }
   });
-
   function handleServerRoundRestart(data){
     if(data&&data.room&&currentRoom&&data.room!==currentRoom)return;
     if(matchOver||resultShown||gameMode===GAME_MODE.RESULT||gameMode===GAME_MODE.LOBBY)return;
@@ -2810,8 +2302,6 @@ function initSocket(){
   socket.on('matchFinished',function(data){if(data&&data.room&&currentRoom&&data.room!==currentRoom)return;showResultFromMatchFinished(data||{});});
   socket.on('match-start-cancelled',function(data){if(data&&data.room&&currentRoom&&data.room!==currentRoom)return;battleBeginLock=false;roomStarted=false;if(inWaiting){gameMode=GAME_MODE.WAITING;setModeUI();updateWaitingUI();}});
 }
-
-/* キーボード / マウス / タッチ */
 canvas.addEventListener('click',function(){if(gameMode===GAME_MODE.BATTLE&&!portraitMode&&!mouseLocked)canvas.requestPointerLock();});
 document.addEventListener('pointerlockchange',function(){mouseLocked=(document.pointerLockElement===canvas);});
 document.addEventListener('mousemove',function(e){if(!mouseLocked||gameMode!==GAME_MODE.BATTLE)return;yaw-=e.movementX*0.0028;pitch-=e.movementY*0.0028;pitch=clamp(pitch,-(Math.PI/2-0.04),Math.PI/2-0.04);});
@@ -2827,7 +2317,6 @@ joystickContainer.addEventListener('pointerup',function(e){if(joyTouchId!==e.poi
 joystickContainer.addEventListener('pointercancel',function(e){if(joyTouchId!==e.pointerId)return;joyTouchId=null;joy.x=0;joy.y=0;knobEl.style.left='50%';knobEl.style.top='50%';});
 function updateJoystickVisual(){var rect=joystickContainer.getBoundingClientRect();var max=rect.width*0.32;knobEl.style.left=(50+joy.x*50*(max/(rect.width/2)))+'%';knobEl.style.top=(50+joy.y*50*(max/(rect.height/2)))+'%';}
 function updateKeyboardInput(){if(gameMode!==GAME_MODE.BATTLE)return;var jx=0,jy=0;if(keys['KeyW']||keys['ArrowUp'])jy=-1;if(keys['KeyS']||keys['ArrowDown'])jy=1;if(keys['KeyA']||keys['ArrowLeft'])jx=-1;if(keys['KeyD']||keys['ArrowRight'])jx=1;if((jx||jy)&&joyTouchId===null){joy.x=jx;joy.y=jy;}else if(joyTouchId===null){joy.x=0;joy.y=0;}}
-
 var lastShootTouchAt=0;
 function handleShootDown(e){e.preventDefault();e.stopPropagation();unlockAudio();if(gameMode!==GAME_MODE.BATTLE)return;firingHeld=true;fireOnce();if(!fireLoopTimer)fireLoopTimer=setInterval(function(){if(!firingHeld){clearInterval(fireLoopTimer);fireLoopTimer=null;return;}fireOnce();},Math.max(30,FIRE_INTERVAL*1000));}
 shootButton.addEventListener('pointerdown',function(e){if(e.pointerType==='touch'&&(Date.now()-lastShootTouchAt)<140)return;handleShootDown(e);});
@@ -2851,7 +2340,6 @@ roomInput.addEventListener('keydown',function(e){if(e.key==='Enter'&&!lobbyStart
 window.addEventListener('resize',function(){camera.aspect=window.innerWidth/window.innerHeight;camera.updateProjectionMatrix();renderer.setSize(window.innerWidth,window.innerHeight,false);});
 window.addEventListener('gesturestart',function(e){if(gameMode===GAME_MODE.BATTLE)e.preventDefault();},{passive:false});
 window.addEventListener('gesturechange',function(e){if(gameMode===GAME_MODE.BATTLE)e.preventDefault();},{passive:false});
-
 function updateGun(dt){
   if(!gunRoot)return;
   gunState.recoil=T.MathUtils.lerp(gunState.recoil,0,1-Math.exp(-(adsActive?22:16)*dt));
@@ -2870,10 +2358,7 @@ function updateGun(dt){
   gunRoot.rotation.set(0,0,-r*0.07);
 }
 function triggerRecoil(){gunState.recoil=Math.min(1.0,gunState.recoil+(adsActive?0.035:0.10));}
-
-/* マップ定義 */
 var currentMapId = 'arena';
-
 var MAP_DEFS = {
   arena: {
     name: 'NEON ARENA',
@@ -2914,12 +2399,10 @@ var MAP_DEFS = {
     spawns:{blue:[{x:-33,z:-15},{x:-33,z:0},{x:-33,z:15},{x:-33,z:-30}],red:[{x:33,z:15},{x:33,z:0},{x:33,z:-15},{x:33,z:30}]}
   }
 };
-
 function getSpawnPointsForMap(mapId,team){
   var def=MAP_DEFS[mapId]||MAP_DEFS.arena;
   return (def.spawns&&def.spawns[team])?def.spawns[team]:MAP_DEFS.arena.spawns[team];
 }
-
 function buildMap(mapId){
   currentMapId=MAP_DEFS[mapId]?mapId:'arena';
   var def=MAP_DEFS[currentMapId];
@@ -2950,7 +2433,6 @@ function buildMap(mapId){
   });
   var sky=new T.GridHelper(72,8,0x7eb6ff,0x223355); sky.position.y=10.2; sky.material.opacity=0.20; sky.material.transparent=true; sky.userData.isMapDecor=true; scene.add(sky);
 }
-
 function rebuildMapIfNeeded(mapId){
   if(!mapId||mapId===currentMapId)return;
   if(!MAP_DEFS[mapId])return;
@@ -2962,7 +2444,6 @@ function rebuildMapIfNeeded(mapId){
   }
   buildMap(mapId);
 }
-
 function animate(){
   requestAnimationFrame(animate);
   var dt=Math.min(clock.getDelta(),0.034);
@@ -2979,7 +2460,6 @@ function animate(){
   if(gunRoot&&gameMode===GAME_MODE.BATTLE)gunPosTarget.copy(adsActive?gunPosAds:gunPosNormal);
   renderer.render(scene,camera);
 }
-
 function init(){
   loadRank();setMatchMode('ranked',false);updateRankUI();updateScoreUI();updateAmmoUI();updatePlayerHPUI();updateOrientationUI();
   buildMap('arena');gameMode=GAME_MODE.LOBBY;camera.position.set(0,16,33);camera.lookAt(0,0,0);
@@ -2989,7 +2469,4 @@ function init(){
     initSocket();animate();
 }
 init();
-})();
-</script>
-</body>
-</html>
+})();</script></div></body></html>

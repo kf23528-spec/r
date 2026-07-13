@@ -527,6 +527,8 @@ var REMOTE_GUN_SOCKET_POS = new T.Vector3(0.20, -0.10, 0.12);
 var REMOTE_GUN_SOCKET_ROT = new T.Euler(-0.18, 1.60, -0.22);
 var REMOTE_GUN_SOCKET_SCALE = 0.86;
 var REMOTE_GUN_MODEL_SCALE = 0.72;
+var AI_MODEL_YAW_OFFSET = Math.PI;
+function getAIVisualYaw(unit){ return (Number(unit && unit.yaw) || 0) + AI_MODEL_YAW_OFFSET; }
 var BULLET_GEOMETRY   = new T.SphereGeometry(0.045,8,8);
 var BULLET_MAT_LOCAL  = new T.MeshStandardMaterial({color:0xffffff,emissive:0x88e8ff,emissiveIntensity:2.0,transparent:true,opacity:0.92});
 var BULLET_MAT_REMOTE = new T.MeshStandardMaterial({color:0xffa5a5,emissive:0xff5555,emissiveIntensity:2.5,transparent:true,opacity:0.92});
@@ -1574,7 +1576,8 @@ function aiCanSee(unit,targetPos){
 function damageEntityFromAI(unit,target,dist,nowSec){
   if(nowSec<unit.lastShotAt+0.45)return;
   unit.lastShotAt=nowSec; unit.fireCooldown=nowSec+0.7+unit.rng()*1.1;
-  var origin=new T.Vector3(unit.x,PLAYER_HEIGHT,unit.z).add(new T.Vector3(Math.sin(unit.yaw)*0.55,0.22,Math.cos(unit.yaw)*0.55));
+  var ayaw = getAIVisualYaw(unit);
+  var origin=new T.Vector3(unit.x,PLAYER_HEIGHT,unit.z).add(new T.Vector3(Math.sin(ayaw)*0.55,0.22,Math.cos(ayaw)*0.55));
   var tPos=new T.Vector3(target.pos.x,PLAYER_HEIGHT,target.pos.z);
   var dir=tPos.clone().sub(origin).normalize();
   playGunSound(true); makeBulletFxLine(origin,dir,unit.team===TEAM_RED?0xffa0a0:0xa0cfff,90);
@@ -1669,7 +1672,7 @@ function updateAIUnit(unit,dt,nowSec){
   }
   unit.x=resolved.x; unit.z=resolved.z;
   unit.avatar.position.set(unit.x,0,unit.z);
-  unit.avatar.rotation.y=unit.yaw;
+  unit.avatar.rotation.y=getAIVisualYaw(unit);
   unit.avatar.visible=true;
   updateAvatarHPBar(unit.avatar,unit.hp);
   var aiIsMoving = mag2 > 0.05;
@@ -1727,7 +1730,7 @@ function resetAIForRound(){
     u.stuckTimer=0;u.lastCheckPos={x:u.x,z:u.z};u.unstuckDir=null;u.unstuckUntil=0;
     if(u.avatar){
       u.avatar.visible=true;u.avatar.position.set(u.x,0,u.z);
-      u.avatar.rotation.y=u.yaw;ensureNameTag(u.avatar,'AI',u.team);
+      u.avatar.rotation.y=getAIVisualYaw(u);ensureNameTag(u.avatar,'AI',u.team);
       updateAvatarHPBar(u.avatar,u.hp);
       u.avatar.userData._animMode = 'none';
       updateAvatarAnimationMode(u.avatar, false, false);
@@ -1982,13 +1985,13 @@ function getSpectateTargetState(){
     for(var i=0;i<aiUnits.length;i++){
       var u=aiUnits[i]; if(!u||!u.alive)continue;
       if(preferTeam&&player.team&&u.team!==player.team)continue;
-      if(!best)best={kind:'ai',id:u.id,x:u.x,z:u.z,ry:u.yaw||0,name:'AI',team:u.team};
+      if(!best)best={kind:'ai',id:u.id,x:u.x,z:u.z,ry:getAIVisualYaw(u),name:'AI',team:u.team};
     } return best;
   }
   if(sid){
     var rp=roomPlayers[sid];
     if(rp&&alivePlayer(rp))return{kind:'player',id:sid,x:Number(rp.x)||0,z:Number(rp.z)||0,ry:Number(rp.ry)||0,name:rp.name||sid,team:rp.team||TEAM_BLUE};
-    for(var i=0;i<aiUnits.length;i++){var su=aiUnits[i];if(su&&su.id===sid&&su.alive)return{kind:'ai',id:sid,x:su.x,z:su.z,ry:su.yaw||0,name:'AI',team:su.team};}
+    for(var i=0;i<aiUnits.length;i++){var su=aiUnits[i];if(su&&su.id===sid&&su.alive)return{kind:'ai',id:sid,x:su.x,z:su.z,ry:getAIVisualYaw(su),name:'AI',team:su.team};}
   }
   return pickFromPlayers(true)||pickFromPlayers(false)||pickFromAI(true)||pickFromAI(false)||null;
 }

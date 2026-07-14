@@ -279,7 +279,7 @@ var RANK_KEY = 'arena_rank_v9';
 var SEND_HZ = 50;
 var MATCH_PLAYER_MIN = 2;
 var MAX_PLAYERS = 8;
-var MAP_BORDER = 100.0;
+var MAP_BORDER = 92.0;
 var PLAYER_RADIUS = 0.42;
 var PLAYER_HEIGHT = 1.6;
 var BULLET_SPEED = 85;
@@ -781,90 +781,61 @@ var buildingPlacements = [
 ];
 
 
-function makePlacementFallbackByKey(key){
-  switch(key){
-    case 'b1': return makeFallbackBuilding({fallback:{size:[7.6, 9.8, 21.0], color:0x404852, accent:0x5a6673}});
-    case 'b2': return makeFallbackBuilding({fallback:{size:[9.0, 10.8, 10.5], color:0x6b7b88, accent:0x8ea0ad}});
-    case 'b3': return makeFallbackBuilding({fallback:{size:[10.8, 6.2, 5.4], color:0x55606c, accent:0x78828f}});
-    case 'car': return makeFallbackBuilding({fallback:{size:[2.1, 1.8, 5.2], color:0x2d3c50, accent:0x6f7f95}});
-    case 'b4': return makeFallbackBuilding({fallback:{size:[10.6, 6.2, 5.4], color:0x5f6f7d, accent:0x8fa0b1}});
-    case 'b5': return makeFallbackBuilding({fallback:{size:[7.8, 1.2, 7.8], color:0x445a63, accent:0x7fa0ad}});
-    default: return makeFallbackBuilding({fallback:{size:[8.0, 7.0, 8.0], color:0x55606c, accent:0x7a8795}});
-  }
-}
+function generateDenseBuildingPlacements(){
+  var placements = [];
+  var xs = [-80, -64, -48, -32, -16, 16, 32, 48, 64, 80];
+  var zs = [-80, -64, -48, -32, -16, 16, 32, 48, 64, 80];
+  var keys = ['b5', 'b4', 'b1', 'b2', 'car', 'b3', 'b5', 'b1', 'b2', 'b4'];
+  for(var zi = 0; zi < zs.length; zi++){
+    for(var xi = 0; xi < xs.length; xi++){
+      var x = xs[xi];
+      var z = zs[zi];
+      if(Math.abs(x) > 24) x += (zi % 2 === 0 ? -2.5 : 2.5);
+      if(Math.abs(z) > 24) z += (xi % 2 === 0 ? 2.0 : -2.0);
+      var edge = Math.abs(x) >= 64 || Math.abs(z) >= 64;
+      var key = keys[(xi + zi * 3) % keys.length];
+      var yRot = (((xi * 0.71) + (zi * 0.39)) % (Math.PI * 2)) - Math.PI;
+      var spec = {
+        key: key,
+        x: x,
+        z: z,
+        yRot: yRot
+      };
 
-function makeUrbanPlacements(){
-  var arr = [];
-  var xs = [-80, -64, -48, -32, -16, 0, 16, 32, 48, 64, 80];
-  var zs = [-72, -56, -40, -24, -8, 8, 24, 40, 56, 72];
-  var giant = {
-    '0,2':1, '0,8':1,
-    '9,2':1, '9,8':1,
-    '2,0':1, '7,0':1,
-    '2,10':1, '7,10':1
-  };
-
-  function push(key, x, z, yRot, scale, colliderScale, colliderScaleY){
-    arr.push({
-      key: key,
-      fallback: makePlacementFallbackByKey(key),
-      x: x,
-      z: z,
-      yRot: yRot,
-      scale: scale,
-      colliderScale: colliderScale,
-      colliderScaleY: colliderScaleY
-    });
-  }
-
-  for(var r = 0; r < zs.length; r++){
-    for(var c = 0; c < xs.length; c++){
-      if((c === 5 && r % 2 === 0) || (r === 4 && c % 2 === 1)) continue;
-
-      var x = xs[c] + ((((r * 13) + (c * 7)) % 5) - 2) * 0.36;
-      var z = zs[r] + ((((r * 5) + (c * 11)) % 5) - 2) * 0.36;
-      var yRot = (((r + c) % 4) * Math.PI * 0.5) + ((((r * c) % 2) ? 0.18 : -0.12));
-
-      var key, scale, colliderScale, colliderScaleY;
-
-      if(giant[r + ',' + c]){
-        key = 'b5';
-        scale = 50.0;
-        colliderScale = 0.66;
-        colliderScaleY = 0.72;
-      }else if(r === 0 || r === zs.length - 1 || c === 0 || c === xs.length - 1){
-        key = ((r + c) % 3 === 0) ? 'b4' : 'b2';
-        scale = (key === 'b4') ? 0.00086 : 1.26;
-        colliderScale = 0.90;
-        colliderScaleY = 0.92;
-      }else if(r === 1 || r === zs.length - 2 || c === 1 || c === xs.length - 2){
-        var edgeCycle = ['b1','b2','b3','car','b4'];
-        key = edgeCycle[(r * 3 + c * 5) % edgeCycle.length];
-        scale = key === 'b1' ? 0.00102 : key === 'b2' ? 1.18 : key === 'b3' ? 0.30 : key === 'car' ? 0.74 : 0.00084;
-        colliderScale = key === 'car' ? 0.86 : 0.88;
-        colliderScaleY = key === 'car' ? 0.84 : 0.90;
-      }else if(c === 5 || r === 4){
-        var axisCycle = ['b1','b3','car','b2'];
-        key = axisCycle[(r + c) % axisCycle.length];
-        scale = key === 'b1' ? 0.00100 : key === 'b2' ? 1.14 : key === 'b3' ? 0.28 : 0.70;
-        colliderScale = key === 'car' ? 0.84 : 0.86;
-        colliderScaleY = key === 'car' ? 0.82 : 0.88;
+      if(key === 'b5'){
+        spec.fallback = { size: [7.8, 1.2, 7.8], color: 0x445a63, accent: 0x7fa0ad };
+        spec.scale = edge ? (50 + ((xi + zi) % 4) * 2) : (46 + ((xi + zi) % 5) * 2);
+        spec.colliderScale = 0.70;
+        spec.colliderScaleY = 0.82;
+      }else if(key === 'b4'){
+        spec.fallback = { size: [10.6, 6.2, 5.4], color: 0x5f6f7d, accent: 0x8fa0b1 };
+        spec.scale = 0.00084 + ((xi + zi) % 4) * 0.00007;
+        spec.colliderScale = 0.88;
+      }else if(key === 'b1'){
+        spec.fallback = { size: [7.6, 9.8, 21.0], color: 0x404852, accent: 0x5a6673 };
+        spec.scale = 0.00102 + ((xi * 2 + zi) % 4) * 0.00005;
+        spec.colliderScale = 0.90;
+      }else if(key === 'b2'){
+        spec.fallback = { size: [9.0, 10.8, 10.5], color: 0x6b7b88, accent: 0x8ea0ad };
+        spec.scale = 1.10 + ((xi + zi) % 4) * 0.10;
+        spec.colliderScale = 0.90;
+      }else if(key === 'car'){
+        spec.fallback = { size: [2.1, 1.8, 5.2], color: 0x2d3c50, accent: 0x6f7f95 };
+        spec.scale = 0.68 + ((xi + zi) % 4) * 0.06;
+        spec.colliderScale = 0.84;
       }else{
-        var innerCycle = ['b1','b2','b3','b4','car','b1','b3'];
-        key = innerCycle[(r * 7 + c * 3) % innerCycle.length];
-        scale = key === 'b1' ? 0.00100 : key === 'b2' ? 1.20 : key === 'b3' ? 0.31 : key === 'car' ? 0.72 : 0.00084;
-        colliderScale = key === 'car' ? 0.82 : 0.88;
-        colliderScaleY = key === 'car' ? 0.82 : 0.88;
+        spec.fallback = { size: [10.8, 6.2, 5.4], color: 0x55606c, accent: 0x78828f };
+        spec.scale = 0.24 + ((xi + zi) % 5) * 0.02;
+        spec.colliderScale = 0.88;
       }
 
-      push(key, x, z, yRot, scale, colliderScale, colliderScaleY);
+      placements.push(spec);
     }
   }
-
-  return arr;
+  return placements;
 }
 
-var buildingInstancePlacements = makeUrbanPlacements();
+var buildingInstancePlacements = generateDenseBuildingPlacements();
 
 
 function getMapTemplateForKey(key){
@@ -3166,7 +3137,7 @@ function buildMap(mapId){
   scene.fog = new T.FogExp2(def.floorColor,0.008);
 
   var floorMat=new T.MeshStandardMaterial({color:def.floorColor,roughness:1.0,metalness:0.0});
-  var floor=new T.Mesh(new T.PlaneGeometry(240,240),floorMat);
+  var floor=new T.Mesh(new T.PlaneGeometry(220,220),floorMat);
   floor.rotation.x=-Math.PI/2;
   floor.receiveShadow=true;
   floor.userData.isMapDecor=true;
@@ -3180,25 +3151,25 @@ function buildMap(mapId){
   scene.add(plaza);
 
   var roadMat=new T.MeshStandardMaterial({color:def.roadColor,roughness:0.98,metalness:0.02});
-  var roadA=new T.Mesh(new T.PlaneGeometry(24.0,240),roadMat);
+  var roadA=new T.Mesh(new T.PlaneGeometry(20.0,220),roadMat);
   roadA.rotation.x=-Math.PI/2;
   roadA.position.set(0,0.013,0);
   roadA.userData.isMapDecor=true;
   scene.add(roadA);
-  var roadB=new T.Mesh(new T.PlaneGeometry(240,24.0),roadMat);
+  var roadB=new T.Mesh(new T.PlaneGeometry(220,20.0),roadMat);
   roadB.rotation.x=-Math.PI/2;
   roadB.position.set(0,0.014,0);
   roadB.userData.isMapDecor=true;
   scene.add(roadB);
 
   var laneMat=new T.MeshStandardMaterial({color:def.laneColor,roughness:1.0,metalness:0.0});
-  var lane1=new T.Mesh(new T.PlaneGeometry(4.2,60),laneMat);
+  var lane1=new T.Mesh(new T.PlaneGeometry(5.2,72),laneMat);
   lane1.rotation.x=-Math.PI/2;
   lane1.position.set(-30,0.015,0);
   lane1.userData.isMapDecor=true;
   scene.add(lane1);
   var lane2=lane1.clone(); lane2.position.set(30,0.015,0); scene.add(lane2);
-  var lane3=new T.Mesh(new T.PlaneGeometry(60,4.2),laneMat);
+  var lane3=new T.Mesh(new T.PlaneGeometry(72,5.2),laneMat);
   lane3.rotation.x=-Math.PI/2;
   lane3.position.set(0,0.015,-30);
   lane3.userData.isMapDecor=true;
@@ -3207,10 +3178,10 @@ function buildMap(mapId){
 
   var curbMat=new T.MeshStandardMaterial({color:def.curbColor,roughness:0.90,metalness:0.06});
   [
-    [{s:[180,11.5,1.2],p:[0,5.75,-120.6]}],
-    [{s:[180,11.5,1.2],p:[0,5.75,120.6]}],
-    [{s:[1.2,11.5,180],p:[-120.6,5.75,0]}],
-    [{s:[1.2,11.5,180],p:[120.6,5.75,0]}]
+    [{s:[180,11.5,1.2],p:[0,5.75,-90.6]}],
+    [{s:[180,11.5,1.2],p:[0,5.75,90.6]}],
+    [{s:[1.2,11.5,180],p:[-90.6,5.75,0]}],
+    [{s:[1.2,11.5,180],p:[90.6,5.75,0]}]
   ].forEach(function(list){
     list.forEach(function(w){
       var m=new T.Mesh(new T.BoxGeometry(w.s[0],w.s[1],w.s[2]),curbMat);

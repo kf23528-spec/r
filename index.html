@@ -685,106 +685,113 @@ function escapeHtml(s){return String(s).replace(/[&<>"']/g,function(ch){return{'
 function getRoomInput(){return (roomInput.value||'').replace(/[^0-9]/g,'').slice(0,4);}
 function clampVecToMap(v){v.x=clamp(v.x,-MAP_BORDER,MAP_BORDER);v.z=clamp(v.z,-MAP_BORDER,MAP_BORDER);return v;}
 function isInteractiveTarget(el){return !!(el&&el.closest&&el.closest('button,input,textarea,select,label,a,#lobbyOverlay,#waitingOverlay,#loadingOverlay,#resultOverlay'));}
-function addColliderBox(x,y,z,w,h,d,mesh,box3){colliders.push({x:x,y:y,z:z,w:w,h:h,d:d,mesh:mesh||null,box3:box3||null});}
-
-function colliderToBoxData(b){
-  if(!b) return {x:0,y:0,z:0,w:0,h:0,d:0};
-  if(b.box3 && b.box3.min && b.box3.max){
-    var min = b.box3.min, max = b.box3.max;
-    return {
-      x:(min.x+max.x)*0.5,
-      y:(min.y+max.y)*0.5,
-      z:(min.z+max.z)*0.5,
-      w:Math.max(0.0001, max.x-min.x),
-      h:Math.max(0.0001, max.y-min.y),
-      d:Math.max(0.0001, max.z-min.z)
-    };
-  }
-  if(b.isBox3 && b.min && b.max){
-    return {
-      x:(b.min.x+b.max.x)*0.5,
-      y:(b.min.y+b.max.y)*0.5,
-      z:(b.min.z+b.max.z)*0.5,
-      w:Math.max(0.0001, b.max.x-b.min.x),
-      h:Math.max(0.0001, b.max.y-b.min.y),
-      d:Math.max(0.0001, b.max.z-b.min.z)
-    };
-  }
-  return b;
-}
+function addColliderBox(x,y,z,w,h,d,mesh){colliders.push({x:x,y:y,z:z,w:w,h:h,d:d,mesh:mesh||null});}
 
 
-var buildingTemplates = { b1:null, b2:null, b3:null, b4:null, b5:null };
+var building1Template = null;
+var building2Template = null;
+var building3Template = null;
+var building4Template = null;
+var building5Template = null;
 var carTemplate = null;
 var buildingTemplatesReady = { b1:false, b2:false, b3:false, b4:false, b5:false, car:false };
 var buildingLoadStarted = false;
+
 var buildingPlacements = [
   {
     key: 'b1',
     path: 'building1.glb',
     fallback: { size: [7.6, 9.8, 21.0], color: 0x404852, accent: 0x5a6673 },
-    x: -18.8,
-    z: -11.5,
-    yRot: 0.40,
-    targetHeight: 8.2,
-    pad: [10.2, 9.6, 20.0]
+    x: -20.5,
+    z: -8.0,
+    yRot: 0.22,
+    scale: 0.00108,
+    pad: [9.4, 10.8, 22.8],
+    colliderMode: 'mesh'
   },
   {
     key: 'b2',
     path: 'building2.glb',
     fallback: { size: [9.0, 10.8, 10.5], color: 0x6b7b88, accent: 0x8ea0ad },
-    x: 18.4,
-    z: -12.0,
-    yRot: -0.78,
-    targetHeight: 6.9,
-    pad: [10.0, 10.0, 11.0]
+    x: 17.5,
+    z: -16.5,
+    yRot: -1.18,
+    scale: 1.45,
+    pad: [10.5, 12.0, 12.0],
+    colliderMode: 'mesh'
   },
   {
     key: 'b3',
     path: 'building3.glb',
     fallback: { size: [10.8, 6.2, 5.4], color: 0x55606c, accent: 0x78828f },
-    x: 0.0,
-    z: 16.4,
-    yRot: Math.PI,
-    targetHeight: 5.6,
-    pad: [9.8, 6.2, 6.2]
+    x: 13.5,
+    z: 16.5,
+    yRot: 0.72,
+    scale: 0.28,
+    pad: [12.0, 7.2, 6.8],
+    colliderMode: 'mesh'
   },
   {
     key: 'b4',
     path: 'building4.glb',
-    fallback: { size: [9.8, 9.8, 9.8], color: 0x3f4956, accent: 0x667786 },
-    x: -18.2,
-    z: 14.4,
-    yRot: 1.55,
-    targetHeight: 7.2,
-    pad: [11.6, 8.0, 11.6]
+    fallback: { size: [8.2, 10.5, 9.2], color: 0x445160, accent: 0x607083 },
+    x: -22.0,
+    z: 17.0,
+    yRot: 1.56,
+    scale: 0.00036,
+    pad: [8.7, 10.9, 9.7],
+    colliderMode: 'mesh'
   },
   {
     key: 'b5',
     path: 'building5.glb',
-    fallback: { size: [8.6, 6.0, 8.6], color: 0x59626d, accent: 0x7d8792 },
-    x: 18.1,
-    z: 13.6,
-    yRot: -1.35,
-    targetHeight: 6.5,
-    pad: [10.8, 7.2, 10.8]
+    fallback: { size: [7.0, 3.8, 7.0], color: 0x50606c, accent: 0x6b7b88 },
+    x: 8.0,
+    z: -23.0,
+    yRot: 0.18,
+    scale: 0.085,
+    pad: [7.8, 4.4, 7.8],
+    colliderMode: 'mesh'
   }
 ];
 
-var buildingInstancePlacements = [
-  { key: 'b1', x: -18.8, z: -11.5, yRot: 0.40, targetHeight: 8.2, pad: [10.2, 9.6, 20.0] },
-  { key: 'b2', x: 18.4, z: -12.0, yRot: -0.78, targetHeight: 6.9, pad: [10.0, 10.0, 11.0] },
-  { key: 'b3', x: 0.0, z: 16.4, yRot: Math.PI, targetHeight: 5.6, pad: [9.8, 6.2, 6.2] },
-  { key: 'b4', x: -18.2, z: 14.4, yRot: 1.55, targetHeight: 7.2, pad: [11.6, 8.0, 11.6] },
-  { key: 'b5', x: 18.1, z: 13.6, yRot: -1.35, targetHeight: 6.5, pad: [10.8, 7.2, 10.8] }
-];
-
 var carPlacements = [
-  { x: -8.4, z: 4.0, yRot: 0.18, targetHeight: 1.35, pad: [3.8, 1.7, 2.1] },
-  { x: 6.6, z: -2.6, yRot: -1.55, targetHeight: 1.35, pad: [3.8, 1.7, 2.1] },
-  { x: 0.0, z: -18.0, yRot: 2.60, targetHeight: 1.35, pad: [3.8, 1.7, 2.1] }
+  {
+    key: 'car',
+    path: 'car.glb',
+    fallback: { size: [2.30, 1.00, 4.60], color: 0x7b838d, accent: 0x1b2027, glass: 0x8ec7ff },
+    x: -10.5,
+    z: -11.0,
+    yRot: 0.72,
+    scale: 1.0,
+    pad: [2.40, 1.15, 4.80],
+    colliderMode: 'root'
+  },
+  {
+    key: 'car',
+    path: 'car.glb',
+    fallback: { size: [2.30, 1.00, 4.60], color: 0x66717c, accent: 0x1b2027, glass: 0xa9d7ff },
+    x: 10.5,
+    z: 8.5,
+    yRot: -2.44,
+    scale: 1.0,
+    pad: [2.40, 1.15, 4.80],
+    colliderMode: 'root'
+  },
+  {
+    key: 'car',
+    path: 'car.glb',
+    fallback: { size: [2.30, 1.00, 4.60], color: 0x8a7f6d, accent: 0x24231f, glass: 0xa9d7ff },
+    x: 3.5,
+    z: -17.2,
+    yRot: 1.28,
+    scale: 1.0,
+    pad: [2.40, 1.15, 4.80],
+    colliderMode: 'root'
+  }
 ];
 
+var mapDecorPlacements = buildingPlacements.concat(carPlacements);
 
 function loadBuildingAssets(){
   if(buildingLoadStarted) return;
@@ -806,7 +813,11 @@ function loadBuildingAssets(){
             }
           }
         });
-        if(buildingTemplates.hasOwnProperty(spec.key)) buildingTemplates[spec.key] = sceneObj;
+        if(spec.key === 'b1') building1Template = sceneObj;
+        if(spec.key === 'b2') building2Template = sceneObj;
+        if(spec.key === 'b3') building3Template = sceneObj;
+        if(spec.key === 'b4') building4Template = sceneObj;
+        if(spec.key === 'b5') building5Template = sceneObj;
         if(spec.key === 'car') carTemplate = sceneObj;
         buildingTemplatesReady[spec.key] = true;
         console.log('[MAP] loaded', spec.path);
@@ -815,17 +826,21 @@ function loadBuildingAssets(){
       undefined,
       function(err){
         buildingTemplatesReady[spec.key] = true;
-        console.warn('[MAP] load failed:', spec.path, err);
+        if(spec.key === 'car'){
+          carTemplate = makeFallbackCar(spec);
+          console.warn('[MAP] car.glb missing, using fallback car:', err);
+        }else{
+          console.warn('[MAP] load failed:', spec.path, err);
+        }
         rebuildMapIfNeeded('arena', true);
       }
     );
   }
-  buildingPlacements.forEach(function(spec){ loadOne(spec); });
-  loadOne({ key:'car', path:'car.glb' });
+  buildingPlacements.forEach(loadOne);
+  carPlacements.forEach(loadOne);
 }
 
 function clearMapDecor(){
-
   colliders.forEach(function(c){if(c.mesh&&c.mesh.parent)c.mesh.parent.remove(c.mesh);});
   colliders.length = 0;
   for(var i=scene.children.length-1;i>=0;i--){
@@ -833,6 +848,7 @@ function clearMapDecor(){
     if(obj&&obj.userData&&obj.userData.isMapDecor){scene.remove(obj);}
   }
 }
+
 
 function makeFallbackBuilding(spec){
   var group = new T.Group();
@@ -861,102 +877,89 @@ function makeFallbackBuilding(spec){
   return group;
 }
 
-
-function placeBuildingTemplate(template, spec, fallback, alreadyAdded){
-  var root = template ? template.clone(true) : fallback.clone(true);
-  root.traverse(function(node){
-    if(node && node.isMesh){
-      node.castShadow = true;
-      node.receiveShadow = true;
-    }
-  });
-  root.scale.setScalar(spec.targetHeight ? 1 : 1);
-  root.position.set(spec.x, 0, spec.z);
-  root.updateMatrixWorld(true);
-
-  var box = new T.Box3().setFromObject(root);
-  if(!box.isEmpty()){
-    var size = new T.Vector3();
-    box.getSize(size);
-    var sc = (spec.targetHeight && size.y > 0.0001) ? (spec.targetHeight / size.y) : 1;
-    root.scale.setScalar(sc);
-    root.updateMatrixWorld(true);
-    box = new T.Box3().setFromObject(root);
-    root.position.y -= box.min.y;
-    root.updateMatrixWorld(true);
-    box = new T.Box3().setFromObject(root);
-    var center = new T.Vector3();
-    box.getCenter(center);
-    var pad = spec.pad || [Math.max(0.1, box.max.x - box.min.x) * 1.05, Math.max(1.0, box.max.y - box.min.y) * 1.03, Math.max(0.1, box.max.z - box.min.z) * 1.05];
-    var colliderMesh = new T.Mesh(
-      new T.BoxGeometry(pad[0], Math.max(1.0,pad[1]), pad[2]),
-      new T.MeshBasicMaterial({visible:false})
-    );
-    colliderMesh.position.copy(center);
-    colliderMesh.userData.isMapDecor = true;
-    scene.add(colliderMesh);
-    addColliderBox(center.x, center.y, center.z, pad[0], Math.max(1.0,pad[1]), pad[2], colliderMesh, box.clone());
-  }
-
-  root.userData.isMapDecor = true;
-  scene.add(root);
-  return root;
-}
-
 function makeFallbackCar(spec){
-  var g = new T.Group();
-  var bodyMat = new T.MeshStandardMaterial({color:0x9aa3ad,roughness:0.46,metalness:0.18});
-  var roofMat = new T.MeshStandardMaterial({color:0x202530,roughness:0.28,metalness:0.15});
-  var glassMat = new T.MeshStandardMaterial({color:0x7fc2ff,roughness:0.10,metalness:0.06,transparent:true,opacity:0.45});
+  var group = new T.Group();
+  var bodyColor = (spec.fallback && spec.fallback.color) || 0x7a8390;
+  var accentColor = (spec.fallback && spec.fallback.accent) || 0x1d2229;
+  var glassColor = (spec.fallback && spec.fallback.glass) || 0x93c8ff;
+  var bodyMat = new T.MeshStandardMaterial({color:bodyColor,roughness:0.55,metalness:0.18});
+  var accentMat = new T.MeshStandardMaterial({color:accentColor,roughness:0.90,metalness:0.04});
+  var glassMat = new T.MeshStandardMaterial({color:glassColor,roughness:0.20,metalness:0.05,transparent:true,opacity:0.60});
+  var size = spec.fallback.size;
+
+  var body = new T.Mesh(new T.BoxGeometry(size[0], size[1]*0.62, size[2]*0.68), bodyMat);
+  body.position.y = size[1]*0.34;
+  body.castShadow = true;
+  body.receiveShadow = true;
+  group.add(body);
+
+  var cabin = new T.Mesh(new T.BoxGeometry(size[0]*0.72, size[1]*0.44, size[2]*0.30), bodyMat);
+  cabin.position.set(0, size[1]*0.66, -size[2]*0.02);
+  cabin.castShadow = true;
+  cabin.receiveShadow = true;
+  group.add(cabin);
+
+  var windshield = new T.Mesh(new T.BoxGeometry(size[0]*0.63, size[1]*0.26, size[2]*0.03), glassMat);
+  windshield.position.set(0, size[1]*0.67, size[2]*0.14);
+  windshield.rotation.x = -0.12;
+  group.add(windshield);
+
+  var hood = new T.Mesh(new T.BoxGeometry(size[0]*0.68, size[1]*0.12, size[2]*0.26), accentMat);
+  hood.position.set(0, size[1]*0.47, size[2]*0.20);
+  group.add(hood);
+
+  var bumperF = new T.Mesh(new T.BoxGeometry(size[0]*0.78, size[1]*0.10, size[2]*0.08), accentMat);
+  bumperF.position.set(0, size[1]*0.20, size[2]*0.34);
+  group.add(bumperF);
+
+  var bumperB = bumperF.clone();
+  bumperB.position.z = -size[2]*0.34;
+  group.add(bumperB);
+
   var wheelMat = new T.MeshStandardMaterial({color:0x111111,roughness:1.0,metalness:0.0});
-  var rimMat = new T.MeshStandardMaterial({color:0x666d76,roughness:0.45,metalness:0.35});
-
-  var body = new T.Mesh(new T.BoxGeometry(2.15,0.55,4.10), bodyMat);
-  body.position.y = 0.48;
-  g.add(body);
-
-  var cabin = new T.Mesh(new T.BoxGeometry(1.35,0.52,1.65), roofMat);
-  cabin.position.set(0,0.92,-0.15);
-  g.add(cabin);
-
-  var glass = new T.Mesh(new T.BoxGeometry(1.10,0.28,1.20), glassMat);
-  glass.position.set(0,1.02,-0.15);
-  g.add(glass);
-
-  var hood = new T.Mesh(new T.BoxGeometry(1.55,0.34,1.35), bodyMat);
-  hood.position.set(0,0.68,1.05);
-  g.add(hood);
-
-  var bumper = new T.Mesh(new T.BoxGeometry(2.05,0.18,0.28), roofMat);
-  bumper.position.set(0,0.33,2.02);
-  g.add(bumper);
-
-  var wheelGeo = new T.CylinderGeometry(0.23,0.23,0.16,12);
-  var rimGeo = new T.CylinderGeometry(0.13,0.13,0.18,10);
-  [-0.92,0.92].forEach(function(wx){
-    [-1.42,1.42].forEach(function(wz){
-      var w = new T.Mesh(wheelGeo, wheelMat);
-      w.rotation.z = Math.PI/2;
-      w.position.set(wx,0.22,wz);
-      g.add(w);
-      var rim = new T.Mesh(rimGeo, rimMat);
-      rim.rotation.z = Math.PI/2;
-      rim.position.copy(w.position);
-      g.add(rim);
-    });
+  var wheelGeo = new T.CylinderGeometry(size[1]*0.16, size[1]*0.16, size[0]*0.10, 10);
+  var wheelPositions = [
+    [ size[0]*0.42, 0,  size[2]*0.25],
+    [-size[0]*0.42, 0,  size[2]*0.25],
+    [ size[0]*0.42, 0, -size[2]*0.25],
+    [-size[0]*0.42, 0, -size[2]*0.25]
+  ];
+  wheelPositions.forEach(function(p){
+    var wheel = new T.Mesh(wheelGeo, wheelMat);
+    wheel.rotation.z = Math.PI / 2;
+    wheel.position.set(p[0], size[1]*0.10, p[2]);
+    wheel.castShadow = true;
+    wheel.receiveShadow = true;
+    group.add(wheel);
   });
 
-  var headMat = new T.MeshStandardMaterial({color:0xfff7df,emissive:0xfff0c0,emissiveIntensity:1.0,roughness:0.15});
-  var head1 = new T.Mesh(new T.BoxGeometry(0.18,0.13,0.08), headMat);
-  head1.position.set(-0.62,0.48,2.08);
-  var head2 = head1.clone(); head2.position.x = 0.62;
-  g.add(head1); g.add(head2);
-
-  g.userData.isMapDecor = true;
-  return g;
+  return group;
 }
 
-function placeCarTemplate(template, spec, fallback){
+function addWorldColliderFromObject(obj, pad, minSize){
+  if(!obj) return null;
+  obj.updateMatrixWorld(true);
+  var box = new T.Box3().setFromObject(obj);
+  if(box.isEmpty()) return null;
+  var size = new T.Vector3();
+  var center = new T.Vector3();
+  box.getSize(size);
+  box.getCenter(center);
+  var px = pad && pad[0] != null ? pad[0] : 1.0;
+  var py = pad && pad[1] != null ? pad[1] : 1.0;
+  var pz = pad && pad[2] != null ? pad[2] : 1.0;
+  var w = Math.max(minSize || 0.25, size.x * px);
+  var h = Math.max(minSize || 0.25, size.y * py);
+  var d = Math.max(minSize || 0.25, size.z * pz);
+  var colliderMesh = new T.Mesh(new T.BoxGeometry(w, h, d), new T.MeshBasicMaterial({visible:false}));
+  colliderMesh.position.copy(center);
+  colliderMesh.userData.isMapDecor = true;
+  scene.add(colliderMesh);
+  addColliderBox(center.x, center.y, center.z, w, h, d, colliderMesh);
+  return colliderMesh;
+}
+
+function placeDecorTemplate(template, spec, fallback){
   var root = template ? template.clone(true) : fallback.clone(true);
   root.traverse(function(node){
     if(node && node.isMesh){
@@ -964,37 +967,40 @@ function placeCarTemplate(template, spec, fallback){
       node.receiveShadow = true;
     }
   });
-  root.position.set(spec.x, 0, spec.z);
+  root.scale.setScalar(spec.scale || 1);
   root.rotation.y = spec.yRot || 0;
+  root.position.set(spec.x || 0, 0, spec.z || 0);
   root.updateMatrixWorld(true);
 
   var box = new T.Box3().setFromObject(root);
   if(!box.isEmpty()){
-    var size = new T.Vector3(); box.getSize(size);
-    var sc = (spec.targetHeight && size.y > 0.0001) ? (spec.targetHeight / size.y) : 1;
-    root.scale.setScalar(sc);
-    root.updateMatrixWorld(true);
-    box = new T.Box3().setFromObject(root);
     root.position.y -= box.min.y;
     root.updateMatrixWorld(true);
-    box = new T.Box3().setFromObject(root);
-    var center = new T.Vector3();
-    box.getCenter(center);
-    var pad = spec.pad || [Math.max(0.1, box.max.x - box.min.x) * 1.06, Math.max(0.1, box.max.y - box.min.y) * 1.02, Math.max(0.1, box.max.z - box.min.z) * 1.06];
-    var colliderMesh = new T.Mesh(new T.BoxGeometry(pad[0], Math.max(0.35,pad[1]), pad[2]), new T.MeshBasicMaterial({visible:false}));
-    colliderMesh.position.copy(center);
-    colliderMesh.userData.isMapDecor = true;
-    scene.add(colliderMesh);
-    addColliderBox(center.x, center.y, center.z, pad[0], Math.max(0.35,pad[1]), pad[2], colliderMesh, box.clone());
   }
 
   root.userData.isMapDecor = true;
   scene.add(root);
+
+  var mode = spec.colliderMode || 'mesh';
+  if(mode === 'root'){
+    addWorldColliderFromObject(root, spec.pad || [1.03,1.02,1.03], 0.3);
+  }else{
+    var added = 0;
+    root.traverse(function(node){
+      if(!node || !node.isMesh) return;
+      if(node.geometry){
+        var c = addWorldColliderFromObject(node, spec.pad || [1.04,1.02,1.04], 0.22);
+        if(c) added++;
+      }
+    });
+    if(!added){
+      addWorldColliderFromObject(root, spec.pad || [1.03,1.02,1.03], 0.3);
+    }
+  }
   return root;
 }
 
 function loadPoloFbx(){
-
   var loader = new FBXLoader();
   loader.load(
     'polo.fbx',
@@ -1622,7 +1628,7 @@ var AI_RADIUS=0.5;
 function resolveCollision(next){
   var safe=next.clone(); safe.y=PLAYER_HEIGHT; var r=PLAYER_RADIUS;
   for(var i=0;i<colliders.length;i++){
-    var c=colliderToBoxData(colliders[i]);
+    var c=colliders[i];
     var x1=c.x-c.w/2-r,x2=c.x+c.w/2+r,z1=c.z-c.d/2-r,z2=c.z+c.d/2+r;
     if(safe.x>x1&&safe.x<x2&&safe.z>z1&&safe.z<z2){
       var dl=Math.abs(safe.x-x1),dr=Math.abs(x2-safe.x),dt2=Math.abs(safe.z-z1),db=Math.abs(z2-safe.z);
@@ -1635,7 +1641,7 @@ function resolveCollision(next){
 function resolveCollisionForAI(nx,nz){
   var r=AI_RADIUS,sx=nx,sz=nz;
   for(var i=0;i<colliders.length;i++){
-    var c=colliderToBoxData(colliders[i]);
+    var c=colliders[i];
     var x1=c.x-c.w/2-r,x2=c.x+c.w/2+r,z1=c.z-c.d/2-r,z2=c.z+c.d/2+r;
     if(sx>x1&&sx<x2&&sz>z1&&sz<z2){
       var dl=Math.abs(sx-x1),dr=Math.abs(x2-sx),dt2=Math.abs(sz-z1),db=Math.abs(sz-z2);
@@ -1648,7 +1654,7 @@ function resolveCollisionForAI(nx,nz){
 function aiWouldHitWall(nx,nz){
   var r=AI_RADIUS;
   for(var i=0;i<colliders.length;i++){
-    var c=colliderToBoxData(colliders[i]);
+    var c=colliders[i];
     var x1=c.x-c.w/2-r,x2=c.x+c.w/2+r,z1=c.z-c.d/2-r,z2=c.z+c.d/2+r;
     if(nx>x1&&nx<x2&&nz>z1&&nz<z2) return true;
   }
@@ -1682,7 +1688,7 @@ function makeBullet(origin,dir,ownerId,ownerTeam,isRemote){
   return{mesh:m,pos:origin.clone(),prev:origin.clone(),dir:dir.clone().normalize(),speed:BULLET_SPEED,life:BULLET_LIFE,ownerId:ownerId||'',ownerTeam:ownerTeam||TEAM_BLUE,isRemote:!!isRemote,dead:false};
 }
 function addBullet(origin,dir,ownerId,ownerTeam,isRemote){var b=makeBullet(origin,dir,ownerId,ownerTeam,isRemote);bullets.push(b);return b;}
-function hitPointInBox(p,b){b=colliderToBoxData(b);return Math.abs(p.x-b.x)<=b.w/2&&Math.abs(p.y-b.y)<=b.h/2&&Math.abs(p.z-b.z)<=b.d/2;}
+function hitPointInBox(p,b){return Math.abs(p.x-b.x)<=b.w/2&&Math.abs(p.y-b.y)<=b.h/2&&Math.abs(p.z-b.z)<=b.d/2;}
 function raySegmentHitsBox(prev,next,box){
   var totalDist=prev.distanceTo(next);
   if(totalDist<1e-6) return hitPointInBox(prev,box)?prev.clone():null;
@@ -1696,7 +1702,6 @@ function raySegmentHitsBox(prev,next,box){
   return null;
 }
 function rayIntersectAABBDistance(origin,dir,box){
-  box=colliderToBoxData(box);
   var halfW=box.w/2,halfH=box.h/2,halfD=box.d/2;
   var minX=box.x-halfW,maxX=box.x+halfW;
   var minY=box.y-halfH,maxY=box.y+halfH;
@@ -3206,27 +3211,19 @@ function buildMap(mapId){
     m.castShadow=true;m.receiveShadow=true;m.userData.isMapDecor=true;scene.add(m);
     addColliderBox(o[0],o[1],o[2],o[3],o[4],o[5],m);
   });
-
-
-  var buildingSpecs = (buildingInstancePlacements || []).map(function(inst){
-    return {
-      template: buildingTemplates[inst.key] || null,
-      spec: inst,
-      fallback: makeFallbackBuilding(inst)
-    };
-  });
-
-  buildingSpecs.forEach(function(entry){
-    placeBuildingTemplate(entry.template, entry.spec, entry.fallback);
-  });
-
-  (carPlacements || []).forEach(function(spec, idx){
-    var fallback = makeFallbackCar(spec);
-    placeCarTemplate(carTemplate, spec, fallback);
+  
+mapDecorPlacements.forEach(function(inst){
+    var template = null;
+    if(inst.key === 'b1') template = building1Template;
+    else if(inst.key === 'b2') template = building2Template;
+    else if(inst.key === 'b3') template = building3Template;
+    else if(inst.key === 'b4') template = building4Template;
+    else if(inst.key === 'b5') template = building5Template;
+    else if(inst.key === 'car') template = carTemplate;
+    placeDecorTemplate(template, inst, inst.key === 'car' ? makeFallbackCar(inst) : makeFallbackBuilding(inst));
   });
 
   var crateBaseColors = def.cratePalette || [0x8a6238,0x6f4a27,0x5a3c20];
- def.cratePalette || [0x8a6238,0x6f4a27,0x5a3c20];
   var crateMat = new T.MeshStandardMaterial({color:crateBaseColors[0],roughness:0.94,metalness:0.03});
   var crateDarkMat = new T.MeshStandardMaterial({color:crateBaseColors[2],roughness:0.98,metalness:0.02});
   var crateMetalMat = new T.MeshStandardMaterial({color:crateBaseColors[1],roughness:0.90,metalness:0.05});

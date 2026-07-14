@@ -279,7 +279,7 @@ var RANK_KEY = 'arena_rank_v9';
 var SEND_HZ = 50;
 var MATCH_PLAYER_MIN = 2;
 var MAX_PLAYERS = 8;
-var MAP_BORDER = 62.0;
+var MAP_BORDER = 96.0;
 var PLAYER_RADIUS = 0.42;
 var PLAYER_HEIGHT = 1.6;
 var BULLET_SPEED = 85;
@@ -780,34 +780,128 @@ var buildingPlacements = [
   }
 ];
 
-var buildingInstancePlacements = [
-  { key: 'b5', fallback: { size: [7.8, 1.2, 7.8], color: 0x445a63, accent: 0x7fa0ad }, x: -50.0, z: -38.0, yRot: 0.20, scale: 0.150 },
-  { key: 'b4', fallback: { size: [10.6, 6.2, 5.4], color: 0x5f6f7d, accent: 0x8fa0b1 }, x: -36.0, z: -42.0, yRot: -0.45, scale: 0.00062 },
-  { key: 'b1', fallback: { size: [7.6, 9.8, 21.0], color: 0x404852, accent: 0x5a6673 }, x: -22.0, z: -39.0, yRot: 0.15, scale: 0.00102 },
-  { key: 'car', fallback: { size: [2.1, 1.8, 5.2], color: 0x2d3c50, accent: 0x6f7f95 }, x: -10.5, z: -33.5, yRot: 0.84, scale: 0.62 },
-  { key: 'b2', fallback: { size: [9.0, 10.8, 10.5], color: 0x6b7b88, accent: 0x8ea0ad }, x: 4.0, z: -40.0, yRot: 1.32, scale: 1.12 },
-  { key: 'b5', fallback: { size: [7.8, 1.2, 7.8], color: 0x445a63, accent: 0x7fa0ad }, x: 18.5, z: -35.5, yRot: -0.86, scale: 0.132 },
-  { key: 'b3', fallback: { size: [10.8, 6.2, 5.4], color: 0x55606c, accent: 0x78828f }, x: 33.0, z: -40.5, yRot: 0.68, scale: 0.30 },
-  { key: 'b4', fallback: { size: [10.6, 6.2, 5.4], color: 0x5f6f7d, accent: 0x8fa0b1 }, x: 49.0, z: -35.0, yRot: -1.15, scale: 0.00058 },
+var BUILDING_FALLBACKS = {
+  b1: { size: [7.6, 9.8, 21.0], color: 0x404852, accent: 0x5a6673 },
+  b2: { size: [9.0, 10.8, 10.5], color: 0x6b7b88, accent: 0x8ea0ad },
+  b3: { size: [10.8, 6.2, 5.4], color: 0x55606c, accent: 0x78828f },
+  b4: { size: [10.6, 6.2, 5.4], color: 0x5f6f7d, accent: 0x8fa0b1 },
+  b5: { size: [7.8, 1.2, 7.8], color: 0x445a63, accent: 0x7fa0ad },
+  car: { size: [2.1, 1.8, 5.2], color: 0x2d3c50, accent: 0x6f7f95 }
+};
 
-  { key: 'b1', fallback: { size: [7.6, 9.8, 21.0], color: 0x404852, accent: 0x5a6673 }, x: -54.0, z: -9.0, yRot: 1.42, scale: 0.00092 },
-  { key: 'b5', fallback: { size: [7.8, 1.2, 7.8], color: 0x445a63, accent: 0x7fa0ad }, x: -33.0, z: -4.5, yRot: 2.20, scale: 0.145 },
-  { key: 'car', fallback: { size: [2.1, 1.8, 5.2], color: 0x2d3c50, accent: 0x6f7f95 }, x: -18.5, z: 1.5, yRot: -0.20, scale: 0.58 },
-  { key: 'b2', fallback: { size: [9.0, 10.8, 10.5], color: 0x6b7b88, accent: 0x8ea0ad }, x: -4.5, z: 7.0, yRot: -0.70, scale: 1.08 },
-  { key: 'b4', fallback: { size: [10.6, 6.2, 5.4], color: 0x5f6f7d, accent: 0x8fa0b1 }, x: 11.0, z: -2.0, yRot: 0.28, scale: 0.00054 },
-  { key: 'b3', fallback: { size: [10.8, 6.2, 5.4], color: 0x55606c, accent: 0x78828f }, x: 27.5, z: 5.5, yRot: -1.20, scale: 0.26 },
-  { key: 'b5', fallback: { size: [7.8, 1.2, 7.8], color: 0x445a63, accent: 0x7fa0ad }, x: 44.0, z: -2.5, yRot: 0.96, scale: 0.138 },
-  { key: 'b1', fallback: { size: [7.6, 9.8, 21.0], color: 0x404852, accent: 0x5a6673 }, x: 58.0, z: 4.0, yRot: 0.56, scale: 0.00088 },
+function cloneFallbackForKey(key){
+  var f = BUILDING_FALLBACKS[key] || BUILDING_FALLBACKS.b4;
+  return {
+    size: f.size.slice(),
+    color: f.color,
+    accent: f.accent
+  };
+}
 
-  { key: 'b4', fallback: { size: [10.6, 6.2, 5.4], color: 0x5f6f7d, accent: 0x8fa0b1 }, x: -50.0, z: 27.5, yRot: 0.62, scale: 0.00056 },
-  { key: 'b5', fallback: { size: [7.8, 1.2, 7.8], color: 0x445a63, accent: 0x7fa0ad }, x: -31.0, z: 26.5, yRot: -0.34, scale: 0.142 },
-  { key: 'b2', fallback: { size: [9.0, 10.8, 10.5], color: 0x6b7b88, accent: 0x8ea0ad }, x: -12.0, z: 32.0, yRot: 0.40, scale: 1.16 },
-  { key: 'car', fallback: { size: [2.1, 1.8, 5.2], color: 0x2d3c50, accent: 0x6f7f95 }, x: 3.0, z: 35.0, yRot: 1.74, scale: 0.60 },
-  { key: 'b3', fallback: { size: [10.8, 6.2, 5.4], color: 0x55606c, accent: 0x78828f }, x: 18.0, z: 29.5, yRot: -0.95, scale: 0.28 },
-  { key: 'b1', fallback: { size: [7.6, 9.8, 21.0], color: 0x404852, accent: 0x5a6673 }, x: 35.0, z: 36.5, yRot: -1.55, scale: 0.00096 },
-  { key: 'b5', fallback: { size: [7.8, 1.2, 7.8], color: 0x445a63, accent: 0x7fa0ad }, x: 52.0, z: 30.5, yRot: 2.55, scale: 0.155 },
-  { key: 'b4', fallback: { size: [10.6, 6.2, 5.4], color: 0x5f6f7d, accent: 0x8fa0b1 }, x: 58.5, z: 16.0, yRot: -0.12, scale: 0.00060 }
-];
+function buildDensePlacements(){
+  var specs = [];
+  var xs = [-84,-66,-48,-30,-12,12,30,48,66,84];
+  var zs = [-84,-66,-48,-30,-12,12,30,48,66,84];
+  var keys = ['b1','b2','b3','b4','car','b5'];
+
+  function push(key, x, z, yRot, scale, colliderScale, colliderScaleY){
+    specs.push({
+      key: key,
+      fallback: cloneFallbackForKey(key),
+      x: x,
+      z: z,
+      yRot: yRot,
+      scale: scale,
+      colliderScale: colliderScale,
+      colliderScaleY: colliderScaleY
+    });
+  }
+
+  for(var zi = 0; zi < zs.length; zi++){
+    for(var xi = 0; xi < xs.length; xi++){
+      var x = xs[xi];
+      var z = zs[zi];
+      var edge = xi === 0 || zi === 0 || xi === xs.length - 1 || zi === zs.length - 1;
+      var corridorX = xi === 4 || xi === 5;
+      var corridorZ = zi === 4 || zi === 5;
+      var seed = xi * 17 + zi * 31;
+      var key;
+
+      if(edge){
+        key = (seed % 8 === 0) ? 'b5' : (seed % 3 === 0 ? 'b4' : (seed % 3 === 1 ? 'b1' : 'b3'));
+      }else if(corridorX || corridorZ){
+        key = (seed % 5 === 0) ? 'car' : (seed % 2 === 0 ? 'b2' : 'b4');
+      }else{
+        key = keys[seed % keys.length];
+      }
+
+      var rot = (((seed % 8) * Math.PI) / 8) + ((seed % 2) ? 0.12 : -0.10);
+      var scale;
+      var colliderScale = 0.92;
+      var colliderScaleY = 0.96;
+
+      if(key === 'b1'){
+        scale = edge ? 0.00114 : (corridorX || corridorZ ? 0.00108 : 0.00100);
+        colliderScale = 0.90;
+        colliderScaleY = 0.96;
+      }else if(key === 'b2'){
+        scale = edge ? 1.18 : (corridorX || corridorZ ? 1.08 : 1.02);
+        colliderScale = 0.88;
+        colliderScaleY = 0.94;
+      }else if(key === 'b3'){
+        scale = edge ? 0.34 : (corridorX || corridorZ ? 0.31 : 0.28);
+        colliderScale = 0.86;
+        colliderScaleY = 0.90;
+      }else if(key === 'b4'){
+        scale = edge ? 0.00092 : (corridorX || corridorZ ? 0.00086 : 0.00080);
+        colliderScale = 0.86;
+        colliderScaleY = 0.90;
+      }else if(key === 'b5'){
+        scale = edge ? 1.0 : 1.0;
+        colliderScale = 0.80;
+        colliderScaleY = 0.82;
+      }else{
+        scale = edge ? 0.82 : 0.76;
+        colliderScale = 0.80;
+        colliderScaleY = 0.82;
+      }
+
+      push(key, x, z, rot, scale, colliderScale, colliderScaleY);
+    }
+  }
+
+  // Make building5 dominant and oversized, but keep the collision slightly smaller than the visuals.
+  [
+    [-66,-66, 0.24],
+    [ 66,-66,-0.28],
+    [-66, 66, 0.76],
+    [ 66, 66,-0.82]
+  ].forEach(function(p, i){
+    var idx = i * 22 + 11;
+    if(specs[idx]){
+      specs[idx] = {
+        key: 'b5',
+        fallback: cloneFallbackForKey('b5'),
+        x: p[0],
+        z: p[1],
+        yRot: p[2],
+        scale: 50.0,
+        colliderScale: 0.26,
+        colliderScaleY: 0.34
+      };
+    }
+  });
+
+  // Add a few long landmark walls made from the same asset so the roads feel enclosed.
+  push('b5', -18, -2, 0.10, 50.0, 0.24, 0.32);
+  push('b5',  18,  2, -0.18, 50.0, 0.24, 0.32);
+  push('b5',  -2, 18, 1.52, 50.0, 0.24, 0.32);
+  push('b5',   2,-18, -1.46, 50.0, 0.24, 0.32);
+
+  return specs;
+}
+
+var buildingInstancePlacements = buildDensePlacements();
 
 function getMapTemplateForKey(key){
   switch(key){
@@ -930,10 +1024,12 @@ function placeBuildingTemplate(template, spec, fallback, alreadyAdded){
     root.updateMatrixWorld(true);
 
     var worldCenter = localCenter.clone().applyMatrix4(root.matrixWorld);
+    var colliderScale = Number.isFinite(spec.colliderScale) ? spec.colliderScale : 1;
+    var colliderScaleY = Number.isFinite(spec.colliderScaleY) ? spec.colliderScaleY : 1;
     var colliderSize = new T.Vector3(
-      Math.max(0.25, localSize.x * 1.04),
-      Math.max(1.0, localSize.y * 1.02),
-      Math.max(0.25, localSize.z * 1.04)
+      Math.max(0.25, localSize.x * 1.04 * colliderScale),
+      Math.max(1.0, localSize.y * 1.02 * colliderScaleY),
+      Math.max(0.25, localSize.z * 1.04 * colliderScale)
     );
 
     var colliderMesh = new T.Mesh(
@@ -3046,61 +3142,52 @@ function triggerRecoil(){gunState.recoil=Math.min(1.0,gunState.recoil+(adsActive
 
 var currentMapId = 'arena';
 var MAP_DEFS = {
-  arena: {
-    name: 'TACTICAL DISTRICT',
-    floorColor: 0x0c1118,
-    roadColor: 0x171f2b,
-    curbColor: 0x283244,
-    laneColor: 0x0a0f15,
-    obstaclePalette: [0x2b3442, 0x35455a, 0x1b2430],
-    cratePalette: [0x7f5a33, 0x5e4225, 0x46311a],
-    trashPalette: [0x424d5a, 0x55616e, 0x303a47],
-    dumpsterColor: 0x4ea83e,
-    dumpsterShadow: 0x21551c,
-    obstacles: [
-      [-60,0.55,-48,3.2,1.1,28],[-60,0.55,48,3.2,1.1,28],
-      [60,0.55,-48,3.2,1.1,28],[60,0.55,48,3.2,1.1,28],
-      [-48,0.55,-60,24,1.1,3.2],[48,0.55,-60,24,1.1,3.2],
-      [-48,0.55,60,24,1.1,3.2],[48,0.55,60,24,1.1,3.2],
-
-      [-28,0.55,-28,5.0,1.1,18],[-14,0.55,-22,4.0,1.1,10],
-      [0,0.55,-30,6.0,1.1,8],[16,0.55,-24,4.0,1.1,12],
-      [31,0.55,-30,5.0,1.1,18],
-
-      [-36,0.55,0,4.2,1.1,18],[-18,0.55,0,3.2,1.1,14],
-      [18,0.55,0,3.2,1.1,14],[36,0.55,0,4.2,1.1,18],
-
-      [-26,0.55,24,5.0,1.1,14],[-8,0.55,26,4.0,1.1,10],
-      [10,0.55,20,4.0,1.1,16],[28,0.55,28,5.0,1.1,14],
-
-      [-52,0.55,18,10,1.1,3.4],[-50,0.55,-18,10,1.1,3.4],
-      [50,0.55,18,10,1.1,3.4],[50,0.55,-18,10,1.1,3.4]
-    ],
-    crates: [
-      [-54,-40,0.62],[-46,-34,0.58],[-38,-44,0.64],
-      [-20,-18,0.60],[-12,-6,0.66],[-2,-20,0.58],
-      [12,-34,0.62],[22,-26,0.60],[32,-18,0.58],
-      [44,-38,0.66],[54,-28,0.60],
-      [-44,6,0.62],[-34,14,0.58],[-26,2,0.64],
-      [-10,18,0.60],[6,8,0.66],[18,16,0.58],[30,10,0.62],
-      [42,22,0.60],[54,10,0.58],
-      [-48,34,0.62],[-30,42,0.58],[-12,30,0.64],
-      [10,40,0.60],[26,34,0.66],[46,36,0.58]
-    ],
-    trash: [
-      [-40,-22,0.38],[-30,-12,0.40],[-22,8,0.36],[-12,-2,0.39],
-      [4,-12,0.38],[14,12,0.40],[26,-2,0.36],[36,8,0.39],
-      [-46,20,0.38],[-34,28,0.40],[-18,22,0.36],[-2,26,0.39],
-      [16,24,0.38],[30,26,0.40],[44,16,0.36],[54,22,0.39]
-    ],
-    dumpsters: [
-      [-52,-14,0.92],[-34,18,0.88],[-8,-18,0.86],[18,20,0.88],[40,-12,0.92],[52,24,0.88]
-    ],
-    spawns:{
-      blue:[{x:-56,z:-34},{x:-56,z:-18},{x:-56,z:0},{x:-56,z:18}],
-      red:[{x:56,z:34},{x:56,z:18},{x:56,z:0},{x:56,z:-18}]
-    }
-  }
+  arena: (function(){
+    var R = function(x, z, w, d){ return [x, 0.55, z, w, 1.1, d]; };
+    return {
+      name: 'TACTICAL DISTRICT',
+      floorColor: 0x0c1118,
+      roadColor: 0x171f2b,
+      curbColor: 0x283244,
+      laneColor: 0x0a0f15,
+      obstaclePalette: [0x2b3442, 0x35455a, 0x1b2430],
+      cratePalette: [0x7f5a33, 0x5e4225, 0x46311a],
+      trashPalette: [0x424d5a, 0x55616e, 0x303a47],
+      dumpsterColor: 0x4ea83e,
+      dumpsterShadow: 0x21551c,
+      obstacles: [
+        R(0,-114,240,4), R(0,114,240,4), R(-114,0,4,240), R(114,0,4,240),
+        R(-60,-58,18,10), R(-30,-62,16,14), R(0,-58,14,10), R(30,-62,16,14), R(60,-58,18,10),
+        R(-74,-28,10,24), R(-48,-20,12,16), R(-20,-28,16,20), R(12,-22,12,14), R(42,-28,14,24), R(72,-18,10,18),
+        R(-68,8,12,22), R(-40,2,12,14), R(-10,10,16,20), R(18,4,12,14), R(46,8,14,22), R(74,12,10,18),
+        R(-60,36,18,12), R(-30,44,16,16), R(2,34,18,12), R(34,42,16,16), R(64,36,18,12),
+        R(-84,-4,6,32), R(-84,34,6,26), R(84,-18,6,30), R(84,28,6,30),
+        R(-8,-6,10,12), R(24,-8,10,12), R(56,-2,10,12),
+        R(-16,22,12,10), R(14,24,12,10), R(44,20,12,10)
+      ],
+      crates: [
+        [-72,-44,0.62],[-62,-34,0.58],[-52,-48,0.64],[-40,-38,0.60],[-28,-46,0.66],[-18,-34,0.58],
+        [-6,-42,0.62],[6,-30,0.60],[18,-40,0.58],[30,-34,0.66],[42,-44,0.60],[54,-32,0.58],
+        [66,-40,0.62],[-68,-8,0.58],[-56,4,0.64],[-44,-2,0.60],[-32,10,0.66],[-20,2,0.58],
+        [-8,14,0.62],[6,6,0.60],[18,18,0.58],[30,8,0.66],[42,20,0.60],[56,10,0.58],[68,22,0.62],
+        [-66,30,0.60],[-52,42,0.66],[-38,34,0.58],[-22,48,0.62],[-6,38,0.60],[10,50,0.58],
+        [24,40,0.66],[38,52,0.60],[54,44,0.58],[70,54,0.62]
+      ],
+      trash: [
+        [-58,-26,0.38],[-46,-16,0.40],[-34,-6,0.36],[-22,10,0.39],[-10,-2,0.38],
+        [4,14,0.40],[18,2,0.36],[32,18,0.39],[46,6,0.38],[58,22,0.40],
+        [-70,16,0.38],[-52,28,0.40],[-36,24,0.36],[-18,30,0.39],[-2,26,0.38],
+        [16,30,0.40],[30,28,0.36],[44,34,0.39],[58,30,0.38],[72,26,0.40]
+      ],
+      dumpsters: [
+        [-78,-14,0.92],[-52,18,0.88],[-18,-18,0.86],[12,20,0.88],[40,-12,0.92],[66,24,0.88]
+      ],
+      spawns:{
+        blue:[{x:-104,z:-48},{x:-104,z:-24},{x:-104,z:0},{x:-104,z:24},{x:-104,z:48}],
+        red:[{x:104,z:48},{x:104,z:24},{x:104,z:0},{x:104,z:-24},{x:104,z:-48}]
+      }
+    };
+  })()
 };
 
 function getSpawnPointsForMap(mapId,team){
@@ -3115,51 +3202,51 @@ function buildMap(mapId){
   scene.fog = new T.FogExp2(def.floorColor,0.008);
 
   var floorMat=new T.MeshStandardMaterial({color:def.floorColor,roughness:1.0,metalness:0.0});
-  var floor=new T.Mesh(new T.PlaneGeometry(132,132),floorMat);
+  var floor=new T.Mesh(new T.PlaneGeometry(240,240),floorMat);
   floor.rotation.x=-Math.PI/2;
   floor.receiveShadow=true;
   floor.userData.isMapDecor=true;
   scene.add(floor);
 
   var plazaMat=new T.MeshStandardMaterial({color:0x101722,roughness:0.98,metalness:0.02});
-  var plaza=new T.Mesh(new T.CircleGeometry(14.8,48),plazaMat);
+  var plaza=new T.Mesh(new T.CircleGeometry(12.5,48),plazaMat);
   plaza.rotation.x=-Math.PI/2;
   plaza.position.set(0,0.012,0);
   plaza.userData.isMapDecor=true;
   scene.add(plaza);
 
   var roadMat=new T.MeshStandardMaterial({color:def.roadColor,roughness:0.98,metalness:0.02});
-  var roadA=new T.Mesh(new T.PlaneGeometry(12.4,132),roadMat);
+  var roadA=new T.Mesh(new T.PlaneGeometry(24.0,240),roadMat);
   roadA.rotation.x=-Math.PI/2;
   roadA.position.set(0,0.013,0);
   roadA.userData.isMapDecor=true;
   scene.add(roadA);
-  var roadB=new T.Mesh(new T.PlaneGeometry(132,12.4),roadMat);
+  var roadB=new T.Mesh(new T.PlaneGeometry(240,24.0),roadMat);
   roadB.rotation.x=-Math.PI/2;
   roadB.position.set(0,0.014,0);
   roadB.userData.isMapDecor=true;
   scene.add(roadB);
 
   var laneMat=new T.MeshStandardMaterial({color:def.laneColor,roughness:1.0,metalness:0.0});
-  var lane1=new T.Mesh(new T.PlaneGeometry(3.4,48),laneMat);
+  var lane1=new T.Mesh(new T.PlaneGeometry(6.0,96),laneMat);
   lane1.rotation.x=-Math.PI/2;
-  lane1.position.set(-24,0.015,0);
+  lane1.position.set(-42,0.015,0);
   lane1.userData.isMapDecor=true;
   scene.add(lane1);
-  var lane2=lane1.clone(); lane2.position.set(24,0.015,0); scene.add(lane2);
-  var lane3=new T.Mesh(new T.PlaneGeometry(48,3.4),laneMat);
+  var lane2=lane1.clone(); lane2.position.set(42,0.015,0); scene.add(lane2);
+  var lane3=new T.Mesh(new T.PlaneGeometry(96,6.0),laneMat);
   lane3.rotation.x=-Math.PI/2;
-  lane3.position.set(0,0.015,-24);
+  lane3.position.set(0,0.015,-42);
   lane3.userData.isMapDecor=true;
   scene.add(lane3);
-  var lane4=lane3.clone(); lane4.position.set(0,0.015,24); scene.add(lane4);
+  var lane4=lane3.clone(); lane4.position.set(0,0.015,42); scene.add(lane4);
 
   var curbMat=new T.MeshStandardMaterial({color:def.curbColor,roughness:0.90,metalness:0.06});
   [
-    [{s:[132,11.5,1.2],p:[0,5.75,-66.6]}],
-    [{s:[132,11.5,1.2],p:[0,5.75,66.6]}],
-    [{s:[1.2,11.5,132],p:[-66.6,5.75,0]}],
-    [{s:[1.2,11.5,132],p:[66.6,5.75,0]}]
+    [{s:[180,11.5,1.2],p:[0,5.75,-90.6]}],
+    [{s:[180,11.5,1.2],p:[0,5.75,90.6]}],
+    [{s:[1.2,11.5,180],p:[-90.6,5.75,0]}],
+    [{s:[1.2,11.5,180],p:[90.6,5.75,0]}]
   ].forEach(function(list){
     list.forEach(function(w){
       var m=new T.Mesh(new T.BoxGeometry(w.s[0],w.s[1],w.s[2]),curbMat);

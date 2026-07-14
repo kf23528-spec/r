@@ -279,7 +279,7 @@ var RANK_KEY = 'arena_rank_v9';
 var SEND_HZ = 50;
 var MATCH_PLAYER_MIN = 2;
 var MAX_PLAYERS = 8;
-var MAP_BORDER = 35.2;
+var MAP_BORDER = 46.5;
 var PLAYER_RADIUS = 0.42;
 var PLAYER_HEIGHT = 1.6;
 var BULLET_SPEED = 85;
@@ -453,7 +453,7 @@ renderer.setClearColor(0x09111e,1);
 var scene = new T.Scene();
 scene.background = new T.Color(0x1b2742);
 scene.fog = new T.FogExp2(0x1b2742,0.010);
-var camera = new T.PerspectiveCamera(CAM_FOV_NORMAL,window.innerWidth/window.innerHeight,0.05,300);
+var camera = new T.PerspectiveCamera(CAM_FOV_NORMAL,window.innerWidth/window.innerHeight,0.05,360);
 camera.rotation.order = 'YXZ';
 camera.position.set(0,1.6,15);
 scene.add(camera);
@@ -784,67 +784,62 @@ var buildingInstancePlacements = [
   {
     key: 'b1',
     fallback: { size: [7.6, 9.8, 21.0], color: 0x404852, accent: 0x5a6673 },
-    x: -24.0, z: -14.0, yRot: 0.18, scale: 0.00095
+    x: -34.0, z: -22.0, yRot: 0.20, scale: 0.00096
+  },
+  {
+    key: 'car',
+    fallback: { size: [2.1, 1.8, 5.2], color: 0x2d3c50, accent: 0x6f7f95 },
+    x: -28.5, z: -6.5, yRot: 0.40, scale: 0.50
   },
   {
     key: 'b2',
     fallback: { size: [9.0, 10.8, 10.5], color: 0x6b7b88, accent: 0x8ea0ad },
-    x: 20.8, z: -16.8, yRot: -1.05, scale: 1.30
+    x: -24.0, z: 11.0, yRot: -0.92, scale: 1.18
   },
   {
     key: 'b3',
     fallback: { size: [10.8, 6.2, 5.4], color: 0x55606c, accent: 0x78828f },
-    x: 15.5, z: 16.0, yRot: 0.68, scale: 0.24
-  },
-  {
-    key: 'b1',
-    fallback: { size: [7.6, 9.8, 21.0], color: 0x404852, accent: 0x5a6673 },
-    x: -16.5, z: 15.5, yRot: 1.62, scale: 0.00092
-  },
-  {
-    key: 'b2',
-    fallback: { size: [9.0, 10.8, 10.5], color: 0x6b7b88, accent: 0x8ea0ad },
-    x: -8.8, z: -19.0, yRot: 0.35, scale: 1.05
-  },
-  {
-    key: 'b3',
-    fallback: { size: [10.8, 6.2, 5.4], color: 0x55606c, accent: 0x78828f },
-    x: 0.5, z: 21.0, yRot: -0.82, scale: 0.22
-  },
-  {
-    key: 'b1',
-    fallback: { size: [7.6, 9.8, 21.0], color: 0x404852, accent: 0x5a6673 },
-    x: 24.0, z: 2.0, yRot: -1.36, scale: 0.00098
-  },
-  {
-    key: 'b2',
-    fallback: { size: [9.0, 10.8, 10.5], color: 0x6b7b88, accent: 0x8ea0ad },
-    x: -2.0, z: 24.0, yRot: 2.28, scale: 1.12
-  },
-  {
-    key: 'car',
-    fallback: { size: [2.1, 1.8, 5.2], color: 0x2d3c50, accent: 0x6f7f95 },
-    x: -6.5, z: -11.5, yRot: 0.14, scale: 0.48
-  },
-  {
-    key: 'car',
-    fallback: { size: [2.1, 1.8, 5.2], color: 0x2d3c50, accent: 0x6f7f95 },
-    x: 8.8, z: 3.2, yRot: 1.58, scale: 0.48
-  },
-  {
-    key: 'car',
-    fallback: { size: [2.1, 1.8, 5.2], color: 0x2d3c50, accent: 0x6f7f95 },
-    x: -11.2, z: 11.0, yRot: -0.76, scale: 0.48
+    x: -14.0, z: 25.5, yRot: 1.12, scale: 0.22
   },
   {
     key: 'b4',
     fallback: { size: [10.6, 6.2, 5.4], color: 0x5f6f7d, accent: 0x8fa0b1 },
-    x: 27.2, z: -2.0, yRot: 0.70, scale: 0.00052
+    x: -8.0, z: -20.0, yRot: -0.30, scale: 0.00050
   },
   {
     key: 'b5',
     fallback: { size: [7.8, 1.2, 7.8], color: 0x445a63, accent: 0x7fa0ad },
-    x: -26.5, z: 6.5, yRot: 2.18, scale: 0.050
+    x: -4.0, z: 13.0, yRot: 2.72, scale: 0.050
+  },
+  {
+    key: 'car',
+    fallback: { size: [2.1, 1.8, 5.2], color: 0x2d3c50, accent: 0x6f7f95 },
+    x: 0.5, z: 22.0, yRot: 1.56, scale: 0.52
+  },
+  {
+    key: 'b1',
+    fallback: { size: [7.6, 9.8, 21.0], color: 0x404852, accent: 0x5a6673 },
+    x: 12.5, z: -24.0, yRot: 1.70, scale: 0.00092
+  },
+  {
+    key: 'b2',
+    fallback: { size: [9.0, 10.8, 10.5], color: 0x6b7b88, accent: 0x8ea0ad },
+    x: 20.5, z: -7.5, yRot: 0.95, scale: 1.12
+  },
+  {
+    key: 'car',
+    fallback: { size: [2.1, 1.8, 5.2], color: 0x2d3c50, accent: 0x6f7f95 },
+    x: 24.0, z: 12.5, yRot: -0.72, scale: 0.50
+  },
+  {
+    key: 'b4',
+    fallback: { size: [10.6, 6.2, 5.4], color: 0x5f6f7d, accent: 0x8fa0b1 },
+    x: 31.0, z: 25.0, yRot: 1.20, scale: 0.00048
+  },
+  {
+    key: 'b5',
+    fallback: { size: [7.8, 1.2, 7.8], color: 0x445a63, accent: 0x7fa0ad },
+    x: 15.5, z: 27.0, yRot: -1.02, scale: 0.048
   }
 ];
 
@@ -3082,42 +3077,46 @@ function triggerRecoil(){gunState.recoil=Math.min(1.0,gunState.recoil+(adsActive
 var currentMapId = 'arena';
 var MAP_DEFS = {
   arena: {
-    name: 'URBAN BLOCK',
-    floorColor: 0x0d1219,
-    roadColor: 0x161d28,
-    curbColor: 0x263041,
-    laneColor: 0x0b1017,
-    obstaclePalette: [0x273040, 0x324052, 0x1d2734],
+    name: 'TACTICAL DISTRICT',
+    floorColor: 0x0c1118,
+    roadColor: 0x171f2b,
+    curbColor: 0x283244,
+    laneColor: 0x0a0f15,
+    obstaclePalette: [0x2b3442, 0x35455a, 0x1b2430],
     cratePalette: [0x7f5a33, 0x5e4225, 0x46311a],
     trashPalette: [0x424d5a, 0x55616e, 0x303a47],
     dumpsterColor: 0x4ea83e,
     dumpsterShadow: 0x21551c,
     obstacles: [
-      [-28,0.55,-18,2.2,1.1,12.0],[-28,0.55,18,2.2,1.1,12.0],
-      [28,0.55,-18,2.2,1.1,12.0],[28,0.55,18,2.2,1.1,12.0],
-      [-8,0.55,0,8.5,1.1,2.2],[8,0.55,0,8.5,1.1,2.2],
-      [0,0.55,-26,18.0,1.1,2.0],[0,0.55,26,18.0,1.1,2.0],
-      [-16,0.55,9,5.0,1.1,2.2],[13,0.55,-8,5.0,1.1,2.2]
+      [-34,0.55,-14,10.5,1.1,3.0],[-34,0.55,14,10.5,1.1,3.0],
+      [34,0.55,-14,10.5,1.1,3.0],[34,0.55,14,10.5,1.1,3.0],
+      [0,0.55,0,8.0,1.1,3.2],
+      [-16,0.55,0,3.0,1.1,18.0],[16,0.55,0,3.0,1.1,18.0],
+      [-10,0.55,-24,10.0,1.1,2.8],[10,0.55,24,10.0,1.1,2.8],
+      [-24,0.55,24,7.0,1.1,2.8],[24,0.55,-24,7.0,1.1,2.8],
+      [-28,0.55,-2,4.0,1.1,3.0],[28,0.55,2,4.0,1.1,3.0]
     ],
     crates: [
-      [-24,-21,0.62],[-22,-16,0.58],[-18,-24,0.64],
-      [20,-20,0.66],[23,-14,0.60],[18,-8,0.58],
-      [12,21,0.66],[18,17,0.60],[7,24,0.58],
-      [-10,18,0.62],[-16,23,0.58]
+      [-30,-26,0.62],[-26,-18,0.58],[-20,-29,0.64],
+      [-11,-7,0.60],[10,-12,0.66],[18,-22,0.58],
+      [26,-28,0.62],[30,-15,0.60],
+      [20,24,0.66],[28,18,0.60],[14,30,0.58],
+      [-12,22,0.62],[-22,28,0.58]
     ],
     trash: [
-      [-20,-9,0.38],[-14,-4,0.40],[-8,8,0.36],
-      [6,-13,0.38],[13,4,0.40],[19,-8,0.36],
-      [-19,14,0.38],[10,18,0.40]
+      [-24,-10,0.38],[-18,-4,0.40],[-12,8,0.36],
+      [6,-16,0.38],[14,4,0.40],[22,-8,0.36],
+      [-20,16,0.38],[8,18,0.40],[24,8,0.36]
     ],
     dumpsters: [
-      [-23,-12,0.82],
-      [22,12,0.82],
-      [4,22,0.76]
+      [-30,-12,0.82],
+      [-18,18,0.78],
+      [18,-18,0.76],
+      [30,12,0.82]
     ],
     spawns:{
-      blue:[{x:-28,z:-28},{x:-28,z:-11},{x:-28,z:11},{x:-28,z:28}],
-      red:[{x:28,z:28},{x:28,z:11},{x:28,z:-11},{x:28,z:-28}]
+      blue:[{x:-42,z:-24},{x:-42,z:-8},{x:-42,z:8},{x:-42,z:24}],
+      red:[{x:42,z:24},{x:42,z:8},{x:42,z:-8},{x:42,z:-24}]
     }
   }
 };
@@ -3131,54 +3130,54 @@ function buildMap(mapId){
   currentMapId='arena';
   var def=MAP_DEFS.arena;
   clearMapDecor();
-  scene.fog = new T.FogExp2(def.floorColor,0.010);
+  scene.fog = new T.FogExp2(def.floorColor,0.008);
 
   var floorMat=new T.MeshStandardMaterial({color:def.floorColor,roughness:1.0,metalness:0.0});
-  var floor=new T.Mesh(new T.PlaneGeometry(68,68),floorMat);
+  var floor=new T.Mesh(new T.PlaneGeometry(96,96),floorMat);
   floor.rotation.x=-Math.PI/2;
   floor.receiveShadow=true;
   floor.userData.isMapDecor=true;
   scene.add(floor);
 
   var plazaMat=new T.MeshStandardMaterial({color:0x101722,roughness:0.98,metalness:0.02});
-  var plaza=new T.Mesh(new T.CircleGeometry(10.5,32),plazaMat);
+  var plaza=new T.Mesh(new T.CircleGeometry(12.5,40),plazaMat);
   plaza.rotation.x=-Math.PI/2;
   plaza.position.set(0,0.012,0);
   plaza.userData.isMapDecor=true;
   scene.add(plaza);
 
   var roadMat=new T.MeshStandardMaterial({color:def.roadColor,roughness:0.98,metalness:0.02});
-  var roadA=new T.Mesh(new T.PlaneGeometry(8.2,68),roadMat);
+  var roadA=new T.Mesh(new T.PlaneGeometry(10.8,96),roadMat);
   roadA.rotation.x=-Math.PI/2;
   roadA.position.set(0,0.013,0);
   roadA.userData.isMapDecor=true;
   scene.add(roadA);
-  var roadB=new T.Mesh(new T.PlaneGeometry(68,8.2),roadMat);
+  var roadB=new T.Mesh(new T.PlaneGeometry(96,10.8),roadMat);
   roadB.rotation.x=-Math.PI/2;
   roadB.position.set(0,0.014,0);
   roadB.userData.isMapDecor=true;
   scene.add(roadB);
 
   var laneMat=new T.MeshStandardMaterial({color:def.laneColor,roughness:1.0,metalness:0.0});
-  var lane1=new T.Mesh(new T.PlaneGeometry(2.2,24),laneMat);
+  var lane1=new T.Mesh(new T.PlaneGeometry(2.8,32),laneMat);
   lane1.rotation.x=-Math.PI/2;
-  lane1.position.set(-12,0.015,0);
+  lane1.position.set(-17,0.015,0);
   lane1.userData.isMapDecor=true;
   scene.add(lane1);
-  var lane2=lane1.clone(); lane2.position.set(12,0.015,0); scene.add(lane2);
-  var lane3=new T.Mesh(new T.PlaneGeometry(24,2.2),laneMat);
+  var lane2=lane1.clone(); lane2.position.set(17,0.015,0); scene.add(lane2);
+  var lane3=new T.Mesh(new T.PlaneGeometry(32,2.8),laneMat);
   lane3.rotation.x=-Math.PI/2;
-  lane3.position.set(0,0.015,-12);
+  lane3.position.set(0,0.015,-17);
   lane3.userData.isMapDecor=true;
   scene.add(lane3);
-  var lane4=lane3.clone(); lane4.position.set(0,0.015,12); scene.add(lane4);
+  var lane4=lane3.clone(); lane4.position.set(0,0.015,17); scene.add(lane4);
 
   var curbMat=new T.MeshStandardMaterial({color:def.curbColor,roughness:0.90,metalness:0.06});
   [
-    [{s:[68,9.5,1.0],p:[0,4.75,-34.5]}],
-    [{s:[68,9.5,1.0],p:[0,4.75,34.5]}],
-    [{s:[1.0,9.5,68],p:[-34.5,4.75,0]}],
-    [{s:[1.0,9.5,68],p:[34.5,4.75,0]}]
+    [{s:[96,11.5,1.2],p:[0,5.75,-48.6]}],
+    [{s:[96,11.5,1.2],p:[0,5.75,48.6]}],
+    [{s:[1.2,11.5,96],p:[-48.6,5.75,0]}],
+    [{s:[1.2,11.5,96],p:[48.6,5.75,0]}]
   ].forEach(function(list){
     list.forEach(function(w){
       var m=new T.Mesh(new T.BoxGeometry(w.s[0],w.s[1],w.s[2]),curbMat);
@@ -3313,8 +3312,8 @@ function buildMap(mapId){
   });
 
   [
-    [-24,0,-29],[-8,0,-29],[8,0,-29],[24,0,-29],
-    [-24,0,29],[-8,0,29],[8,0,29],[24,0,29]
+    [-34,0,-36],[-14,0,-36],[14,0,-36],[34,0,-36],
+    [-34,0,36],[-14,0,36],[14,0,36],[34,0,36]
   ].forEach(function(p,i){
     var pole=new T.Mesh(new T.CylinderGeometry(0.16,0.16,6.2,8),new T.MeshStandardMaterial({color:0x2a3142,roughness:0.4,metalness:0.8}));
     pole.position.set(p[0],3.1,p[2]); pole.castShadow=true; pole.userData.isMapDecor=true; scene.add(pole);
@@ -3324,13 +3323,13 @@ function buildMap(mapId){
     var lt=new T.PointLight(colors[i],2.0,18,2); lt.position.set(p[0],6.0,p[2]); lt.userData.isMapDecor=true; scene.add(lt);
   });
 
-  var ambientStrip=new T.Mesh(new T.PlaneGeometry(68,68),new T.MeshBasicMaterial({color:0x0a0f18,transparent:true,opacity:0.10}));
+  var ambientStrip=new T.Mesh(new T.PlaneGeometry(96,96),new T.MeshBasicMaterial({color:0x0a0f18,transparent:true,opacity:0.10}));
   ambientStrip.rotation.x=-Math.PI/2;
   ambientStrip.position.y=0.03;
   ambientStrip.userData.isMapDecor=true;
   scene.add(ambientStrip);
 
-  var centerMark=new T.Mesh(new T.RingGeometry(2.2,3.4,24), new T.MeshBasicMaterial({color:0x1f2a39,transparent:true,opacity:0.55}));
+  var centerMark=new T.Mesh(new T.RingGeometry(3.0,5.0,32), new T.MeshBasicMaterial({color:0x1f2a39,transparent:true,opacity:0.55}));
   centerMark.rotation.x=-Math.PI/2;
   centerMark.position.y=0.035;
   centerMark.userData.isMapDecor=true;

@@ -296,6 +296,10 @@ var poloFbxWaiters  = [];
 var gunGlbTemplate  = null;
 var gunGlbReady     = false;
 var gunGlbWaiters   = [];
+var buildingTemplates = Object.create(null);
+var buildingReady = Object.create(null);
+var buildingLoadPending = 0;
+var buildingExpected = 0;
 var POLO_FBX_SCALE = 0.01;
 var POLO_TARGET_HEIGHT = 1.78;
 var POLO_ROT_Y = Math.PI;
@@ -686,6 +690,122 @@ function getRoomInput(){return (roomInput.value||'').replace(/[^0-9]/g,'').slice
 function clampVecToMap(v){v.x=clamp(v.x,-MAP_BORDER,MAP_BORDER);v.z=clamp(v.z,-MAP_BORDER,MAP_BORDER);return v;}
 function isInteractiveTarget(el){return !!(el&&el.closest&&el.closest('button,input,textarea,select,label,a,#lobbyOverlay,#waitingOverlay,#loadingOverlay,#resultOverlay'));}
 function addColliderBox(x,y,z,w,h,d,mesh){colliders.push({x:x,y:y,z:z,w:w,h:h,d:d,mesh:mesh||null});}
+function clearCurrentMapDecor(){
+  colliders.forEach(function(c){if(c.mesh&&c.mesh.parent)c.mesh.parent.remove(c.mesh);});
+  colliders.length=0;
+  for(var i=scene.children.length-1;i>=0;i--){
+    var obj=scene.children[i];
+    if(obj&&obj.userData&&obj.userData.isMapDecor){scene.remove(obj);}
+  }
+}
+function rebuildCurrentMap(){
+  clearCurrentMapDecor();
+  buildMap(currentMapId || 'arena');
+}
+function loadBuildingModel(key, file, onDone){
+  var loader = new GLTFLoader();
+  buildingExpected++;
+  loader.load(
+    encodeURI(file),
+    function(gltf){
+      var sceneObj = gltf && gltf.scene ? gltf.scene : (gltf && gltf.scenes && gltf.scenes[0] ? gltf.scenes[0] : null);
+      if(!sceneObj) throw new Error(file + ' loaded but scene was empty');
+      sceneObj.updateMatrixWorld(true);
+      buildingTemplates[key] = sceneObj;
+      buildingReady[key] = true;
+      buildingLoadPending = Math.max(0, buildingLoadPending - 1);
+      if(onDone) try{ onDone(null, sceneObj); }catch(e){}
+      if(buildingLoadPending <= 0 && currentMapId === 'arena') rebuildCurrentMap();
+      console.log('[BUILDING] loaded', key, file);
+    },
+    undefined,
+    function(err){
+      console.warn('[BUILDING] load failed', key, err);
+      buildingTemplates[key] = null;
+      buildingReady[key] = true;
+      buildingLoadPending = Math.max(0, buildingLoadPending - 1);
+      if(onDone) try{ onDone(err || new Error(file + ' failed')); }catch(e){}
+      if(buildingLoadPending <= 0 && currentMapId === 'arena') rebuildCurrentMap();
+    }
+  );
+}
+function loadBuildingModels(){
+  var defs = (MAP_DEFS && MAP_DEFS.arena && MAP_DEFS.arena.buildings) ? MAP_DEFS.arena.buildings : [];
+  buildingLoadPending = defs.length;
+  buildingExpected = defs.length;
+  if(!defs.length) return;
+  defs.forEach(function(cfg){
+    loadBuildingModel(cfg.key || cfg.file, cfg.file);
+  });
+}
+function placeMapBuildings(def){
+  (def.buildings || []).forEach(function(cfg){
+    var key = cfg.key || cfg.file;
+    var template = buildingTemplates[key];
+    var world = new T.Group();
+    world.position.set(cfg.x || 0, cfg.y || 0, cfg.z || 0);
+    world.rotation.y = cfg.yaw || 0;
+    world.userData.isMapDecor = true;
+
+    if(template){
+      var root = template.clone(true);
+      root.traverse(function(node){ if(node){ node.userData.isMapDecor = true; } });
+      root.updateMatrixWorld(true);
+
+      var box = new T.Box3().setFromObject(root);
+      var size = new T.Vector3();
+      box.getSize(size);
+      var scaleByHeight = (cfg.targetHeight && size.y > 0.0001) ? (cfg.targetHeight / size.y) : 1;
+      var scaleByFootprint = (cfg.targetFootprint && Math.max(size.x, size.z) > 0.0001) ? (cfg.targetFootprint / Math.max(size.x, size.z)) : 1;
+      var fitScale = Math.min(scaleByHeight, scaleByFootprint);
+      if(!Number.isFinite(fitScale) || fitScale <= 0) fitScale = 1;
+      if(Number.isFinite(cfg.scale) && cfg.scale > 0) fitScale *= cfg.scale;
+      if(Number.isFinite(cfg.maxScale) && cfg.maxScale > 0) fitScale = Math.min(fitScale, cfg.maxScale);
+      if(Number.isFinite(cfg.minScale) && cfg.minScale > 0) fitScale = Math.max(fitScale, cfg.minScale);
+
+      root.scale.setScalar(fitScale);
+      root.updateMatrixWorld(true);
+
+      var scaledBox = new T.Box3().setFromObject(root);
+      var center = new T.Vector3();
+      scaledBox.getCenter(center);
+      var minY = scaledBox.min.y;
+      root.position.set(-center.x, -minY, -center.z);
+      root.updateMatrixWorld(true);
+      world.add(root);
+
+      var worldBox = new T.Box3().setFromObject(world);
+      var c = new T.Vector3();
+      var s = new T.Vector3();
+      worldBox.getCenter(c);
+      worldBox.getSize(s);
+      var pad = Number.isFinite(cfg.colliderScale) ? cfg.colliderScale : 0.92;
+      addColliderBox(c.x, c.y, c.z, Math.max(0.2, s.x * pad), Math.max(0.2, s.y * 0.98), Math.max(0.2, s.z * pad), world);
+    }else{
+      var phH = cfg.targetHeight || 5.5;
+      var phW = cfg.targetFootprint || 8.0;
+      var phD = Math.max(4.5, phW * 0.78);
+      var fallback = new T.Mesh(
+        new T.BoxGeometry(phW, phH, phD),
+        new T.MeshStandardMaterial({
+          color: 0x5d6777,
+          roughness: 0.88,
+          metalness: 0.05,
+          emissive: 0x111820,
+          emissiveIntensity: 0.06
+        })
+      );
+      fallback.position.y = phH * 0.5;
+      fallback.castShadow = true;
+      fallback.receiveShadow = true;
+      fallback.userData.isMapDecor = true;
+      world.add(fallback);
+      addColliderBox(world.position.x, phH * 0.5, world.position.z, phW, phH, phD, world);
+    }
+
+    scene.add(world);
+  });
+}
 function loadPoloFbx(){
   var loader = new FBXLoader();
   loader.load(
@@ -2773,49 +2893,49 @@ function triggerRecoil(){gunState.recoil=Math.min(1.0,gunState.recoil+(adsActive
 var currentMapId = 'arena';
 var MAP_DEFS = {
   arena: {
-    name: 'NEON STREET',
-    floorColor: 0x0f1520,
-    roadColor: 0x171f2c,
-    curbColor: 0x2a3342,
-    laneColor: 0x0d1118,
-    obstaclePalette: [0x2b3342, 0x344154, 0x243043],
-    cratePalette: [0x8a6238, 0x6f4a27, 0x5a3c20],
+    name: 'NEON BLOCKS',
+    floorColor: 0x101722,
+    roadColor: 0x182231,
+    curbColor: 0x2b3545,
+    laneColor: 0x0e121a,
+    obstaclePalette: [0x2d3542, 0x394658, 0x222b36],
+    cratePalette: [0x8b6240, 0x734b2a, 0x5a3c20],
     trashPalette: [0x4d5868, 0x566373, 0x3c4757],
-    dumpsterColor: 0x55a244,
+    dumpsterColor: 0x53a845,
     dumpsterShadow: 0x2a5b22,
     obstacles: [
-      [-29.5,1,-29.5,4.8,2,4.8],[-29.5,1,29.5,4.8,2,4.8],[29.5,1,-29.5,4.8,2,4.8],[29.5,1,29.5,4.8,2,4.8],
-      [-14,1,-27,8.6,2,3.0],[14,1,-27,8.6,2,3.0],[-14,1,27,8.6,2,3.0],[14,1,27,8.6,2,3.0],
-      [-27,1,-12,3.0,2,9.6],[-27,1,12,3.0,2,9.6],[27,1,-12,3.0,2,9.6],[27,1,12,3.0,2,9.6],
-      [-6.4,1,-6.4,3.4,2,8.6],[6.4,1,6.4,3.4,2,8.6],[-6.4,1,6.4,3.4,2,8.6],[6.4,1,-6.4,3.4,2,8.6],
-      [0,1,-15,4.4,2,3.0],[0,1,15,4.4,2,3.0],[-15,1,0,3.0,2,4.4],[15,1,0,3.0,2,4.4],
-      [-19,1,-19,3.8,2,3.8],[19,1,-19,3.8,2,3.8],[-19,1,19,3.8,2,3.8],[19,1,19,3.8,2,3.8]
+      [-29.6,1,-29.6,4.0,2,4.0],[-29.6,1,29.6,4.0,2,4.0],[29.6,1,-29.6,4.0,2,4.0],[29.6,1,29.6,4.0,2,4.0],
+      [0,1,-23.5,11.0,2,2.6],[0,1,23.5,11.0,2,2.6],[-23.5,1,0,2.6,2,11.0],[23.5,1,0,2.6,2,11.0],
+      [-11.5,1,-10.5,5.0,2,2.2],[11.5,1,10.5,5.0,2,2.2],[-11.5,1,10.5,5.0,2,2.2],[11.5,1,-10.5,5.0,2,2.2]
     ],
     crates: [
-      [-24,-24,0.78],[-20,-19,0.68],[-15,-24,0.72],[-9,-18,0.76],
-      [8,-24,0.72],[13,-19,0.70],[19,-24,0.74],[23,-15,0.68],
-      [-24,9,0.76],[-18,14,0.68],[-11,19,0.72],[-4,14,0.66],
-      [9,19,0.76],[16,12,0.68],[22,7,0.72],[24,21,0.66],
-      [-21,24,0.74],[-12,24,0.68],[2,24,0.72],[14,24,0.66]
+      [-18,-18,0.74],[-14,-14,0.68],[15,-17,0.70],[18,-13,0.66],
+      [-16,16,0.72],[-11,12,0.64],[12,15,0.70],[17,12,0.66]
     ],
     trash: [
-      [-23,-9,0.48],[-17,-3,0.42],[-11,7,0.38],[-6,-12,0.40],
-      [5,-5,0.38],[12,5,0.44],[18,-11,0.40],[22,11,0.42],
-      [-22,15,0.38],[-14,20,0.44],[-2,18,0.40],[9,22,0.42]
+      [-22,-7,0.44],[-16,-3,0.38],[10,6,0.40],[18,-6,0.42]
     ],
     dumpsters: [
-      [-24,-16,0.82],
-      [24,-16,0.82],
-      [-24,16,0.82],
-      [24,16,0.82]
+      [-20,-20,0.84],
+      [20,-20,0.84],
+      [0,20,0.88]
+    ],
+    buildings: [
+      { key:'b1', file:'建物1.glb', x:-13.5, y:0, z:-8.0, yaw:0.62, targetHeight:7.8, targetFootprint:10.8, colliderScale:0.90 },
+      { key:'b2', file:'建物2.glb', x:13.2,  y:0, z:-8.8, yaw:-0.58, targetHeight:6.8, targetFootprint:10.0, colliderScale:0.90 },
+      { key:'b3', file:'建物3.glb', x:0.0,   y:0, z:14.0, yaw:Math.PI, targetHeight:5.9, targetFootprint:8.4, colliderScale:0.94 }
     ],
     spawns:{
-      blue:[{x:-28,z:-28},{x:-28,z:-11},{x:-28,z:11},{x:-28,z:28}],
-      red:[{x:28,z:28},{x:28,z:11},{x:28,z:-11},{x:28,z:-28}]
+      blue:[{x:-27,z:-27},{x:-27,z:-13},{x:-27,z:13},{x:-27,z:27}],
+      red:[{x:27,z:27},{x:27,z:13},{x:27,z:-13},{x:27,z:-27}]
     }
   }
 };
 function getSpawnPointsForMap(mapId,team){
+  var def=MAP_DEFS.arena;
+  return (def.spawns&&def.spawns[team])?def.spawns[team]:MAP_DEFS.arena.spawns[team];
+}
+(mapId,team){
   var def=MAP_DEFS.arena;
   return (def.spawns&&def.spawns[team])?def.spawns[team]:MAP_DEFS.arena.spawns[team];
 }
@@ -2827,19 +2947,19 @@ function buildMap(mapId){
   scene.fog = new T.FogExp2(def.floorColor,0.010);
 
   var floorMat=new T.MeshStandardMaterial({color:def.floorColor,roughness:1.0,metalness:0.0});
-  var floor=new T.Mesh(new T.PlaneGeometry(68,68),floorMat);
+  var floor=new T.Mesh(new T.PlaneGeometry(72,72),floorMat);
   floor.rotation.x=-Math.PI/2;
   floor.receiveShadow=true;
   floor.userData.isMapDecor=true;
   scene.add(floor);
 
   var roadMat=new T.MeshStandardMaterial({color:def.roadColor,roughness:0.98,metalness:0.02});
-  var roadA=new T.Mesh(new T.PlaneGeometry(8.5,68),roadMat);
+  var roadA=new T.Mesh(new T.PlaneGeometry(6.9,72),roadMat);
   roadA.rotation.x=-Math.PI/2;
   roadA.position.set(0,0.01,0);
   roadA.userData.isMapDecor=true;
   scene.add(roadA);
-  var roadB=new T.Mesh(new T.PlaneGeometry(68,8.5),roadMat);
+  var roadB=new T.Mesh(new T.PlaneGeometry(72,6.9),roadMat);
   roadB.rotation.x=-Math.PI/2;
   roadB.position.set(0,0.011,0);
   roadB.userData.isMapDecor=true;
@@ -2972,6 +3092,8 @@ function buildMap(mapId){
     addColliderBox(x,h*0.5,z,w*0.88,h*0.92,d*0.84,g);
   });
 
+  placeMapBuildings(def);
+
   [
     [-22,0,-29],[-7,0,-29],[7,0,-29],[22,0,-29],
     [-22,0,29],[-7,0,29],[7,0,29],[22,0,29]
@@ -3028,6 +3150,7 @@ function init(){
   buildMap('arena');gameMode=GAME_MODE.LOBBY;camera.position.set(0,16,33);camera.lookAt(0,0,0);
   setModeUI();setRoomInputValid();updateRoomUI();onlineCountEl.textContent='👥 同室: 1人';
   loadPoloFbx();
+  loadBuildingModels();
   loadGunGlbForAvatars();
     initSocket();animate();
 }

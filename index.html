@@ -685,88 +685,106 @@ function escapeHtml(s){return String(s).replace(/[&<>"']/g,function(ch){return{'
 function getRoomInput(){return (roomInput.value||'').replace(/[^0-9]/g,'').slice(0,4);}
 function clampVecToMap(v){v.x=clamp(v.x,-MAP_BORDER,MAP_BORDER);v.z=clamp(v.z,-MAP_BORDER,MAP_BORDER);return v;}
 function isInteractiveTarget(el){return !!(el&&el.closest&&el.closest('button,input,textarea,select,label,a,#lobbyOverlay,#waitingOverlay,#loadingOverlay,#resultOverlay'));}
-function addColliderBox(x,y,z,w,h,d,mesh){colliders.push({x:x,y:y,z:z,w:w,h:h,d:d,mesh:mesh||null});}
+function addColliderBox(x,y,z,w,h,d,mesh,box3){colliders.push({x:x,y:y,z:z,w:w,h:h,d:d,mesh:mesh||null,box3:box3||null});}
 
-var building1Template = null;
-var building2Template = null;
-var building3Template = null;
-var buildingTemplatesReady = { b1:false, b2:false, b3:false };
+function colliderToBoxData(b){
+  if(!b) return {x:0,y:0,z:0,w:0,h:0,d:0};
+  if(b.box3 && b.box3.min && b.box3.max){
+    var min = b.box3.min, max = b.box3.max;
+    return {
+      x:(min.x+max.x)*0.5,
+      y:(min.y+max.y)*0.5,
+      z:(min.z+max.z)*0.5,
+      w:Math.max(0.0001, max.x-min.x),
+      h:Math.max(0.0001, max.y-min.y),
+      d:Math.max(0.0001, max.z-min.z)
+    };
+  }
+  if(b.isBox3 && b.min && b.max){
+    return {
+      x:(b.min.x+b.max.x)*0.5,
+      y:(b.min.y+b.max.y)*0.5,
+      z:(b.min.z+b.max.z)*0.5,
+      w:Math.max(0.0001, b.max.x-b.min.x),
+      h:Math.max(0.0001, b.max.y-b.min.y),
+      d:Math.max(0.0001, b.max.z-b.min.z)
+    };
+  }
+  return b;
+}
+
+
+var buildingTemplates = { b1:null, b2:null, b3:null, b4:null, b5:null };
+var carTemplate = null;
+var buildingTemplatesReady = { b1:false, b2:false, b3:false, b4:false, b5:false, car:false };
 var buildingLoadStarted = false;
 var buildingPlacements = [
   {
     key: 'b1',
     path: 'building1.glb',
     fallback: { size: [7.6, 9.8, 21.0], color: 0x404852, accent: 0x5a6673 },
-    x: -20.5,
-    z: -8.0,
-    yRot: 0.22,
-    scale: 0.00108,
-    pad: [9.4, 10.8, 22.8]
+    x: -18.8,
+    z: -11.5,
+    yRot: 0.40,
+    targetHeight: 8.2,
+    pad: [10.2, 9.6, 20.0]
   },
   {
     key: 'b2',
     path: 'building2.glb',
     fallback: { size: [9.0, 10.8, 10.5], color: 0x6b7b88, accent: 0x8ea0ad },
-    x: 17.5,
-    z: -16.5,
-    yRot: -1.18,
-    scale: 1.45,
-    pad: [10.5, 12.0, 12.0]
+    x: 18.4,
+    z: -12.0,
+    yRot: -0.78,
+    targetHeight: 6.9,
+    pad: [10.0, 10.0, 11.0]
   },
   {
     key: 'b3',
     path: 'building3.glb',
     fallback: { size: [10.8, 6.2, 5.4], color: 0x55606c, accent: 0x78828f },
-    x: 13.5,
-    z: 16.5,
-    yRot: 0.72,
-    scale: 0.28,
-    pad: [12.0, 7.2, 6.8]
+    x: 0.0,
+    z: 16.4,
+    yRot: Math.PI,
+    targetHeight: 5.6,
+    pad: [9.8, 6.2, 6.2]
+  },
+  {
+    key: 'b4',
+    path: 'building4.glb',
+    fallback: { size: [9.8, 9.8, 9.8], color: 0x3f4956, accent: 0x667786 },
+    x: -18.2,
+    z: 14.4,
+    yRot: 1.55,
+    targetHeight: 7.2,
+    pad: [11.6, 8.0, 11.6]
+  },
+  {
+    key: 'b5',
+    path: 'building5.glb',
+    fallback: { size: [8.6, 6.0, 8.6], color: 0x59626d, accent: 0x7d8792 },
+    x: 18.1,
+    z: 13.6,
+    yRot: -1.35,
+    targetHeight: 6.5,
+    pad: [10.8, 7.2, 10.8]
   }
 ];
 
 var buildingInstancePlacements = [
-  {
-    key: 'b1',
-    fallback: { size: [7.6, 9.8, 21.0], color: 0x404852, accent: 0x5a6673 },
-    x: -24.0, z: -14.0, yRot: 0.18, scale: 0.00095, pad: [8.8, 9.8, 20.2]
-  },
-  {
-    key: 'b2',
-    fallback: { size: [9.0, 10.8, 10.5], color: 0x6b7b88, accent: 0x8ea0ad },
-    x: 20.8, z: -16.8, yRot: -1.05, scale: 1.30, pad: [10.0, 11.5, 11.0]
-  },
-  {
-    key: 'b3',
-    fallback: { size: [10.8, 6.2, 5.4], color: 0x55606c, accent: 0x78828f },
-    x: 15.5, z: 16.0, yRot: 0.68, scale: 0.24, pad: [10.6, 6.6, 6.1]
-  },
-  {
-    key: 'b1',
-    fallback: { size: [7.6, 9.8, 21.0], color: 0x404852, accent: 0x5a6673 },
-    x: -16.5, z: 15.5, yRot: 1.62, scale: 0.00092, pad: [8.4, 9.4, 19.6]
-  },
-  {
-    key: 'b2',
-    fallback: { size: [9.0, 10.8, 10.5], color: 0x6b7b88, accent: 0x8ea0ad },
-    x: -8.8, z: -19.0, yRot: 0.35, scale: 1.05, pad: [9.2, 10.6, 10.0]
-  },
-  {
-    key: 'b3',
-    fallback: { size: [10.8, 6.2, 5.4], color: 0x55606c, accent: 0x78828f },
-    x: 0.5, z: 21.0, yRot: -0.82, scale: 0.22, pad: [9.8, 6.0, 5.8]
-  },
-  {
-    key: 'b1',
-    fallback: { size: [7.6, 9.8, 21.0], color: 0x404852, accent: 0x5a6673 },
-    x: 24.0, z: 2.0, yRot: -1.36, scale: 0.00098, pad: [8.6, 9.6, 20.0]
-  },
-  {
-    key: 'b2',
-    fallback: { size: [9.0, 10.8, 10.5], color: 0x6b7b88, accent: 0x8ea0ad },
-    x: -2.0, z: 24.0, yRot: 2.28, scale: 1.12, pad: [9.8, 11.0, 10.5]
-  }
+  { key: 'b1', x: -18.8, z: -11.5, yRot: 0.40, targetHeight: 8.2, pad: [10.2, 9.6, 20.0] },
+  { key: 'b2', x: 18.4, z: -12.0, yRot: -0.78, targetHeight: 6.9, pad: [10.0, 10.0, 11.0] },
+  { key: 'b3', x: 0.0, z: 16.4, yRot: Math.PI, targetHeight: 5.6, pad: [9.8, 6.2, 6.2] },
+  { key: 'b4', x: -18.2, z: 14.4, yRot: 1.55, targetHeight: 7.2, pad: [11.6, 8.0, 11.6] },
+  { key: 'b5', x: 18.1, z: 13.6, yRot: -1.35, targetHeight: 6.5, pad: [10.8, 7.2, 10.8] }
 ];
+
+var carPlacements = [
+  { x: -8.4, z: 4.0, yRot: 0.18, targetHeight: 1.35, pad: [3.8, 1.7, 2.1] },
+  { x: 6.6, z: -2.6, yRot: -1.55, targetHeight: 1.35, pad: [3.8, 1.7, 2.1] },
+  { x: 0.0, z: -18.0, yRot: 2.60, targetHeight: 1.35, pad: [3.8, 1.7, 2.1] }
+];
+
 
 function loadBuildingAssets(){
   if(buildingLoadStarted) return;
@@ -788,9 +806,8 @@ function loadBuildingAssets(){
             }
           }
         });
-        if(spec.key === 'b1') building1Template = sceneObj;
-        if(spec.key === 'b2') building2Template = sceneObj;
-        if(spec.key === 'b3') building3Template = sceneObj;
+        if(buildingTemplates.hasOwnProperty(spec.key)) buildingTemplates[spec.key] = sceneObj;
+        if(spec.key === 'car') carTemplate = sceneObj;
         buildingTemplatesReady[spec.key] = true;
         console.log('[MAP] loaded', spec.path);
         rebuildMapIfNeeded('arena', true);
@@ -803,12 +820,12 @@ function loadBuildingAssets(){
       }
     );
   }
-  loadOne(buildingPlacements[0]);
-  loadOne(buildingPlacements[1]);
-  loadOne(buildingPlacements[2]);
+  buildingPlacements.forEach(function(spec){ loadOne(spec); });
+  loadOne({ key:'car', path:'car.glb' });
 }
 
 function clearMapDecor(){
+
   colliders.forEach(function(c){if(c.mesh&&c.mesh.parent)c.mesh.parent.remove(c.mesh);});
   colliders.length = 0;
   for(var i=scene.children.length-1;i>=0;i--){
@@ -844,6 +861,7 @@ function makeFallbackBuilding(spec){
   return group;
 }
 
+
 function placeBuildingTemplate(template, spec, fallback, alreadyAdded){
   var root = template ? template.clone(true) : fallback.clone(true);
   root.traverse(function(node){
@@ -852,22 +870,24 @@ function placeBuildingTemplate(template, spec, fallback, alreadyAdded){
       node.receiveShadow = true;
     }
   });
-  root.scale.setScalar(spec.scale);
-  root.rotation.y = spec.yRot || 0;
+  root.scale.setScalar(spec.targetHeight ? 1 : 1);
   root.position.set(spec.x, 0, spec.z);
   root.updateMatrixWorld(true);
 
   var box = new T.Box3().setFromObject(root);
   if(!box.isEmpty()){
+    var size = new T.Vector3();
+    box.getSize(size);
+    var sc = (spec.targetHeight && size.y > 0.0001) ? (spec.targetHeight / size.y) : 1;
+    root.scale.setScalar(sc);
+    root.updateMatrixWorld(true);
+    box = new T.Box3().setFromObject(root);
     root.position.y -= box.min.y;
     root.updateMatrixWorld(true);
     box = new T.Box3().setFromObject(root);
-    var size = new T.Vector3();
     var center = new T.Vector3();
-    box.getSize(size);
     box.getCenter(center);
-
-    var pad = spec.pad || [size.x*1.06, size.y*1.02, size.z*1.06];
+    var pad = spec.pad || [Math.max(0.1, box.max.x - box.min.x) * 1.05, Math.max(1.0, box.max.y - box.min.y) * 1.03, Math.max(0.1, box.max.z - box.min.z) * 1.05];
     var colliderMesh = new T.Mesh(
       new T.BoxGeometry(pad[0], Math.max(1.0,pad[1]), pad[2]),
       new T.MeshBasicMaterial({visible:false})
@@ -875,14 +895,106 @@ function placeBuildingTemplate(template, spec, fallback, alreadyAdded){
     colliderMesh.position.copy(center);
     colliderMesh.userData.isMapDecor = true;
     scene.add(colliderMesh);
-    addColliderBox(center.x, center.y, center.z, pad[0], Math.max(1.0,pad[1]), pad[2], colliderMesh);
+    addColliderBox(center.x, center.y, center.z, pad[0], Math.max(1.0,pad[1]), pad[2], colliderMesh, box.clone());
   }
 
   root.userData.isMapDecor = true;
   scene.add(root);
   return root;
 }
+
+function makeFallbackCar(spec){
+  var g = new T.Group();
+  var bodyMat = new T.MeshStandardMaterial({color:0x9aa3ad,roughness:0.46,metalness:0.18});
+  var roofMat = new T.MeshStandardMaterial({color:0x202530,roughness:0.28,metalness:0.15});
+  var glassMat = new T.MeshStandardMaterial({color:0x7fc2ff,roughness:0.10,metalness:0.06,transparent:true,opacity:0.45});
+  var wheelMat = new T.MeshStandardMaterial({color:0x111111,roughness:1.0,metalness:0.0});
+  var rimMat = new T.MeshStandardMaterial({color:0x666d76,roughness:0.45,metalness:0.35});
+
+  var body = new T.Mesh(new T.BoxGeometry(2.15,0.55,4.10), bodyMat);
+  body.position.y = 0.48;
+  g.add(body);
+
+  var cabin = new T.Mesh(new T.BoxGeometry(1.35,0.52,1.65), roofMat);
+  cabin.position.set(0,0.92,-0.15);
+  g.add(cabin);
+
+  var glass = new T.Mesh(new T.BoxGeometry(1.10,0.28,1.20), glassMat);
+  glass.position.set(0,1.02,-0.15);
+  g.add(glass);
+
+  var hood = new T.Mesh(new T.BoxGeometry(1.55,0.34,1.35), bodyMat);
+  hood.position.set(0,0.68,1.05);
+  g.add(hood);
+
+  var bumper = new T.Mesh(new T.BoxGeometry(2.05,0.18,0.28), roofMat);
+  bumper.position.set(0,0.33,2.02);
+  g.add(bumper);
+
+  var wheelGeo = new T.CylinderGeometry(0.23,0.23,0.16,12);
+  var rimGeo = new T.CylinderGeometry(0.13,0.13,0.18,10);
+  [-0.92,0.92].forEach(function(wx){
+    [-1.42,1.42].forEach(function(wz){
+      var w = new T.Mesh(wheelGeo, wheelMat);
+      w.rotation.z = Math.PI/2;
+      w.position.set(wx,0.22,wz);
+      g.add(w);
+      var rim = new T.Mesh(rimGeo, rimMat);
+      rim.rotation.z = Math.PI/2;
+      rim.position.copy(w.position);
+      g.add(rim);
+    });
+  });
+
+  var headMat = new T.MeshStandardMaterial({color:0xfff7df,emissive:0xfff0c0,emissiveIntensity:1.0,roughness:0.15});
+  var head1 = new T.Mesh(new T.BoxGeometry(0.18,0.13,0.08), headMat);
+  head1.position.set(-0.62,0.48,2.08);
+  var head2 = head1.clone(); head2.position.x = 0.62;
+  g.add(head1); g.add(head2);
+
+  g.userData.isMapDecor = true;
+  return g;
+}
+
+function placeCarTemplate(template, spec, fallback){
+  var root = template ? template.clone(true) : fallback.clone(true);
+  root.traverse(function(node){
+    if(node && node.isMesh){
+      node.castShadow = true;
+      node.receiveShadow = true;
+    }
+  });
+  root.position.set(spec.x, 0, spec.z);
+  root.rotation.y = spec.yRot || 0;
+  root.updateMatrixWorld(true);
+
+  var box = new T.Box3().setFromObject(root);
+  if(!box.isEmpty()){
+    var size = new T.Vector3(); box.getSize(size);
+    var sc = (spec.targetHeight && size.y > 0.0001) ? (spec.targetHeight / size.y) : 1;
+    root.scale.setScalar(sc);
+    root.updateMatrixWorld(true);
+    box = new T.Box3().setFromObject(root);
+    root.position.y -= box.min.y;
+    root.updateMatrixWorld(true);
+    box = new T.Box3().setFromObject(root);
+    var center = new T.Vector3();
+    box.getCenter(center);
+    var pad = spec.pad || [Math.max(0.1, box.max.x - box.min.x) * 1.06, Math.max(0.1, box.max.y - box.min.y) * 1.02, Math.max(0.1, box.max.z - box.min.z) * 1.06];
+    var colliderMesh = new T.Mesh(new T.BoxGeometry(pad[0], Math.max(0.35,pad[1]), pad[2]), new T.MeshBasicMaterial({visible:false}));
+    colliderMesh.position.copy(center);
+    colliderMesh.userData.isMapDecor = true;
+    scene.add(colliderMesh);
+    addColliderBox(center.x, center.y, center.z, pad[0], Math.max(0.35,pad[1]), pad[2], colliderMesh, box.clone());
+  }
+
+  root.userData.isMapDecor = true;
+  scene.add(root);
+  return root;
+}
+
 function loadPoloFbx(){
+
   var loader = new FBXLoader();
   loader.load(
     'polo.fbx',
@@ -1510,7 +1622,7 @@ var AI_RADIUS=0.5;
 function resolveCollision(next){
   var safe=next.clone(); safe.y=PLAYER_HEIGHT; var r=PLAYER_RADIUS;
   for(var i=0;i<colliders.length;i++){
-    var c=colliders[i];
+    var c=colliderToBoxData(colliders[i]);
     var x1=c.x-c.w/2-r,x2=c.x+c.w/2+r,z1=c.z-c.d/2-r,z2=c.z+c.d/2+r;
     if(safe.x>x1&&safe.x<x2&&safe.z>z1&&safe.z<z2){
       var dl=Math.abs(safe.x-x1),dr=Math.abs(x2-safe.x),dt2=Math.abs(safe.z-z1),db=Math.abs(z2-safe.z);
@@ -1523,7 +1635,7 @@ function resolveCollision(next){
 function resolveCollisionForAI(nx,nz){
   var r=AI_RADIUS,sx=nx,sz=nz;
   for(var i=0;i<colliders.length;i++){
-    var c=colliders[i];
+    var c=colliderToBoxData(colliders[i]);
     var x1=c.x-c.w/2-r,x2=c.x+c.w/2+r,z1=c.z-c.d/2-r,z2=c.z+c.d/2+r;
     if(sx>x1&&sx<x2&&sz>z1&&sz<z2){
       var dl=Math.abs(sx-x1),dr=Math.abs(x2-sx),dt2=Math.abs(sz-z1),db=Math.abs(sz-z2);
@@ -1536,7 +1648,7 @@ function resolveCollisionForAI(nx,nz){
 function aiWouldHitWall(nx,nz){
   var r=AI_RADIUS;
   for(var i=0;i<colliders.length;i++){
-    var c=colliders[i];
+    var c=colliderToBoxData(colliders[i]);
     var x1=c.x-c.w/2-r,x2=c.x+c.w/2+r,z1=c.z-c.d/2-r,z2=c.z+c.d/2+r;
     if(nx>x1&&nx<x2&&nz>z1&&nz<z2) return true;
   }
@@ -1570,7 +1682,7 @@ function makeBullet(origin,dir,ownerId,ownerTeam,isRemote){
   return{mesh:m,pos:origin.clone(),prev:origin.clone(),dir:dir.clone().normalize(),speed:BULLET_SPEED,life:BULLET_LIFE,ownerId:ownerId||'',ownerTeam:ownerTeam||TEAM_BLUE,isRemote:!!isRemote,dead:false};
 }
 function addBullet(origin,dir,ownerId,ownerTeam,isRemote){var b=makeBullet(origin,dir,ownerId,ownerTeam,isRemote);bullets.push(b);return b;}
-function hitPointInBox(p,b){return Math.abs(p.x-b.x)<=b.w/2&&Math.abs(p.y-b.y)<=b.h/2&&Math.abs(p.z-b.z)<=b.d/2;}
+function hitPointInBox(p,b){b=colliderToBoxData(b);return Math.abs(p.x-b.x)<=b.w/2&&Math.abs(p.y-b.y)<=b.h/2&&Math.abs(p.z-b.z)<=b.d/2;}
 function raySegmentHitsBox(prev,next,box){
   var totalDist=prev.distanceTo(next);
   if(totalDist<1e-6) return hitPointInBox(prev,box)?prev.clone():null;
@@ -1584,6 +1696,7 @@ function raySegmentHitsBox(prev,next,box){
   return null;
 }
 function rayIntersectAABBDistance(origin,dir,box){
+  box=colliderToBoxData(box);
   var halfW=box.w/2,halfH=box.h/2,halfD=box.d/2;
   var minX=box.x-halfW,maxX=box.x+halfW;
   var minY=box.y-halfH,maxY=box.y+halfH;
@@ -3094,9 +3207,10 @@ function buildMap(mapId){
     addColliderBox(o[0],o[1],o[2],o[3],o[4],o[5],m);
   });
 
+
   var buildingSpecs = (buildingInstancePlacements || []).map(function(inst){
     return {
-      template: inst.key === 'b1' ? building1Template : (inst.key === 'b2' ? building2Template : building3Template),
+      template: buildingTemplates[inst.key] || null,
       spec: inst,
       fallback: makeFallbackBuilding(inst)
     };
@@ -3106,7 +3220,13 @@ function buildMap(mapId){
     placeBuildingTemplate(entry.template, entry.spec, entry.fallback);
   });
 
+  (carPlacements || []).forEach(function(spec, idx){
+    var fallback = makeFallbackCar(spec);
+    placeCarTemplate(carTemplate, spec, fallback);
+  });
+
   var crateBaseColors = def.cratePalette || [0x8a6238,0x6f4a27,0x5a3c20];
+ def.cratePalette || [0x8a6238,0x6f4a27,0x5a3c20];
   var crateMat = new T.MeshStandardMaterial({color:crateBaseColors[0],roughness:0.94,metalness:0.03});
   var crateDarkMat = new T.MeshStandardMaterial({color:crateBaseColors[2],roughness:0.98,metalness:0.02});
   var crateMetalMat = new T.MeshStandardMaterial({color:crateBaseColors[1],roughness:0.90,metalness:0.05});

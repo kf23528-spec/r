@@ -2776,28 +2776,34 @@ var MAP_DEFS = {
     name: 'NEON STREET',
     floorColor: 0x121824,
     obstacles: [
-      [-31,1,-31,6,2,6],[-31,1,31,6,2,6],[31,1,-31,6,2,6],[31,1,31,6,2,6],
-      [-14,1,-28,12,2,4],[14,1,-28,12,2,4],[-14,1,28,12,2,4],[14,1,28,12,2,4],
-      [-28,1,-12,4,2,14],[-28,1,12,4,2,14],[28,1,-12,4,2,14],[28,1,12,4,2,14],
-      [-6,1,-6,4,2,12],[6,1,6,4,2,12],[-6,1,6,4,2,12],[6,1,-6,4,2,12],
-      [0,1,-16,6,2,4],[0,1,16,6,2,4],[-16,1,0,4,2,6],[16,1,0,4,2,6],
-      [-20,1,-20,5,2,5],[20,1,-20,5,2,5],[-20,1,20,5,2,5],[20,1,20,5,2,5]
+      [-29.5,1,-29.5,4.8,2,4.8],[-29.5,1,29.5,4.8,2,4.8],[29.5,1,-29.5,4.8,2,4.8],[29.5,1,29.5,4.8,2,4.8],
+      [-13,1,-26,9.5,2,3.2],[13,1,-26,9.5,2,3.2],[-13,1,26,9.5,2,3.2],[13,1,26,9.5,2,3.2],
+      [-26,1,-11,3.2,2,10.5],[-26,1,11,3.2,2,10.5],[26,1,-11,3.2,2,10.5],[26,1,11,3.2,2,10.5],
+      [-5.5,1,-5.5,3.6,2,9.5],[5.5,1,5.5,3.6,2,9.5],[-5.5,1,5.5,3.6,2,9.5],[5.5,1,-5.5,3.6,2,9.5],
+      [0,1,-14,4.8,2,3.4],[0,1,14,4.8,2,3.4],[-14,1,0,3.4,2,4.8],[14,1,0,3.4,2,4.8],
+      [-18,1,-18,4.0,2,4.0],[18,1,-18,4.0,2,4.0],[-18,1,18,4.0,2,4.0],[18,1,18,4.0,2,4.0]
     ],
     crates: [
-      [-24,-24,1.6],[ -18,-20,1.2],[ -10,-24,1.4],[ -4,-18,1.8],
-      [  6,-24,1.3],[ 12,-20,1.7],[ 20,-24,1.4],[ 24,-14,1.5],
-      [-24,  6,1.6],[ -18, 12,1.4],[ -10, 18,1.5],[ -3, 12,1.25],
-      [  8, 18,1.8],[ 16, 10,1.4],[ 22,  4,1.6],[ 24, 20,1.35],
-      [-22, 24,1.55],[ -8, 24,1.25],[  4, 24,1.65],[ 18, 24,1.45]
+      [-24,-23,0.95],[-18,-19,0.78],[-10,-23,0.88],[-4,-18,0.98],
+      [6,-23,0.82],[12,-19,0.92],[20,-23,0.84],[24,-13,0.86],
+      [-24,6,0.94],[-18,12,0.84],[-10,18,0.86],[-3,12,0.76],
+      [8,18,0.98],[16,10,0.82],[22,4,0.92],[24,20,0.80],
+      [-22,23,0.92],[-8,23,0.78],[4,23,0.94],[18,23,0.84]
     ],
     trash: [
-      [-26,-8,1.0],[-18,-2,0.9],[-12,8,0.2],[-5,-10,0.6],
-      [5,-4,0.3],[12,6,0.8],[18,-12,0.2],[24,12,0.7],
-      [-24,16,0.1],[-14,22,0.9],[-2,18,0.4],[10,24,0.6]
+      [-25,-8,0.72],[-17,-2,0.66],[-11,8,0.46],[-5,-10,0.58],
+      [5,-4,0.50],[12,6,0.64],[18,-12,0.44],[23,12,0.60],
+      [-23,16,0.42],[-14,21,0.68],[-2,18,0.54],[10,23,0.62]
+    ],
+    dumpsters: [
+      [-25,-15,0.95],
+      [25,-15,0.95],
+      [-25,15,0.95],
+      [25,15,0.95]
     ],
     spawns:{
-      blue:[{x:-30,z:-30},{x:-30,z:-12},{x:-30,z:12},{x:-30,z:30}],
-      red:[{x:30,z:30},{x:30,z:12},{x:30,z:-12},{x:30,z:-30}]
+      blue:[{x:-28,z:-28},{x:-28,z:-11},{x:-28,z:11},{x:-28,z:28}],
+      red:[{x:28,z:28},{x:28,z:11},{x:28,z:-11},{x:28,z:-28}]
     }
   }
 };
@@ -2810,22 +2816,22 @@ function getSpawnPointsForMap(mapId,team){
 function buildMap(mapId){
   currentMapId='arena';
   var def=MAP_DEFS.arena;
-  scene.fog = new T.FogExp2(def.floorColor,0.012);
+  scene.fog = new T.FogExp2(def.floorColor,0.011);
 
   var floorMat=new T.MeshStandardMaterial({color:def.floorColor,roughness:1.0,metalness:0.0});
-  var floor=new T.Mesh(new T.PlaneGeometry(76,76),floorMat);
+  var floor=new T.Mesh(new T.PlaneGeometry(68,68),floorMat);
   floor.rotation.x=-Math.PI/2;
   floor.receiveShadow=true;
   floor.userData.isMapDecor=true;
   scene.add(floor);
 
   var roadMat=new T.MeshStandardMaterial({color:0x18212f,roughness:0.98,metalness:0.02});
-  var roadA=new T.Mesh(new T.PlaneGeometry(10,72),roadMat);
+  var roadA=new T.Mesh(new T.PlaneGeometry(8.5,68),roadMat);
   roadA.rotation.x=-Math.PI/2;
   roadA.position.set(0,0.01,0);
   roadA.userData.isMapDecor=true;
   scene.add(roadA);
-  var roadB=new T.Mesh(new T.PlaneGeometry(72,10),roadMat);
+  var roadB=new T.Mesh(new T.PlaneGeometry(68,8.5),roadMat);
   roadB.rotation.x=-Math.PI/2;
   roadB.position.set(0,0.011,0);
   roadB.userData.isMapDecor=true;
@@ -2833,10 +2839,10 @@ function buildMap(mapId){
 
   var curbMat=new T.MeshStandardMaterial({color:0x2d3647,roughness:0.88,metalness:0.08});
   [
-    [{s:[76,10,1.2],p:[0,5,-38.2]}],
-    [{s:[76,10,1.2],p:[0,5,38.2]}],
-    [{s:[1.2,10,76],p:[-38.2,5,0]}],
-    [{s:[1.2,10,76],p:[38.2,5,0]}]
+    [{s:[68,10,1.2],p:[0,5,-34.2]}],
+    [{s:[68,10,1.2],p:[0,5,34.2]}],
+    [{s:[1.2,10,68],p:[-34.2,5,0]}],
+    [{s:[1.2,10,68],p:[34.2,5,0]}]
   ].forEach(function(list){
     list.forEach(function(w){
       var m=new T.Mesh(new T.BoxGeometry(w.s[0],w.s[1],w.s[2]),curbMat);
@@ -2846,75 +2852,121 @@ function buildMap(mapId){
     });
   });
 
-  var wallMat=new T.MeshStandardMaterial({color:0x273044,roughness:0.82,metalness:0.22});
+  var wallMatA=new T.MeshStandardMaterial({color:0x273044,roughness:0.82,metalness:0.18});
+  var wallMatB=new T.MeshStandardMaterial({color:0x374258,roughness:0.76,metalness:0.08});
+  var wallMatC=new T.MeshStandardMaterial({color:0x26364a,roughness:0.52,metalness:0.45,emissive:0x081223,emissiveIntensity:0.16});
   def.obstacles.forEach(function(o,i){
-    var mat=i%3===0?wallMat:(i%3===1?new T.MeshStandardMaterial({color:0x374258,roughness:0.76,metalness:0.08}):new T.MeshStandardMaterial({color:0x26364a,roughness:0.52,metalness:0.55,emissive:0x081223,emissiveIntensity:0.2}));
+    var mat=i%3===0?wallMatA:(i%3===1?wallMatB:wallMatC);
     var m=new T.Mesh(new T.BoxGeometry(o[3],o[4],o[5]),mat);
     m.position.set(o[0],o[1],o[2]);
     m.castShadow=true;m.receiveShadow=true;m.userData.isMapDecor=true;scene.add(m);
     addColliderBox(o[0],o[1],o[2],o[3],o[4],o[5],m);
   });
 
-  var crateMat = new T.MeshStandardMaterial({color:0x7c5630,roughness:0.92,metalness:0.06});
-  var crateTopMat = new T.MeshStandardMaterial({color:0x9a6a37,roughness:0.85,metalness:0.03});
-  var crateBandMat = new T.MeshStandardMaterial({color:0x4f341c,roughness:0.96,metalness:0.02});
+  var crateMat = new T.MeshStandardMaterial({color:0x7d5a33,roughness:0.96,metalness:0.03});
+  var crateDarkMat = new T.MeshStandardMaterial({color:0x5a3c20,roughness:0.98,metalness:0.02});
+  var crateMetalMat = new T.MeshStandardMaterial({color:0x3f2c18,roughness:0.92,metalness:0.04});
   (def.crates||[]).forEach(function(c,idx){
-    var x=c[0], z=c[1], s=c[2]||1.5;
-    var h=1.0*s;
-    var w=1.0*s;
-    var d=1.0*s;
+    var x=c[0], z=c[1], s=c[2]||0.85;
+    var w=1.05*s;
+    var h=0.88*s;
+    var d=1.02*s;
     var g=new T.Group();
-    var box=new T.Mesh(new T.BoxGeometry(w,h,d),crateMat);
-    box.castShadow=true; box.receiveShadow=true; g.add(box);
-    var top=new T.Mesh(new T.BoxGeometry(w*0.92,h*0.12,d*0.92),crateTopMat);
-    top.position.y=h*0.48; top.castShadow=true; top.receiveShadow=true; g.add(top);
-    var band1=new T.Mesh(new T.BoxGeometry(w*1.02,h*0.08,d*0.18),crateBandMat);
-    band1.position.y=0.0; band1.position.z=0; g.add(band1);
-    var band2=new T.Mesh(new T.BoxGeometry(w*0.18,h*0.08,d*1.02),crateBandMat);
-    band2.position.y=0.0; g.add(band2);
+    var body=new T.Mesh(new T.BoxGeometry(w,h,d),crateMat);
+    body.castShadow=true; body.receiveShadow=true; g.add(body);
+
+    var plankT = Math.max(0.05*s, 0.045);
+    var slat1=new T.Mesh(new T.BoxGeometry(w*0.92,plankT,d*0.12),crateDarkMat);
+    slat1.position.y=h*0.24; slat1.position.z=d*0.38; g.add(slat1);
+    var slat2=slat1.clone(); slat2.position.z=-d*0.38; g.add(slat2);
+    var slat3=new T.Mesh(new T.BoxGeometry(w*0.12,plankT,d*0.92),crateDarkMat);
+    slat3.position.y=h*0.24; slat3.position.x=w*0.38; g.add(slat3);
+    var slat4=slat3.clone(); slat4.position.x=-w*0.38; g.add(slat4);
+
+    var top=new T.Mesh(new T.BoxGeometry(w*0.94,plankT*1.4,d*0.94),crateMetalMat);
+    top.position.y=h*0.52; top.castShadow=true; top.receiveShadow=true; g.add(top);
+
+    var strap1=new T.Mesh(new T.BoxGeometry(w*0.06,h*0.96,d*0.96),crateMetalMat);
+    strap1.position.x=w*0.36; g.add(strap1);
+    var strap2=strap1.clone(); strap2.position.x=-w*0.36; g.add(strap2);
+    var strap3=new T.Mesh(new T.BoxGeometry(w*0.96,h*0.08,d*0.06),crateMetalMat);
+    strap3.position.z=d*0.08; strap3.position.y=-h*0.06; g.add(strap3);
+    var strap4=strap3.clone(); strap4.position.z=-d*0.08; g.add(strap4);
+
     g.position.set(x,h*0.5,z);
-    g.rotation.y=(idx%4)*Math.PI*0.5;
+    g.rotation.y=((idx%4)*Math.PI*0.5)+((idx%2)?0.22:-0.16);
     g.userData.isMapDecor=true;
     scene.add(g);
 
-    var cw = w*0.92, ch = h*0.96, cd = d*0.92;
-    addColliderBox(x,h*0.5,z,cw,ch,cd,g);
+    addColliderBox(x,h*0.5,z,w*0.88,h*0.92,d*0.88,g);
   });
 
-  var trashBodyMat = new T.MeshStandardMaterial({color:0x3b4556,roughness:0.62,metalness:0.62,emissive:0x08101a,emissiveIntensity:0.08});
-  var trashLidMat = new T.MeshStandardMaterial({color:0x566071,roughness:0.42,metalness:0.68});
+  var trashBodyMat = new T.MeshStandardMaterial({color:0x374252,roughness:0.58,metalness:0.56,emissive:0x08101a,emissiveIntensity:0.06});
+  var trashLidMat = new T.MeshStandardMaterial({color:0x556171,roughness:0.40,metalness:0.62});
   (def.trash||[]).forEach(function(t,idx){
-    var x=t[0], z=t[1], scale=t[2]||1.0;
-    var h = 1.15*scale;
-    var r = 0.33*scale;
+    var x=t[0], z=t[1], scale=t[2]||0.6;
+    var h = 0.95*scale;
+    var r = 0.26*scale;
     var g=new T.Group();
-    var body=new T.Mesh(new T.CylinderGeometry(r*0.95,r*1.02,h,10,1,false),trashBodyMat);
+    var body=new T.Mesh(new T.CylinderGeometry(r*0.98,r*1.03,h,10,1,false),trashBodyMat);
     body.castShadow=true; body.receiveShadow=true; g.add(body);
-    var lid=new T.Mesh(new T.CylinderGeometry(r*1.08,r*1.08,0.12*scale,10,1,false),trashLidMat);
+    var lid=new T.Mesh(new T.CylinderGeometry(r*1.08,r*1.08,0.10*scale,10,1,false),trashLidMat);
     lid.position.y=h*0.52; lid.castShadow=true; lid.receiveShadow=true; g.add(lid);
-    var rim=new T.Mesh(new T.TorusGeometry(r*0.83,0.03*scale,6,10),trashLidMat);
+    var rim=new T.Mesh(new T.TorusGeometry(r*0.80,0.022*scale,6,10),trashLidMat);
     rim.rotation.x=Math.PI/2; rim.position.y=h*0.46; g.add(rim);
     g.position.set(x,h*0.5,z);
     g.rotation.y=(idx*0.37)%(Math.PI*2);
     g.userData.isMapDecor=true;
     scene.add(g);
 
-    addColliderBox(x,h*0.5,z,r*2.0,h*0.98,r*2.0,g);
+    addColliderBox(x,h*0.5,z,r*1.9,h*0.98,r*1.9,g);
+  });
+
+  (def.dumpsters||[]).forEach(function(t,idx){
+    var x=t[0], z=t[1], scale=t[2]||0.95;
+    var w=2.15*scale, h=1.45*scale, d=1.25*scale;
+    var g=new T.Group();
+    var greenMat=new T.MeshStandardMaterial({color:0x4b8f3c,roughness:0.72,metalness:0.18,emissive:0x12320f,emissiveIntensity:0.08});
+    var darkGreenMat=new T.MeshStandardMaterial({color:0x35662d,roughness:0.80,metalness:0.14});
+    var lidMat=new T.MeshStandardMaterial({color:0x23401f,roughness:0.70,metalness:0.16});
+    var body=new T.Mesh(new T.BoxGeometry(w,h,d),greenMat);
+    body.castShadow=true; body.receiveShadow=true; g.add(body);
+    var rim=new T.Mesh(new T.BoxGeometry(w*1.02,h*0.10,d*1.02),darkGreenMat);
+    rim.position.y=h*0.46; g.add(rim);
+    var lid=new T.Mesh(new T.BoxGeometry(w*0.98,h*0.16,d*0.86),lidMat);
+    lid.position.y=h*0.56; lid.position.z=-d*0.03; lid.rotation.x=-0.14; g.add(lid);
+    var panel=new T.Mesh(new T.BoxGeometry(w*0.72,h*0.62,d*0.08),darkGreenMat);
+    panel.position.set(0,0.02,d*0.48); g.add(panel);
+    var wheelMat=new T.MeshStandardMaterial({color:0x171717,roughness:1.0,metalness:0.0});
+    var wheelGeo=new T.CylinderGeometry(0.12*scale,0.12*scale,0.08*scale,10);
+    [-w*0.35,w*0.35].forEach(function(wx){
+      [-d*0.34,d*0.34].forEach(function(wz){
+        var wheel=new T.Mesh(wheelGeo,wheelMat);
+        wheel.rotation.z=Math.PI/2;
+        wheel.position.set(wx,-h*0.48,wz);
+        g.add(wheel);
+      });
+    });
+    g.position.set(x,h*0.5,z);
+    g.rotation.y=(idx%2===0)?Math.PI*0.12:-Math.PI*0.18;
+    g.userData.isMapDecor=true;
+    scene.add(g);
+    addColliderBox(x,h*0.5,z,w*0.90,h*0.95,d*0.92,g);
   });
 
   [
-    [-24,0,-30],[-8,0,-30],[8,0,-30],[24,0,-30],
-    [-24,0,30],[-8,0,30],[8,0,30],[24,0,30]
+    [-22,0,-29],[-7,0,-29],[7,0,-29],[22,0,-29],
+    [-22,0,29],[-7,0,29],[7,0,29],[22,0,29]
   ].forEach(function(p,i){
-    var pole=new T.Mesh(new T.CylinderGeometry(0.18,0.18,7,8),new T.MeshStandardMaterial({color:0x2a3142,roughness:0.4,metalness:0.8}));
-    pole.position.set(p[0],3.5,p[2]); pole.castShadow=true; pole.userData.isMapDecor=true; scene.add(pole);
+    var pole=new T.Mesh(new T.CylinderGeometry(0.16,0.16,6.2,8),new T.MeshStandardMaterial({color:0x2a3142,roughness:0.4,metalness:0.8}));
+    pole.position.set(p[0],3.1,p[2]); pole.castShadow=true; pole.userData.isMapDecor=true; scene.add(pole);
     var colors=[0x59ff88,0x59c0ff,0xff5a88,0xffce4d,0xa56bff,0x4ddcff,0x7eff5a,0xff7b3d];
-    var lampMat=new T.MeshStandardMaterial({color:colors[i],emissive:colors[i],emissiveIntensity:3.6,transparent:true,opacity:0.92});
-    var lamp=new T.Mesh(new T.SphereGeometry(0.24,8,8),lampMat); lamp.position.set(p[0],7.2,p[2]); lamp.userData.isMapDecor=true; scene.add(lamp);
-    var lt=new T.PointLight(colors[i],2.8,24,2); lt.position.set(p[0],7,p[2]); lt.userData.isMapDecor=true; scene.add(lt);
+    var lampMat=new T.MeshStandardMaterial({color:colors[i],emissive:colors[i],emissiveIntensity:3.0,transparent:true,opacity:0.92});
+    var lamp=new T.Mesh(new T.SphereGeometry(0.20,8,8),lampMat); lamp.position.set(p[0],6.2,p[2]); lamp.userData.isMapDecor=true; scene.add(lamp);
+    var lt=new T.PointLight(colors[i],2.4,20,2); lt.position.set(p[0],6.0,p[2]); lt.userData.isMapDecor=true; scene.add(lt);
   });
 
-  var ambientStrip=new T.Mesh(new T.PlaneGeometry(76,76),new T.MeshBasicMaterial({color:0x0f1420,transparent:true,opacity:0.16}));
+  var ambientStrip=new T.Mesh(new T.PlaneGeometry(68,68),new T.MeshBasicMaterial({color:0x0f1420,transparent:true,opacity:0.14}));
   ambientStrip.rotation.x=-Math.PI/2;
   ambientStrip.position.y=0.03;
   ambientStrip.userData.isMapDecor=true;

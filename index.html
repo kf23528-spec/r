@@ -73,8 +73,8 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 .bombSettingValue{display:none}
 .bombSlider{display:none}
 #bombHint{display:none}
-#bombQuickControls{position:absolute;right:calc(8px + min(17vw,100px) + 12px + 2px);bottom:calc(24px + min(14vw,84px) + 10px + min(14vw,84px) + 10px + 6px);display:none;flex-direction:column;gap:10px;align-items:flex-end;z-index:101;pointer-events:auto}
-#bombQuickControls.show{display:flex}
+#bombQuickControls{display:none !important;position:absolute;right:calc(8px + min(17vw,100px) + 12px + 2px);bottom:calc(24px + min(14vw,84px) + 10px + min(14vw,84px) + 10px + 6px);flex-direction:column;gap:10px;align-items:flex-end;z-index:101;pointer-events:auto}
+#bombQuickControls.show{display:none !important}
 .bombQuickGroup{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
 .bombQuickReadout{display:flex;align-items:center;gap:8px;font-size:10px;font-weight:900;letter-spacing:0.16em;color:rgba(255,255,255,0.82);text-shadow:0 1px 8px rgba(0,0,0,0.72)}
 .bombQuickReadout .val{font-size:12px;font-weight:1000;color:#ffffff;opacity:0.96;letter-spacing:0.04em}
@@ -1470,18 +1470,14 @@ function startBombHold(kind, delta){
   return function(){ active = false; stopBombHold(kind); };
 }
 function getBombThrowVector(){
-  var base = getForwardVectorFromCamera().clone();
-  base.y = 0;
-  if(base.lengthSq() < 1e-6){
-    base.set(0,0,-1);
-  }else{
-    base.normalize();
+  var dir = getForwardVectorFromCamera().clone();
+  if(!isFinite(dir.x) || !isFinite(dir.y) || !isFinite(dir.z) || dir.lengthSq() < 1e-6){
+    dir.set(0,0,-1);
   }
-  var ang = T.MathUtils.degToRad(clamp(BOMB_ANGLE_DEG, BOMB_ANGLE_MIN, BOMB_ANGLE_MAX));
-  return base.multiplyScalar(Math.cos(ang)).add(new T.Vector3(0, Math.sin(ang), 0)).normalize();
+  return dir.normalize();
 }
 function getBombThrowSpeed(){
-  return BOMB_THROW_SPEED * clamp(BOMB_POWER_PCT / 100, BOMB_POWER_MIN / 100, BOMB_POWER_MAX / 100);
+  return BOMB_THROW_SPEED;
 }
 function getBombPrediction(){
   if(gameMode!==GAME_MODE.BATTLE || !player.alive || matchOver) return null;
@@ -1490,7 +1486,6 @@ function getBombPrediction(){
   var start = camera.position.clone().add(dir.clone().multiplyScalar(0.8));
   start.y = camera.position.y - 0.15;
   var vel = dir.clone().multiplyScalar(speed);
-  vel.y += BOMB_THROW_UP * 0.55;
   var g = BOMB_GRAVITY;
   var a = 0.5 * g;
   var b = -vel.y;
@@ -1557,7 +1552,7 @@ function updateBombUI(){
   bombButton.classList.toggle('bomb-active', bombModeActive && canBomb);
   shootButton.textContent = bombModeActive && canBomb ? 'THROW' : 'FIRE';
   if(bombSettingsPanel) bombSettingsPanel.classList.remove('show');
-  if(bombQuickControls) bombQuickControls.classList.toggle('show', !!(bombModeActive && canBomb));
+  if(bombQuickControls) bombQuickControls.classList.remove('show');
   if(bombTrajectory) bombTrajectory.classList.toggle('show', !!(bombModeActive && canBomb));
   if(gunRoot) gunRoot.visible = (gameMode===GAME_MODE.BATTLE && !bombModeActive);
   if(!canBomb && bombModeActive){
@@ -1697,7 +1692,7 @@ function throwBomb(){
   setBombMode(false);
   updateBombUI();
   if(socket && socket.connected){
-    socket.emit('bomb-thrown', {room: currentRoom, x:start.x, y:start.y, z:start.z, dx:dir.x, dy:dir.y, dz:dir.z, speed:speed, angle:BOMB_ANGLE_DEG, power:BOMB_POWER_PCT, team:player.team || TEAM_BLUE, ownerId:socket.id || 'local'});
+    socket.emit('bomb-thrown', {room: currentRoom, x:start.x, y:start.y, z:start.z, dx:dir.x, dy:dir.y, dz:dir.z, speed:speed, team:player.team || TEAM_BLUE, ownerId:socket.id || 'local'});
   }
 }
 function updateBombs(dt){

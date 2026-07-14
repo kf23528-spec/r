@@ -279,7 +279,7 @@ var RANK_KEY = 'arena_rank_v9';
 var SEND_HZ = 50;
 var MATCH_PLAYER_MIN = 2;
 var MAX_PLAYERS = 8;
-var MAP_BORDER = 96.0;
+var MAP_BORDER = 100.0;
 var PLAYER_RADIUS = 0.42;
 var PLAYER_HEIGHT = 1.6;
 var BULLET_SPEED = 85;
@@ -780,34 +780,34 @@ var buildingPlacements = [
   }
 ];
 
-var BUILDING_FALLBACKS = {
-  b1: { size: [7.6, 9.8, 21.0], color: 0x404852, accent: 0x5a6673 },
-  b2: { size: [9.0, 10.8, 10.5], color: 0x6b7b88, accent: 0x8ea0ad },
-  b3: { size: [10.8, 6.2, 5.4], color: 0x55606c, accent: 0x78828f },
-  b4: { size: [10.6, 6.2, 5.4], color: 0x5f6f7d, accent: 0x8fa0b1 },
-  b5: { size: [7.8, 1.2, 7.8], color: 0x445a63, accent: 0x7fa0ad },
-  car: { size: [2.1, 1.8, 5.2], color: 0x2d3c50, accent: 0x6f7f95 }
-};
 
-function cloneFallbackForKey(key){
-  var f = BUILDING_FALLBACKS[key] || BUILDING_FALLBACKS.b4;
-  return {
-    size: f.size.slice(),
-    color: f.color,
-    accent: f.accent
-  };
+function makePlacementFallbackByKey(key){
+  switch(key){
+    case 'b1': return makeFallbackBuilding({fallback:{size:[7.6, 9.8, 21.0], color:0x404852, accent:0x5a6673}});
+    case 'b2': return makeFallbackBuilding({fallback:{size:[9.0, 10.8, 10.5], color:0x6b7b88, accent:0x8ea0ad}});
+    case 'b3': return makeFallbackBuilding({fallback:{size:[10.8, 6.2, 5.4], color:0x55606c, accent:0x78828f}});
+    case 'car': return makeFallbackBuilding({fallback:{size:[2.1, 1.8, 5.2], color:0x2d3c50, accent:0x6f7f95}});
+    case 'b4': return makeFallbackBuilding({fallback:{size:[10.6, 6.2, 5.4], color:0x5f6f7d, accent:0x8fa0b1}});
+    case 'b5': return makeFallbackBuilding({fallback:{size:[7.8, 1.2, 7.8], color:0x445a63, accent:0x7fa0ad}});
+    default: return makeFallbackBuilding({fallback:{size:[8.0, 7.0, 8.0], color:0x55606c, accent:0x7a8795}});
+  }
 }
 
-function buildDensePlacements(){
-  var specs = [];
-  var xs = [-84,-66,-48,-30,-12,12,30,48,66,84];
-  var zs = [-84,-66,-48,-30,-12,12,30,48,66,84];
-  var keys = ['b1','b2','b3','b4','car','b5'];
+function makeUrbanPlacements(){
+  var arr = [];
+  var xs = [-80, -64, -48, -32, -16, 0, 16, 32, 48, 64, 80];
+  var zs = [-72, -56, -40, -24, -8, 8, 24, 40, 56, 72];
+  var giant = {
+    '0,2':1, '0,8':1,
+    '9,2':1, '9,8':1,
+    '2,0':1, '7,0':1,
+    '2,10':1, '7,10':1
+  };
 
   function push(key, x, z, yRot, scale, colliderScale, colliderScaleY){
-    specs.push({
+    arr.push({
       key: key,
-      fallback: cloneFallbackForKey(key),
+      fallback: makePlacementFallbackByKey(key),
       x: x,
       z: z,
       yRot: yRot,
@@ -817,91 +817,55 @@ function buildDensePlacements(){
     });
   }
 
-  for(var zi = 0; zi < zs.length; zi++){
-    for(var xi = 0; xi < xs.length; xi++){
-      var x = xs[xi];
-      var z = zs[zi];
-      var edge = xi === 0 || zi === 0 || xi === xs.length - 1 || zi === zs.length - 1;
-      var corridorX = xi === 4 || xi === 5;
-      var corridorZ = zi === 4 || zi === 5;
-      var seed = xi * 17 + zi * 31;
-      var key;
+  for(var r = 0; r < zs.length; r++){
+    for(var c = 0; c < xs.length; c++){
+      if((c === 5 && r % 2 === 0) || (r === 4 && c % 2 === 1)) continue;
 
-      if(edge){
-        key = (seed % 8 === 0) ? 'b5' : (seed % 3 === 0 ? 'b4' : (seed % 3 === 1 ? 'b1' : 'b3'));
-      }else if(corridorX || corridorZ){
-        key = (seed % 5 === 0) ? 'car' : (seed % 2 === 0 ? 'b2' : 'b4');
-      }else{
-        key = keys[seed % keys.length];
-      }
+      var x = xs[c] + ((((r * 13) + (c * 7)) % 5) - 2) * 0.36;
+      var z = zs[r] + ((((r * 5) + (c * 11)) % 5) - 2) * 0.36;
+      var yRot = (((r + c) % 4) * Math.PI * 0.5) + ((((r * c) % 2) ? 0.18 : -0.12));
 
-      var rot = (((seed % 8) * Math.PI) / 8) + ((seed % 2) ? 0.12 : -0.10);
-      var scale;
-      var colliderScale = 0.92;
-      var colliderScaleY = 0.96;
+      var key, scale, colliderScale, colliderScaleY;
 
-      if(key === 'b1'){
-        scale = edge ? 0.00114 : (corridorX || corridorZ ? 0.00108 : 0.00100);
+      if(giant[r + ',' + c]){
+        key = 'b5';
+        scale = 50.0;
+        colliderScale = 0.66;
+        colliderScaleY = 0.72;
+      }else if(r === 0 || r === zs.length - 1 || c === 0 || c === xs.length - 1){
+        key = ((r + c) % 3 === 0) ? 'b4' : 'b2';
+        scale = (key === 'b4') ? 0.00086 : 1.26;
         colliderScale = 0.90;
-        colliderScaleY = 0.96;
-      }else if(key === 'b2'){
-        scale = edge ? 1.18 : (corridorX || corridorZ ? 1.08 : 1.02);
-        colliderScale = 0.88;
-        colliderScaleY = 0.94;
-      }else if(key === 'b3'){
-        scale = edge ? 0.34 : (corridorX || corridorZ ? 0.31 : 0.28);
-        colliderScale = 0.86;
-        colliderScaleY = 0.90;
-      }else if(key === 'b4'){
-        scale = edge ? 0.00092 : (corridorX || corridorZ ? 0.00086 : 0.00080);
-        colliderScale = 0.86;
-        colliderScaleY = 0.90;
-      }else if(key === 'b5'){
-        scale = edge ? 1.0 : 1.0;
-        colliderScale = 0.80;
-        colliderScaleY = 0.82;
+        colliderScaleY = 0.92;
+      }else if(r === 1 || r === zs.length - 2 || c === 1 || c === xs.length - 2){
+        var edgeCycle = ['b1','b2','b3','car','b4'];
+        key = edgeCycle[(r * 3 + c * 5) % edgeCycle.length];
+        scale = key === 'b1' ? 0.00102 : key === 'b2' ? 1.18 : key === 'b3' ? 0.30 : key === 'car' ? 0.74 : 0.00084;
+        colliderScale = key === 'car' ? 0.86 : 0.88;
+        colliderScaleY = key === 'car' ? 0.84 : 0.90;
+      }else if(c === 5 || r === 4){
+        var axisCycle = ['b1','b3','car','b2'];
+        key = axisCycle[(r + c) % axisCycle.length];
+        scale = key === 'b1' ? 0.00100 : key === 'b2' ? 1.14 : key === 'b3' ? 0.28 : 0.70;
+        colliderScale = key === 'car' ? 0.84 : 0.86;
+        colliderScaleY = key === 'car' ? 0.82 : 0.88;
       }else{
-        scale = edge ? 0.82 : 0.76;
-        colliderScale = 0.80;
-        colliderScaleY = 0.82;
+        var innerCycle = ['b1','b2','b3','b4','car','b1','b3'];
+        key = innerCycle[(r * 7 + c * 3) % innerCycle.length];
+        scale = key === 'b1' ? 0.00100 : key === 'b2' ? 1.20 : key === 'b3' ? 0.31 : key === 'car' ? 0.72 : 0.00084;
+        colliderScale = key === 'car' ? 0.82 : 0.88;
+        colliderScaleY = key === 'car' ? 0.82 : 0.88;
       }
 
-      push(key, x, z, rot, scale, colliderScale, colliderScaleY);
+      push(key, x, z, yRot, scale, colliderScale, colliderScaleY);
     }
   }
 
-  // Make building5 dominant and oversized, but keep the collision slightly smaller than the visuals.
-  [
-    [-66,-66, 0.24],
-    [ 66,-66,-0.28],
-    [-66, 66, 0.76],
-    [ 66, 66,-0.82]
-  ].forEach(function(p, i){
-    var idx = i * 22 + 11;
-    if(specs[idx]){
-      specs[idx] = {
-        key: 'b5',
-        fallback: cloneFallbackForKey('b5'),
-        x: p[0],
-        z: p[1],
-        yRot: p[2],
-        scale: 50.0,
-        colliderScale: 0.26,
-        colliderScaleY: 0.34
-      };
-    }
-  });
-
-  // Add a few long landmark walls made from the same asset so the roads feel enclosed.
-  push('b5', -18, -2, 0.10, 50.0, 0.24, 0.32);
-  push('b5',  18,  2, -0.18, 50.0, 0.24, 0.32);
-  push('b5',  -2, 18, 1.52, 50.0, 0.24, 0.32);
-  push('b5',   2,-18, -1.46, 50.0, 0.24, 0.32);
-
-  return specs;
+  return arr;
 }
 
-var buildingInstancePlacements = buildDensePlacements();
+var buildingInstancePlacements = makeUrbanPlacements();
+
 
 function getMapTemplateForKey(key){
   switch(key){
@@ -3156,7 +3120,7 @@ var MAP_DEFS = {
       dumpsterColor: 0x4ea83e,
       dumpsterShadow: 0x21551c,
       obstacles: [
-        R(0,-114,240,4), R(0,114,240,4), R(-114,0,4,240), R(114,0,4,240),
+        R(0,-90,180,4), R(0,90,180,4), R(-90,0,4,180), R(90,0,4,180),
         R(-60,-58,18,10), R(-30,-62,16,14), R(0,-58,14,10), R(30,-62,16,14), R(60,-58,18,10),
         R(-74,-28,10,24), R(-48,-20,12,16), R(-20,-28,16,20), R(12,-22,12,14), R(42,-28,14,24), R(72,-18,10,18),
         R(-68,8,12,22), R(-40,2,12,14), R(-10,10,16,20), R(18,4,12,14), R(46,8,14,22), R(74,12,10,18),
@@ -3183,8 +3147,8 @@ var MAP_DEFS = {
         [-78,-14,0.92],[-52,18,0.88],[-18,-18,0.86],[12,20,0.88],[40,-12,0.92],[66,24,0.88]
       ],
       spawns:{
-        blue:[{x:-104,z:-48},{x:-104,z:-24},{x:-104,z:0},{x:-104,z:24},{x:-104,z:48}],
-        red:[{x:104,z:48},{x:104,z:24},{x:104,z:0},{x:104,z:-24},{x:104,z:-48}]
+        blue:[{x:-82,z:-48},{x:-82,z:-24},{x:-82,z:0},{x:-82,z:24},{x:-82,z:48}],
+        red:[{x:82,z:48},{x:82,z:24},{x:82,z:0},{x:82,z:-24},{x:82,z:-48}]
       }
     };
   })()
@@ -3228,25 +3192,25 @@ function buildMap(mapId){
   scene.add(roadB);
 
   var laneMat=new T.MeshStandardMaterial({color:def.laneColor,roughness:1.0,metalness:0.0});
-  var lane1=new T.Mesh(new T.PlaneGeometry(6.0,96),laneMat);
+  var lane1=new T.Mesh(new T.PlaneGeometry(4.2,60),laneMat);
   lane1.rotation.x=-Math.PI/2;
-  lane1.position.set(-42,0.015,0);
+  lane1.position.set(-30,0.015,0);
   lane1.userData.isMapDecor=true;
   scene.add(lane1);
-  var lane2=lane1.clone(); lane2.position.set(42,0.015,0); scene.add(lane2);
-  var lane3=new T.Mesh(new T.PlaneGeometry(96,6.0),laneMat);
+  var lane2=lane1.clone(); lane2.position.set(30,0.015,0); scene.add(lane2);
+  var lane3=new T.Mesh(new T.PlaneGeometry(60,4.2),laneMat);
   lane3.rotation.x=-Math.PI/2;
-  lane3.position.set(0,0.015,-42);
+  lane3.position.set(0,0.015,-30);
   lane3.userData.isMapDecor=true;
   scene.add(lane3);
-  var lane4=lane3.clone(); lane4.position.set(0,0.015,42); scene.add(lane4);
+  var lane4=lane3.clone(); lane4.position.set(0,0.015,30); scene.add(lane4);
 
   var curbMat=new T.MeshStandardMaterial({color:def.curbColor,roughness:0.90,metalness:0.06});
   [
-    [{s:[180,11.5,1.2],p:[0,5.75,-90.6]}],
-    [{s:[180,11.5,1.2],p:[0,5.75,90.6]}],
-    [{s:[1.2,11.5,180],p:[-90.6,5.75,0]}],
-    [{s:[1.2,11.5,180],p:[90.6,5.75,0]}]
+    [{s:[180,11.5,1.2],p:[0,5.75,-120.6]}],
+    [{s:[180,11.5,1.2],p:[0,5.75,120.6]}],
+    [{s:[1.2,11.5,180],p:[-120.6,5.75,0]}],
+    [{s:[1.2,11.5,180],p:[120.6,5.75,0]}]
   ].forEach(function(list){
     list.forEach(function(w){
       var m=new T.Mesh(new T.BoxGeometry(w.s[0],w.s[1],w.s[2]),curbMat);

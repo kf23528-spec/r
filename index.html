@@ -64,7 +64,6 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 #bombButton:active{transform:scale(0.92);filter:brightness(1.16)}
 #bombButton.bomb-active{border-color:rgba(255,214,126,0.95);box-shadow:0 0 18px rgba(255,176,84,0.48),inset 0 0 12px rgba(255,176,84,0.18)}
 #bombButton:disabled{opacity:0.42;filter:grayscale(0.35);cursor:not-allowed}
-#bombButton.bomb-empty{opacity:0.48;filter:grayscale(0.55) brightness(0.92);box-shadow:0 4px 14px rgba(0,0,0,0.38),inset 0 0 10px rgba(255,176,84,0.05)}
 #bombButton::before{content:"💣";font-size:20px;color:rgba(255,214,126,0.96);text-shadow:0 0 8px rgba(255,176,84,0.55)}
 #bombSettingsPanel{display:none !important}
 #bombSettingsPanel.show{display:none !important}
@@ -693,19 +692,10 @@ var building2Template = null;
 var building3Template = null;
 var buildingTemplatesReady = { b1:false, b2:false, b3:false };
 var buildingLoadStarted = false;
-var buildingAssets = [
-  { key: 'b1', path: 'building1.glb' },
-  { key: 'b2', path: 'building2.glb' },
-  { key: 'b3', path: 'building3.glb' }
-];
-function clonePlacement(base, overrides){
-  var out = JSON.parse(JSON.stringify(base));
-  for(var k in overrides){ out[k] = overrides[k]; }
-  return out;
-}
 var buildingPlacements = [
   {
-    templateKey: 'b1',
+    key: 'b1',
+    path: 'building1.glb',
     fallback: { size: [7.6, 9.8, 21.0], color: 0x404852, accent: 0x5a6673 },
     x: -20.5,
     z: -8.0,
@@ -714,7 +704,8 @@ var buildingPlacements = [
     pad: [9.4, 10.8, 22.8]
   },
   {
-    templateKey: 'b2',
+    key: 'b2',
+    path: 'building2.glb',
     fallback: { size: [9.0, 10.8, 10.5], color: 0x6b7b88, accent: 0x8ea0ad },
     x: 17.5,
     z: -16.5,
@@ -723,55 +714,65 @@ var buildingPlacements = [
     pad: [10.5, 12.0, 12.0]
   },
   {
-    templateKey: 'b3',
+    key: 'b3',
+    path: 'building3.glb',
     fallback: { size: [10.8, 6.2, 5.4], color: 0x55606c, accent: 0x78828f },
     x: 13.5,
     z: 16.5,
     yRot: 0.72,
     scale: 0.28,
     pad: [12.0, 7.2, 6.8]
-  },
-  clonePlacement({
-    templateKey: 'b1',
-    fallback: { size: [7.6, 9.8, 21.0], color: 0x404852, accent: 0x5a6673 },
-    x: -20.5,
-    z: -8.0,
-    yRot: 0.22,
-    scale: 0.00108,
-    pad: [9.4, 10.8, 22.8]
-  }, { x: -27.0, z: 13.0, yRot: 1.58 }),
-  clonePlacement({
-    templateKey: 'b2',
-    fallback: { size: [9.0, 10.8, 10.5], color: 0x6b7b88, accent: 0x8ea0ad },
-    x: 17.5,
-    z: -16.5,
-    yRot: -1.18,
-    scale: 1.45,
-    pad: [10.5, 12.0, 12.0]
-  }, { x: -2.0, z: -24.5, yRot: 0.03, scale: 1.12, pad: [8.6, 11.4, 11.0] }),
-  clonePlacement({
-    templateKey: 'b3',
-    fallback: { size: [10.8, 6.2, 5.4], color: 0x55606c, accent: 0x78828f },
-    x: 13.5,
-    z: 16.5,
-    yRot: 0.72,
-    scale: 0.28,
-    pad: [12.0, 7.2, 6.8]
-  }, { x: 26.0, z: 6.0, yRot: -0.82, scale: 0.24, pad: [8.0, 5.8, 5.0] })
+  }
 ];
 
-function getBuildingTemplateByKey(key){
-  if(key === 'b1') return building1Template;
-  if(key === 'b2') return building2Template;
-  if(key === 'b3') return building3Template;
-  return null;
-}
+var buildingInstancePlacements = [
+  {
+    key: 'b1',
+    fallback: { size: [7.6, 9.8, 21.0], color: 0x404852, accent: 0x5a6673 },
+    x: -24.0, z: -14.0, yRot: 0.18, scale: 0.00095, pad: [8.8, 9.8, 20.2]
+  },
+  {
+    key: 'b2',
+    fallback: { size: [9.0, 10.8, 10.5], color: 0x6b7b88, accent: 0x8ea0ad },
+    x: 20.8, z: -16.8, yRot: -1.05, scale: 1.30, pad: [10.0, 11.5, 11.0]
+  },
+  {
+    key: 'b3',
+    fallback: { size: [10.8, 6.2, 5.4], color: 0x55606c, accent: 0x78828f },
+    x: 15.5, z: 16.0, yRot: 0.68, scale: 0.24, pad: [10.6, 6.6, 6.1]
+  },
+  {
+    key: 'b1',
+    fallback: { size: [7.6, 9.8, 21.0], color: 0x404852, accent: 0x5a6673 },
+    x: -16.5, z: 15.5, yRot: 1.62, scale: 0.00092, pad: [8.4, 9.4, 19.6]
+  },
+  {
+    key: 'b2',
+    fallback: { size: [9.0, 10.8, 10.5], color: 0x6b7b88, accent: 0x8ea0ad },
+    x: -8.8, z: -19.0, yRot: 0.35, scale: 1.05, pad: [9.2, 10.6, 10.0]
+  },
+  {
+    key: 'b3',
+    fallback: { size: [10.8, 6.2, 5.4], color: 0x55606c, accent: 0x78828f },
+    x: 0.5, z: 21.0, yRot: -0.82, scale: 0.22, pad: [9.8, 6.0, 5.8]
+  },
+  {
+    key: 'b1',
+    fallback: { size: [7.6, 9.8, 21.0], color: 0x404852, accent: 0x5a6673 },
+    x: 24.0, z: 2.0, yRot: -1.36, scale: 0.00098, pad: [8.6, 9.6, 20.0]
+  },
+  {
+    key: 'b2',
+    fallback: { size: [9.0, 10.8, 10.5], color: 0x6b7b88, accent: 0x8ea0ad },
+    x: -2.0, z: 24.0, yRot: 2.28, scale: 1.12, pad: [9.8, 11.0, 10.5]
+  }
+];
 
 function loadBuildingAssets(){
   if(buildingLoadStarted) return;
   buildingLoadStarted = true;
   var loader = new GLTFLoader();
-  buildingAssets.forEach(function(spec){
+  function loadOne(spec){
     loader.load(
       spec.path,
       function(gltf){
@@ -785,24 +786,6 @@ function loadBuildingAssets(){
             if(node.material && node.material.clone){
               node.material = node.material.clone();
             }
-          }
-        });
-        if(spec.key === 'b1') building1Template = sceneObj;
-        if(spec.key === 'b2') building2Template = sceneObj;
-        if(spec.key === 'b3') building3Template = sceneObj;
-        buildingTemplatesReady[spec.key] = true;
-        console.log('[MAP] loaded', spec.path);
-        rebuildMapIfNeeded('arena', true);
-      },
-      undefined,
-      function(err){
-        buildingTemplatesReady[spec.key] = true;
-        console.warn('[MAP] load failed:', spec.path, err);
-        rebuildMapIfNeeded('arena', true);
-      }
-    );
-  });
-}
           }
         });
         if(spec.key === 'b1') building1Template = sceneObj;
@@ -1761,10 +1744,8 @@ function updateBombTrajectoryUI(){
 function updateBombUI(){
   if(!bombButton||!shootButton)return;
   var canBomb = gameMode===GAME_MODE.BATTLE && player.alive && !matchOver && bombCharges>0;
-  var empty = gameMode===GAME_MODE.BATTLE && player.alive && !matchOver && bombCharges<=0;
-  bombButton.disabled = !(gameMode===GAME_MODE.BATTLE && player.alive && !matchOver);
+  bombButton.disabled = !canBomb;
   bombButton.classList.toggle('bomb-active', bombModeActive && canBomb);
-  bombButton.classList.toggle('bomb-empty', empty && !bombModeActive);
   shootButton.textContent = bombModeActive && canBomb ? 'THROW' : 'FIRE';
   if(bombSettingsPanel) bombSettingsPanel.classList.remove('show');
   if(bombQuickControls) bombQuickControls.classList.remove('show');
@@ -1907,8 +1888,8 @@ function throwBomb(){
   bombModeActive = false;
   firingHeld = false;
   if(fireLoopTimer){ clearInterval(fireLoopTimer); fireLoopTimer = null; }
+  if(gunRoot) gunRoot.visible = (gameMode===GAME_MODE.BATTLE);
   if(shootButton) shootButton.textContent = 'FIRE';
-  if(bombButton){ bombButton.classList.remove('bomb-active'); }
   updateBombUI();
   updateBombTrajectoryUI();
   if(socket && socket.connected){
@@ -2934,7 +2915,7 @@ joystickContainer.addEventListener('pointercancel',function(e){if(joyTouchId!==e
 function updateJoystickVisual(){var rect=joystickContainer.getBoundingClientRect();var max=rect.width*0.32;knobEl.style.left=(50+joy.x*50*(max/(rect.width/2)))+'%';knobEl.style.top=(50+joy.y*50*(max/(rect.height/2)))+'%';}
 function updateKeyboardInput(){if(gameMode!==GAME_MODE.BATTLE)return;var jx=0,jy=0;if(keys['KeyW']||keys['ArrowUp'])jy=-1;if(keys['KeyS']||keys['ArrowDown'])jy=1;if(keys['KeyA']||keys['ArrowLeft'])jx=-1;if(keys['KeyD']||keys['ArrowRight'])jx=1;if((jx||jy)&&joyTouchId===null){joy.x=jx;joy.y=jy;}else if(joyTouchId===null){joy.x=0;joy.y=0;}}
 var lastShootTouchAt=0;
-function handleShootDown(e){e.preventDefault();e.stopPropagation();unlockAudio();if(gameMode!==GAME_MODE.BATTLE)return;if(bombModeActive){firingHeld=false;if(fireLoopTimer){clearInterval(fireLoopTimer);fireLoopTimer=null;}fireOnce();return;}firingHeld=true;fireOnce();if(!fireLoopTimer)fireLoopTimer=setInterval(function(){if(!firingHeld){clearInterval(fireLoopTimer);fireLoopTimer=null;return;}fireOnce();},Math.max(30,FIRE_INTERVAL*1000));}
+function handleShootDown(e){e.preventDefault();e.stopPropagation();unlockAudio();if(gameMode!==GAME_MODE.BATTLE)return;if(bombModeActive){fireOnce();return;}firingHeld=true;fireOnce();if(!fireLoopTimer)fireLoopTimer=setInterval(function(){if(!firingHeld){clearInterval(fireLoopTimer);fireLoopTimer=null;return;}fireOnce();},Math.max(30,FIRE_INTERVAL*1000));}
 shootButton.addEventListener('pointerdown',function(e){if(e.pointerType==='touch'&&(Date.now()-lastShootTouchAt)<140)return;handleShootDown(e);});
 shootButton.addEventListener('pointerup',function(e){e.preventDefault();e.stopPropagation();firingHeld=false;if(fireLoopTimer){clearInterval(fireLoopTimer);fireLoopTimer=null;}});
 shootButton.addEventListener('pointercancel',function(){firingHeld=false;if(fireLoopTimer){clearInterval(fireLoopTimer);fireLoopTimer=null;}});
@@ -3113,11 +3094,11 @@ function buildMap(mapId){
     addColliderBox(o[0],o[1],o[2],o[3],o[4],o[5],m);
   });
 
-  var buildingSpecs = buildingPlacements.map(function(spec){
+  var buildingSpecs = (buildingInstancePlacements || []).map(function(inst){
     return {
-      template: getBuildingTemplateByKey(spec.templateKey),
-      spec: spec,
-      fallback: makeFallbackBuilding(spec)
+      template: inst.key === 'b1' ? building1Template : (inst.key === 'b2' ? building2Template : building3Template),
+      spec: inst,
+      fallback: makeFallbackBuilding(inst)
     };
   });
 

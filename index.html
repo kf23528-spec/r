@@ -1589,10 +1589,52 @@ function updateWaitingUI(){
   waitingSubtitle.textContent=isRandomMatch?'30秒後にAIを補完して開戦！':'同じ部屋の本物のプレイヤーを待っています';
   updateWaitingLaunchBtn();
 }
+function isSpawnPointBlocked(x, z, radius){
+  var r = Number.isFinite(radius) ? radius : 0.65;
+  for(var i = 0; i < colliders.length; i++){
+    if(pointHitsCollider(x, z, colliders[i], r)) return true;
+  }
+  return Math.abs(x) >= MAP_BORDER - 1 || Math.abs(z) >= MAP_BORDER - 1;
+}
+
+function findOpenSpawnPoint(points, fallbackTeam){
+  var list = Array.isArray(points) ? points : [];
+  var best = null;
+
+  for(var i = 0; i < list.length; i++){
+    var p = list[i];
+    if(!p) continue;
+    var px = Number(p.x);
+    var pz = Number(p.z);
+    if(!Number.isFinite(px) || !Number.isFinite(pz)) continue;
+    if(!isSpawnPointBlocked(px, pz, 0.65)){
+      return new T.Vector3(px, 1.6, pz);
+    }
+    if(!best) best = {x:px, z:pz};
+  }
+
+  if(best){
+    var offsets = [
+      [0,0], [1.6,0], [-1.6,0], [0,1.6], [0,-1.6],
+      [2.4,0], [-2.4,0], [0,2.4], [0,-2.4],
+      [3.2,0], [-3.2,0], [0,3.2], [0,-3.2]
+    ];
+    for(var j = 0; j < offsets.length; j++){
+      var ox = best.x + offsets[j][0];
+      var oz = best.z + offsets[j][1];
+      if(!isSpawnPointBlocked(ox, oz, 0.65)){
+        return new T.Vector3(ox, 1.6, oz);
+      }
+    }
+  }
+
+  return fallbackTeam===TEAM_RED
+    ? new T.Vector3(50, 1.6, 0)
+    : new T.Vector3(-56, 1.6, 0);
+}
+
 function getSpawnForTeam(team){
-  return team===TEAM_RED
-    ? new T.Vector3(24,1.6,-34)
-    : new T.Vector3(-24,1.6,34);
+  return findOpenSpawnPoint(getSpawnPointsForMap(currentMapId || 'arena', team===TEAM_RED ? TEAM_RED : TEAM_BLUE), team);
 }
 function updateLobbyCamera(dt){camera.position.lerp(new T.Vector3(0,16,33),1-Math.exp(-2.5*dt));camera.lookAt(0,1.2,0);}
 function syncCameraRotation(){camera.rotation.x=pitch;camera.rotation.y=yaw;}
@@ -3104,8 +3146,8 @@ var MAP_DEFS = {
         [-58,10,0.84],[-34,28,0.82],[-10,-26,0.80],[14,24,0.82],[40,-14,0.86]
       ],
       spawns:{
-        blue:[{x:-54,z:-26},{x:-54,z:-12},{x:-54,z:0},{x:-54,z:14},{x:-54,z:28}],
-        red:[{x:54,z:28},{x:54,z:14},{x:54,z:0},{x:54,z:-12},{x:54,z:-26}]
+        blue:[{x:-56,z:-24},{x:-56,z:-12},{x:-56,z:0},{x:-56,z:12},{x:-56,z:24}],
+        red:[{x:50,z:24},{x:50,z:12},{x:50,z:0},{x:50,z:-12},{x:50,z:-24}]
       }
     };
   })()

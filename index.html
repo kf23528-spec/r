@@ -744,8 +744,7 @@ var mapAssetPlacements = [
   { key: 'b2', path: 'building2.glb' },
   { key: 'b3', path: 'building3.glb' },
   { key: 'car', path: 'car.glb' },
-  { key: 'b4', path: 'building4.glb' },
-  { key: 'b5', path: 'building5.glb' }
+  { key: 'b4', path: 'building4.glb' }
 ];
 var buildingPlacements = [
   {
@@ -781,33 +780,25 @@ var buildingPlacements = [
 ];
 
 var buildingInstancePlacements = [
-  { key: 'b5', fallback: { size: [7.8, 1.2, 7.8], color: 0x445a63, accent: 0x7fa0ad }, x: -78.0, z: -60.0, yRot: 0.06, scale: 0.449, colliderScale: 0.45, forceWorldAABB: true },
   { key: 'b4', fallback: { size: [10.6, 6.2, 5.4], color: 0x5f6f7d, accent: 0x8fa0b1 }, x: -58.0, z: -64.0, yRot: -0.38, scale: 0.00092 },
   { key: 'b1', fallback: { size: [7.6, 9.8, 21.0], color: 0x404852, accent: 0x5a6673 }, x: -42.0, z: -60.0, yRot: 0.12, scale: 0.00110 },
   { key: 'b2', fallback: { size: [9.0, 10.8, 10.5], color: 0x6b7b88, accent: 0x8ea0ad }, x: -18.0, z: -64.0, yRot: 1.10, scale: 1.30 },
-  { key: 'b5', fallback: { size: [7.8, 1.2, 7.8], color: 0x445a63, accent: 0x7fa0ad }, x: 8.0, z: -60.0, yRot: -0.10, scale: 0.422, colliderScale: 0.45, forceWorldAABB: true },
   { key: 'b3', fallback: { size: [10.8, 6.2, 5.4], color: 0x55606c, accent: 0x78828f }, x: 30.0, z: -58.0, yRot: -1.10, scale: 0.34 },
   { key: 'b4', fallback: { size: [10.6, 6.2, 5.4], color: 0x5f6f7d, accent: 0x8fa0b1 }, x: 58.0, z: -64.0, yRot: 0.72, scale: 0.00088 },
-  { key: 'b5', fallback: { size: [7.8, 1.2, 7.8], color: 0x445a63, accent: 0x7fa0ad }, x: 78.0, z: -46.0, yRot: -0.82, scale: 0.462, colliderScale: 0.45, forceWorldAABB: true },
 
   { key: 'b1', fallback: { size: [7.6, 9.8, 21.0], color: 0x404852, accent: 0x5a6673 }, x: -76.0, z: -22.0, yRot: 1.52, scale: 0.00100 },
-  { key: 'b5', fallback: { size: [7.8, 1.2, 7.8], color: 0x445a63, accent: 0x7fa0ad }, x: -50.0, z: -18.0, yRot: 0.26, scale: 0.435, colliderScale: 0.45, forceWorldAABB: true },
   { key: 'car', fallback: { size: [2.1, 1.8, 5.2], color: 0x2d3c50, accent: 0x6f7f95 }, x: -22.0, z: -26.0, yRot: 0.96, scale: 0.78 },
   { key: 'b2', fallback: { size: [9.0, 10.8, 10.5], color: 0x6b7b88, accent: 0x8ea0ad }, x: 0.0, z: -20.0, yRot: -0.62, scale: 1.24 },
   { key: 'b4', fallback: { size: [10.6, 6.2, 5.4], color: 0x5f6f7d, accent: 0x8fa0b1 }, x: 24.0, z: -18.0, yRot: 0.20, scale: 0.00076 },
   { key: 'b3', fallback: { size: [10.8, 6.2, 5.4], color: 0x55606c, accent: 0x78828f }, x: 46.0, z: -22.0, yRot: -1.26, scale: 0.33 },
-  { key: 'b5', fallback: { size: [7.8, 1.2, 7.8], color: 0x445a63, accent: 0x7fa0ad }, x: 72.0, z: -14.0, yRot: 0.90, scale: 0.408, colliderScale: 0.45, forceWorldAABB: true },
 
   { key: 'b4', fallback: { size: [10.6, 6.2, 5.4], color: 0x5f6f7d, accent: 0x8fa0b1 }, x: -72.0, z: 18.0, yRot: 0.60, scale: 0.00080 },
-  { key: 'b5', fallback: { size: [7.8, 1.2, 7.8], color: 0x445a63, accent: 0x7fa0ad }, x: -46.0, z: 16.0, yRot: -0.32, scale: 0.428, colliderScale: 0.45, forceWorldAABB: true },
   { key: 'b2', fallback: { size: [9.0, 10.8, 10.5], color: 0x6b7b88, accent: 0x8ea0ad }, x: -18.0, z: 22.0, yRot: 0.38, scale: 1.20 },
   { key: 'car', fallback: { size: [2.1, 1.8, 5.2], color: 0x2d3c50, accent: 0x6f7f95 }, x: 8.0, z: 18.0, yRot: 1.74, scale: 0.72 },
   { key: 'b1', fallback: { size: [7.6, 9.8, 21.0], color: 0x404852, accent: 0x5a6673 }, x: 30.0, z: 18.0, yRot: -1.58, scale: 0.00102 },
   { key: 'b3', fallback: { size: [10.8, 6.2, 5.4], color: 0x55606c, accent: 0x78828f }, x: 56.0, z: 20.0, yRot: 0.52, scale: 0.31 },
-  { key: 'b5', fallback: { size: [7.8, 1.2, 7.8], color: 0x445a63, accent: 0x7fa0ad }, x: 76.0, z: 34.0, yRot: 2.48, scale: 0.428, colliderScale: 0.45, forceWorldAABB: true },
 
   { key: 'b4', fallback: { size: [10.6, 6.2, 5.4], color: 0x5f6f7d, accent: 0x8fa0b1 }, x: -58.0, z: 54.0, yRot: -0.10, scale: 0.00084 },
-  { key: 'b5', fallback: { size: [7.8, 1.2, 7.8], color: 0x445a63, accent: 0x7fa0ad }, x: -20.0, z: 58.0, yRot: 0.18, scale: 0.422, colliderScale: 0.45, forceWorldAABB: true },
   { key: 'b2', fallback: { size: [9.0, 10.8, 10.5], color: 0x6b7b88, accent: 0x8ea0ad }, x: 8.0, z: 58.0, yRot: 0.52, scale: 1.16 },
   { key: 'b1', fallback: { size: [7.6, 9.8, 21.0], color: 0x404852, accent: 0x5a6673 }, x: 32.0, z: 54.0, yRot: -1.54, scale: 0.00100 },
   { key: 'b3', fallback: { size: [10.8, 6.2, 5.4], color: 0x55606c, accent: 0x78828f }, x: 58.0, z: 56.0, yRot: -0.22, scale: 0.30 }
@@ -3128,12 +3119,16 @@ var MAP_DEFS = {
         [-78,-14,0.92],[-52,18,0.88],[-18,-18,0.86],[12,20,0.88],[40,-12,0.92],[66,24,0.88]
       ],
       spawns:{
-        blue:[{x:-82,z:-48},{x:-82,z:-24},{x:-82,z:0},{x:-82,z:24},{x:-82,z:48}],
-        red:[{x:82,z:48},{x:82,z:24},{x:82,z:0},{x:82,z:-24},{x:82,z:-48}]
+        blue:[{x:-56,z:-32},{x:-56,z:-16},{x:-56,z:0},{x:-56,z:16},{x:-56,z:32}],
+        red:[{x:56,z:32},{x:56,z:16},{x:56,z:0},{x:56,z:-16},{x:56,z:-32}]
       }
     };
   })()
 };
+
+var MAP_COMPACT_SCALE = 0.72;
+var MAP_BASE_SIZE = 132;
+var MAP_HALF_SIZE = MAP_BASE_SIZE * 0.5;
 
 function getSpawnPointsForMap(mapId,team){
   var def=MAP_DEFS.arena;
@@ -3143,55 +3138,74 @@ function getSpawnPointsForMap(mapId,team){
 function buildMap(mapId){
   currentMapId='arena';
   var def=MAP_DEFS.arena;
+  var mapScale = MAP_COMPACT_SCALE;
+  var mapSize = MAP_BASE_SIZE;
+  var halfMap = MAP_HALF_SIZE;
   clearMapDecor();
-  scene.fog = new T.FogExp2(def.floorColor,0.008);
+  scene.fog = new T.FogExp2(def.floorColor,0.0105);
 
   var floorMat=new T.MeshStandardMaterial({color:def.floorColor,roughness:1.0,metalness:0.0});
-  var floor=new T.Mesh(new T.PlaneGeometry(180,180),floorMat);
+  var floor=new T.Mesh(new T.PlaneGeometry(mapSize,mapSize),floorMat);
   floor.rotation.x=-Math.PI/2;
   floor.receiveShadow=true;
   floor.userData.isMapDecor=true;
   scene.add(floor);
 
   var plazaMat=new T.MeshStandardMaterial({color:0x101722,roughness:0.98,metalness:0.02});
-  var plaza=new T.Mesh(new T.CircleGeometry(12.5,48),plazaMat);
+  var plaza=new T.Mesh(new T.CircleGeometry(8.0,40),plazaMat);
   plaza.rotation.x=-Math.PI/2;
   plaza.position.set(0,0.012,0);
   plaza.userData.isMapDecor=true;
   scene.add(plaza);
 
   var roadMat=new T.MeshStandardMaterial({color:def.roadColor,roughness:0.98,metalness:0.02});
-  var roadA=new T.Mesh(new T.PlaneGeometry(18.0,180),roadMat);
+  var roadW = 8.5;
+  var roadL = mapSize;
+  var roadA=new T.Mesh(new T.PlaneGeometry(roadW,roadL),roadMat);
   roadA.rotation.x=-Math.PI/2;
   roadA.position.set(0,0.013,0);
   roadA.userData.isMapDecor=true;
   scene.add(roadA);
-  var roadB=new T.Mesh(new T.PlaneGeometry(180,18.0),roadMat);
+
+  var roadB=new T.Mesh(new T.PlaneGeometry(roadL,roadW),roadMat);
   roadB.rotation.x=-Math.PI/2;
   roadB.position.set(0,0.014,0);
   roadB.userData.isMapDecor=true;
   scene.add(roadB);
 
+  var roadC=new T.Mesh(new T.PlaneGeometry(roadW-2.0,58),roadMat);
+  roadC.rotation.x=-Math.PI/2;
+  roadC.position.set(-24,0.014,-4);
+  roadC.userData.isMapDecor=true;
+  scene.add(roadC);
+  var roadD=roadC.clone(); roadD.position.set(24,0.014,6); scene.add(roadD);
+  var roadE=new T.Mesh(new T.PlaneGeometry(58,roadW-2.0),roadMat);
+  roadE.rotation.x=-Math.PI/2;
+  roadE.position.set(-4,0.014,-24);
+  roadE.userData.isMapDecor=true;
+  scene.add(roadE);
+  var roadF=roadE.clone(); roadF.position.set(6,0.014,24); scene.add(roadF);
+
   var laneMat=new T.MeshStandardMaterial({color:def.laneColor,roughness:1.0,metalness:0.0});
-  var lane1=new T.Mesh(new T.PlaneGeometry(4.2,60),laneMat);
+  var lane1=new T.Mesh(new T.PlaneGeometry(2.6,46),laneMat);
   lane1.rotation.x=-Math.PI/2;
-  lane1.position.set(-30,0.015,0);
+  lane1.position.set(-24,0.015,-4);
   lane1.userData.isMapDecor=true;
   scene.add(lane1);
-  var lane2=lane1.clone(); lane2.position.set(30,0.015,0); scene.add(lane2);
-  var lane3=new T.Mesh(new T.PlaneGeometry(60,4.2),laneMat);
+  var lane2=lane1.clone(); lane2.position.set(24,0.015,6); scene.add(lane2);
+  var lane3=new T.Mesh(new T.PlaneGeometry(46,2.6),laneMat);
   lane3.rotation.x=-Math.PI/2;
-  lane3.position.set(0,0.015,-30);
+  lane3.position.set(-4,0.015,-24);
   lane3.userData.isMapDecor=true;
   scene.add(lane3);
-  var lane4=lane3.clone(); lane4.position.set(0,0.015,30); scene.add(lane4);
+  var lane4=lane3.clone(); lane4.position.set(6,0.015,24); scene.add(lane4);
 
   var curbMat=new T.MeshStandardMaterial({color:def.curbColor,roughness:0.90,metalness:0.06});
   [
-    [{s:[180,11.5,1.2],p:[0,5.75,-90.6]}],
-    [{s:[180,11.5,1.2],p:[0,5.75,90.6]}],
-    [{s:[1.2,11.5,180],p:[-90.6,5.75,0]}],
-    [{s:[1.2,11.5,180],p:[90.6,5.75,0]}]
+    [{s:[mapSize,11.5,1.2],p:[0,5.75,-halfMap-0.6]}],
+    [{s:[mapSize,11.5,1.2],p:[0,5.75,halfMap+0.6]}],
+    [{s:[1.2,11.5,mapSize],p:[-halfMap-0.6,5.75,0]}],
+    [{s:[1.2,11.5,mapSize],p:[halfMap+0.6,5.75,0]}]
   ].forEach(function(list){
     list.forEach(function(w){
       var m=new T.Mesh(new T.BoxGeometry(w.s[0],w.s[1],w.s[2]),curbMat);
@@ -3206,7 +3220,10 @@ function buildMap(mapId){
     new T.MeshStandardMaterial({color:def.obstaclePalette[1],roughness:0.78,metalness:0.08}),
     new T.MeshStandardMaterial({color:def.obstaclePalette[2],roughness:0.56,metalness:0.24,emissive:0x07111d,emissiveIntensity:0.08})
   ];
-  def.obstacles.forEach(function(o,i){
+  var scaledObstacles = (def.obstacles || []).map(function(o){
+    return [o[0]*mapScale,o[1],o[2]*mapScale,Math.max(1.0,o[3]*mapScale),o[4],Math.max(1.0,o[5]*mapScale)];
+  });
+  scaledObstacles.forEach(function(o,i){
     var mat=wallMats[i%wallMats.length];
     var m=new T.Mesh(new T.BoxGeometry(o[3],o[4],o[5]),mat);
     m.position.set(o[0],o[1],o[2]);
@@ -3214,7 +3231,15 @@ function buildMap(mapId){
     addColliderBox(o[0],o[1],o[2],o[3],o[4],o[5],m);
   });
 
-  var buildingSpecs = (buildingInstancePlacements || []).map(function(inst){
+  var compactPlacements = (buildingInstancePlacements || []).filter(function(inst){ return inst.key !== 'b5'; }).map(function(inst){
+    var copy = Object.assign({}, inst);
+    copy.x *= mapScale;
+    copy.z *= mapScale;
+    if(Number.isFinite(copy.scale)) copy.scale *= (inst.key === 'car' ? 0.92 : 0.84);
+    return copy;
+  });
+
+  var buildingSpecs = compactPlacements.map(function(inst){
     return {
       template: getMapTemplateForKey(inst.key),
       spec: inst,
@@ -3231,7 +3256,7 @@ function buildMap(mapId){
   var crateDarkMat = new T.MeshStandardMaterial({color:crateBaseColors[2],roughness:0.98,metalness:0.02});
   var crateMetalMat = new T.MeshStandardMaterial({color:crateBaseColors[1],roughness:0.90,metalness:0.05});
   (def.crates||[]).forEach(function(c,idx){
-    var x=c[0], z=c[1], s=c[2]||0.72;
+    var x=c[0]*mapScale, z=c[1]*mapScale, s=(c[2]||0.72)*0.88;
     var w=0.88*s;
     var h=0.72*s;
     var d=0.88*s;
@@ -3275,7 +3300,7 @@ function buildMap(mapId){
   var trashLidMat = new T.MeshStandardMaterial({color:(def.trashPalette&&def.trashPalette[1])||0x566373,roughness:0.40,metalness:0.28});
   var trashRingMat = new T.MeshStandardMaterial({color:(def.trashPalette&&def.trashPalette[2])||0x3c4757,roughness:0.52,metalness:0.24});
   (def.trash||[]).forEach(function(t,idx){
-    var x=t[0], z=t[1], scale=t[2]||0.42;
+    var x=t[0]*mapScale, z=t[1]*mapScale, scale=(t[2]||0.42)*0.88;
     var h = 0.72*scale;
     var r = 0.20*scale;
     var g=new T.Group();
@@ -3294,7 +3319,7 @@ function buildMap(mapId){
   });
 
   (def.dumpsters||[]).forEach(function(t,idx){
-    var x=t[0], z=t[1], scale=t[2]||0.82;
+    var x=t[0]*mapScale, z=t[1]*mapScale, scale=(t[2]||0.82)*0.88;
     var w=1.70*scale, h=1.08*scale, d=0.88*scale;
     var g=new T.Group();
     var greenMat=new T.MeshStandardMaterial({color:def.dumpsterColor||0x55a244,roughness:0.78,metalness:0.08,emissive:0x122f0e,emissiveIntensity:0.05});
@@ -3326,8 +3351,8 @@ function buildMap(mapId){
   });
 
   [
-    [-34,0,-36],[-14,0,-36],[14,0,-36],[34,0,-36],
-    [-34,0,36],[-14,0,36],[14,0,36],[34,0,36]
+    [-22,0,-22],[-8,0,-22],[8,0,-22],[22,0,-22],
+    [-22,0,22],[-8,0,22],[8,0,22],[22,0,22]
   ].forEach(function(p,i){
     var pole=new T.Mesh(new T.CylinderGeometry(0.16,0.16,6.2,8),new T.MeshStandardMaterial({color:0x2a3142,roughness:0.4,metalness:0.8}));
     pole.position.set(p[0],3.1,p[2]); pole.castShadow=true; pole.userData.isMapDecor=true; scene.add(pole);
@@ -3337,13 +3362,13 @@ function buildMap(mapId){
     var lt=new T.PointLight(colors[i],2.0,18,2); lt.position.set(p[0],6.0,p[2]); lt.userData.isMapDecor=true; scene.add(lt);
   });
 
-  var ambientStrip=new T.Mesh(new T.PlaneGeometry(96,96),new T.MeshBasicMaterial({color:0x0a0f18,transparent:true,opacity:0.10}));
+  var ambientStrip=new T.Mesh(new T.PlaneGeometry(mapSize,mapSize),new T.MeshBasicMaterial({color:0x0a0f18,transparent:true,opacity:0.10}));
   ambientStrip.rotation.x=-Math.PI/2;
   ambientStrip.position.y=0.03;
   ambientStrip.userData.isMapDecor=true;
   scene.add(ambientStrip);
 
-  var centerMark=new T.Mesh(new T.RingGeometry(3.0,5.0,32), new T.MeshBasicMaterial({color:0x1f2a39,transparent:true,opacity:0.55}));
+  var centerMark=new T.Mesh(new T.RingGeometry(2.2,3.8,32), new T.MeshBasicMaterial({color:0x1f2a39,transparent:true,opacity:0.50}));
   centerMark.rotation.x=-Math.PI/2;
   centerMark.position.y=0.035;
   centerMark.userData.isMapDecor=true;

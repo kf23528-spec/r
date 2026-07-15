@@ -792,96 +792,129 @@ var buildingInstancePlacements = [
 ];
 
 function getMapTemplateForKey(key){
-  switch(key){
-    case 'b1': return building1Template;
-    case 'b2': return building2Template;
-    case 'b3': return building3Template;
-    case 'car': return carTemplate;
-    case 'b4': return building4Template;
-    default: return null;
-  }
+  return null;
 }
 
 function loadBuildingAssets(){
   if(buildingLoadStarted) return;
   buildingLoadStarted = true;
-  var loader = new GLTFLoader();
-  function assignTemplateByKey(key, sceneObj){
-    if(key === 'b1') building1Template = sceneObj;
-    else if(key === 'b2') building2Template = sceneObj;
-    else if(key === 'b3') building3Template = sceneObj;
-    else if(key === 'car') carTemplate = sceneObj;
-    else if(key === 'b4') building4Template = sceneObj;
-  }
-  function loadOne(spec){
-    loader.load(
-      spec.path,
-      function(gltf){
-        var sceneObj = gltf && gltf.scene ? gltf.scene : (gltf && gltf.scenes && gltf.scenes[0] ? gltf.scenes[0] : null);
-        if(!sceneObj) throw new Error(spec.path + ' loaded but scene was empty');
-        sceneObj.updateMatrixWorld(true);
-        sceneObj.traverse(function(node){
-          if(node && node.isMesh){
-            node.castShadow = true;
-            node.receiveShadow = true;
-            if(node.material && node.material.clone){
-              node.material = node.material.clone();
-            }
-          }
-        });
-        assignTemplateByKey(spec.key, sceneObj);
-        buildingTemplatesReady[spec.key] = true;
-        console.log('[MAP] loaded', spec.path);
-        rebuildMapIfNeeded('arena', true);
-      },
-      undefined,
-      function(err){
-        buildingTemplatesReady[spec.key] = true;
-        console.warn('[MAP] load failed:', spec.path, err);
-        rebuildMapIfNeeded('arena', true);
-      }
-    );
-  }
-  mapAssetPlacements.forEach(loadOne);
+  console.log('[MAP] building asset loading disabled; using procedural Three.js buildings only.');
 }
 
-function clearMapDecor(){
-  colliders.forEach(function(c){if(c.mesh&&c.mesh.parent)c.mesh.parent.remove(c.mesh);});
-  colliders.length = 0;
-  for(var i=scene.children.length-1;i>=0;i--){
-    var obj=scene.children[i];
-    if(obj&&obj.userData&&obj.userData.isMapDecor){scene.remove(obj);}
-  }
-}
 
 function makeFallbackBuilding(spec){
   var group = new T.Group();
-  var size = spec.fallback.size;
-  var baseColor = spec.fallback.color;
-  var accentColor = spec.fallback.accent;
-  var bodyMat = new T.MeshStandardMaterial({color:baseColor,roughness:0.88,metalness:0.06});
-  var accentMat = new T.MeshStandardMaterial({color:accentColor,roughness:0.72,metalness:0.10});
-  var body = new T.Mesh(new T.BoxGeometry(size[0], size[1], size[2]), bodyMat);
+  var key = spec && spec.key ? String(spec.key) : 'b1';
+  var size = spec && spec.fallback && spec.fallback.size ? spec.fallback.size : [8, 8, 8];
+  var baseColor = spec && spec.fallback ? spec.fallback.color : 0x485461;
+  var accentColor = spec && spec.fallback ? spec.fallback.accent : 0x8aa0b0;
+  var darkColor = new T.Color(baseColor).multiplyScalar(0.72).getHex();
+  var trimColor = new T.Color(accentColor).multiplyScalar(1.06).getHex();
+
+  var bodyMat = new T.MeshStandardMaterial({color:baseColor,roughness:0.84,metalness:0.06});
+  var bodyDarkMat = new T.MeshStandardMaterial({color:darkColor,roughness:0.90,metalness:0.04});
+  var trimMat = new T.MeshStandardMaterial({color:trimColor,roughness:0.70,metalness:0.10});
+  var windowMat = new T.MeshStandardMaterial({
+    color:0xaad8ff,
+    emissive:0x2d6fff,
+    emissiveIntensity:0.22,
+    roughness:0.25,
+    metalness:0.02
+  });
+  var roofMat = new T.MeshStandardMaterial({color:0x25303c,roughness:0.98,metalness:0.03});
+
+  var w = size[0];
+  var h = size[1];
+  var d = size[2];
+
+  var body = new T.Mesh(new T.BoxGeometry(w, h, d), bodyMat);
+  body.position.y = h * 0.50;
   body.castShadow = true;
   body.receiveShadow = true;
   group.add(body);
 
-  var cap = new T.Mesh(new T.BoxGeometry(size[0]*0.92, Math.max(0.35,size[1]*0.14), size[2]*0.90), accentMat);
-  cap.position.y = size[1]*0.46;
-  cap.castShadow = true;
-  cap.receiveShadow = true;
-  group.add(cap);
+  var shadowBase = new T.Mesh(new T.BoxGeometry(w*0.94, Math.max(0.20, h*0.10), d*0.94), bodyDarkMat);
+  shadowBase.position.y = Math.max(0.12, h*0.05);
+  shadowBase.castShadow = true;
+  shadowBase.receiveShadow = true;
+  group.add(shadowBase);
 
-  var inset = new T.Mesh(new T.BoxGeometry(size[0]*0.76, size[1]*0.62, size[2]*0.12), accentMat);
-  inset.position.set(0, 0.02, size[2]*0.44);
-  inset.castShadow = true;
-  inset.receiveShadow = true;
-  group.add(inset);
+  var roof = new T.Mesh(new T.BoxGeometry(w*0.92, Math.max(0.24, h*0.12), d*0.92), roofMat);
+  roof.position.y = h + Math.max(0.12, h*0.06);
+  roof.castShadow = true;
+  roof.receiveShadow = true;
+  group.add(roof);
 
+  var floorCount = key === 'b5' ? 1 : (key === 'b3' ? 2 : 3);
+  var floorH = Math.max(0.45, h / Math.max(1, floorCount));
+  var panelDepth = Math.max(0.12, d * 0.06);
+  var panelHeight = Math.max(0.26, h * 0.12);
+
+  for(var i=0;i<floorCount;i++){
+    var y = Math.max(0.18, (i + 0.5) * floorH);
+    var ring = new T.Mesh(new T.BoxGeometry(w*1.02, panelHeight, d*1.02), trimMat);
+    ring.position.y = y;
+    ring.castShadow = true;
+    ring.receiveShadow = true;
+    group.add(ring);
+
+    var front = new T.Mesh(new T.BoxGeometry(w*0.68, panelHeight*0.50, panelDepth), windowMat);
+    front.position.set(0, y + 0.03, d*0.50 - panelDepth*0.48);
+    group.add(front);
+
+    var back = front.clone();
+    back.position.z = -(d*0.50 - panelDepth*0.48);
+    group.add(back);
+
+    var left = new T.Mesh(new T.BoxGeometry(panelDepth, panelHeight*0.50, d*0.58), windowMat);
+    left.position.set(-(w*0.50 - panelDepth*0.48), y + 0.03, 0);
+    group.add(left);
+
+    var right = left.clone();
+    right.position.x = (w*0.50 - panelDepth*0.48);
+    group.add(right);
+  }
+
+  var entry = new T.Mesh(new T.BoxGeometry(Math.max(0.8, w*0.24), Math.max(0.8, h*0.28), Math.max(0.9, d*0.16)), trimMat);
+  entry.position.set(0, Math.max(0.45, h*0.18), d*0.5 + Math.max(0.12, d*0.02));
+  group.add(entry);
+
+  if(key === 'car'){
+    group.clear();
+    var carBody = new T.Mesh(new T.BoxGeometry(w, Math.max(0.52, h), d), bodyMat);
+    carBody.position.y = Math.max(0.26, h*0.5);
+    carBody.castShadow = true;
+    carBody.receiveShadow = true;
+    group.add(carBody);
+
+    var cabin = new T.Mesh(new T.BoxGeometry(w*0.52, Math.max(0.32, h*0.60), d*0.58), trimMat);
+    cabin.position.set(0, Math.max(0.48, h*0.60), 0);
+    group.add(cabin);
+
+    var wheelMat = new T.MeshStandardMaterial({color:0x101018,roughness:1.0,metalness:0.0});
+    var wheelGeo = new T.CylinderGeometry(Math.max(0.12,w*0.10),Math.max(0.12,w*0.10),Math.max(0.12,d*0.10),12);
+    var wheelOffsets = [
+      [-w*0.34, 0.13,  d*0.34],
+      [ w*0.34, 0.13,  d*0.34],
+      [-w*0.34, 0.13, -d*0.34],
+      [ w*0.34, 0.13, -d*0.34]
+    ];
+    wheelOffsets.forEach(function(p){
+      var wheel = new T.Mesh(wheelGeo, wheelMat);
+      wheel.rotation.z = Math.PI / 2;
+      wheel.position.set(p[0], p[1], p[2]);
+      wheel.castShadow = true;
+      wheel.receiveShadow = true;
+      group.add(wheel);
+    });
+  }
+
+  group.rotation.y = 0;
   return group;
 }
 
 var BUILDING_COLLIDER_PROFILES = {
+
   b1: { sx: 0.76, sy: 0.98, sz: 0.72, lift: 0.02, ox: 0.00, oz: -0.04 },
   b2: { sx: 0.88, sy: 0.98, sz: 0.82, lift: 0.00, ox: 0.02, oz: 0.01 },
   b3: { sx: 0.92, sy: 0.86, sz: 0.78, lift: -0.01, ox: -0.01, oz: 0.02 },
@@ -911,6 +944,7 @@ function getBuildingColliderProfile(spec){
   return m;
 }
 
+
 function placeBuildingTemplate(template, spec, fallback, alreadyAdded){
   var root = template ? template.clone(true) : fallback.clone(true);
   root.traverse(function(node){
@@ -920,8 +954,9 @@ function placeBuildingTemplate(template, spec, fallback, alreadyAdded){
     }
   });
 
+  var useRot = template ? (spec.yRot || 0) : 0;
   root.scale.setScalar(spec.scale);
-  root.rotation.y = 0;
+  root.rotation.y = useRot;
   root.position.set(spec.x, 0, spec.z);
   root.updateMatrixWorld(true);
 
@@ -931,14 +966,11 @@ function placeBuildingTemplate(template, spec, fallback, alreadyAdded){
     root.updateMatrixWorld(true);
     localBox = new T.Box3().setFromObject(root);
 
-    root.rotation.y = spec.yRot || 0;
-    root.updateMatrixWorld(true);
-
     var colliderScale = Number.isFinite(spec.colliderScale) ? spec.colliderScale : 1;
     var colliderScaleY = Number.isFinite(spec.colliderScaleY) ? spec.colliderScaleY : 1;
 
     var boxForCollider = localBox;
-    if(spec.forceWorldAABB){
+    if(spec.forceWorldAABB || !template){
       boxForCollider = new T.Box3().setFromObject(root);
     }
 
@@ -958,10 +990,10 @@ function placeBuildingTemplate(template, spec, fallback, alreadyAdded){
       new T.MeshBasicMaterial({visible:false})
     );
     colliderMesh.position.copy(boxCenter);
-    colliderMesh.rotation.y = spec.forceWorldAABB ? 0 : (spec.yRot || 0);
+    colliderMesh.rotation.y = (spec.forceWorldAABB || !template) ? 0 : useRot;
     colliderMesh.userData.isMapDecor = true;
     scene.add(colliderMesh);
-    addColliderBox(boxCenter.x, boxCenter.y, boxCenter.z, colliderSize.x, colliderSize.y, colliderSize.z, colliderMesh, spec.forceWorldAABB ? 0 : (spec.yRot || 0));
+    addColliderBox(boxCenter.x, boxCenter.y, boxCenter.z, colliderSize.x, colliderSize.y, colliderSize.z, colliderMesh, (spec.forceWorldAABB || !template) ? 0 : useRot);
   }
 
   root.userData.isMapDecor = true;
@@ -1589,52 +1621,10 @@ function updateWaitingUI(){
   waitingSubtitle.textContent=isRandomMatch?'30秒後にAIを補完して開戦！':'同じ部屋の本物のプレイヤーを待っています';
   updateWaitingLaunchBtn();
 }
-function isSpawnPointBlocked(x, z, radius){
-  var r = Number.isFinite(radius) ? radius : 0.65;
-  for(var i = 0; i < colliders.length; i++){
-    if(pointHitsCollider(x, z, colliders[i], r)) return true;
-  }
-  return Math.abs(x) >= MAP_BORDER - 1 || Math.abs(z) >= MAP_BORDER - 1;
-}
-
-function findOpenSpawnPoint(points, fallbackTeam){
-  var list = Array.isArray(points) ? points : [];
-  var best = null;
-
-  for(var i = 0; i < list.length; i++){
-    var p = list[i];
-    if(!p) continue;
-    var px = Number(p.x);
-    var pz = Number(p.z);
-    if(!Number.isFinite(px) || !Number.isFinite(pz)) continue;
-    if(!isSpawnPointBlocked(px, pz, 0.65)){
-      return new T.Vector3(px, 1.6, pz);
-    }
-    if(!best) best = {x:px, z:pz};
-  }
-
-  if(best){
-    var offsets = [
-      [0,0], [1.6,0], [-1.6,0], [0,1.6], [0,-1.6],
-      [2.4,0], [-2.4,0], [0,2.4], [0,-2.4],
-      [3.2,0], [-3.2,0], [0,3.2], [0,-3.2]
-    ];
-    for(var j = 0; j < offsets.length; j++){
-      var ox = best.x + offsets[j][0];
-      var oz = best.z + offsets[j][1];
-      if(!isSpawnPointBlocked(ox, oz, 0.65)){
-        return new T.Vector3(ox, 1.6, oz);
-      }
-    }
-  }
-
-  return fallbackTeam===TEAM_RED
-    ? new T.Vector3(50, 1.6, 0)
-    : new T.Vector3(-56, 1.6, 0);
-}
-
 function getSpawnForTeam(team){
-  return findOpenSpawnPoint(getSpawnPointsForMap(currentMapId || 'arena', team===TEAM_RED ? TEAM_RED : TEAM_BLUE), team);
+  return team===TEAM_RED
+    ? new T.Vector3(24,1.6,-34)
+    : new T.Vector3(-24,1.6,34);
 }
 function updateLobbyCamera(dt){camera.position.lerp(new T.Vector3(0,16,33),1-Math.exp(-2.5*dt));camera.lookAt(0,1.2,0);}
 function syncCameraRotation(){camera.rotation.x=pitch;camera.rotation.y=yaw;}
@@ -3146,8 +3136,8 @@ var MAP_DEFS = {
         [-58,10,0.84],[-34,28,0.82],[-10,-26,0.80],[14,24,0.82],[40,-14,0.86]
       ],
       spawns:{
-        blue:[{x:-56,z:-24},{x:-56,z:-12},{x:-56,z:0},{x:-56,z:12},{x:-56,z:24}],
-        red:[{x:50,z:24},{x:50,z:12},{x:50,z:0},{x:50,z:-12},{x:50,z:-24}]
+        blue:[{x:-54,z:-26},{x:-54,z:-12},{x:-54,z:0},{x:-54,z:14},{x:-54,z:28}],
+        red:[{x:54,z:28},{x:54,z:14},{x:54,z:0},{x:54,z:-12},{x:54,z:-26}]
       }
     };
   })()
@@ -3406,7 +3396,7 @@ function animate(){
 }
 function init(){
   loadRank();setMatchMode('ranked',false);updateRankUI();updateScoreUI();updateAmmoUI();updateBombUI();updateBombTrajectoryUI();updatePlayerHPUI();updateOrientationUI();
-  loadBuildingAssets();
+  // building asset loading disabled; procedural Three.js buildings only.
   buildMap('arena');gameMode=GAME_MODE.LOBBY;camera.position.set(0,16,33);camera.lookAt(0,0,0);
   setModeUI();setRoomInputValid();updateRoomUI();onlineCountEl.textContent='👥 同室: 1人';
   loadPoloFbx();

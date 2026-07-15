@@ -783,18 +783,25 @@ var buildingPlacements = [
 
 function generateDenseBuildingPlacements(){
   var placements = [];
-  var xs = [-80, -64, -48, -32, -16, 16, 32, 48, 64, 80];
-  var zs = [-80, -64, -48, -32, -16, 16, 32, 48, 64, 80];
-  var keys = ['b5', 'b4', 'b1', 'b2', 'car', 'b3', 'b5', 'b1', 'b2', 'b4'];
+  var xs = [-72, -56, -40, -24, -8, 8, 24, 40, 56, 72];
+  var zs = [-72, -56, -40, -24, -8, 8, 24, 40, 56, 72];
+  var keys = ['b5', 'b4', 'b1', 'b2', 'b5', 'car', 'b3', 'b5', 'b2', 'b4'];
   for(var zi = 0; zi < zs.length; zi++){
     for(var xi = 0; xi < xs.length; xi++){
       var x = xs[xi];
       var z = zs[zi];
-      if(Math.abs(x) > 24) x += (zi % 2 === 0 ? -2.5 : 2.5);
-      if(Math.abs(z) > 24) z += (xi % 2 === 0 ? 2.0 : -2.0);
-      var edge = Math.abs(x) >= 64 || Math.abs(z) >= 64;
-      var key = keys[(xi + zi * 3) % keys.length];
-      var yRot = (((xi * 0.71) + (zi * 0.39)) % (Math.PI * 2)) - Math.PI;
+
+      // 道が完全に直線にならないように、少しだけずらす
+      var jitterX = ((zi % 3) - 1) * 1.2;
+      var jitterZ = ((xi % 3) - 1) * 1.1;
+      if(Math.abs(x) > 16) x += jitterX;
+      if(Math.abs(z) > 16) z += jitterZ;
+
+      var edge = Math.abs(x) >= 56 || Math.abs(z) >= 56;
+      var key = keys[(xi * 2 + zi * 3) % keys.length];
+      var rotStep = ((xi + zi) % 4) * (Math.PI * 0.5);
+      var yRot = rotStep + (((xi * 0.17) + (zi * 0.11)) % 0.10 - 0.05);
+
       var spec = {
         key: key,
         x: x,
@@ -803,30 +810,31 @@ function generateDenseBuildingPlacements(){
       };
 
       if(key === 'b5'){
+        // building5.glb は元のサイズが大きいので、ここでは安全な範囲に収める
         spec.fallback = { size: [7.8, 1.2, 7.8], color: 0x445a63, accent: 0x7fa0ad };
-        spec.scale = edge ? (50 + ((xi + zi) % 4) * 2) : (46 + ((xi + zi) % 5) * 2);
-        spec.colliderScale = 0.70;
-        spec.colliderScaleY = 0.82;
+        spec.scale = edge ? (0.14 + ((xi + zi) % 3) * 0.01) : (0.11 + ((xi + zi) % 4) * 0.01);
+        spec.colliderScale = 0.76;
+        spec.colliderScaleY = 0.80;
       }else if(key === 'b4'){
         spec.fallback = { size: [10.6, 6.2, 5.4], color: 0x5f6f7d, accent: 0x8fa0b1 };
-        spec.scale = 0.00084 + ((xi + zi) % 4) * 0.00007;
-        spec.colliderScale = 0.88;
+        spec.scale = 0.00102 + ((xi + zi) % 4) * 0.00006;
+        spec.colliderScale = 0.86;
       }else if(key === 'b1'){
         spec.fallback = { size: [7.6, 9.8, 21.0], color: 0x404852, accent: 0x5a6673 };
-        spec.scale = 0.00102 + ((xi * 2 + zi) % 4) * 0.00005;
-        spec.colliderScale = 0.90;
+        spec.scale = 0.00108 + ((xi * 2 + zi) % 4) * 0.00004;
+        spec.colliderScale = 0.88;
       }else if(key === 'b2'){
         spec.fallback = { size: [9.0, 10.8, 10.5], color: 0x6b7b88, accent: 0x8ea0ad };
-        spec.scale = 1.10 + ((xi + zi) % 4) * 0.10;
-        spec.colliderScale = 0.90;
+        spec.scale = 0.92 + ((xi + zi) % 4) * 0.08;
+        spec.colliderScale = 0.88;
       }else if(key === 'car'){
         spec.fallback = { size: [2.1, 1.8, 5.2], color: 0x2d3c50, accent: 0x6f7f95 };
-        spec.scale = 0.68 + ((xi + zi) % 4) * 0.06;
-        spec.colliderScale = 0.84;
+        spec.scale = 0.60 + ((xi + zi) % 4) * 0.05;
+        spec.colliderScale = 0.82;
       }else{
         spec.fallback = { size: [10.8, 6.2, 5.4], color: 0x55606c, accent: 0x78828f };
-        spec.scale = 0.24 + ((xi + zi) % 5) * 0.02;
-        spec.colliderScale = 0.88;
+        spec.scale = 0.22 + ((xi + zi) % 5) * 0.02;
+        spec.colliderScale = 0.86;
       }
 
       placements.push(spec);

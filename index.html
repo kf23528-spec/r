@@ -792,129 +792,117 @@ var buildingInstancePlacements = [
 ];
 
 function getMapTemplateForKey(key){
-  return null;
+  switch(key){
+    case 'b1': return building1Template;
+    case 'b2': return building2Template;
+    case 'b3': return building3Template;
+    case 'car': return carTemplate;
+    case 'b4': return building4Template;
+    default: return null;
+  }
 }
 
 function loadBuildingAssets(){
-  if(buildingLoadStarted) return;
-  buildingLoadStarted = true;
-  console.log('[MAP] building asset loading disabled; using procedural Three.js buildings only.');
+  // building GLB loading disabled: all map geometry is now built with Three.js primitives.
+  return;
+}
+
+function clearMapDecor(){
+  colliders.forEach(function(c){if(c.mesh&&c.mesh.parent)c.mesh.parent.remove(c.mesh);});
+  colliders.length = 0;
+  for(var i=scene.children.length-1;i>=0;i--){
+    var obj=scene.children[i];
+    if(obj&&obj.userData&&obj.userData.isMapDecor){scene.remove(obj);}
+  }
 }
 
 
 function makeFallbackBuilding(spec){
   var group = new T.Group();
-  var key = spec && spec.key ? String(spec.key) : 'b1';
-  var size = spec && spec.fallback && spec.fallback.size ? spec.fallback.size : [8, 8, 8];
-  var baseColor = spec && spec.fallback ? spec.fallback.color : 0x485461;
-  var accentColor = spec && spec.fallback ? spec.fallback.accent : 0x8aa0b0;
-  var darkColor = new T.Color(baseColor).multiplyScalar(0.72).getHex();
-  var trimColor = new T.Color(accentColor).multiplyScalar(1.06).getHex();
+  var key = String(spec && spec.key ? spec.key : '');
+  var size = (spec && spec.fallback && spec.fallback.size) ? spec.fallback.size : [8, 8, 8];
+  var baseColor = (spec && spec.fallback && spec.fallback.color) || 0x56606c;
+  var accentColor = (spec && spec.fallback && spec.fallback.accent) || 0x7c8c9b;
+  var bodyMat = new T.MeshStandardMaterial({color:baseColor,roughness:0.92,metalness:0.04});
+  var accentMat = new T.MeshStandardMaterial({color:accentColor,roughness:0.72,metalness:0.08});
+  var glowMat = new T.MeshStandardMaterial({color:0x89d8ff,emissive:0x4fbfff,emissiveIntensity:0.22,roughness:0.25,metalness:0.08});
+  var darkMat = new T.MeshStandardMaterial({color:0x202833,roughness:1.0,metalness:0.0});
 
-  var bodyMat = new T.MeshStandardMaterial({color:baseColor,roughness:0.84,metalness:0.06});
-  var bodyDarkMat = new T.MeshStandardMaterial({color:darkColor,roughness:0.90,metalness:0.04});
-  var trimMat = new T.MeshStandardMaterial({color:trimColor,roughness:0.70,metalness:0.10});
-  var windowMat = new T.MeshStandardMaterial({
-    color:0xaad8ff,
-    emissive:0x2d6fff,
-    emissiveIntensity:0.22,
-    roughness:0.25,
-    metalness:0.02
-  });
-  var roofMat = new T.MeshStandardMaterial({color:0x25303c,roughness:0.98,metalness:0.03});
-
-  var w = size[0];
-  var h = size[1];
-  var d = size[2];
-
-  var body = new T.Mesh(new T.BoxGeometry(w, h, d), bodyMat);
-  body.position.y = h * 0.50;
-  body.castShadow = true;
-  body.receiveShadow = true;
-  group.add(body);
-
-  var shadowBase = new T.Mesh(new T.BoxGeometry(w*0.94, Math.max(0.20, h*0.10), d*0.94), bodyDarkMat);
-  shadowBase.position.y = Math.max(0.12, h*0.05);
-  shadowBase.castShadow = true;
-  shadowBase.receiveShadow = true;
-  group.add(shadowBase);
-
-  var roof = new T.Mesh(new T.BoxGeometry(w*0.92, Math.max(0.24, h*0.12), d*0.92), roofMat);
-  roof.position.y = h + Math.max(0.12, h*0.06);
-  roof.castShadow = true;
-  roof.receiveShadow = true;
-  group.add(roof);
-
-  var floorCount = key === 'b5' ? 1 : (key === 'b3' ? 2 : 3);
-  var floorH = Math.max(0.45, h / Math.max(1, floorCount));
-  var panelDepth = Math.max(0.12, d * 0.06);
-  var panelHeight = Math.max(0.26, h * 0.12);
-
-  for(var i=0;i<floorCount;i++){
-    var y = Math.max(0.18, (i + 0.5) * floorH);
-    var ring = new T.Mesh(new T.BoxGeometry(w*1.02, panelHeight, d*1.02), trimMat);
-    ring.position.y = y;
-    ring.castShadow = true;
-    ring.receiveShadow = true;
-    group.add(ring);
-
-    var front = new T.Mesh(new T.BoxGeometry(w*0.68, panelHeight*0.50, panelDepth), windowMat);
-    front.position.set(0, y + 0.03, d*0.50 - panelDepth*0.48);
-    group.add(front);
-
-    var back = front.clone();
-    back.position.z = -(d*0.50 - panelDepth*0.48);
-    group.add(back);
-
-    var left = new T.Mesh(new T.BoxGeometry(panelDepth, panelHeight*0.50, d*0.58), windowMat);
-    left.position.set(-(w*0.50 - panelDepth*0.48), y + 0.03, 0);
-    group.add(left);
-
-    var right = left.clone();
-    right.position.x = (w*0.50 - panelDepth*0.48);
-    group.add(right);
+  function addBox(w,h,d,x,y,z,mat,ry){
+    var m = new T.Mesh(new T.BoxGeometry(w,h,d), mat || bodyMat);
+    m.position.set(x||0,y||0,z||0);
+    if(ry) m.rotation.y = ry;
+    m.castShadow = true;
+    m.receiveShadow = true;
+    group.add(m);
+    return m;
   }
 
-  var entry = new T.Mesh(new T.BoxGeometry(Math.max(0.8, w*0.24), Math.max(0.8, h*0.28), Math.max(0.9, d*0.16)), trimMat);
-  entry.position.set(0, Math.max(0.45, h*0.18), d*0.5 + Math.max(0.12, d*0.02));
-  group.add(entry);
-
-  if(key === 'car'){
-    group.clear();
-    var carBody = new T.Mesh(new T.BoxGeometry(w, Math.max(0.52, h), d), bodyMat);
-    carBody.position.y = Math.max(0.26, h*0.5);
-    carBody.castShadow = true;
-    carBody.receiveShadow = true;
-    group.add(carBody);
-
-    var cabin = new T.Mesh(new T.BoxGeometry(w*0.52, Math.max(0.32, h*0.60), d*0.58), trimMat);
-    cabin.position.set(0, Math.max(0.48, h*0.60), 0);
-    group.add(cabin);
-
-    var wheelMat = new T.MeshStandardMaterial({color:0x101018,roughness:1.0,metalness:0.0});
-    var wheelGeo = new T.CylinderGeometry(Math.max(0.12,w*0.10),Math.max(0.12,w*0.10),Math.max(0.12,d*0.10),12);
-    var wheelOffsets = [
-      [-w*0.34, 0.13,  d*0.34],
-      [ w*0.34, 0.13,  d*0.34],
-      [-w*0.34, 0.13, -d*0.34],
-      [ w*0.34, 0.13, -d*0.34]
-    ];
-    wheelOffsets.forEach(function(p){
-      var wheel = new T.Mesh(wheelGeo, wheelMat);
-      wheel.rotation.z = Math.PI / 2;
-      wheel.position.set(p[0], p[1], p[2]);
-      wheel.castShadow = true;
-      wheel.receiveShadow = true;
-      group.add(wheel);
-    });
+  function addWindowStrip(w,h,d,x,y,z,ry){
+    var strip = new T.Mesh(new T.BoxGeometry(w,h,d), glowMat);
+    strip.position.set(x,y,z);
+    if(ry) strip.rotation.y = ry;
+    strip.castShadow = false;
+    strip.receiveShadow = false;
+    group.add(strip);
+    return strip;
   }
 
-  group.rotation.y = 0;
+  var sx = size[0], sy = size[1], sz = size[2];
+
+  if(key === 'b1'){
+    // Tall office block
+    addBox(sx, sy*0.82, sz, 0, sy*0.41, 0, bodyMat);
+    addBox(sx*0.72, sy*0.28, sz*0.72, 0, sy*0.95, 0, accentMat);
+    addBox(sx*0.46, sy*0.12, sz*0.46, 0, sy*1.12, 0, darkMat);
+    addWindowStrip(sx*0.84, sy*0.06, 0.10, 0, sy*0.28, sz*0.46);
+    addWindowStrip(sx*0.84, sy*0.06, 0.10, 0, sy*0.56, sz*0.46);
+    addWindowStrip(sx*0.84, sy*0.06, 0.10, 0, sy*0.84, sz*0.46);
+    addWindowStrip(0.10, sy*0.06, sz*0.72, sx*0.46, sy*0.50, 0);
+  }else if(key === 'b2'){
+    // Mid-size square building with rooftop frame
+    addBox(sx, sy*0.78, sz, 0, sy*0.39, 0, bodyMat);
+    addBox(sx*0.90, sy*0.10, sz*0.90, 0, sy*0.82, 0, accentMat);
+    addBox(sx*0.70, sy*0.16, sz*0.14, 0, sy*0.46, sz*0.43, glowMat);
+    addBox(sx*0.70, sy*0.16, sz*0.14, 0, sy*0.46, -sz*0.43, glowMat);
+    addBox(sx*0.14, sy*0.16, sz*0.70, sx*0.43, sy*0.46, 0, glowMat);
+    addBox(sx*0.14, sy*0.16, sz*0.70, -sx*0.43, sy*0.46, 0, glowMat);
+  }else if(key === 'b3'){
+    // Low shop / market block
+    addBox(sx, sy*0.62, sz, 0, sy*0.31, 0, bodyMat);
+    addBox(sx*0.96, sy*0.12, sz*0.34, 0, sy*0.10, sz*0.34, accentMat);
+    addBox(sx*0.96, sy*0.12, sz*0.34, 0, sy*0.10, -sz*0.34, accentMat);
+    addBox(sx*0.18, sy*0.24, sz*0.84, sx*0.40, sy*0.18, 0, darkMat);
+    addWindowStrip(sx*0.72, sy*0.05, 0.08, 0, sy*0.44, sz*0.46);
+  }else if(key === 'b4'){
+    // Narrow townhouse / side building
+    addBox(sx*0.82, sy*0.86, sz, 0, sy*0.43, 0, bodyMat);
+    addBox(sx*0.62, sy*0.12, sz*0.92, 0, sy*0.90, 0, accentMat);
+    addBox(sx*0.34, sy*0.18, sz*0.12, sx*0.28, sy*0.38, sz*0.38, glowMat);
+    addBox(sx*0.34, sy*0.18, sz*0.12, sx*0.28, sy*0.38, -sz*0.38, glowMat);
+  }else if(key === 'b5'){
+    // Very flat warehouse / garage
+    addBox(sx, Math.max(0.6, sy*0.48), sz, 0, Math.max(0.3, sy*0.24), 0, bodyMat);
+    addBox(sx*0.96, Math.max(0.12, sy*0.10), sz*0.88, 0, Math.max(0.52, sy*0.50), 0, accentMat);
+    addBox(sx*0.18, Math.max(0.20, sy*0.16), sz*0.90, -sx*0.38, Math.max(0.24, sy*0.22), 0, darkMat);
+  }else if(key === 'car'){
+    // Simple vehicle-like block
+    addBox(size[0]*0.78, size[1]*0.45, size[2]*0.90, 0, size[1]*0.22, 0, bodyMat);
+    addBox(size[0]*0.48, size[1]*0.26, size[2]*0.56, 0, size[1]*0.53, 0, accentMat);
+    addBox(size[0]*0.18, size[1]*0.08, size[2]*1.00, 0, size[1]*0.04, 0, darkMat);
+  }else{
+    // Fallback generic mass
+    addBox(sx, sy*0.78, sz, 0, sy*0.39, 0, bodyMat);
+    addBox(sx*0.88, sy*0.10, sz*0.88, 0, sy*0.82, 0, accentMat);
+  }
+
+  // Keep the collision footprint close to the visible mass.
+  group.position.set(0, 0, 0);
   return group;
 }
 
-var BUILDING_COLLIDER_PROFILES = {
 
+var BUILDING_COLLIDER_PROFILES = {
   b1: { sx: 0.76, sy: 0.98, sz: 0.72, lift: 0.02, ox: 0.00, oz: -0.04 },
   b2: { sx: 0.88, sy: 0.98, sz: 0.82, lift: 0.00, ox: 0.02, oz: 0.01 },
   b3: { sx: 0.92, sy: 0.86, sz: 0.78, lift: -0.01, ox: -0.01, oz: 0.02 },
@@ -944,7 +932,6 @@ function getBuildingColliderProfile(spec){
   return m;
 }
 
-
 function placeBuildingTemplate(template, spec, fallback, alreadyAdded){
   var root = template ? template.clone(true) : fallback.clone(true);
   root.traverse(function(node){
@@ -954,9 +941,8 @@ function placeBuildingTemplate(template, spec, fallback, alreadyAdded){
     }
   });
 
-  var useRot = template ? (spec.yRot || 0) : 0;
   root.scale.setScalar(spec.scale);
-  root.rotation.y = useRot;
+  root.rotation.y = 0;
   root.position.set(spec.x, 0, spec.z);
   root.updateMatrixWorld(true);
 
@@ -966,11 +952,14 @@ function placeBuildingTemplate(template, spec, fallback, alreadyAdded){
     root.updateMatrixWorld(true);
     localBox = new T.Box3().setFromObject(root);
 
+    root.rotation.y = spec.yRot || 0;
+    root.updateMatrixWorld(true);
+
     var colliderScale = Number.isFinite(spec.colliderScale) ? spec.colliderScale : 1;
     var colliderScaleY = Number.isFinite(spec.colliderScaleY) ? spec.colliderScaleY : 1;
 
     var boxForCollider = localBox;
-    if(spec.forceWorldAABB || !template){
+    if(spec.forceWorldAABB){
       boxForCollider = new T.Box3().setFromObject(root);
     }
 
@@ -990,10 +979,10 @@ function placeBuildingTemplate(template, spec, fallback, alreadyAdded){
       new T.MeshBasicMaterial({visible:false})
     );
     colliderMesh.position.copy(boxCenter);
-    colliderMesh.rotation.y = (spec.forceWorldAABB || !template) ? 0 : useRot;
+    colliderMesh.rotation.y = spec.forceWorldAABB ? 0 : (spec.yRot || 0);
     colliderMesh.userData.isMapDecor = true;
     scene.add(colliderMesh);
-    addColliderBox(boxCenter.x, boxCenter.y, boxCenter.z, colliderSize.x, colliderSize.y, colliderSize.z, colliderMesh, (spec.forceWorldAABB || !template) ? 0 : useRot);
+    addColliderBox(boxCenter.x, boxCenter.y, boxCenter.z, colliderSize.x, colliderSize.y, colliderSize.z, colliderMesh, spec.forceWorldAABB ? 0 : (spec.yRot || 0));
   }
 
   root.userData.isMapDecor = true;
@@ -3143,7 +3132,7 @@ var MAP_DEFS = {
   })()
 };
 
-var MAP_COMPACT_SCALE = 0.72;
+var MAP_COMPACT_SCALE = 0.68;
 var MAP_BASE_SIZE = 104;
 var MAP_HALF_SIZE = MAP_BASE_SIZE * 0.5;
 
@@ -3396,7 +3385,6 @@ function animate(){
 }
 function init(){
   loadRank();setMatchMode('ranked',false);updateRankUI();updateScoreUI();updateAmmoUI();updateBombUI();updateBombTrajectoryUI();updatePlayerHPUI();updateOrientationUI();
-  // building asset loading disabled; procedural Three.js buildings only.
   buildMap('arena');gameMode=GAME_MODE.LOBBY;camera.position.set(0,16,33);camera.lookAt(0,0,0);
   setModeUI();setRoomInputValid();updateRoomUI();onlineCountEl.textContent='👥 同室: 1人';
   loadPoloFbx();

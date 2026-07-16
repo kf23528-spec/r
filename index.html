@@ -467,6 +467,7 @@ sunLight.shadow.camera.top=50; sunLight.shadow.camera.bottom=-50;
 scene.add(sunLight);
 var fillLight = new T.PointLight(0x69d0ff,1.4,60,2);
 fillLight.position.set(0,8,0); scene.add(fillLight);
+
 function buildNeutralEnvironment(){
   try{
     var cv = document.createElement('canvas');
@@ -474,13 +475,13 @@ function buildNeutralEnvironment(){
     var ctx = cv.getContext('2d');
     if(!ctx) return;
     var grad = ctx.createLinearGradient(0, 0, 0, cv.height);
-    grad.addColorStop(0.00, '#e9f7ff');
-    grad.addColorStop(0.25, '#9ec2e8');
-    grad.addColorStop(0.70, '#2a3e5b');
-    grad.addColorStop(1.00, '#0f1722');
+    grad.addColorStop(0.00, '#dcecff');
+    grad.addColorStop(0.28, '#7ea6d4');
+    grad.addColorStop(0.62, '#24324b');
+    grad.addColorStop(1.00, '#0b1018');
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, cv.width, cv.height);
-    ctx.fillStyle = 'rgba(255,255,255,0.18)';
+    ctx.fillStyle = 'rgba(255,255,255,0.14)';
     ctx.fillRect(0, 0, cv.width, 4);
     var tex = new T.CanvasTexture(cv);
     tex.mapping = T.EquirectangularReflectionMapping;
@@ -492,6 +493,7 @@ function buildNeutralEnvironment(){
     pmrem.dispose();
   }catch(e){}
 }
+buildNeutralEnvironment();
 buildNeutralEnvironment();
 var clock = new T.Clock();
 var socket = null;
@@ -810,19 +812,20 @@ function makeTextSprite(text, opts){
   return sprite;
 }
 
+
 function addFloorPatch(x, z, w, d, color, opacity){
+  var h = 0.06;
   var mesh = new T.Mesh(
-    new T.PlaneGeometry(w, d),
+    new T.BoxGeometry(w, h, d),
     new T.MeshStandardMaterial({
       color: color,
       roughness: 1.0,
       metalness: 0.0,
-      transparent: opacity < 1,
-      opacity: opacity === undefined ? 1 : opacity
+      transparent: false,
+      opacity: 1.0
     })
   );
-  mesh.rotation.x = -Math.PI / 2;
-  mesh.position.set(x, 0.012, z);
+  mesh.position.set(x, -h * 0.5 + 0.01, z);
   mesh.receiveShadow = true;
   mesh.userData.isMapDecor = true;
   scene.add(mesh);
@@ -1030,16 +1033,20 @@ function addLampPost(x, z, hue){
   scene.add(light);
 }
 
+
 function addNeonFloorLine(x, z, w, d, color, opacity){
   var line = new T.Mesh(
-    new T.PlaneGeometry(w, d),
-    new T.MeshBasicMaterial({
+    new T.BoxGeometry(w, 0.035, d),
+    new T.MeshStandardMaterial({
       color: color,
-      transparent: true,
-      opacity: opacity === undefined ? 0.55 : opacity
+      emissive: color,
+      emissiveIntensity: 0.55,
+      transparent: false,
+      opacity: 1.0,
+      roughness: 0.45,
+      metalness: 0.0
     })
   );
-  line.rotation.x = -Math.PI / 2;
   line.position.set(x, 0.018, z);
   line.userData.isMapDecor = true;
   scene.add(line);
@@ -3220,32 +3227,44 @@ function getSpawnPointsForMap(mapId,team){
   return (def.spawns&&def.spawns[team])?def.spawns[team]:MAP_DEFS.arena.spawns[team];
 }
 
+
 function buildProceduralArena(){
   clearMapDecor();
-  scene.fog = new T.FogExp2(0x0a1018, 0.0105);
+  scene.fog = new T.FogExp2(0x101723, 0.0095);
+  scene.background = new T.Color(0x101723);
 
-  addFloorPatch(0, 0, 74, 74, 0x091018, 1);
-  addFloorPatch(0, 0, 56, 56, 0x111a26, 1);
-  addFloorPatch(0, 24, 48, 18, 0x2d1115, 0.96);
-  addFloorPatch(0, -24, 48, 18, 0x13243c, 0.96);
-  addFloorPatch(-14, 0, 16, 58, 0x0f1620, 1);
-  addFloorPatch(14, 0, 16, 58, 0x0f1620, 1);
-  addFloorPatch(0, 0, 14, 16, 0x161d28, 1);
+  // Base terrain
+  addFloorPatch(0, 0, 72, 72, 0x0d141f, 1);
+  addFloorPatch(0, 0, 62, 62, 0x141c2a, 1);
 
-  addNeonFloorLine(0, -31.5, 66, 0.6, 0x2f91ff, 0.24);
-  addNeonFloorLine(0, 31.5, 66, 0.6, 0xff4d74, 0.22);
-  addNeonFloorLine(-31.5, 0, 0.6, 66, 0x65d8ff, 0.16);
-  addNeonFloorLine(31.5, 0, 0.6, 66, 0xff9a4c, 0.16);
+  // Primary lanes and zones
+  addFloorPatch(0, 24.0, 58, 16, 0x2e151d, 1);   // RED/A top
+  addFloorPatch(0, -24.0, 58, 16, 0x132d43, 1);  // BLUE/B bottom
+  addFloorPatch(-16.5, 0, 16, 56, 0x141d29, 1);   // left outer lane
+  addFloorPatch(16.5, 0, 16, 56, 0x172131, 1);    // right outer lane
+  addFloorPatch(0, 0, 14, 42, 0x111823, 1);      // center lane
+  addFloorPatch(-6.5, 0, 7.5, 24, 0x182434, 1);
+  addFloorPatch(6.5, 0, 7.5, 24, 0x18273a, 1);
 
+  // Accent strips to make the top-down read stronger
+  addNeonFloorLine(0, 31.1, 64, 0.48, 0xff5a76, 1);
+  addNeonFloorLine(0, -31.1, 64, 0.48, 0x4aa8ff, 1);
+  addNeonFloorLine(-31.1, 0, 0.48, 64, 0x7af0ff, 1);
+  addNeonFloorLine(31.1, 0, 0.48, 64, 0xffb15c, 1);
+  addNeonFloorLine(0, 0, 10, 0.22, 0x6d74ff, 1);
+  addNeonFloorLine(0, 14.8, 22, 0.18, 0xf5cf6a, 1);
+  addNeonFloorLine(0, -14.8, 22, 0.18, 0x63d2ff, 1);
+
+  // Boundary walls
   [
-    [0, 2.2, -35.0, 70, 4.4, 2.2, 0x1b2331],
-    [0, 2.2, 35.0, 70, 4.4, 2.2, 0x1b2331],
-    [-35.0, 2.2, 0, 2.2, 4.4, 70, 0x1b2331],
-    [35.0, 2.2, 0, 2.2, 4.4, 70, 0x1b2331]
+    [0, 2.4, -35.0, 70, 4.8, 2.0, 0x172030],
+    [0, 2.4, 35.0, 70, 4.8, 2.0, 0x1c2232],
+    [-35.0, 2.4, 0, 2.0, 4.8, 70, 0x172030],
+    [35.0, 2.4, 0, 2.0, 4.8, 70, 0x1c2232]
   ].forEach(function(v){
     var wall = new T.Mesh(
       new T.BoxGeometry(v[3], v[4], v[5]),
-      new T.MeshStandardMaterial({ color: v[6], roughness: 0.88, metalness: 0.08 })
+      new T.MeshStandardMaterial({ color: v[6], roughness: 0.9, metalness: 0.04 })
     );
     wall.position.set(v[0], v[1], v[2]);
     wall.castShadow = true;
@@ -3255,91 +3274,89 @@ function buildProceduralArena(){
     addColliderBox(v[0], v[1], v[2], v[3], v[4], v[5], wall);
   });
 
-  addFloorPatch(0, 14.5, 21, 16, 0x4a3921, 0.92);
-  addFloorPatch(0, -14.5, 21, 16, 0x1b3550, 0.92);
+  // --- A side / RED side ---
+  addBoxBlock({ x: -18.4, y: 0, z: 24.8, w: 6.6, h: 4.6, d: 8.0, color: 0x5a2830, roofColor: 0x8c4c4e, strip: true, stripColor: 0xffb4a8, entrance: [1.6, 1.4, 2.6, 0, -1.0, -4.2] });
+  addBoxBlock({ x: -8.2, y: 0, z: 28.0, w: 5.0, h: 4.2, d: 6.0, color: 0x4b3344, roofColor: 0x8a6a7a, strip: true, stripColor: 0xf1b8df, yRot: -0.25 });
+  addBoxBlock({ x: 8.6, y: 0, z: 28.2, w: 7.8, h: 4.8, d: 8.8, color: 0x6b4b31, roofColor: 0xb18a64, strip: true, stripColor: 0xffdf9b, yRot: 0.14 });
+  addBoxBlock({ x: 20.2, y: 0, z: 23.3, w: 6.0, h: 5.0, d: 10.0, color: 0x36556d, roofColor: 0x7cb0d1, strip: true, stripColor: 0xa8efff, yRot: 0.42 });
+  addRaisedPlatform({ x: 0.0, y: 0.34, z: 19.0, w: 8.8, h: 0.68, d: 4.2, color: 0x241922, emissive: 0x251018, emissiveIntensity: 0.12 });
+  addRaisedPlatform({ x: 12.8, y: 0.34, z: 18.0, w: 4.6, h: 0.72, d: 8.0, color: 0x253847, emissive: 0x0b1520, emissiveIntensity: 0.12 });
+  addRaisedPlatform({ x: -13.2, y: 0.34, z: 17.3, w: 4.6, h: 0.72, d: 8.0, color: 0x382832, emissive: 0x180b10, emissiveIntensity: 0.10 });
 
-  addFloorPatch(-2.0, 0, 8, 42, 0x141b25, 1);
-  addFloorPatch(2.0, 0, 8, 42, 0x141b25, 1);
-
+  // A site cover clusters
   [
-    [-8.7, 1.0, 0.0, 2.2, 2.0, 16.0, 0x2f3948],
-    [8.7, 1.0, 0.0, 2.2, 2.0, 16.0, 0x2f3948],
-    [0.0, 1.0, 8.0, 16.0, 2.0, 2.0, 0x2f3948],
-    [0.0, 1.0, -8.0, 16.0, 2.0, 2.0, 0x2f3948],
-    [-17.8, 1.0, 8.0, 4.0, 2.0, 18.0, 0x273142],
-    [17.8, 1.0, -8.0, 4.0, 2.0, 18.0, 0x273142]
+    [-24.0, 22.8, 1.0, 3.6, 2.0, 5.2, 0x3a4656],
+    [-28.0, 26.2, 0.8, 2.2, 2.0, 2.4, 0x61493f],
+    [-4.0, 22.6, 1.0, 5.2, 2.2, 4.0, 0x50383c],
+    [4.2, 21.3, 1.0, 3.4, 2.0, 5.4, 0x334a61],
+    [14.8, 22.0, 1.0, 4.2, 2.0, 4.4, 0x4b5d6e]
   ].forEach(function(v){
-    addBoxBlock({
-      x: v[0], y: v[1], z: v[2], w: v[3], h: v[4], d: v[5], color: v[6],
-      roofColor: 0x647183, strip: true, scale: 1, roof: true
-    });
+    addBoxBlock({ x: v[0], y: 0, z: v[1], w: v[3], h: v[4], d: v[5], color: v[6], roofColor: v[6] + 0x182020, strip: true, stripColor: 0xffffff, yRot: v[2] });
   });
 
-  addBoxBlock({ x: -21.4, y: 0, z: 22.8, w: 8.2, h: 5.6, d: 9.4, color: 0x3a434f, roofColor: 0x717d8b, strip: true, entrance: [2.2, 1.3, 2.8, 0, -1.1, -4.8] });
-  addBoxBlock({ x: 0.0, y: 0, z: 27.4, w: 14.2, h: 5.8, d: 7.6, color: 0x49373d, roofColor: 0x7e6770, strip: true, yRot: 0.0 });
-  addBoxBlock({ x: 22.0, y: 0, z: 20.0, w: 8.0, h: 5.0, d: 11.0, color: 0x334150, roofColor: 0x5b748b, strip: true, yRot: 0.52 });
-  addBoxBlock({ x: 16.0, y: 0, z: 10.2, w: 6.0, h: 4.0, d: 7.0, color: 0x313a45, roofColor: 0x67707d, strip: false, yRot: -0.7 });
+  // center transition / connector
+  addBoxBlock({ x: -9.6, y: 0, z: 9.0, w: 5.6, h: 4.2, d: 5.2, color: 0x2f3948, roofColor: 0x70839b, strip: true, stripColor: 0xd0d9e5, yRot: 0.18 });
+  addBoxBlock({ x: 0.0, y: 0, z: 11.2, w: 8.2, h: 4.0, d: 4.8, color: 0x51433f, roofColor: 0x87705d, strip: true, stripColor: 0xffd27b });
+  addBoxBlock({ x: 9.3, y: 0, z: 8.8, w: 5.8, h: 4.2, d: 5.6, color: 0x34485c, roofColor: 0x6e88a3, strip: true, stripColor: 0x8cf1ff, yRot: -0.2 });
 
-  addBoxBlock({ x: -8.2, y: 0, z: 7.7, w: 6.6, h: 4.8, d: 6.0, color: 0x394351, roofColor: 0x67707e, strip: true, yRot: 0.1 });
-  addBoxBlock({ x: 0.0, y: 0, z: 10.8, w: 9.0, h: 4.2, d: 5.2, color: 0x5b4434, roofColor: 0x8b7055, strip: true });
-  addBoxBlock({ x: 8.8, y: 0, z: 7.8, w: 5.6, h: 4.8, d: 6.0, color: 0x354252, roofColor: 0x6e8092, strip: true, yRot: -0.18 });
+  // Left long / outer lane
+  addBoxBlock({ x: -24.8, y: 0, z: 10.0, w: 4.4, h: 4.8, d: 16.0, color: 0x283244, roofColor: 0x566578, strip: true, stripColor: 0xa6b4c8, yRot: 0.18 });
+  addBoxBlock({ x: -20.8, y: 0, z: -1.2, w: 5.2, h: 4.0, d: 8.0, color: 0x1d3342, roofColor: 0x4f7690, strip: true, stripColor: 0x89d8ff, yRot: -0.12 });
+  addBoxBlock({ x: -18.0, y: 0, z: -17.0, w: 5.6, h: 4.2, d: 8.0, color: 0x243847, roofColor: 0x62798a, strip: true, stripColor: 0xb9c9d8, yRot: -0.38 });
 
-  addBoxBlock({ x: -21.0, y: 0, z: -22.0, w: 8.8, h: 5.0, d: 8.8, color: 0x394557, roofColor: 0x6e8195, strip: true, yRot: -0.2 });
-  addBoxBlock({ x: -1.5, y: 0, z: -27.0, w: 15.0, h: 5.6, d: 7.2, color: 0x24354b, roofColor: 0x5d7692, strip: true });
-  addBoxBlock({ x: 18.4, y: 0, z: -19.2, w: 8.2, h: 5.2, d: 10.0, color: 0x3a4555, roofColor: 0x708294, strip: true, yRot: 0.52 });
-  addBoxBlock({ x: 10.2, y: 0, z: -8.5, w: 5.0, h: 4.2, d: 7.0, color: 0x2d394a, roofColor: 0x617183, strip: false, yRot: 0.18 });
+  // Right market / connector
+  addBoxBlock({ x: 24.4, y: 0, z: 10.0, w: 4.4, h: 4.8, d: 16.0, color: 0x39424d, roofColor: 0x6b7885, strip: true, stripColor: 0xe2d8c7, yRot: -0.18 });
+  addBoxBlock({ x: 21.0, y: 0, z: -1.0, w: 5.6, h: 4.0, d: 8.0, color: 0x4a3c2c, roofColor: 0x8f7150, strip: true, stripColor: 0xf0c688, yRot: 0.14 });
+  addBoxBlock({ x: 17.8, y: 0, z: -16.8, w: 5.8, h: 4.2, d: 8.2, color: 0x24344a, roofColor: 0x516a84, strip: true, stripColor: 0x89cfff, yRot: 0.38 });
 
-  addBoxBlock({ x: -8.8, y: 0, z: -7.6, w: 6.6, h: 4.8, d: 6.0, color: 0x35424f, roofColor: 0x6d7a88, strip: true, yRot: -0.08 });
-  addBoxBlock({ x: 0.0, y: 0, z: -10.8, w: 9.0, h: 4.2, d: 5.2, color: 0x29485d, roofColor: 0x4f7e9b, strip: true });
-  addBoxBlock({ x: 8.8, y: 0, z: -7.7, w: 5.6, h: 4.8, d: 6.0, color: 0x344251, roofColor: 0x6e8291, strip: true, yRot: 0.12 });
+  // --- B side / BLUE side ---
+  addBoxBlock({ x: -18.6, y: 0, z: -24.7, w: 6.6, h: 4.6, d: 8.0, color: 0x2c4d66, roofColor: 0x6da0c5, strip: true, stripColor: 0xb5efff, entrance: [1.6, 1.4, 2.6, 0, -1.0, 4.2] });
+  addBoxBlock({ x: -8.3, y: 0, z: -28.2, w: 5.0, h: 4.2, d: 6.0, color: 0x354252, roofColor: 0x68839e, strip: true, stripColor: 0xc6d8ea, yRot: 0.25 });
+  addBoxBlock({ x: 8.4, y: 0, z: -28.0, w: 7.8, h: 4.8, d: 8.8, color: 0x284860, roofColor: 0x5e8cab, strip: true, stripColor: 0x8fdcff, yRot: -0.14 });
+  addBoxBlock({ x: 20.4, y: 0, z: -23.4, w: 6.0, h: 5.0, d: 10.0, color: 0x4d3f32, roofColor: 0x9b8166, strip: true, stripColor: 0xffddac, yRot: -0.42 });
+  addRaisedPlatform({ x: 0.0, y: 0.34, z: -19.2, w: 8.8, h: 0.68, d: 4.2, color: 0x18212c, emissive: 0x09111a, emissiveIntensity: 0.12 });
+  addRaisedPlatform({ x: -12.8, y: 0.34, z: -18.0, w: 4.6, h: 0.72, d: 8.0, color: 0x283e50, emissive: 0x07121b, emissiveIntensity: 0.12 });
+  addRaisedPlatform({ x: 13.2, y: 0.34, z: -17.3, w: 4.6, h: 0.72, d: 8.0, color: 0x322929, emissive: 0x130b0b, emissiveIntensity: 0.10 });
 
-  addBoxBlock({ x: -26.4, y: 0, z: 6.6, w: 5.2, h: 4.2, d: 11.0, color: 0x273140, roofColor: 0x516073, strip: true, yRot: 0.34 });
-  addBoxBlock({ x: 26.4, y: 0, z: -6.6, w: 5.2, h: 4.2, d: 11.0, color: 0x273140, roofColor: 0x516073, strip: true, yRot: -0.34 });
-
-  addRaisedPlatform({ x: -14.8, y: 0.34, z: 16.8, w: 5.2, h: 0.8, d: 9.6, color: 0x222d3d });
-  addRaisedPlatform({ x: 14.8, y: 0.34, z: -16.8, w: 5.2, h: 0.8, d: 9.6, color: 0x222d3d });
-  addRaisedPlatform({ x: 0.0, y: 0.44, z: 0.0, w: 5.0, h: 0.5, d: 5.0, color: 0x18212d, emissive: 0x09111c, emissiveIntensity: 0.18 });
-
-  addCarBlock({ x: -17.8, z: 2.5, yRot: 0.15, scale: 1.0, bodyColor: 0x39485a, accentColor: 0x82a0c2 });
-  addCarBlock({ x: 15.2, z: -1.8, yRot: 1.55, scale: 1.0, bodyColor: 0x26384f, accentColor: 0x72b8ff });
-  addCarBlock({ x: -9.6, z: -17.0, yRot: -0.72, scale: 1.0, bodyColor: 0x4a3b35, accentColor: 0xb98d6c });
-
+  // B site cover clusters
   [
-    [-24.0, 18.8, 0.72, 0.18],
-    [-20.8, 21.6, 0.72, 0.04],
-    [-15.8, 18.0, 0.66, 0.33],
-    [17.8, 18.4, 0.72, -0.22],
-    [21.6, 16.3, 0.64, 0.12],
-    [18.0, 8.6, 0.70, 0.08],
-    [-23.0, -18.3, 0.70, -0.06],
-    [-18.8, -15.4, 0.64, 0.18],
-    [18.2, -18.8, 0.72, 0.04],
-    [22.1, -14.7, 0.68, -0.10],
-    [13.8, -22.1, 0.62, 0.12]
-  ].forEach(function(v, idx){
-    addBoxBlock({
-      x: v[0],
-      y: 0,
-      z: v[1],
-      w: 1.05,
-      h: 0.84,
-      d: 1.05,
-      color: idx % 3 === 0 ? 0x7b5a36 : (idx % 3 === 1 ? 0x5f4427 : 0x45331d),
-      roofColor: 0x9f7f4c,
-      strip: true,
-      yRot: v[3],
-      scale: v[2]
-    });
+    [-24.0, -22.6, 1.0, 3.6, 2.0, 5.2, 0x24405a],
+    [-28.0, -26.1, 0.8, 2.2, 2.0, 2.4, 0x715138],
+    [-4.0, -22.8, 1.0, 5.2, 2.2, 4.0, 0x2a4f5d],
+    [4.2, -21.4, 1.0, 3.4, 2.0, 5.4, 0x385766],
+    [14.8, -22.0, 1.0, 4.2, 2.0, 4.4, 0x4e6173]
+  ].forEach(function(v){
+    addBoxBlock({ x: v[0], y: 0, z: v[1], w: v[3], h: v[4], d: v[5], color: v[6], roofColor: v[6] + 0x101820, strip: true, stripColor: 0xffffff, yRot: v[2] });
   });
 
+  // Underpass + lower connector
+  addRaisedPlatform({ x: 0.0, y: 0.18, z: -6.0, w: 10.0, h: 0.34, d: 6.0, color: 0x0d1622, emissive: 0x000000, emissiveIntensity: 0.0 });
+  addBoxBlock({ x: -1.6, y: 0, z: -6.2, w: 4.6, h: 2.8, d: 3.6, color: 0x1d2635, roofColor: 0x445366, strip: true, stripColor: 0xa8b8c8, yRot: 0.08 });
+  addBoxBlock({ x: 8.8, y: 0, z: -6.2, w: 4.2, h: 2.8, d: 3.6, color: 0x21394a, roofColor: 0x4d6f89, strip: true, stripColor: 0x89d7ff, yRot: -0.08 });
+
+  // Decorative props and cover
+  addCarBlock({ x: -22.0, z: 2.6, yRot: 0.18, scale: 1.0, bodyColor: 0x3d5369, accentColor: 0x81c4ff, glassColor: 0xcfefff });
+  addCarBlock({ x: 15.8, z: 1.8, yRot: 1.52, scale: 1.0, bodyColor: 0x633b2a, accentColor: 0xffb05a, glassColor: 0xfff0da });
+  addCarBlock({ x: -8.8, z: -17.2, yRot: -0.72, scale: 1.0, bodyColor: 0x4a4651, accentColor: 0xd8c69d, glassColor: 0xe8f2ff });
+  addCarBlock({ x: 9.6, z: -17.6, yRot: 0.42, scale: 1.0, bodyColor: 0x284862, accentColor: 0x72dbff, glassColor: 0xd7f2ff });
+
   [
-    [-29, -28, 0x59ff88], [0, -31, 0x59c0ff], [29, -28, 0xff5a88],
-    [-29, 28, 0xffce4d], [0, 31, 0xa56bff], [29, 28, 0x4ddcff],
-    [-24, 0, 0x7eff5a], [24, 0, 0xff7b3d]
+    [-28.0, 18.8, 0xff667f],
+    [-22.4, 24.1, 0x6eecff],
+    [23.8, 19.0, 0xffc15c],
+    [27.0, 24.1, 0x8e8bff],
+    [-28.0, -19.0, 0x6fc8ff],
+    [-22.8, -24.0, 0xff6f8f],
+    [23.8, -18.8, 0x7cff98],
+    [27.2, -24.2, 0xffdb6a],
+    [0.0, 0.0, 0x7df0ff],
+    [-11.2, 0.0, 0xffd56a],
+    [11.2, 0.0, 0xa97bff]
   ].forEach(function(p){
     addLampPost(p[0], p[1], p[2]);
   });
 
+  // Site labels
   addSpawnMarker('RED スポーン', 0, 31.0, '#ff607f');
   addSpawnMarker('BLUE スポーン', 0, -31.0, '#63baff');
   addSpawnMarker('A', 0, 14.6, '#ffd16d');

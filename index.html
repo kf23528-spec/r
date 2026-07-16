@@ -279,7 +279,7 @@ var RANK_KEY = 'arena_rank_v9';
 var SEND_HZ = 50;
 var MATCH_PLAYER_MIN = 2;
 var MAX_PLAYERS = 8;
-var MAP_BORDER = 62.0;
+var MAP_BORDER = 35.2;
 var PLAYER_RADIUS = 0.42;
 var PLAYER_HEIGHT = 1.6;
 var BULLET_SPEED = 85;
@@ -453,7 +453,7 @@ renderer.setClearColor(0x09111e,1);
 var scene = new T.Scene();
 scene.background = new T.Color(0x1b2742);
 scene.fog = new T.FogExp2(0x1b2742,0.010);
-var camera = new T.PerspectiveCamera(CAM_FOV_NORMAL,window.innerWidth/window.innerHeight,0.05,360);
+var camera = new T.PerspectiveCamera(CAM_FOV_NORMAL,window.innerWidth/window.innerHeight,0.05,300);
 camera.rotation.order = 'YXZ';
 camera.position.set(0,1.6,15);
 scene.add(camera);
@@ -730,265 +730,359 @@ function pushPointOutOfCollider(px,pz,c,r){
   return {x:world.x, z:world.z, hit:true};
 }
 
-var building1Template = null;
-var building2Template = null;
-var building3Template = null;
-var carTemplate = null;
-var building4Template = null;
-var building5Template = null;
-var buildingTemplatesReady = { b1:false, b2:false, b3:false, car:false, b4:false, b5:false };
 var buildingLoadStarted = false;
 
-var mapAssetPlacements = [
-  { key: 'b1', path: 'building1.glb' },
-  { key: 'b2', path: 'building2.glb' },
-  { key: 'b3', path: 'building3.glb' },
-  { key: 'car', path: 'car.glb' },
-  { key: 'b4', path: 'building4.glb' }
-];
-var buildingPlacements = [
-  {
-    key: 'b1',
-    path: 'building1.glb',
-    fallback: { size: [7.6, 9.8, 21.0], color: 0x404852, accent: 0x5a6673 },
-    x: -20.5,
-    z: -8.0,
-    yRot: 0.22,
-    scale: 0.00108,
-    pad: [9.4, 10.8, 22.8]
-  },
-  {
-    key: 'b2',
-    path: 'building2.glb',
-    fallback: { size: [9.0, 10.8, 10.5], color: 0x6b7b88, accent: 0x8ea0ad },
-    x: 17.5,
-    z: -16.5,
-    yRot: -1.18,
-    scale: 1.45,
-    pad: [10.5, 12.0, 12.0]
-  },
-  {
-    key: 'b3',
-    path: 'building3.glb',
-    fallback: { size: [10.8, 6.2, 5.4], color: 0x55606c, accent: 0x78828f },
-    x: 13.5,
-    z: 16.5,
-    yRot: 0.72,
-    scale: 0.28,
-    pad: [12.0, 7.2, 6.8]
-  }
-];
-
-var buildingInstancePlacements = [
-  { key: 'b4', fallback: { size: [13.0, 12.0, 7.2], color: 0x6e8dd6, accent: 0xffd166 }, x: -46.0, z: -18.0, yRot: -0.20, scale: 0.00090, forceWorldAABB: true },
-  { key: 'b1', fallback: { size: [11.0, 18.5, 24.0], color: 0x406aa8, accent: 0x6ce6ff }, x: -28.0, z:  14.0, yRot:  0.18, scale: 0.00104, forceWorldAABB: true },
-  { key: 'car', fallback: { size: [2.8, 2.0, 6.0], color: 0x2d3c50, accent: 0xffd166 }, x: -10.0, z: -28.0, yRot:  1.28, scale: 0.72, forceWorldAABB: true },
-  { key: 'b2', fallback: { size: [15.0, 14.0, 15.0], color: 0x8d4fff, accent: 0x36c8d9 }, x:  12.0, z:  10.0, yRot: -0.92, scale: 1.18, forceWorldAABB: true },
-  { key: 'b3', fallback: { size: [12.0, 8.0, 8.0], color: 0xd08b4a, accent: 0xff5fa2 }, x:  32.0, z: -16.0, yRot:  0.58, scale: 0.30, forceWorldAABB: true },
-  { key: 'b4', fallback: { size: [13.0, 12.0, 7.2], color: 0x6e8dd6, accent: 0xffd166 }, x: -38.0, z:  32.0, yRot:  0.10, scale: 0.00086, forceWorldAABB: true },
-  { key: 'b1', fallback: { size: [11.0, 18.5, 24.0], color: 0x406aa8, accent: 0x6ce6ff }, x: -14.0, z: -36.0, yRot: -1.48, scale: 0.00100, forceWorldAABB: true },
-  { key: 'b2', fallback: { size: [15.0, 14.0, 15.0], color: 0x8d4fff, accent: 0x36c8d9 }, x:  20.0, z:  34.0, yRot:  1.52, scale: 1.10, forceWorldAABB: true },
-  { key: 'b3', fallback: { size: [12.0, 8.0, 8.0], color: 0xd08b4a, accent: 0xff5fa2 }, x:  42.0, z:  18.0, yRot: -0.20, scale: 0.28, forceWorldAABB: true }
-];
-
-function getMapTemplateForKey(key){
-  switch(key){
-    case 'b1': return building1Template;
-    case 'b2': return building2Template;
-    case 'b3': return building3Template;
-    case 'car': return carTemplate;
-    case 'b4': return building4Template;
-    default: return null;
-  }
-}
+// Building / car assets are now fully procedural.
+// The old GLTF template variables are intentionally removed to avoid any model loading.
 
 function loadBuildingAssets(){
-  // building GLB loading disabled: all map geometry is now built with Three.js primitives.
   return;
 }
 
 function clearMapDecor(){
-  colliders.forEach(function(c){if(c.mesh&&c.mesh.parent)c.mesh.parent.remove(c.mesh);});
+  colliders.forEach(function(c){ if(c.mesh && c.mesh.parent) c.mesh.parent.remove(c.mesh); });
   colliders.length = 0;
   for(var i=scene.children.length-1;i>=0;i--){
-    var obj=scene.children[i];
-    if(obj&&obj.userData&&obj.userData.isMapDecor){scene.remove(obj);}
+    var obj = scene.children[i];
+    if(obj && obj.userData && obj.userData.isMapDecor){
+      scene.remove(obj);
+    }
   }
 }
 
+function addMapCollider(mesh, x, y, z, w, h, d, ry){
+  mesh.userData.isMapDecor = true;
+  scene.add(mesh);
+  addColliderBox(x, y, z, w, h, d, mesh, ry || 0);
+}
 
-function makeFallbackBuilding(spec){
+function makeTextSprite(text, opts){
+  opts = opts || {};
+  var canvas = document.createElement('canvas');
+  canvas.width = opts.width || 512;
+  canvas.height = opts.height || 256;
+  var ctx = canvas.getContext('2d');
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  var radius = opts.radius || 24;
+  if(opts.rounded !== false){
+    ctx.beginPath();
+    ctx.moveTo(radius, 0);
+    ctx.lineTo(canvas.width - radius, 0);
+    ctx.quadraticCurveTo(canvas.width, 0, canvas.width, radius);
+    ctx.lineTo(canvas.width, canvas.height - radius);
+    ctx.quadraticCurveTo(canvas.width, canvas.height, canvas.width - radius, canvas.height);
+    ctx.lineTo(radius, canvas.height);
+    ctx.quadraticCurveTo(0, canvas.height, 0, canvas.height - radius);
+    ctx.lineTo(0, radius);
+    ctx.quadraticCurveTo(0, 0, radius, 0);
+    ctx.closePath();
+    ctx.fillStyle = opts.panelBg || 'rgba(10,15,24,0.70)';
+    ctx.fill();
+  } else if (opts.panelBg) {
+    ctx.fillStyle = opts.panelBg;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
+
+  var fontSize = opts.fontSize || 72;
+  ctx.font = '900 ' + fontSize + 'px system-ui, -apple-system, Segoe UI, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = opts.fill || '#ffffff';
+  if(opts.stroke){
+    ctx.lineWidth = opts.strokeWidth || 12;
+    ctx.strokeStyle = opts.stroke;
+    ctx.strokeText(text, canvas.width / 2, canvas.height / 2);
+  }
+  ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+
+  var texture = new T.CanvasTexture(canvas);
+  texture.needsUpdate = true;
+  var mat = new T.SpriteMaterial({
+    map: texture,
+    transparent: true,
+    depthWrite: false,
+    depthTest: true
+  });
+  var sprite = new T.Sprite(mat);
+  sprite.scale.set(opts.scaleX || 5.4, opts.scaleY || 2.7, 1);
+  sprite.userData.isMapDecor = true;
+  return sprite;
+}
+
+function addFloorPatch(x, z, w, d, color, opacity){
+  var mesh = new T.Mesh(
+    new T.PlaneGeometry(w, d),
+    new T.MeshStandardMaterial({
+      color: color,
+      roughness: 1.0,
+      metalness: 0.0,
+      transparent: opacity < 1,
+      opacity: opacity === undefined ? 1 : opacity
+    })
+  );
+  mesh.rotation.x = -Math.PI / 2;
+  mesh.position.set(x, 0.012, z);
+  mesh.receiveShadow = true;
+  mesh.userData.isMapDecor = true;
+  scene.add(mesh);
+  return mesh;
+}
+
+function addBoxBlock(spec){
+  var mat = new T.MeshStandardMaterial({
+    color: spec.color || 0x3b4552,
+    roughness: spec.roughness === undefined ? 0.84 : spec.roughness,
+    metalness: spec.metalness === undefined ? 0.10 : spec.metalness,
+    emissive: spec.emissive || 0x000000,
+    emissiveIntensity: spec.emissiveIntensity === undefined ? 0 : spec.emissiveIntensity
+  });
+
   var group = new T.Group();
-  var key = String(spec && spec.key ? spec.key : '');
-  var size = (spec && spec.fallback && spec.fallback.size) ? spec.fallback.size : [8, 8, 8];
-  var baseColor = (spec && spec.fallback && spec.fallback.color) || 0x56606c;
-  var accentColor = (spec && spec.fallback && spec.fallback.accent) || 0x7c8c9b;
-  var bodyMat = new T.MeshStandardMaterial({color:baseColor,roughness:0.92,metalness:0.04});
-  var accentMat = new T.MeshStandardMaterial({color:accentColor,roughness:0.72,metalness:0.08});
-  var glowMat = new T.MeshStandardMaterial({color:0x89d8ff,emissive:0x4fbfff,emissiveIntensity:0.22,roughness:0.25,metalness:0.08});
-  var darkMat = new T.MeshStandardMaterial({color:0x202833,roughness:1.0,metalness:0.0});
 
-  function addBox(w,h,d,x,y,z,mat,ry){
-    var m = new T.Mesh(new T.BoxGeometry(w,h,d), mat || bodyMat);
-    m.position.set(x||0,y||0,z||0);
-    if(ry) m.rotation.y = ry;
-    m.castShadow = true;
-    m.receiveShadow = true;
-    group.add(m);
-    return m;
+  var body = new T.Mesh(new T.BoxGeometry(spec.w, spec.h, spec.d), mat);
+  body.castShadow = true;
+  body.receiveShadow = true;
+  group.add(body);
+
+  if(spec.roof !== false){
+    var roof = new T.Mesh(
+      new T.BoxGeometry(spec.w * 0.95, Math.max(0.18, spec.h * 0.10), spec.d * 0.94),
+      new T.MeshStandardMaterial({
+        color: spec.roofColor || 0x6c7886,
+        roughness: 0.74,
+        metalness: 0.08,
+        emissive: spec.roofEmissive || 0x000000,
+        emissiveIntensity: spec.roofEmissiveIntensity === undefined ? 0 : spec.roofEmissiveIntensity
+      })
+    );
+    roof.position.y = spec.h * 0.46;
+    roof.castShadow = true;
+    roof.receiveShadow = true;
+    group.add(roof);
   }
 
-  function addWindowStrip(w,h,d,x,y,z,ry){
-    var strip = new T.Mesh(new T.BoxGeometry(w,h,d), glowMat);
-    strip.position.set(x,y,z);
-    if(ry) strip.rotation.y = ry;
-    strip.castShadow = false;
-    strip.receiveShadow = false;
+  if(spec.strip){
+    var strip = new T.Mesh(
+      new T.BoxGeometry(spec.w * 0.70, Math.max(0.12, spec.h * 0.05), spec.d * 0.12),
+      new T.MeshStandardMaterial({
+        color: spec.stripColor || 0xa8b2bf,
+        roughness: 0.56,
+        metalness: 0.16,
+        emissive: spec.stripEmissive || 0x000000,
+        emissiveIntensity: 0.05
+      })
+    );
+    strip.position.set(0, spec.h * 0.08, spec.d * 0.44);
     group.add(strip);
-    return strip;
   }
 
-  var sx = size[0], sy = size[1], sz = size[2];
-
-  if(key === 'b1'){
-    // Tall office block
-    addBox(sx*1.02, sy*0.92, sz*0.98, 0, sy*0.46, 0, bodyMat);
-    addBox(sx*0.76, sy*0.36, sz*0.76, 0, sy*1.02, 0, accentMat);
-    addBox(sx*0.50, sy*0.14, sz*0.50, 0, sy*1.18, 0, darkMat);
-    addWindowStrip(sx*0.84, sy*0.06, 0.10, 0, sy*0.28, sz*0.46);
-    addWindowStrip(sx*0.84, sy*0.06, 0.10, 0, sy*0.56, sz*0.46);
-    addWindowStrip(sx*0.84, sy*0.06, 0.10, 0, sy*0.84, sz*0.46);
-    addWindowStrip(0.10, sy*0.06, sz*0.72, sx*0.46, sy*0.50, 0);
-  }else if(key === 'b2'){
-    // Mid-size square building with rooftop frame
-    addBox(sx*1.02, sy*0.90, sz*1.02, 0, sy*0.45, 0, bodyMat);
-    addBox(sx*0.92, sy*0.14, sz*0.92, 0, sy*0.99, 0, accentMat);
-    addBox(sx*0.70, sy*0.16, sz*0.14, 0, sy*0.46, sz*0.43, glowMat);
-    addBox(sx*0.70, sy*0.16, sz*0.14, 0, sy*0.46, -sz*0.43, glowMat);
-    addBox(sx*0.14, sy*0.16, sz*0.70, sx*0.43, sy*0.46, 0, glowMat);
-    addBox(sx*0.14, sy*0.16, sz*0.70, -sx*0.43, sy*0.46, 0, glowMat);
-  }else if(key === 'b3'){
-    // Low shop / market block
-    addBox(sx*1.00, sy*0.70, sz*1.00, 0, sy*0.35, 0, bodyMat);
-    addBox(sx*0.96, sy*0.12, sz*0.34, 0, sy*0.10, sz*0.34, accentMat);
-    addBox(sx*0.96, sy*0.12, sz*0.34, 0, sy*0.10, -sz*0.34, accentMat);
-    addBox(sx*0.18, sy*0.24, sz*0.84, sx*0.40, sy*0.18, 0, darkMat);
-    addWindowStrip(sx*0.72, sy*0.05, 0.08, 0, sy*0.44, sz*0.46);
-  }else if(key === 'b4'){
-    // Narrow townhouse / side building
-    addBox(sx*0.90, sy*0.98, sz*1.00, 0, sy*0.49, 0, bodyMat);
-    addBox(sx*0.62, sy*0.12, sz*0.92, 0, sy*0.90, 0, accentMat);
-    addBox(sx*0.34, sy*0.18, sz*0.12, sx*0.28, sy*0.38, sz*0.38, glowMat);
-    addBox(sx*0.34, sy*0.18, sz*0.12, sx*0.28, sy*0.38, -sz*0.38, glowMat);
-  }else if(key === 'b5'){
-    // Very flat warehouse / garage
-    addBox(sx*1.00, Math.max(0.9, sy*0.62), sz*1.00, 0, Math.max(0.45, sy*0.31), 0, bodyMat);
-    addBox(sx*0.96, Math.max(0.12, sy*0.10), sz*0.88, 0, Math.max(0.52, sy*0.50), 0, accentMat);
-    addBox(sx*0.18, Math.max(0.20, sy*0.16), sz*0.90, -sx*0.38, Math.max(0.24, sy*0.22), 0, darkMat);
-  }else if(key === 'car'){
-    // Simple vehicle-like block
-    addBox(size[0]*0.78, size[1]*0.45, size[2]*0.90, 0, size[1]*0.22, 0, bodyMat);
-    addBox(size[0]*0.48, size[1]*0.26, size[2]*0.56, 0, size[1]*0.53, 0, accentMat);
-    addBox(size[0]*0.18, size[1]*0.08, size[2]*1.00, 0, size[1]*0.04, 0, darkMat);
-  }else{
-    // Fallback generic mass
-    addBox(sx*1.02, sy*0.90, sz*1.02, 0, sy*0.45, 0, bodyMat);
-    addBox(sx*0.88, sy*0.10, sz*0.88, 0, sy*0.82, 0, accentMat);
+  if(spec.wings){
+    spec.wings.forEach(function(wg){
+      var wing = new T.Mesh(
+        new T.BoxGeometry(wg[0], wg[1], wg[2]),
+        new T.MeshStandardMaterial({
+          color: wg[3] || 0x2c3440,
+          roughness: 0.90,
+          metalness: 0.05
+        })
+      );
+      wing.position.set(wg[4] || 0, wg[5] || 0, wg[6] || 0);
+      wing.castShadow = true;
+      wing.receiveShadow = true;
+      group.add(wing);
+    });
   }
 
-  // Keep the collision footprint close to the visible mass.
-  group.position.set(0, 0, 0);
+  if(spec.entrance){
+    var ent = new T.Mesh(
+      new T.BoxGeometry(spec.entrance[0], spec.entrance[1], spec.entrance[2]),
+      new T.MeshStandardMaterial({
+        color: spec.entranceColor || 0x1a2130,
+        roughness: 1.0,
+        metalness: 0.0
+      })
+    );
+    ent.position.set(spec.entrance[3] || 0, spec.entrance[4] || -spec.h * 0.12, spec.entrance[5] || 0);
+    group.add(ent);
+  }
+
+  group.position.set(spec.x || 0, spec.y || 0, spec.z || 0);
+  group.rotation.y = spec.yRot || 0;
+  group.scale.setScalar(spec.scale || 1);
+  group.userData.isMapDecor = true;
+  scene.add(group);
+
+  group.updateMatrixWorld(true);
+  var box = new T.Box3().setFromObject(group);
+  if(!box.isEmpty()){
+    var size = new T.Vector3();
+    var center = new T.Vector3();
+    box.getSize(size);
+    box.getCenter(center);
+    addColliderBox(center.x, center.y, center.z, size.x, size.y, size.z, group, spec.yRot || 0);
+  }
   return group;
 }
 
-
-var BUILDING_COLLIDER_PROFILES = {
-  b1: { sx: 0.76, sy: 0.98, sz: 0.72, lift: 0.02, ox: 0.00, oz: -0.04 },
-  b2: { sx: 0.88, sy: 0.98, sz: 0.82, lift: 0.00, ox: 0.02, oz: 0.01 },
-  b3: { sx: 0.92, sy: 0.86, sz: 0.78, lift: -0.01, ox: -0.01, oz: 0.02 },
-  b4: { sx: 0.80, sy: 1.00, sz: 0.68, lift: 0.03, ox: 0.00, oz: 0.00 },
-  b5: { sx: 0.70, sy: 0.58, sz: 0.70, lift: -0.06, ox: 0.00, oz: 0.00 },
-  car:{ sx: 0.90, sy: 0.74, sz: 0.72, lift: -0.08, ox: 0.00, oz: 0.00 }
-};
-
-function getBuildingColliderProfile(spec){
-  var key = spec && spec.key ? String(spec.key) : '';
-  var base = BUILDING_COLLIDER_PROFILES[key] || { sx: 0.92, sy: 0.96, sz: 0.92, lift: 0.00, ox: 0.00, oz: 0.00 };
-  var m = {};
-  for(var k in base) m[k] = base[k];
-  if(spec){
-    if(Number.isFinite(spec.colliderScaleX)) m.sx *= spec.colliderScaleX;
-    if(Number.isFinite(spec.colliderScaleY)) m.sy *= spec.colliderScaleY;
-    if(Number.isFinite(spec.colliderScaleZ)) m.sz *= spec.colliderScaleZ;
-    if(Number.isFinite(spec.colliderScale)) {
-      m.sx *= spec.colliderScale;
-      m.sy *= spec.colliderScale;
-      m.sz *= spec.colliderScale;
-    }
-    if(Number.isFinite(spec.colliderOffsetX)) m.ox += spec.colliderOffsetX;
-    if(Number.isFinite(spec.colliderOffsetY)) m.lift += spec.colliderOffsetY;
-    if(Number.isFinite(spec.colliderOffsetZ)) m.oz += spec.colliderOffsetZ;
-  }
-  return m;
-}
-
-function placeBuildingTemplate(template, spec, fallback, alreadyAdded){
-  var root = template ? template.clone(true) : fallback.clone(true);
-  root.traverse(function(node){
-    if(node && node.isMesh){
-      node.castShadow = true;
-      node.receiveShadow = true;
-    }
+function addCarBlock(spec){
+  var g = new T.Group();
+  var bodyMat = new T.MeshStandardMaterial({
+    color: spec.bodyColor || 0x2c3c4f,
+    roughness: 0.42,
+    metalness: 0.42,
+    emissive: spec.bodyEmissive || 0x000000,
+    emissiveIntensity: spec.bodyEmissiveIntensity === undefined ? 0 : spec.bodyEmissiveIntensity
+  });
+  var glassMat = new T.MeshStandardMaterial({
+    color: spec.glassColor || 0x97b7d6,
+    roughness: 0.12,
+    metalness: 0.20,
+    transparent: true,
+    opacity: 0.58
+  });
+  var blackMat = new T.MeshStandardMaterial({ color: 0x121212, roughness: 1.0, metalness: 0.02 });
+  var accentMat = new T.MeshStandardMaterial({
+    color: spec.accentColor || 0x9fb7d0,
+    roughness: 0.72,
+    metalness: 0.16
   });
 
-  root.scale.setScalar(template ? spec.scale : 1);
-  root.rotation.y = 0;
-  root.position.set(spec.x, 0, spec.z);
-  root.updateMatrixWorld(true);
+  var base = new T.Mesh(new T.BoxGeometry(2.25, 0.68, 4.95), bodyMat);
+  base.position.y = 0.42;
+  base.castShadow = true;
+  base.receiveShadow = true;
+  g.add(base);
 
-  var localBox = new T.Box3().setFromObject(root);
-  if(!localBox.isEmpty()){
-    root.position.y -= localBox.min.y;
-    root.updateMatrixWorld(true);
-    localBox = new T.Box3().setFromObject(root);
+  var cabin = new T.Mesh(new T.BoxGeometry(1.72, 0.58, 2.45), glassMat);
+  cabin.position.set(0, 0.92, -0.14);
+  cabin.castShadow = true;
+  cabin.receiveShadow = true;
+  g.add(cabin);
 
-    root.rotation.y = spec.yRot || 0;
-    root.updateMatrixWorld(true);
+  var bumper1 = new T.Mesh(new T.BoxGeometry(2.02, 0.16, 0.18), blackMat);
+  bumper1.position.set(0, 0.22, 2.33);
+  g.add(bumper1);
+  var bumper2 = bumper1.clone();
+  bumper2.position.z = -2.33;
+  g.add(bumper2);
 
-    var colliderScale = Number.isFinite(spec.colliderScale) ? spec.colliderScale : 1;
-    var colliderScaleY = Number.isFinite(spec.colliderScaleY) ? spec.colliderScaleY : 1;
+  var light1 = new T.Mesh(new T.BoxGeometry(0.42, 0.10, 0.07), accentMat);
+  light1.position.set(0.62, 0.46, 2.35);
+  g.add(light1);
+  var light2 = light1.clone(); light2.position.x = -0.62; g.add(light2);
+  var light3 = light1.clone(); light3.position.z = -2.35; g.add(light3);
+  var light4 = light2.clone(); light4.position.z = -2.35; g.add(light4);
 
-    var boxForCollider = localBox;
-    if(spec.forceWorldAABB){
-      boxForCollider = new T.Box3().setFromObject(root);
-    }
+  var wheelGeo = new T.CylinderGeometry(0.19, 0.19, 0.14, 10);
+  [-0.92, 0.92].forEach(function(wx){
+    [-1.55, 1.55].forEach(function(wz){
+      var wheel = new T.Mesh(wheelGeo, blackMat);
+      wheel.rotation.z = Math.PI / 2;
+      wheel.position.set(wx, 0.15, wz);
+      g.add(wheel);
+    });
+  });
 
-    var boxSize = new T.Vector3();
-    var boxCenter = new T.Vector3();
-    boxForCollider.getSize(boxSize);
-    boxForCollider.getCenter(boxCenter);
-
-    var colliderSize = new T.Vector3(
-      Math.max(0.25, boxSize.x * 1.04 * colliderScale),
-      Math.max(1.0, boxSize.y * 1.02 * colliderScaleY),
-      Math.max(0.25, boxSize.z * 1.04 * colliderScale)
-    );
-
-    var colliderMesh = new T.Mesh(
-      new T.BoxGeometry(colliderSize.x, colliderSize.y, colliderSize.z),
-      new T.MeshBasicMaterial({visible:false})
-    );
-    colliderMesh.position.copy(boxCenter);
-    colliderMesh.rotation.y = spec.forceWorldAABB ? 0 : (spec.yRot || 0);
-    colliderMesh.userData.isMapDecor = true;
-    scene.add(colliderMesh);
-    addColliderBox(boxCenter.x, boxCenter.y, boxCenter.z, colliderSize.x, colliderSize.y, colliderSize.z, colliderMesh, spec.forceWorldAABB ? 0 : (spec.yRot || 0));
+  g.position.set(spec.x || 0, spec.y || 0, spec.z || 0);
+  g.rotation.y = spec.yRot || 0;
+  g.scale.setScalar(spec.scale || 1);
+  g.userData.isMapDecor = true;
+  scene.add(g);
+  g.updateMatrixWorld(true);
+  var box = new T.Box3().setFromObject(g);
+  if(!box.isEmpty()){
+    var size = new T.Vector3();
+    var center = new T.Vector3();
+    box.getSize(size);
+    box.getCenter(center);
+    addColliderBox(center.x, center.y, center.z, size.x, size.y, size.z, g, spec.yRot || 0);
   }
-
-  root.userData.isMapDecor = true;
-  scene.add(root);
-  return root;
+  return g;
 }
+
+function addLampPost(x, z, hue){
+  var pole = new T.Mesh(
+    new T.CylinderGeometry(0.12, 0.14, 6.0, 8),
+    new T.MeshStandardMaterial({ color: 0x2b3140, roughness: 0.36, metalness: 0.78 })
+  );
+  pole.position.set(x, 3.0, z);
+  pole.castShadow = true;
+  pole.userData.isMapDecor = true;
+  scene.add(pole);
+
+  var lampColor = hue || 0x74d7ff;
+  var lampMat = new T.MeshStandardMaterial({
+    color: lampColor,
+    emissive: lampColor,
+    emissiveIntensity: 2.3,
+    transparent: true,
+    opacity: 0.92
+  });
+  var lamp = new T.Mesh(new T.SphereGeometry(0.20, 10, 10), lampMat);
+  lamp.position.set(x, 6.0, z);
+  lamp.userData.isMapDecor = true;
+  scene.add(lamp);
+
+  var light = new T.PointLight(lampColor, 1.6, 16, 2);
+  light.position.set(x, 6.0, z);
+  light.userData.isMapDecor = true;
+  scene.add(light);
+}
+
+function addNeonFloorLine(x, z, w, d, color, opacity){
+  var line = new T.Mesh(
+    new T.PlaneGeometry(w, d),
+    new T.MeshBasicMaterial({
+      color: color,
+      transparent: true,
+      opacity: opacity === undefined ? 0.55 : opacity
+    })
+  );
+  line.rotation.x = -Math.PI / 2;
+  line.position.set(x, 0.018, z);
+  line.userData.isMapDecor = true;
+  scene.add(line);
+  return line;
+}
+
+function addRaisedPlatform(spec){
+  var platform = new T.Mesh(
+    new T.BoxGeometry(spec.w, spec.h, spec.d),
+    new T.MeshStandardMaterial({
+      color: spec.color || 0x1d2533,
+      roughness: 0.96,
+      metalness: 0.03,
+      emissive: spec.emissive || 0x000000,
+      emissiveIntensity: spec.emissiveIntensity || 0.0
+    })
+  );
+  platform.position.set(spec.x, spec.y || 0.35, spec.z);
+  platform.castShadow = true;
+  platform.receiveShadow = true;
+  platform.userData.isMapDecor = true;
+  scene.add(platform);
+  addColliderBox(spec.x, spec.y || 0.35, spec.z, spec.w, spec.h, spec.d, platform, spec.yRot || 0);
+  return platform;
+}
+
+function addSpawnMarker(text, x, z, color){
+  var sprite = makeTextSprite(text, {
+    panelBg: 'rgba(8,12,18,0.72)',
+    fill: '#ffffff',
+    stroke: color || '#000000',
+    fontSize: 84,
+    width: 512,
+    height: 256,
+    scaleX: 5.8,
+    scaleY: 2.9
+  });
+  sprite.position.set(x, 0.08, z);
+  sprite.userData.isMapDecor = true;
+  scene.add(sprite);
+  return sprite;
+}
+
 function loadPoloFbx(){
   var loader = new FBXLoader();
   loader.load(
@@ -1610,11 +1704,7 @@ function updateWaitingUI(){
   waitingSubtitle.textContent=isRandomMatch?'30秒後にAIを補完して開戦！':'同じ部屋の本物のプレイヤーを待っています';
   updateWaitingLaunchBtn();
 }
-function getSpawnForTeam(team){
-  return team===TEAM_RED
-    ? new T.Vector3(24,1.6,-34)
-    : new T.Vector3(-24,1.6,34);
-}
+function getSpawnForTeam(team){return team===TEAM_RED?new T.Vector3(12,1.6,-20):new T.Vector3(-12,1.6,20);}
 function updateLobbyCamera(dt){camera.position.lerp(new T.Vector3(0,16,33),1-Math.exp(-2.5*dt));camera.lookAt(0,1.2,0);}
 function syncCameraRotation(){camera.rotation.x=pitch;camera.rotation.y=yaw;}
 var AI_RADIUS=0.5;
@@ -3084,289 +3174,189 @@ function triggerRecoil(){gunState.recoil=Math.min(1.0,gunState.recoil+(adsActive
 
 var currentMapId = 'arena';
 var MAP_DEFS = {
-  arena: (function(){
-    var R = function(x, z, w, d){ return [x, 0.55, z, w, 1.1, d]; };
-    return {
-      name: 'NARROW DISTRICT',
-      floorColor: 0x0a0d14,
-      roadColor: 0x1a2434,
-      curbColor: 0x37465f,
-      laneColor: 0x0f1724,
-      obstaclePalette: [0x406aa8, 0x8d4fff, 0x36c8d9],
-      cratePalette: [0xd08b4a, 0xb86c35, 0x7c4a22],
-      trashPalette: [0x5f7392, 0x8a97af, 0x31415a],
-      dumpsterColor: 0x39c46b,
-      dumpsterShadow: 0x165a34,
-      obstacles: [
-        R(0,-62,124,4), R(0,62,124,4), R(-62,0,4,124), R(62,0,4,124),
-
-        R(-44,-36,18,8), R(-44,-18,18,8), R(-44,0,18,8), R(-44,18,18,8), R(-44,36,18,8),
-        R(-20,-42,16,8), R(-20,-22,16,8), R(-20,-2,16,8), R(-20,18,16,8), R(-20,38,16,8),
-
-        R(0,-48,14,8), R(0,-28,14,8), R(0,-8,14,8), R(0,12,14,8), R(0,32,14,8),
-        R(18,-38,16,8), R(18,-18,16,8), R(18,2,16,8), R(18,22,16,8), R(18,42,16,8),
-
-        R(40,-30,18,8), R(40,-10,18,8), R(40,10,18,8), R(40,30,18,8),
-        R(56,-18,10,8), R(56,2,10,8), R(56,22,10,8),
-
-        R(-18,48,18,6), R(6,48,16,6), R(30,48,18,6),
-        R(-44,-48,20,6), R(-18,-48,18,6), R(6,-48,16,6), R(30,-48,18,6)
-      ],
-      crates: [
-        [-56,-42,0.62],[-50,-30,0.56],[-46,-12,0.60],[-38,6,0.58],[-30,22,0.62],[-24,38,0.58],
-        [-12,-40,0.56],[-6,-22,0.60],[2,-6,0.58],[8,14,0.62],[16,30,0.58],[24,42,0.60],
-        [34,-34,0.56],[42,-18,0.60],[48,-2,0.58],[54,16,0.62],[58,34,0.58]
-      ],
-      trash: [
-        [-48,-20,0.38],[-38,-2,0.40],[-28,14,0.36],[-16,32,0.39],[-4,6,0.38],
-        [10,-20,0.40],[22,-2,0.36],[34,16,0.39],[46,32,0.38],[54,6,0.40]
-      ],
-      dumpsters: [
-        [-58,10,0.84],[-34,28,0.82],[-10,-26,0.80],[14,24,0.82],[40,-14,0.86]
-      ],
-      spawns:{
-        blue:[{x:-54,z:-26},{x:-54,z:-12},{x:-54,z:0},{x:-54,z:14},{x:-54,z:28}],
-        red:[{x:54,z:28},{x:54,z:14},{x:54,z:0},{x:54,z:-12},{x:54,z:-26}]
-      }
-    };
-  })()
+  arena: {
+    name: 'URBAN BLOCK',
+    floorColor: 0x0d1219,
+    roadColor: 0x161d28,
+    curbColor: 0x263041,
+    laneColor: 0x0b1017,
+    obstaclePalette: [0x273040, 0x324052, 0x1d2734],
+    cratePalette: [0x7f5a33, 0x5e4225, 0x46311a],
+    trashPalette: [0x424d5a, 0x55616e, 0x303a47],
+    dumpsterColor: 0x4ea83e,
+    dumpsterShadow: 0x21551c,
+    obstacles: [
+      [-28,0.55,-18,2.2,1.1,12.0],[-28,0.55,18,2.2,1.1,12.0],
+      [28,0.55,-18,2.2,1.1,12.0],[28,0.55,18,2.2,1.1,12.0],
+      [-8,0.55,0,8.5,1.1,2.2],[8,0.55,0,8.5,1.1,2.2],
+      [0,0.55,-26,18.0,1.1,2.0],[0,0.55,26,18.0,1.1,2.0],
+      [-16,0.55,9,5.0,1.1,2.2],[13,0.55,-8,5.0,1.1,2.2]
+    ],
+    crates: [
+      [-24,-21,0.62],[-22,-16,0.58],[-18,-24,0.64],
+      [20,-20,0.66],[23,-14,0.60],[18,-8,0.58],
+      [12,21,0.66],[18,17,0.60],[7,24,0.58],
+      [-10,18,0.62],[-16,23,0.58]
+    ],
+    trash: [
+      [-20,-9,0.38],[-14,-4,0.40],[-8,8,0.36],
+      [6,-13,0.38],[13,4,0.40],[19,-8,0.36],
+      [-19,14,0.38],[10,18,0.40]
+    ],
+    dumpsters: [
+      [-23,-12,0.82],
+      [22,12,0.82],
+      [4,22,0.76]
+    ],
+    spawns:{
+      blue:[{x:-28,z:-28},{x:-28,z:-11},{x:-28,z:11},{x:-28,z:28}],
+      red:[{x:28,z:28},{x:28,z:11},{x:28,z:-11},{x:28,z:-28}]
+    }
+  }
 };
-
-var MAP_COMPACT_SCALE = 0.68;
-var MAP_BASE_SIZE = 104;
-var MAP_HALF_SIZE = MAP_BASE_SIZE * 0.5;
 
 function getSpawnPointsForMap(mapId,team){
   var def=MAP_DEFS.arena;
   return (def.spawns&&def.spawns[team])?def.spawns[team]:MAP_DEFS.arena.spawns[team];
 }
 
-function buildMap(mapId){
-  currentMapId='arena';
-  var def=MAP_DEFS.arena;
-  var mapScale = MAP_COMPACT_SCALE;
-  var mapSize = MAP_BASE_SIZE;
-  var halfMap = MAP_HALF_SIZE;
+function buildProceduralArena(){
   clearMapDecor();
-  scene.fog = new T.FogExp2(def.floorColor,0.0125);
+  scene.fog = new T.FogExp2(0x0a1018, 0.0105);
 
-  var floorMat=new T.MeshStandardMaterial({color:def.floorColor,roughness:1.0,metalness:0.0});
-  var floor=new T.Mesh(new T.PlaneGeometry(mapSize,mapSize),floorMat);
-  floor.rotation.x=-Math.PI/2;
-  floor.receiveShadow=true;
-  floor.userData.isMapDecor=true;
-  scene.add(floor);
+  addFloorPatch(0, 0, 74, 74, 0x091018, 1);
+  addFloorPatch(0, 0, 56, 56, 0x111a26, 1);
+  addFloorPatch(0, 24, 48, 18, 0x2d1115, 0.96);
+  addFloorPatch(0, -24, 48, 18, 0x13243c, 0.96);
+  addFloorPatch(-14, 0, 16, 58, 0x0f1620, 1);
+  addFloorPatch(14, 0, 16, 58, 0x0f1620, 1);
+  addFloorPatch(0, 0, 14, 16, 0x161d28, 1);
 
-  var plazaMat=new T.MeshStandardMaterial({color:0x132033,roughness:0.98,metalness:0.04,emissive:0x06111f,emissiveIntensity:0.12});
-  var plaza=new T.Mesh(new T.CircleGeometry(5.8,32),plazaMat);
-  plaza.rotation.x=-Math.PI/2;
-  plaza.position.set(0,0.012,0);
-  plaza.userData.isMapDecor=true;
-  scene.add(plaza);
-
-  var roadMat=new T.MeshStandardMaterial({color:def.roadColor,roughness:0.96,metalness:0.04,emissive:0x04070d,emissiveIntensity:0.04});
-  var laneMat=new T.MeshStandardMaterial({color:def.laneColor,roughness:1.0,metalness:0.0,emissive:0x0a0f15,emissiveIntensity:0.05});
+  addNeonFloorLine(0, -31.5, 66, 0.6, 0x2f91ff, 0.24);
+  addNeonFloorLine(0, 31.5, 66, 0.6, 0xff4d74, 0.22);
+  addNeonFloorLine(-31.5, 0, 0.6, 66, 0x65d8ff, 0.16);
+  addNeonFloorLine(31.5, 0, 0.6, 66, 0xff9a4c, 0.16);
 
   [
-    {x:0,z:-18,w:mapSize-12,d:4.6},
-    {x:0,z:0,w:mapSize-12,d:4.6},
-    {x:0,z:18,w:mapSize-12,d:4.6},
-    {x:-22,z:0,w:4.4,d:52},
-    {x:0,z:0,w:4.4,d:52},
-    {x:22,z:0,w:4.4,d:52}
-  ].forEach(function(r){
-    var road = new T.Mesh(new T.PlaneGeometry(r.w,r.d),roadMat);
-    road.rotation.x=-Math.PI/2;
-    road.position.set(r.x,0.013,r.z);
-    road.userData.isMapDecor=true;
-    scene.add(road);
-
-    var lane = new T.Mesh(new T.PlaneGeometry(Math.max(2.0,r.w*0.48),Math.max(2.0,r.d*0.48)),laneMat);
-    lane.rotation.x=-Math.PI/2;
-    lane.position.set(r.x,0.015,r.z);
-    lane.userData.isMapDecor=true;
-    scene.add(lane);
+    [0, 2.2, -35.0, 70, 4.4, 2.2, 0x1b2331],
+    [0, 2.2, 35.0, 70, 4.4, 2.2, 0x1b2331],
+    [-35.0, 2.2, 0, 2.2, 4.4, 70, 0x1b2331],
+    [35.0, 2.2, 0, 2.2, 4.4, 70, 0x1b2331]
+  ].forEach(function(v){
+    var wall = new T.Mesh(
+      new T.BoxGeometry(v[3], v[4], v[5]),
+      new T.MeshStandardMaterial({ color: v[6], roughness: 0.88, metalness: 0.08 })
+    );
+    wall.position.set(v[0], v[1], v[2]);
+    wall.castShadow = true;
+    wall.receiveShadow = true;
+    wall.userData.isMapDecor = true;
+    scene.add(wall);
+    addColliderBox(v[0], v[1], v[2], v[3], v[4], v[5], wall);
   });
 
-  var curbMat=new T.MeshStandardMaterial({color:def.curbColor,roughness:0.90,metalness:0.06});
+  addFloorPatch(0, 14.5, 21, 16, 0x4a3921, 0.92);
+  addFloorPatch(0, -14.5, 21, 16, 0x1b3550, 0.92);
+
+  addFloorPatch(-2.0, 0, 8, 42, 0x141b25, 1);
+  addFloorPatch(2.0, 0, 8, 42, 0x141b25, 1);
+
   [
-    {s:[mapSize,15.5,1.0],p:[0,7.75,-halfMap-0.5]},
-    {s:[mapSize,15.5,1.0],p:[0,7.75,halfMap+0.5]},
-    {s:[1.0,15.5,mapSize],p:[-halfMap-0.5,7.75,0]},
-    {s:[1.0,15.5,mapSize],p:[halfMap+0.5,7.75,0]}
-  ].forEach(function(w){
-    var m=new T.Mesh(new T.BoxGeometry(w.s[0],w.s[1],w.s[2]),curbMat);
-    m.position.set(w.p[0],w.p[1],w.p[2]);
-    m.castShadow=true;m.receiveShadow=true;m.userData.isMapDecor=true;scene.add(m);
-    addColliderBox(w.p[0],w.p[1],w.p[2],w.s[0],w.s[1],w.s[2],m);
-  });
-
-  var wallMats=[
-    new T.MeshStandardMaterial({color:def.obstaclePalette[0],roughness:0.72,metalness:0.18,emissive:0x101c33,emissiveIntensity:0.10}),
-    new T.MeshStandardMaterial({color:def.obstaclePalette[1],roughness:0.68,metalness:0.12,emissive:0x1b1034,emissiveIntensity:0.12}),
-    new T.MeshStandardMaterial({color:def.obstaclePalette[2],roughness:0.62,metalness:0.16,emissive:0x0d2528,emissiveIntensity:0.14})
-  ];
-  var scaledObstacles = (def.obstacles || []).map(function(o){
-    return [o[0]*mapScale,o[1],o[2]*mapScale,Math.max(1.0,o[3]*mapScale),o[4],Math.max(1.0,o[5]*mapScale)];
-  });
-  scaledObstacles.forEach(function(o,i){
-    var mat=wallMats[i%wallMats.length];
-    var m=new T.Mesh(new T.BoxGeometry(o[3],o[4],o[5]),mat);
-    m.position.set(o[0],o[1],o[2]);
-    m.castShadow=true;m.receiveShadow=true;m.userData.isMapDecor=true;scene.add(m);
-    addColliderBox(o[0],o[1],o[2],o[3],o[4],o[5],m);
-  });
-
-  var compactPlacements = (buildingInstancePlacements || []).map(function(inst){
-    var copy = Object.assign({}, inst);
-    copy.x *= mapScale;
-    copy.z *= mapScale;
-    if(Number.isFinite(copy.scale)) copy.scale *= (inst.key === 'car' ? 0.92 : 0.84);
-    return copy;
-  });
-
-  var buildingSpecs = compactPlacements.map(function(inst){
-    return {
-      template: getMapTemplateForKey(inst.key),
-      spec: inst,
-      fallback: makeFallbackBuilding(inst)
-    };
-  });
-
-  buildingSpecs.forEach(function(entry){
-    placeBuildingTemplate(entry.template, entry.spec, entry.fallback);
-  });
-
-  var crateBaseColors = def.cratePalette || [0x8a6238,0x6f4a27,0x5a3c20];
-  var crateMat = new T.MeshStandardMaterial({color:crateBaseColors[0],roughness:0.94,metalness:0.03});
-  var crateDarkMat = new T.MeshStandardMaterial({color:crateBaseColors[2],roughness:0.98,metalness:0.02});
-  var crateMetalMat = new T.MeshStandardMaterial({color:crateBaseColors[1],roughness:0.90,metalness:0.05});
-  (def.crates||[]).forEach(function(c,idx){
-    var x=c[0]*mapScale, z=c[1]*mapScale, s=(c[2]||0.72)*0.88;
-    var w=0.88*s;
-    var h=0.72*s;
-    var d=0.88*s;
-    var g=new T.Group();
-    var body=new T.Mesh(new T.BoxGeometry(w,h,d),crateMat);
-    body.castShadow=true; body.receiveShadow=true; g.add(body);
-
-    var plankT = Math.max(0.04*s, 0.032);
-    var slat1=new T.Mesh(new T.BoxGeometry(w*0.90,plankT,d*0.12),crateDarkMat);
-    slat1.position.y=h*0.18; slat1.position.z=d*0.36; g.add(slat1);
-    var slat2=slat1.clone(); slat2.position.z=-d*0.36; g.add(slat2);
-    var slat3=new T.Mesh(new T.BoxGeometry(w*0.12,plankT,d*0.90),crateDarkMat);
-    slat3.position.y=h*0.18; slat3.position.x=w*0.36; g.add(slat3);
-    var slat4=slat3.clone(); slat4.position.x=-w*0.36; g.add(slat4);
-
-    var cornerT = Math.max(0.05*s, 0.035);
-    var corner1=new T.Mesh(new T.BoxGeometry(cornerT,h*0.88,cornerT),crateMetalMat); corner1.position.set(w*0.38,0,d*0.38); g.add(corner1);
-    var corner2=corner1.clone(); corner2.position.x=-w*0.38; g.add(corner2);
-    var corner3=corner1.clone(); corner3.position.set(w*0.38,0,-d*0.38); g.add(corner3);
-    var corner4=corner1.clone(); corner4.position.set(-w*0.38,0,-d*0.38); g.add(corner4);
-
-    var top=new T.Mesh(new T.BoxGeometry(w*0.94,plankT*1.35,d*0.94),crateMetalMat);
-    top.position.y=h*0.50; top.castShadow=true; top.receiveShadow=true; g.add(top);
-
-    var strap1=new T.Mesh(new T.BoxGeometry(w*0.06,h*0.92,d*0.92),crateMetalMat);
-    strap1.position.x=w*0.34; g.add(strap1);
-    var strap2=strap1.clone(); strap2.position.x=-w*0.34; g.add(strap2);
-    var strap3=new T.Mesh(new T.BoxGeometry(w*0.92,h*0.08,d*0.06),crateMetalMat);
-    strap3.position.z=d*0.10; strap3.position.y=-h*0.08; g.add(strap3);
-    var strap4=strap3.clone(); strap4.position.z=-d*0.10; g.add(strap4);
-
-    g.position.set(x,h*0.5,z);
-    g.rotation.y=((idx%4)*Math.PI*0.5)+((idx%2)?0.18:-0.16);
-    g.userData.isMapDecor=true;
-    scene.add(g);
-
-    addColliderBox(x,h*0.5,z,w*0.86,h*0.90,d*0.86,g);
-  });
-
-  var trashBodyMat = new T.MeshStandardMaterial({color:(def.trashPalette&&def.trashPalette[0])||0x4d5868,roughness:0.56,metalness:0.36,emissive:0x08101a,emissiveIntensity:0.03});
-  var trashLidMat = new T.MeshStandardMaterial({color:(def.trashPalette&&def.trashPalette[1])||0x566373,roughness:0.40,metalness:0.28});
-  var trashRingMat = new T.MeshStandardMaterial({color:(def.trashPalette&&def.trashPalette[2])||0x3c4757,roughness:0.52,metalness:0.24});
-  (def.trash||[]).forEach(function(t,idx){
-    var x=t[0]*mapScale, z=t[1]*mapScale, scale=(t[2]||0.42)*0.88;
-    var h = 0.72*scale;
-    var r = 0.20*scale;
-    var g=new T.Group();
-    var body=new T.Mesh(new T.CylinderGeometry(r*0.98,r*1.03,h,10,1,false),trashBodyMat);
-    body.castShadow=true; body.receiveShadow=true; g.add(body);
-    var lid=new T.Mesh(new T.CylinderGeometry(r*1.10,r*1.10,0.09*scale,10,1,false),trashLidMat);
-    lid.position.y=h*0.52; lid.castShadow=true; lid.receiveShadow=true; g.add(lid);
-    var rim=new T.Mesh(new T.TorusGeometry(r*0.80,0.018*scale,6,10),trashRingMat);
-    rim.rotation.x=Math.PI/2; rim.position.y=h*0.46; g.add(rim);
-    g.position.set(x,h*0.5,z);
-    g.rotation.y=(idx*0.58)%(Math.PI*2);
-    g.userData.isMapDecor=true;
-    scene.add(g);
-
-    addColliderBox(x,h*0.5,z,r*1.65,h*0.88,r*1.65,g);
-  });
-
-  (def.dumpsters||[]).forEach(function(t,idx){
-    var x=t[0]*mapScale, z=t[1]*mapScale, scale=(t[2]||0.82)*0.88;
-    var w=1.70*scale, h=1.08*scale, d=0.88*scale;
-    var g=new T.Group();
-    var greenMat=new T.MeshStandardMaterial({color:def.dumpsterColor||0x55a244,roughness:0.78,metalness:0.08,emissive:0x122f0e,emissiveIntensity:0.05});
-    var darkGreenMat=new T.MeshStandardMaterial({color:def.dumpsterShadow||0x2a5b22,roughness:0.84,metalness:0.06});
-    var lidMat=new T.MeshStandardMaterial({color:0x2e5225,roughness:0.74,metalness:0.08});
-    var body=new T.Mesh(new T.BoxGeometry(w,h,d),greenMat);
-    body.castShadow=true; body.receiveShadow=true; g.add(body);
-    var rim=new T.Mesh(new T.BoxGeometry(w*1.01,h*0.08,d*1.01),darkGreenMat);
-    rim.position.y=h*0.47; g.add(rim);
-    var lid=new T.Mesh(new T.BoxGeometry(w*0.98,h*0.10,d*0.82),lidMat);
-    lid.position.y=h*0.56; lid.position.z=-d*0.02; lid.rotation.x=-0.10; g.add(lid);
-    var front=new T.Mesh(new T.BoxGeometry(w*0.72,h*0.52,d*0.06),darkGreenMat);
-    front.position.set(0,-0.02,d*0.46); g.add(front);
-    var wheelMat=new T.MeshStandardMaterial({color:0x141414,roughness:1.0,metalness:0.0});
-    var wheelGeo=new T.CylinderGeometry(0.10*scale,0.10*scale,0.06*scale,10);
-    [-w*0.34,w*0.34].forEach(function(wx){
-      [-d*0.30,d*0.30].forEach(function(wz){
-        var wheel=new T.Mesh(wheelGeo,wheelMat);
-        wheel.rotation.z=Math.PI/2;
-        wheel.position.set(wx,-h*0.48,wz);
-        g.add(wheel);
-      });
+    [-8.7, 1.0, 0.0, 2.2, 2.0, 16.0, 0x2f3948],
+    [8.7, 1.0, 0.0, 2.2, 2.0, 16.0, 0x2f3948],
+    [0.0, 1.0, 8.0, 16.0, 2.0, 2.0, 0x2f3948],
+    [0.0, 1.0, -8.0, 16.0, 2.0, 2.0, 0x2f3948],
+    [-17.8, 1.0, 8.0, 4.0, 2.0, 18.0, 0x273142],
+    [17.8, 1.0, -8.0, 4.0, 2.0, 18.0, 0x273142]
+  ].forEach(function(v){
+    addBoxBlock({
+      x: v[0], y: v[1], z: v[2], w: v[3], h: v[4], d: v[5], color: v[6],
+      roofColor: 0x647183, strip: true, scale: 1, roof: true
     });
-    g.position.set(x,h*0.5,z);
-    g.rotation.y=(idx%2===0)?Math.PI*0.08:-Math.PI*0.10;
-    g.userData.isMapDecor=true;
-    scene.add(g);
-    addColliderBox(x,h*0.5,z,w*0.88,h*0.92,d*0.84,g);
+  });
+
+  addBoxBlock({ x: -21.4, y: 0, z: 22.8, w: 8.2, h: 5.6, d: 9.4, color: 0x3a434f, roofColor: 0x717d8b, strip: true, entrance: [2.2, 1.3, 2.8, 0, -1.1, -4.8] });
+  addBoxBlock({ x: 0.0, y: 0, z: 27.4, w: 14.2, h: 5.8, d: 7.6, color: 0x49373d, roofColor: 0x7e6770, strip: true, yRot: 0.0 });
+  addBoxBlock({ x: 22.0, y: 0, z: 20.0, w: 8.0, h: 5.0, d: 11.0, color: 0x334150, roofColor: 0x5b748b, strip: true, yRot: 0.52 });
+  addBoxBlock({ x: 16.0, y: 0, z: 10.2, w: 6.0, h: 4.0, d: 7.0, color: 0x313a45, roofColor: 0x67707d, strip: false, yRot: -0.7 });
+
+  addBoxBlock({ x: -8.2, y: 0, z: 7.7, w: 6.6, h: 4.8, d: 6.0, color: 0x394351, roofColor: 0x67707e, strip: true, yRot: 0.1 });
+  addBoxBlock({ x: 0.0, y: 0, z: 10.8, w: 9.0, h: 4.2, d: 5.2, color: 0x5b4434, roofColor: 0x8b7055, strip: true });
+  addBoxBlock({ x: 8.8, y: 0, z: 7.8, w: 5.6, h: 4.8, d: 6.0, color: 0x354252, roofColor: 0x6e8092, strip: true, yRot: -0.18 });
+
+  addBoxBlock({ x: -21.0, y: 0, z: -22.0, w: 8.8, h: 5.0, d: 8.8, color: 0x394557, roofColor: 0x6e8195, strip: true, yRot: -0.2 });
+  addBoxBlock({ x: -1.5, y: 0, z: -27.0, w: 15.0, h: 5.6, d: 7.2, color: 0x24354b, roofColor: 0x5d7692, strip: true });
+  addBoxBlock({ x: 18.4, y: 0, z: -19.2, w: 8.2, h: 5.2, d: 10.0, color: 0x3a4555, roofColor: 0x708294, strip: true, yRot: 0.52 });
+  addBoxBlock({ x: 10.2, y: 0, z: -8.5, w: 5.0, h: 4.2, d: 7.0, color: 0x2d394a, roofColor: 0x617183, strip: false, yRot: 0.18 });
+
+  addBoxBlock({ x: -8.8, y: 0, z: -7.6, w: 6.6, h: 4.8, d: 6.0, color: 0x35424f, roofColor: 0x6d7a88, strip: true, yRot: -0.08 });
+  addBoxBlock({ x: 0.0, y: 0, z: -10.8, w: 9.0, h: 4.2, d: 5.2, color: 0x29485d, roofColor: 0x4f7e9b, strip: true });
+  addBoxBlock({ x: 8.8, y: 0, z: -7.7, w: 5.6, h: 4.8, d: 6.0, color: 0x344251, roofColor: 0x6e8291, strip: true, yRot: 0.12 });
+
+  addBoxBlock({ x: -26.4, y: 0, z: 6.6, w: 5.2, h: 4.2, d: 11.0, color: 0x273140, roofColor: 0x516073, strip: true, yRot: 0.34 });
+  addBoxBlock({ x: 26.4, y: 0, z: -6.6, w: 5.2, h: 4.2, d: 11.0, color: 0x273140, roofColor: 0x516073, strip: true, yRot: -0.34 });
+
+  addRaisedPlatform({ x: -14.8, y: 0.34, z: 16.8, w: 5.2, h: 0.8, d: 9.6, color: 0x222d3d });
+  addRaisedPlatform({ x: 14.8, y: 0.34, z: -16.8, w: 5.2, h: 0.8, d: 9.6, color: 0x222d3d });
+  addRaisedPlatform({ x: 0.0, y: 0.44, z: 0.0, w: 5.0, h: 0.5, d: 5.0, color: 0x18212d, emissive: 0x09111c, emissiveIntensity: 0.18 });
+
+  addCarBlock({ x: -17.8, z: 2.5, yRot: 0.15, scale: 1.0, bodyColor: 0x39485a, accentColor: 0x82a0c2 });
+  addCarBlock({ x: 15.2, z: -1.8, yRot: 1.55, scale: 1.0, bodyColor: 0x26384f, accentColor: 0x72b8ff });
+  addCarBlock({ x: -9.6, z: -17.0, yRot: -0.72, scale: 1.0, bodyColor: 0x4a3b35, accentColor: 0xb98d6c });
+
+  [
+    [-24.0, 18.8, 0.72, 0.18],
+    [-20.8, 21.6, 0.72, 0.04],
+    [-15.8, 18.0, 0.66, 0.33],
+    [17.8, 18.4, 0.72, -0.22],
+    [21.6, 16.3, 0.64, 0.12],
+    [18.0, 8.6, 0.70, 0.08],
+    [-23.0, -18.3, 0.70, -0.06],
+    [-18.8, -15.4, 0.64, 0.18],
+    [18.2, -18.8, 0.72, 0.04],
+    [22.1, -14.7, 0.68, -0.10],
+    [13.8, -22.1, 0.62, 0.12]
+  ].forEach(function(v, idx){
+    addBoxBlock({
+      x: v[0],
+      y: 0,
+      z: v[1],
+      w: 1.05,
+      h: 0.84,
+      d: 1.05,
+      color: idx % 3 === 0 ? 0x7b5a36 : (idx % 3 === 1 ? 0x5f4427 : 0x45331d),
+      roofColor: 0x9f7f4c,
+      strip: true,
+      yRot: v[3],
+      scale: v[2]
+    });
   });
 
   [
-    [-24,-24],[-6,-24],[12,-24],[30,-24],
-    [-24,0],[-6,0],[12,0],[30,0],
-    [-24,24],[-6,24],[12,24],[30,24]
-  ].forEach(function(p,i){
-    var pole=new T.Mesh(new T.CylinderGeometry(0.14,0.16,5.8,8),new T.MeshStandardMaterial({color:0x273142,roughness:0.4,metalness:0.8}));
-    pole.position.set(p[0],2.9,p[1]); pole.castShadow=true; pole.userData.isMapDecor=true; scene.add(pole);
-    var colors=[0x59ff88,0x59c0ff,0xff5a88,0xffce4d,0xa56bff,0x4ddcff,0x7eff5a,0xff7b3d,0x59ff88,0x59c0ff,0xff5a88,0xffce4d];
-    var lampMat=new T.MeshStandardMaterial({color:colors[i],emissive:colors[i],emissiveIntensity:2.2,transparent:true,opacity:0.90});
-    var lamp=new T.Mesh(new T.SphereGeometry(0.18,8,8),lampMat); lamp.position.set(p[0],5.8,p[1]); lamp.userData.isMapDecor=true; scene.add(lamp);
-    var lt=new T.PointLight(colors[i],1.6,14,2); lt.position.set(p[0],5.6,p[1]); lt.userData.isMapDecor=true; scene.add(lt);
+    [-29, -28, 0x59ff88], [0, -31, 0x59c0ff], [29, -28, 0xff5a88],
+    [-29, 28, 0xffce4d], [0, 31, 0xa56bff], [29, 28, 0x4ddcff],
+    [-24, 0, 0x7eff5a], [24, 0, 0xff7b3d]
+  ].forEach(function(p){
+    addLampPost(p[0], p[1], p[2]);
   });
 
-  var ambientStrip=new T.Mesh(new T.PlaneGeometry(mapSize,mapSize),new T.MeshBasicMaterial({color:0x0a0f18,transparent:true,opacity:0.08}));
-  ambientStrip.rotation.x=-Math.PI/2;
-  ambientStrip.position.y=0.03;
-  ambientStrip.userData.isMapDecor=true;
-  scene.add(ambientStrip);
+  addSpawnMarker('RED スポーン', 0, 31.0, '#ff607f');
+  addSpawnMarker('BLUE スポーン', 0, -31.0, '#63baff');
+  addSpawnMarker('A', 0, 14.6, '#ffd16d');
+  addSpawnMarker('B', 0, -14.6, '#7fc7ff');
+}
 
-  var centerMark=new T.Mesh(new T.RingGeometry(1.8,3.2,32), new T.MeshBasicMaterial({color:0x1f2a39,transparent:true,opacity:0.56}));
-  centerMark.rotation.x=-Math.PI/2;
-  centerMark.position.y=0.035;
-  centerMark.userData.isMapDecor=true;
-  scene.add(centerMark);
+function buildMap(mapId){
+  currentMapId = 'arena';
+  buildProceduralArena();
 }
 
 function rebuildMapIfNeeded(mapId, force){
-  var wantedMapId='arena';
-  if(!force && currentMapId===wantedMapId) return;
+  var wantedMapId = 'arena';
+  if(!force && currentMapId === wantedMapId) return;
   buildMap(wantedMapId);
 }
+
 function animate(){
   requestAnimationFrame(animate);
   var dt=Math.min(clock.getDelta(),0.034);
@@ -3385,6 +3375,7 @@ function animate(){
 }
 function init(){
   loadRank();setMatchMode('ranked',false);updateRankUI();updateScoreUI();updateAmmoUI();updateBombUI();updateBombTrajectoryUI();updatePlayerHPUI();updateOrientationUI();
+  // loadBuildingAssets();
   buildMap('arena');gameMode=GAME_MODE.LOBBY;camera.position.set(0,16,33);camera.lookAt(0,0,0);
   setModeUI();setRoomInputValid();updateRoomUI();onlineCountEl.textContent='👥 同室: 1人';
   loadPoloFbx();

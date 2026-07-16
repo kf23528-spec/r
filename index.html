@@ -825,7 +825,7 @@ function addFloorPatch(x, z, w, d, color, opacity){
       opacity: 1.0
     })
   );
-  mesh.position.set(x, -h * 0.5 + 0.01, z);
+  mesh.position.set(x, -h * 0.5, z);
   mesh.receiveShadow = true;
   mesh.userData.isMapDecor = true;
   scene.add(mesh);
@@ -1047,7 +1047,7 @@ function addNeonFloorLine(x, z, w, d, color, opacity){
       metalness: 0.0
     })
   );
-  line.position.set(x, 0.018, z);
+  line.position.set(x, 0.045, z);
   line.userData.isMapDecor = true;
   scene.add(line);
   return line;
@@ -1084,7 +1084,7 @@ function addSpawnMarker(text, x, z, color){
     scaleX: 5.8,
     scaleY: 2.9
   });
-  sprite.position.set(x, 0.08, z);
+  sprite.position.set(x, 0.10, z);
   sprite.userData.isMapDecor = true;
   scene.add(sprite);
   return sprite;
@@ -3235,8 +3235,7 @@ function buildProceduralArena(){
   scene.background = new T.Color(0x081018);
 
   // Single clean base floor to avoid z-fighting / floor flicker
-  addFloorPatch(0, 0, 84, 84, 0x0c1119, 1);
-  addFloorPatch(0, 0, 74, 74, 0x111824, 1);
+  addFloorPatch(0, 0, 84, 84, 0x0f1723, 1);
 
   // Strong top/bottom identity + lane guides
   addNeonFloorLine(0, 34.2, 70, 0.24, 0xff5b78, 1);
@@ -3288,8 +3287,9 @@ function buildProceduralArena(){
   // Mid connectors / cross lanes
   addBoxBlock({ x: -24.8, y: 0, z:  2.0, w: 5.0, h: 4.4, d: 14.0, color: 0x273244, roofColor: 0x5d6d83, strip: true, stripColor: 0xa6b8d0, yRot: 0.10 });
   addBoxBlock({ x: -14.0, y: 0, z:  1.0, w: 4.4, h: 4.0, d: 6.2, color: 0x38485a, roofColor: 0x667d95, strip: true, stripColor: 0xd3e0eb, yRot: -0.10 });
-  addBoxBlock({ x:  -5.0, y: 0, z:  0.8, w: 5.4, h: 4.0, d: 5.8, color: 0x5a4636, roofColor: 0x94755d, strip: true, stripColor: 0xffdd9a });
-  addBoxBlock({ x:   5.0, y: 0, z:  0.8, w: 5.4, h: 4.0, d: 5.8, color: 0x35485d, roofColor: 0x6f8aa5, strip: true, stripColor: 0x95e8ff });
+  addBoxBlock({ x:  -5.6, y: 0, z:  0.8, w: 5.4, h: 4.0, d: 5.8, color: 0x5a4636, roofColor: 0x94755d, strip: true, stripColor: 0xffdd9a });
+  addBoxBlock({ x:   5.6, y: 0, z:  0.8, w: 5.4, h: 4.0, d: 5.8, color: 0x35485d, roofColor: 0x6f8aa5, strip: true, stripColor: 0x95e8ff });
+  addRaisedPlatform({ x: 0.0, y: 0.30, z: 0.6, w: 2.6, h: 0.58, d: 2.6, color: 0x1c2530, emissive: 0x0a1420, emissiveIntensity: 0.08 });
   addBoxBlock({ x:  14.0, y: 0, z:  1.0, w: 4.4, h: 4.0, d: 6.2, color: 0x4a3d2d, roofColor: 0x8c6d50, strip: true, stripColor: 0xf1ca86, yRot: 0.10 });
   addBoxBlock({ x:  24.8, y: 0, z:  2.0, w: 5.0, h: 4.4, d: 14.0, color: 0x3a434f, roofColor: 0x6c7884, strip: true, stripColor: 0xe7dfd0, yRot: -0.10 });
 
@@ -3323,22 +3323,25 @@ function buildProceduralArena(){
   addRaisedPlatform({ x: -13.8, y: 0.34, z: -21.6, w: 4.6, h: 0.72, d: 7.8, color: 0x2a1820, emissive: 0x14080c, emissiveIntensity: 0.10 });
   addRaisedPlatform({ x: 13.8, y: 0.34, z: -21.4, w: 4.6, h: 0.72, d: 7.8, color: 0x18312c, emissive: 0x08120d, emissiveIntensity: 0.10 });
 
-  // Cars / props to read the lanes
+  // Lamp posts tucked at corners so they never sit in a walking lane
   [
-    [-26.2, 22.0, 0xff667f],
-    [-20.8, 18.6, 0x6eecff],
-    [ 20.6, 22.0, 0xffc15c],
-    [ 26.0, 18.6, 0x8e8bff],
-    [-26.2,-22.0, 0x6fc8ff],
-    [-20.8,-18.6, 0xff6f8f],
-    [ 20.6,-22.0, 0x7cff98],
-    [ 26.0,-18.6, 0xffdb6a],
-    [  0.0,  0.0, 0x7df0ff],
-    [-11.2,  0.0, 0xffd56a],
-    [ 11.2,  0.0, 0xa97bff]
+    [-33.6, 33.6, 0xff667f],
+    [ 33.6, 33.6, 0x6eecff],
+    [-33.6,-33.6, 0x6fc8ff],
+    [ 33.6,-33.6, 0xffdb6a],
+    [-33.6,  0.0, 0xa97bff],
+    [ 33.6,  0.0, 0x7cff98]
   ].forEach(function(p){
     addLampPost(p[0], p[1], p[2]);
   });
+
+  // Parked cars tucked into building alcoves, offset from lane centerlines
+  addCarBlock({ x: -27.4, y: 0, z: 24.6, yRot: 0.42, bodyColor: 0x8a2b36, glassColor: 0x9fbfe0 });
+  addCarBlock({ x:  27.0, y: 0, z: 24.2, yRot: -0.30, bodyColor: 0x2b4f7a, glassColor: 0x9fd8f0 });
+  addCarBlock({ x: -27.6, y: 0, z: -6.6, yRot: 1.55, bodyColor: 0x3a3a44, glassColor: 0x8fb0d0 });
+  addCarBlock({ x:  27.6, y: 0, z:  6.6, yRot: 1.55, bodyColor: 0x5a3a20, glassColor: 0x9fc0da });
+  addCarBlock({ x: -27.2, y: 0, z: -24.6, yRot: 0.20, bodyColor: 0x2f5c3e, glassColor: 0x9fd8c0 });
+  addCarBlock({ x:  27.2, y: 0, z: -24.4, yRot: -0.36, bodyColor: 0x6a4a20, glassColor: 0xd8c090 });
 
   // Labels to match the reference image
   addSpawnMarker('RED スポーン', 0, 31.0, '#ff607f');

@@ -780,15 +780,15 @@ var buildingPlacements = [
 ];
 
 var buildingInstancePlacements = [
-  { key: 'b4', fallback: { size: [10.6, 6.2, 5.4], color: 0x5f6f7d, accent: 0x8fa0b1 }, x: -46.0, z: -18.0, yRot: -0.20, scale: 0.00090, forceWorldAABB: true },
-  { key: 'b1', fallback: { size: [7.6, 9.8, 21.0], color: 0x404852, accent: 0x5a6673 }, x: -28.0, z:  14.0, yRot:  0.18, scale: 0.00104, forceWorldAABB: true },
-  { key: 'car', fallback: { size: [2.1, 1.8, 5.2], color: 0x2d3c50, accent: 0x6f7f95 }, x: -10.0, z: -28.0, yRot:  1.28, scale: 0.72, forceWorldAABB: true },
-  { key: 'b2', fallback: { size: [9.0, 10.8, 10.5], color: 0x6b7b88, accent: 0x8ea0ad }, x:  12.0, z:  10.0, yRot: -0.92, scale: 1.18, forceWorldAABB: true },
-  { key: 'b3', fallback: { size: [10.8, 6.2, 5.4], color: 0x55606c, accent: 0x78828f }, x:  32.0, z: -16.0, yRot:  0.58, scale: 0.30, forceWorldAABB: true },
-  { key: 'b4', fallback: { size: [10.6, 6.2, 5.4], color: 0x5f6f7d, accent: 0x8fa0b1 }, x: -38.0, z:  32.0, yRot:  0.10, scale: 0.00086, forceWorldAABB: true },
-  { key: 'b1', fallback: { size: [7.6, 9.8, 21.0], color: 0x404852, accent: 0x5a6673 }, x: -14.0, z: -36.0, yRot: -1.48, scale: 0.00100, forceWorldAABB: true },
-  { key: 'b2', fallback: { size: [9.0, 10.8, 10.5], color: 0x6b7b88, accent: 0x8ea0ad }, x:  20.0, z:  34.0, yRot:  1.52, scale: 1.10, forceWorldAABB: true },
-  { key: 'b3', fallback: { size: [10.8, 6.2, 5.4], color: 0x55606c, accent: 0x78828f }, x:  42.0, z:  18.0, yRot: -0.20, scale: 0.28, forceWorldAABB: true }
+  { key: 'b4', fallback: { size: [13.0, 12.0, 7.2], color: 0x6e8dd6, accent: 0xffd166 }, x: -46.0, z: -18.0, yRot: -0.20, scale: 0.00090, forceWorldAABB: true },
+  { key: 'b1', fallback: { size: [11.0, 18.5, 24.0], color: 0x406aa8, accent: 0x6ce6ff }, x: -28.0, z:  14.0, yRot:  0.18, scale: 0.00104, forceWorldAABB: true },
+  { key: 'car', fallback: { size: [2.8, 2.0, 6.0], color: 0x2d3c50, accent: 0xffd166 }, x: -10.0, z: -28.0, yRot:  1.28, scale: 0.72, forceWorldAABB: true },
+  { key: 'b2', fallback: { size: [15.0, 14.0, 15.0], color: 0x8d4fff, accent: 0x36c8d9 }, x:  12.0, z:  10.0, yRot: -0.92, scale: 1.18, forceWorldAABB: true },
+  { key: 'b3', fallback: { size: [12.0, 8.0, 8.0], color: 0xd08b4a, accent: 0xff5fa2 }, x:  32.0, z: -16.0, yRot:  0.58, scale: 0.30, forceWorldAABB: true },
+  { key: 'b4', fallback: { size: [13.0, 12.0, 7.2], color: 0x6e8dd6, accent: 0xffd166 }, x: -38.0, z:  32.0, yRot:  0.10, scale: 0.00086, forceWorldAABB: true },
+  { key: 'b1', fallback: { size: [11.0, 18.5, 24.0], color: 0x406aa8, accent: 0x6ce6ff }, x: -14.0, z: -36.0, yRot: -1.48, scale: 0.00100, forceWorldAABB: true },
+  { key: 'b2', fallback: { size: [15.0, 14.0, 15.0], color: 0x8d4fff, accent: 0x36c8d9 }, x:  20.0, z:  34.0, yRot:  1.52, scale: 1.10, forceWorldAABB: true },
+  { key: 'b3', fallback: { size: [12.0, 8.0, 8.0], color: 0xd08b4a, accent: 0xff5fa2 }, x:  42.0, z:  18.0, yRot: -0.20, scale: 0.28, forceWorldAABB: true }
 ];
 
 function getMapTemplateForKey(key){
@@ -852,37 +852,37 @@ function makeFallbackBuilding(spec){
 
   if(key === 'b1'){
     // Tall office block
-    addBox(sx, sy*0.82, sz, 0, sy*0.41, 0, bodyMat);
-    addBox(sx*0.72, sy*0.28, sz*0.72, 0, sy*0.95, 0, accentMat);
-    addBox(sx*0.46, sy*0.12, sz*0.46, 0, sy*1.12, 0, darkMat);
+    addBox(sx*1.02, sy*0.92, sz*0.98, 0, sy*0.46, 0, bodyMat);
+    addBox(sx*0.76, sy*0.36, sz*0.76, 0, sy*1.02, 0, accentMat);
+    addBox(sx*0.50, sy*0.14, sz*0.50, 0, sy*1.18, 0, darkMat);
     addWindowStrip(sx*0.84, sy*0.06, 0.10, 0, sy*0.28, sz*0.46);
     addWindowStrip(sx*0.84, sy*0.06, 0.10, 0, sy*0.56, sz*0.46);
     addWindowStrip(sx*0.84, sy*0.06, 0.10, 0, sy*0.84, sz*0.46);
     addWindowStrip(0.10, sy*0.06, sz*0.72, sx*0.46, sy*0.50, 0);
   }else if(key === 'b2'){
     // Mid-size square building with rooftop frame
-    addBox(sx, sy*0.78, sz, 0, sy*0.39, 0, bodyMat);
-    addBox(sx*0.90, sy*0.10, sz*0.90, 0, sy*0.82, 0, accentMat);
+    addBox(sx*1.02, sy*0.90, sz*1.02, 0, sy*0.45, 0, bodyMat);
+    addBox(sx*0.92, sy*0.14, sz*0.92, 0, sy*0.99, 0, accentMat);
     addBox(sx*0.70, sy*0.16, sz*0.14, 0, sy*0.46, sz*0.43, glowMat);
     addBox(sx*0.70, sy*0.16, sz*0.14, 0, sy*0.46, -sz*0.43, glowMat);
     addBox(sx*0.14, sy*0.16, sz*0.70, sx*0.43, sy*0.46, 0, glowMat);
     addBox(sx*0.14, sy*0.16, sz*0.70, -sx*0.43, sy*0.46, 0, glowMat);
   }else if(key === 'b3'){
     // Low shop / market block
-    addBox(sx, sy*0.62, sz, 0, sy*0.31, 0, bodyMat);
+    addBox(sx*1.00, sy*0.70, sz*1.00, 0, sy*0.35, 0, bodyMat);
     addBox(sx*0.96, sy*0.12, sz*0.34, 0, sy*0.10, sz*0.34, accentMat);
     addBox(sx*0.96, sy*0.12, sz*0.34, 0, sy*0.10, -sz*0.34, accentMat);
     addBox(sx*0.18, sy*0.24, sz*0.84, sx*0.40, sy*0.18, 0, darkMat);
     addWindowStrip(sx*0.72, sy*0.05, 0.08, 0, sy*0.44, sz*0.46);
   }else if(key === 'b4'){
     // Narrow townhouse / side building
-    addBox(sx*0.82, sy*0.86, sz, 0, sy*0.43, 0, bodyMat);
+    addBox(sx*0.90, sy*0.98, sz*1.00, 0, sy*0.49, 0, bodyMat);
     addBox(sx*0.62, sy*0.12, sz*0.92, 0, sy*0.90, 0, accentMat);
     addBox(sx*0.34, sy*0.18, sz*0.12, sx*0.28, sy*0.38, sz*0.38, glowMat);
     addBox(sx*0.34, sy*0.18, sz*0.12, sx*0.28, sy*0.38, -sz*0.38, glowMat);
   }else if(key === 'b5'){
     // Very flat warehouse / garage
-    addBox(sx, Math.max(0.6, sy*0.48), sz, 0, Math.max(0.3, sy*0.24), 0, bodyMat);
+    addBox(sx*1.00, Math.max(0.9, sy*0.62), sz*1.00, 0, Math.max(0.45, sy*0.31), 0, bodyMat);
     addBox(sx*0.96, Math.max(0.12, sy*0.10), sz*0.88, 0, Math.max(0.52, sy*0.50), 0, accentMat);
     addBox(sx*0.18, Math.max(0.20, sy*0.16), sz*0.90, -sx*0.38, Math.max(0.24, sy*0.22), 0, darkMat);
   }else if(key === 'car'){
@@ -892,7 +892,7 @@ function makeFallbackBuilding(spec){
     addBox(size[0]*0.18, size[1]*0.08, size[2]*1.00, 0, size[1]*0.04, 0, darkMat);
   }else{
     // Fallback generic mass
-    addBox(sx, sy*0.78, sz, 0, sy*0.39, 0, bodyMat);
+    addBox(sx*1.02, sy*0.90, sz*1.02, 0, sy*0.45, 0, bodyMat);
     addBox(sx*0.88, sy*0.10, sz*0.88, 0, sy*0.82, 0, accentMat);
   }
 
@@ -941,7 +941,7 @@ function placeBuildingTemplate(template, spec, fallback, alreadyAdded){
     }
   });
 
-  root.scale.setScalar(spec.scale);
+  root.scale.setScalar(template ? spec.scale : 1);
   root.rotation.y = 0;
   root.position.set(spec.x, 0, spec.z);
   root.updateMatrixWorld(true);
@@ -3088,15 +3088,15 @@ var MAP_DEFS = {
     var R = function(x, z, w, d){ return [x, 0.55, z, w, 1.1, d]; };
     return {
       name: 'NARROW DISTRICT',
-      floorColor: 0x0b1017,
-      roadColor: 0x151d29,
-      curbColor: 0x222b39,
-      laneColor: 0x0a0f15,
-      obstaclePalette: [0x2d3746, 0x364355, 0x18212c],
-      cratePalette: [0x7b5531, 0x5b3f23, 0x432f19],
-      trashPalette: [0x45505e, 0x56626f, 0x2f3946],
-      dumpsterColor: 0x4aa23b,
-      dumpsterShadow: 0x1f4f19,
+      floorColor: 0x0a0d14,
+      roadColor: 0x1a2434,
+      curbColor: 0x37465f,
+      laneColor: 0x0f1724,
+      obstaclePalette: [0x406aa8, 0x8d4fff, 0x36c8d9],
+      cratePalette: [0xd08b4a, 0xb86c35, 0x7c4a22],
+      trashPalette: [0x5f7392, 0x8a97af, 0x31415a],
+      dumpsterColor: 0x39c46b,
+      dumpsterShadow: 0x165a34,
       obstacles: [
         R(0,-62,124,4), R(0,62,124,4), R(-62,0,4,124), R(62,0,4,124),
 
@@ -3157,15 +3157,15 @@ function buildMap(mapId){
   floor.userData.isMapDecor=true;
   scene.add(floor);
 
-  var plazaMat=new T.MeshStandardMaterial({color:0x0f1620,roughness:0.99,metalness:0.02});
+  var plazaMat=new T.MeshStandardMaterial({color:0x132033,roughness:0.98,metalness:0.04,emissive:0x06111f,emissiveIntensity:0.12});
   var plaza=new T.Mesh(new T.CircleGeometry(5.8,32),plazaMat);
   plaza.rotation.x=-Math.PI/2;
   plaza.position.set(0,0.012,0);
   plaza.userData.isMapDecor=true;
   scene.add(plaza);
 
-  var roadMat=new T.MeshStandardMaterial({color:def.roadColor,roughness:0.98,metalness:0.02});
-  var laneMat=new T.MeshStandardMaterial({color:def.laneColor,roughness:1.0,metalness:0.0});
+  var roadMat=new T.MeshStandardMaterial({color:def.roadColor,roughness:0.96,metalness:0.04,emissive:0x04070d,emissiveIntensity:0.04});
+  var laneMat=new T.MeshStandardMaterial({color:def.laneColor,roughness:1.0,metalness:0.0,emissive:0x0a0f15,emissiveIntensity:0.05});
 
   [
     {x:0,z:-18,w:mapSize-12,d:4.6},
@@ -3190,10 +3190,10 @@ function buildMap(mapId){
 
   var curbMat=new T.MeshStandardMaterial({color:def.curbColor,roughness:0.90,metalness:0.06});
   [
-    {s:[mapSize,9.5,1.0],p:[0,4.75,-halfMap-0.5]},
-    {s:[mapSize,9.5,1.0],p:[0,4.75,halfMap+0.5]},
-    {s:[1.0,9.5,mapSize],p:[-halfMap-0.5,4.75,0]},
-    {s:[1.0,9.5,mapSize],p:[halfMap+0.5,4.75,0]}
+    {s:[mapSize,15.5,1.0],p:[0,7.75,-halfMap-0.5]},
+    {s:[mapSize,15.5,1.0],p:[0,7.75,halfMap+0.5]},
+    {s:[1.0,15.5,mapSize],p:[-halfMap-0.5,7.75,0]},
+    {s:[1.0,15.5,mapSize],p:[halfMap+0.5,7.75,0]}
   ].forEach(function(w){
     var m=new T.Mesh(new T.BoxGeometry(w.s[0],w.s[1],w.s[2]),curbMat);
     m.position.set(w.p[0],w.p[1],w.p[2]);
@@ -3202,9 +3202,9 @@ function buildMap(mapId){
   });
 
   var wallMats=[
-    new T.MeshStandardMaterial({color:def.obstaclePalette[0],roughness:0.84,metalness:0.12}),
-    new T.MeshStandardMaterial({color:def.obstaclePalette[1],roughness:0.78,metalness:0.08}),
-    new T.MeshStandardMaterial({color:def.obstaclePalette[2],roughness:0.56,metalness:0.24,emissive:0x07111d,emissiveIntensity:0.08})
+    new T.MeshStandardMaterial({color:def.obstaclePalette[0],roughness:0.72,metalness:0.18,emissive:0x101c33,emissiveIntensity:0.10}),
+    new T.MeshStandardMaterial({color:def.obstaclePalette[1],roughness:0.68,metalness:0.12,emissive:0x1b1034,emissiveIntensity:0.12}),
+    new T.MeshStandardMaterial({color:def.obstaclePalette[2],roughness:0.62,metalness:0.16,emissive:0x0d2528,emissiveIntensity:0.14})
   ];
   var scaledObstacles = (def.obstacles || []).map(function(o){
     return [o[0]*mapScale,o[1],o[2]*mapScale,Math.max(1.0,o[3]*mapScale),o[4],Math.max(1.0,o[5]*mapScale)];

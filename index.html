@@ -3228,43 +3228,35 @@ function getSpawnPointsForMap(mapId,team){
 }
 
 
+
 function buildProceduralArena(){
   clearMapDecor();
-  scene.fog = new T.FogExp2(0x101723, 0.0095);
-  scene.background = new T.Color(0x101723);
+  scene.fog = new T.FogExp2(0x101824, 0.0105);
+  scene.background = new T.Color(0x081018);
 
-  // Base terrain
-  addFloorPatch(0, 0, 72, 72, 0x0d141f, 1);
-  addFloorPatch(0, 0, 62, 62, 0x141c2a, 1);
+  // Single clean base floor to avoid z-fighting / floor flicker
+  addFloorPatch(0, 0, 84, 84, 0x0c1119, 1);
+  addFloorPatch(0, 0, 74, 74, 0x111824, 1);
 
-  // Primary lanes and zones
-  addFloorPatch(0, 24.0, 58, 16, 0x2e151d, 1);   // RED/A top
-  addFloorPatch(0, -24.0, 58, 16, 0x132d43, 1);  // BLUE/B bottom
-  addFloorPatch(-16.5, 0, 16, 56, 0x141d29, 1);   // left outer lane
-  addFloorPatch(16.5, 0, 16, 56, 0x172131, 1);    // right outer lane
-  addFloorPatch(0, 0, 14, 42, 0x111823, 1);      // center lane
-  addFloorPatch(-6.5, 0, 7.5, 24, 0x182434, 1);
-  addFloorPatch(6.5, 0, 7.5, 24, 0x18273a, 1);
+  // Strong top/bottom identity + lane guides
+  addNeonFloorLine(0, 34.2, 70, 0.24, 0xff5b78, 1);
+  addNeonFloorLine(0, -34.2, 70, 0.24, 0x4aa8ff, 1);
+  addNeonFloorLine(-34.2, 0, 0.24, 70, 0x7beeff, 1);
+  addNeonFloorLine(34.2, 0, 0.24, 70, 0xffb35c, 1);
+  addNeonFloorLine(0, 0, 12, 0.18, 0x7078ff, 1);
+  addNeonFloorLine(0, 16.4, 28, 0.14, 0xf3cf68, 1);
+  addNeonFloorLine(0, -16.4, 28, 0.14, 0x64d8ff, 1);
 
-  // Accent strips to make the top-down read stronger
-  addNeonFloorLine(0, 31.1, 64, 0.48, 0xff5a76, 1);
-  addNeonFloorLine(0, -31.1, 64, 0.48, 0x4aa8ff, 1);
-  addNeonFloorLine(-31.1, 0, 0.48, 64, 0x7af0ff, 1);
-  addNeonFloorLine(31.1, 0, 0.48, 64, 0xffb15c, 1);
-  addNeonFloorLine(0, 0, 10, 0.22, 0x6d74ff, 1);
-  addNeonFloorLine(0, 14.8, 22, 0.18, 0xf5cf6a, 1);
-  addNeonFloorLine(0, -14.8, 22, 0.18, 0x63d2ff, 1);
-
-  // Boundary walls
+  // Outer boundary
   [
-    [0, 2.4, -35.0, 70, 4.8, 2.0, 0x172030],
-    [0, 2.4, 35.0, 70, 4.8, 2.0, 0x1c2232],
-    [-35.0, 2.4, 0, 2.0, 4.8, 70, 0x172030],
-    [35.0, 2.4, 0, 2.0, 4.8, 70, 0x1c2232]
+    [0, 2.4, -36.4, 72, 4.8, 2.0, 0x171f2c],
+    [0, 2.4,  36.4, 72, 4.8, 2.0, 0x1b2333],
+    [-36.4, 2.4, 0, 2.0, 4.8, 72, 0x171f2c],
+    [36.4, 2.4, 0, 2.0, 4.8, 72, 0x1b2333]
   ].forEach(function(v){
     var wall = new T.Mesh(
       new T.BoxGeometry(v[3], v[4], v[5]),
-      new T.MeshStandardMaterial({ color: v[6], roughness: 0.9, metalness: 0.04 })
+      new T.MeshStandardMaterial({ color: v[6], roughness: 0.92, metalness: 0.04 })
     );
     wall.position.set(v[0], v[1], v[2]);
     wall.castShadow = true;
@@ -3274,89 +3266,81 @@ function buildProceduralArena(){
     addColliderBox(v[0], v[1], v[2], v[3], v[4], v[5], wall);
   });
 
-  // --- A side / RED side ---
-  addBoxBlock({ x: -18.4, y: 0, z: 24.8, w: 6.6, h: 4.6, d: 8.0, color: 0x5a2830, roofColor: 0x8c4c4e, strip: true, stripColor: 0xffb4a8, entrance: [1.6, 1.4, 2.6, 0, -1.0, -4.2] });
-  addBoxBlock({ x: -8.2, y: 0, z: 28.0, w: 5.0, h: 4.2, d: 6.0, color: 0x4b3344, roofColor: 0x8a6a7a, strip: true, stripColor: 0xf1b8df, yRot: -0.25 });
-  addBoxBlock({ x: 8.6, y: 0, z: 28.2, w: 7.8, h: 4.8, d: 8.8, color: 0x6b4b31, roofColor: 0xb18a64, strip: true, stripColor: 0xffdf9b, yRot: 0.14 });
-  addBoxBlock({ x: 20.2, y: 0, z: 23.3, w: 6.0, h: 5.0, d: 10.0, color: 0x36556d, roofColor: 0x7cb0d1, strip: true, stripColor: 0xa8efff, yRot: 0.42 });
-  addRaisedPlatform({ x: 0.0, y: 0.34, z: 19.0, w: 8.8, h: 0.68, d: 4.2, color: 0x241922, emissive: 0x251018, emissiveIntensity: 0.12 });
-  addRaisedPlatform({ x: 12.8, y: 0.34, z: 18.0, w: 4.6, h: 0.72, d: 8.0, color: 0x253847, emissive: 0x0b1520, emissiveIntensity: 0.12 });
-  addRaisedPlatform({ x: -13.2, y: 0.34, z: 17.3, w: 4.6, h: 0.72, d: 8.0, color: 0x382832, emissive: 0x180b10, emissiveIntensity: 0.10 });
+  // ---- RED spawn / top zone ----
+  addBoxBlock({ x: -22.0, y: 0, z: 27.8, w: 6.8, h: 4.5, d: 8.0, color: 0x60303a, roofColor: 0x9f5b67, strip: true, stripColor: 0xffc2c8, yRot: 0.08 });
+  addBoxBlock({ x: -10.0, y: 0, z: 30.0, w: 5.4, h: 4.2, d: 6.2, color: 0x4a3440, roofColor: 0x8f6c7d, strip: true, stripColor: 0xf0b8e0, yRot: -0.20 });
+  addBoxBlock({ x:  10.5, y: 0, z: 30.2, w: 7.8, h: 4.8, d: 8.8, color: 0x6c4a31, roofColor: 0xb79063, strip: true, stripColor: 0xffe19d, yRot: 0.10 });
+  addBoxBlock({ x:  22.4, y: 0, z: 26.8, w: 6.2, h: 4.7, d: 9.2, color: 0x384f61, roofColor: 0x7aa8c6, strip: true, stripColor: 0xa8efff, yRot: 0.28 });
+  addRaisedPlatform({ x: 0.0, y: 0.34, z: 22.2, w: 9.6, h: 0.66, d: 4.0, color: 0x24171d, emissive: 0x261116, emissiveIntensity: 0.10 });
+  addRaisedPlatform({ x: -13.8, y: 0.34, z: 21.6, w: 4.6, h: 0.72, d: 7.8, color: 0x29384a, emissive: 0x0a1620, emissiveIntensity: 0.10 });
+  addRaisedPlatform({ x: 13.8, y: 0.34, z: 21.4, w: 4.6, h: 0.72, d: 7.8, color: 0x40311f, emissive: 0x170d05, emissiveIntensity: 0.10 });
 
-  // A site cover clusters
+  // A site shell: open middle with cover at edges
+  addBoxBlock({ x: -24.4, y: 0, z: 13.6, w: 6.0, h: 4.2, d: 5.2, color: 0x39465a, roofColor: 0x71849a, strip: true, stripColor: 0xc3d0e0, yRot: -0.06 });
+  addBoxBlock({ x: -18.8, y: 0, z:  9.2, w: 4.6, h: 4.0, d: 7.2, color: 0x5b4435, roofColor: 0x93755a, strip: true, stripColor: 0xffd28c, yRot: 0.10 });
+  addBoxBlock({ x: -7.4,  y: 0, z: 10.8, w: 4.8, h: 4.0, d: 8.4, color: 0x3d3040, roofColor: 0x7d6278, strip: true, stripColor: 0xf0b7df, yRot: -0.12 });
+  addBoxBlock({ x:  0.0,  y: 0, z:  7.8, w: 7.8, h: 4.1, d: 4.8, color: 0x2f3948, roofColor: 0x73859a, strip: true, stripColor: 0xdde8f7 });
+  addBoxBlock({ x:  8.4,  y: 0, z: 10.8, w: 4.8, h: 4.0, d: 8.4, color: 0x364d62, roofColor: 0x708ca5, strip: true, stripColor: 0xa4e9ff, yRot: 0.14 });
+  addBoxBlock({ x: 18.8,  y: 0, z:  9.4, w: 4.6, h: 4.0, d: 7.2, color: 0x4c5d6f, roofColor: 0x8296a9, strip: true, stripColor: 0xe8ebef, yRot: -0.08 });
+  addBoxBlock({ x: 24.0,  y: 0, z: 13.8, w: 6.0, h: 4.2, d: 5.2, color: 0x4e3a2d, roofColor: 0x8f6b52, strip: true, stripColor: 0xf0cc87, yRot: 0.06 });
+  addRaisedPlatform({ x: 0.0, y: 0.34, z: 14.8, w: 14.0, h: 0.60, d: 5.0, color: 0x30231f, emissive: 0x1a0f0a, emissiveIntensity: 0.08 });
+
+  // Mid connectors / cross lanes
+  addBoxBlock({ x: -24.8, y: 0, z:  2.0, w: 5.0, h: 4.4, d: 14.0, color: 0x273244, roofColor: 0x5d6d83, strip: true, stripColor: 0xa6b8d0, yRot: 0.10 });
+  addBoxBlock({ x: -14.0, y: 0, z:  1.0, w: 4.4, h: 4.0, d: 6.2, color: 0x38485a, roofColor: 0x667d95, strip: true, stripColor: 0xd3e0eb, yRot: -0.10 });
+  addBoxBlock({ x:  -5.0, y: 0, z:  0.8, w: 5.4, h: 4.0, d: 5.8, color: 0x5a4636, roofColor: 0x94755d, strip: true, stripColor: 0xffdd9a });
+  addBoxBlock({ x:   5.0, y: 0, z:  0.8, w: 5.4, h: 4.0, d: 5.8, color: 0x35485d, roofColor: 0x6f8aa5, strip: true, stripColor: 0x95e8ff });
+  addBoxBlock({ x:  14.0, y: 0, z:  1.0, w: 4.4, h: 4.0, d: 6.2, color: 0x4a3d2d, roofColor: 0x8c6d50, strip: true, stripColor: 0xf1ca86, yRot: 0.10 });
+  addBoxBlock({ x:  24.8, y: 0, z:  2.0, w: 5.0, h: 4.4, d: 14.0, color: 0x3a434f, roofColor: 0x6c7884, strip: true, stripColor: 0xe7dfd0, yRot: -0.10 });
+
+  // Left long lane / alley
+  addBoxBlock({ x: -30.0, y: 0, z:  9.8, w: 4.2, h: 4.8, d: 18.0, color: 0x253244, roofColor: 0x55677a, strip: true, stripColor: 0xa4b5cc, yRot: 0.18 });
+  addBoxBlock({ x: -31.8, y: 0, z: -9.8, w: 4.2, h: 4.8, d: 18.0, color: 0x2b3340, roofColor: 0x5f6c7d, strip: true, stripColor: 0xcbd3dd, yRot: -0.08 });
+  addBoxBlock({ x: -21.8, y: 0, z: -12.8, w: 4.8, h: 4.2, d: 8.4, color: 0x1f3343, roofColor: 0x4f7892, strip: true, stripColor: 0x89d8ff });
+  addBoxBlock({ x: -17.8, y: 0, z: -23.6, w: 5.6, h: 4.2, d: 7.8, color: 0x24384b, roofColor: 0x667c8b, strip: true, stripColor: 0xc2d0de, yRot: -0.16 });
+
+  // Right long lane / market side
+  addBoxBlock({ x: 30.0, y: 0, z:  9.8, w: 4.2, h: 4.8, d: 18.0, color: 0x38424d, roofColor: 0x687782, strip: true, stripColor: 0xe7d9c7, yRot: -0.18 });
+  addBoxBlock({ x: 31.8, y: 0, z: -9.8, w: 4.2, h: 4.8, d: 18.0, color: 0x4a392c, roofColor: 0x8f6f52, strip: true, stripColor: 0xf0c688, yRot: 0.08 });
+  addBoxBlock({ x: 21.8, y: 0, z: -12.8, w: 4.8, h: 4.2, d: 8.4, color: 0x34475e, roofColor: 0x6783a0, strip: true, stripColor: 0x8ad0ff });
+  addBoxBlock({ x: 17.8, y: 0, z: -23.4, w: 5.6, h: 4.2, d: 7.8, color: 0x2f3a4b, roofColor: 0x5e6c7d, strip: true, stripColor: 0xd6dee6, yRot: 0.18 });
+
+  // B site shell
+  addBoxBlock({ x: -23.6, y: 0, z: -13.8, w: 5.8, h: 4.2, d: 5.0, color: 0x36566f, roofColor: 0x749bb9, strip: true, stripColor: 0xb9efff, yRot: -0.06 });
+  addBoxBlock({ x: -17.8, y: 0, z: -18.8, w: 4.4, h: 4.0, d: 7.6, color: 0x593f31, roofColor: 0x94755b, strip: true, stripColor: 0xf0cd89, yRot: 0.08 });
+  addBoxBlock({ x: -7.0,  y: 0, z: -17.2, w: 4.8, h: 4.0, d: 8.0, color: 0x33445a, roofColor: 0x6f8aa8, strip: true, stripColor: 0xa2e8ff, yRot: -0.10 });
+  addBoxBlock({ x:  0.0,  y: 0, z: -19.8, w: 7.8, h: 4.1, d: 5.0, color: 0x2a3242, roofColor: 0x687689, strip: true, stripColor: 0xdde7f5 });
+  addBoxBlock({ x:  8.0,  y: 0, z: -17.2, w: 4.8, h: 4.0, d: 8.0, color: 0x463524, roofColor: 0x8f7050, strip: true, stripColor: 0xf0c787, yRot: 0.10 });
+  addBoxBlock({ x: 17.8, y: 0, z: -18.8, w: 4.4, h: 4.0, d: 7.6, color: 0x2f485b, roofColor: 0x6f8ea9, strip: true, stripColor: 0x96e7ff, yRot: -0.08 });
+  addBoxBlock({ x: 23.6, y: 0, z: -13.8, w: 5.8, h: 4.2, d: 5.0, color: 0x4c372b, roofColor: 0x8f6c4d, strip: true, stripColor: 0xf1ca87, yRot: 0.06 });
+
+  // Bottom entry / BLUE spawn approach
+  addBoxBlock({ x: -22.0, y: 0, z: -27.8, w: 6.8, h: 4.5, d: 8.0, color: 0x2d4b63, roofColor: 0x6da1c7, strip: true, stripColor: 0xb4efff, yRot: -0.08 });
+  addBoxBlock({ x: -10.0, y: 0, z: -30.0, w: 5.4, h: 4.2, d: 6.2, color: 0x4a3541, roofColor: 0x8f6d7d, strip: true, stripColor: 0xf0b8e0, yRot: 0.18 });
+  addBoxBlock({ x:  10.5, y: 0, z: -30.2, w: 7.8, h: 4.8, d: 8.8, color: 0x365a49, roofColor: 0x7ca88d, strip: true, stripColor: 0xbcefd2, yRot: -0.10 });
+  addBoxBlock({ x:  22.4, y: 0, z: -26.8, w: 6.2, h: 4.7, d: 9.2, color: 0x404654, roofColor: 0x7a8796, strip: true, stripColor: 0xe7dfd0, yRot: -0.28 });
+  addRaisedPlatform({ x: 0.0, y: 0.34, z: -22.2, w: 9.6, h: 0.66, d: 4.0, color: 0x1e2733, emissive: 0x0a1120, emissiveIntensity: 0.10 });
+  addRaisedPlatform({ x: -13.8, y: 0.34, z: -21.6, w: 4.6, h: 0.72, d: 7.8, color: 0x2a1820, emissive: 0x14080c, emissiveIntensity: 0.10 });
+  addRaisedPlatform({ x: 13.8, y: 0.34, z: -21.4, w: 4.6, h: 0.72, d: 7.8, color: 0x18312c, emissive: 0x08120d, emissiveIntensity: 0.10 });
+
+  // Cars / props to read the lanes
   [
-    [-24.0, 22.8, 1.0, 3.6, 2.0, 5.2, 0x3a4656],
-    [-28.0, 26.2, 0.8, 2.2, 2.0, 2.4, 0x61493f],
-    [-4.0, 22.6, 1.0, 5.2, 2.2, 4.0, 0x50383c],
-    [4.2, 21.3, 1.0, 3.4, 2.0, 5.4, 0x334a61],
-    [14.8, 22.0, 1.0, 4.2, 2.0, 4.4, 0x4b5d6e]
-  ].forEach(function(v){
-    addBoxBlock({ x: v[0], y: 0, z: v[1], w: v[3], h: v[4], d: v[5], color: v[6], roofColor: v[6] + 0x182020, strip: true, stripColor: 0xffffff, yRot: v[2] });
-  });
-
-  // center transition / connector
-  addBoxBlock({ x: -9.6, y: 0, z: 9.0, w: 5.6, h: 4.2, d: 5.2, color: 0x2f3948, roofColor: 0x70839b, strip: true, stripColor: 0xd0d9e5, yRot: 0.18 });
-  addBoxBlock({ x: 0.0, y: 0, z: 11.2, w: 8.2, h: 4.0, d: 4.8, color: 0x51433f, roofColor: 0x87705d, strip: true, stripColor: 0xffd27b });
-  addBoxBlock({ x: 9.3, y: 0, z: 8.8, w: 5.8, h: 4.2, d: 5.6, color: 0x34485c, roofColor: 0x6e88a3, strip: true, stripColor: 0x8cf1ff, yRot: -0.2 });
-
-  // Left long / outer lane
-  addBoxBlock({ x: -24.8, y: 0, z: 10.0, w: 4.4, h: 4.8, d: 16.0, color: 0x283244, roofColor: 0x566578, strip: true, stripColor: 0xa6b4c8, yRot: 0.18 });
-  addBoxBlock({ x: -20.8, y: 0, z: -1.2, w: 5.2, h: 4.0, d: 8.0, color: 0x1d3342, roofColor: 0x4f7690, strip: true, stripColor: 0x89d8ff, yRot: -0.12 });
-  addBoxBlock({ x: -18.0, y: 0, z: -17.0, w: 5.6, h: 4.2, d: 8.0, color: 0x243847, roofColor: 0x62798a, strip: true, stripColor: 0xb9c9d8, yRot: -0.38 });
-
-  // Right market / connector
-  addBoxBlock({ x: 24.4, y: 0, z: 10.0, w: 4.4, h: 4.8, d: 16.0, color: 0x39424d, roofColor: 0x6b7885, strip: true, stripColor: 0xe2d8c7, yRot: -0.18 });
-  addBoxBlock({ x: 21.0, y: 0, z: -1.0, w: 5.6, h: 4.0, d: 8.0, color: 0x4a3c2c, roofColor: 0x8f7150, strip: true, stripColor: 0xf0c688, yRot: 0.14 });
-  addBoxBlock({ x: 17.8, y: 0, z: -16.8, w: 5.8, h: 4.2, d: 8.2, color: 0x24344a, roofColor: 0x516a84, strip: true, stripColor: 0x89cfff, yRot: 0.38 });
-
-  // --- B side / BLUE side ---
-  addBoxBlock({ x: -18.6, y: 0, z: -24.7, w: 6.6, h: 4.6, d: 8.0, color: 0x2c4d66, roofColor: 0x6da0c5, strip: true, stripColor: 0xb5efff, entrance: [1.6, 1.4, 2.6, 0, -1.0, 4.2] });
-  addBoxBlock({ x: -8.3, y: 0, z: -28.2, w: 5.0, h: 4.2, d: 6.0, color: 0x354252, roofColor: 0x68839e, strip: true, stripColor: 0xc6d8ea, yRot: 0.25 });
-  addBoxBlock({ x: 8.4, y: 0, z: -28.0, w: 7.8, h: 4.8, d: 8.8, color: 0x284860, roofColor: 0x5e8cab, strip: true, stripColor: 0x8fdcff, yRot: -0.14 });
-  addBoxBlock({ x: 20.4, y: 0, z: -23.4, w: 6.0, h: 5.0, d: 10.0, color: 0x4d3f32, roofColor: 0x9b8166, strip: true, stripColor: 0xffddac, yRot: -0.42 });
-  addRaisedPlatform({ x: 0.0, y: 0.34, z: -19.2, w: 8.8, h: 0.68, d: 4.2, color: 0x18212c, emissive: 0x09111a, emissiveIntensity: 0.12 });
-  addRaisedPlatform({ x: -12.8, y: 0.34, z: -18.0, w: 4.6, h: 0.72, d: 8.0, color: 0x283e50, emissive: 0x07121b, emissiveIntensity: 0.12 });
-  addRaisedPlatform({ x: 13.2, y: 0.34, z: -17.3, w: 4.6, h: 0.72, d: 8.0, color: 0x322929, emissive: 0x130b0b, emissiveIntensity: 0.10 });
-
-  // B site cover clusters
-  [
-    [-24.0, -22.6, 1.0, 3.6, 2.0, 5.2, 0x24405a],
-    [-28.0, -26.1, 0.8, 2.2, 2.0, 2.4, 0x715138],
-    [-4.0, -22.8, 1.0, 5.2, 2.2, 4.0, 0x2a4f5d],
-    [4.2, -21.4, 1.0, 3.4, 2.0, 5.4, 0x385766],
-    [14.8, -22.0, 1.0, 4.2, 2.0, 4.4, 0x4e6173]
-  ].forEach(function(v){
-    addBoxBlock({ x: v[0], y: 0, z: v[1], w: v[3], h: v[4], d: v[5], color: v[6], roofColor: v[6] + 0x101820, strip: true, stripColor: 0xffffff, yRot: v[2] });
-  });
-
-  // Underpass + lower connector
-  addRaisedPlatform({ x: 0.0, y: 0.18, z: -6.0, w: 10.0, h: 0.34, d: 6.0, color: 0x0d1622, emissive: 0x000000, emissiveIntensity: 0.0 });
-  addBoxBlock({ x: -1.6, y: 0, z: -6.2, w: 4.6, h: 2.8, d: 3.6, color: 0x1d2635, roofColor: 0x445366, strip: true, stripColor: 0xa8b8c8, yRot: 0.08 });
-  addBoxBlock({ x: 8.8, y: 0, z: -6.2, w: 4.2, h: 2.8, d: 3.6, color: 0x21394a, roofColor: 0x4d6f89, strip: true, stripColor: 0x89d7ff, yRot: -0.08 });
-
-  // Decorative props and cover
-  addCarBlock({ x: -22.0, z: 2.6, yRot: 0.18, scale: 1.0, bodyColor: 0x3d5369, accentColor: 0x81c4ff, glassColor: 0xcfefff });
-  addCarBlock({ x: 15.8, z: 1.8, yRot: 1.52, scale: 1.0, bodyColor: 0x633b2a, accentColor: 0xffb05a, glassColor: 0xfff0da });
-  addCarBlock({ x: -8.8, z: -17.2, yRot: -0.72, scale: 1.0, bodyColor: 0x4a4651, accentColor: 0xd8c69d, glassColor: 0xe8f2ff });
-  addCarBlock({ x: 9.6, z: -17.6, yRot: 0.42, scale: 1.0, bodyColor: 0x284862, accentColor: 0x72dbff, glassColor: 0xd7f2ff });
-
-  [
-    [-28.0, 18.8, 0xff667f],
-    [-22.4, 24.1, 0x6eecff],
-    [23.8, 19.0, 0xffc15c],
-    [27.0, 24.1, 0x8e8bff],
-    [-28.0, -19.0, 0x6fc8ff],
-    [-22.8, -24.0, 0xff6f8f],
-    [23.8, -18.8, 0x7cff98],
-    [27.2, -24.2, 0xffdb6a],
-    [0.0, 0.0, 0x7df0ff],
-    [-11.2, 0.0, 0xffd56a],
-    [11.2, 0.0, 0xa97bff]
+    [-26.2, 22.0, 0xff667f],
+    [-20.8, 18.6, 0x6eecff],
+    [ 20.6, 22.0, 0xffc15c],
+    [ 26.0, 18.6, 0x8e8bff],
+    [-26.2,-22.0, 0x6fc8ff],
+    [-20.8,-18.6, 0xff6f8f],
+    [ 20.6,-22.0, 0x7cff98],
+    [ 26.0,-18.6, 0xffdb6a],
+    [  0.0,  0.0, 0x7df0ff],
+    [-11.2,  0.0, 0xffd56a],
+    [ 11.2,  0.0, 0xa97bff]
   ].forEach(function(p){
     addLampPost(p[0], p[1], p[2]);
   });
 
-  // Site labels
+  // Labels to match the reference image
   addSpawnMarker('RED スポーン', 0, 31.0, '#ff607f');
   addSpawnMarker('BLUE スポーン', 0, -31.0, '#63baff');
   addSpawnMarker('A', 0, 14.6, '#ffd16d');

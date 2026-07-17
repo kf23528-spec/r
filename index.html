@@ -2140,10 +2140,17 @@ function updateBombs(dt){
 function addKillFeed(text){var d=document.createElement('div');d.className='kfItem';d.textContent=text;killFeedEl.appendChild(d);setTimeout(function(){if(d.parentNode)d.parentNode.removeChild(d);},2600);}
 function flashHitIndicator(){hitIndicator.classList.add('active');setTimeout(function(){hitIndicator.classList.remove('active');},120);}
 function showKillAnnouncement(text){announceEl.textContent=text||'HIT!';announceEl.classList.remove('show');void announceEl.offsetWidth;announceEl.classList.add('show');}
+
+function grantRoundBomb(){
+  bombCharges = 1;
+  updateBombUI();
+  updateBombTrajectoryUI();
+}
+
 function resetRoundState(){
   roundResolved=false;matchOver=false;player.alive=true;player.spectating=false;spectateTargetId='';
   player.hp=player.maxHp=100;ammo=MAG_SIZE;reloading=false;reloadTimer=0;
-  bombCharges=1;bombModeActive=false;bombs.length=0;
+  grantRoundBomb();bombModeActive=false;bombs.length=0;
   gunState.reloadAnim=false;gunState.reloadAnimT=0;gunState.recoil=0;moveVel.set(0,0);
   resetTouchAndInputState();
   reviveHumansForNewRound();

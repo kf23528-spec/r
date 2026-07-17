@@ -3241,7 +3241,7 @@ function triggerRecoil(){gunState.recoil=Math.min(1.0,gunState.recoil+(adsActive
 
 var currentMapId = 'arena';
 var MAP_MODEL_URL = 'building interior 3d model.glb';
-var MAP_TARGET_SIZE = 78;
+var MAP_TARGET_SIZE = 76;
 var mapRoot = null;
 var mapLoadToken = 0;
 var mapRaycaster = new T.Raycaster();
@@ -3332,8 +3332,8 @@ function buildProceduralArena(){
 
       root.traverse(function(o){
         if(o && o.isMesh){
-          o.castShadow = true;
-          o.receiveShadow = true;
+          o.castShadow = false;
+          o.receiveShadow = false;
           if(o.material && o.material.isMaterial){
             o.material = o.material.clone();
           }
@@ -3359,6 +3359,7 @@ function buildProceduralArena(){
       root.position.x -= scaledCenter.x;
       root.position.z -= scaledCenter.z;
       root.position.y -= scaledBox.min.y;
+      root.position.y -= 0.18;
       root.userData.isMapDecor = true;
 
       scene.add(root);

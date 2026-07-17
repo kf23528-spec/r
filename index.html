@@ -279,7 +279,7 @@ var RANK_KEY = 'arena_rank_v9';
 var SEND_HZ = 50;
 var MATCH_PLAYER_MIN = 2;
 var MAX_PLAYERS = 8;
-var MAP_BORDER = 35.2;
+var MAP_BORDER = 39.0;
 var PLAYER_RADIUS = 0.42;
 var PLAYER_HEIGHT = 1.6;
 var BULLET_SPEED = 85;
@@ -1714,7 +1714,10 @@ function updateWaitingUI(){
   waitingSubtitle.textContent=isRandomMatch?'30秒後にAIを補完して開戦！':'同じ部屋の本物のプレイヤーを待っています';
   updateWaitingLaunchBtn();
 }
-function getSpawnForTeam(team){return team===TEAM_RED?new T.Vector3(12,1.6,-20):new T.Vector3(-12,1.6,20);}
+function getSpawnForTeam(team){
+  var z = Math.max(10, (MAP_BORDER || 39) - 8);
+  return team===TEAM_RED ? new T.Vector3(0,1.6,z) : new T.Vector3(0,1.6,-z);
+}
 function updateLobbyCamera(dt){camera.position.lerp(new T.Vector3(0,16,33),1-Math.exp(-2.5*dt));camera.lookAt(0,1.2,0);}
 function syncCameraRotation(){camera.rotation.x=pitch;camera.rotation.y=yaw;}
 var AI_RADIUS=0.5;
@@ -1722,6 +1725,23 @@ function resolveCollision(next){
   var safe = next.clone();
   safe.y = PLAYER_HEIGHT;
   var r = PLAYER_RADIUS;
+
+  if(mapRoot){
+    var from = camera.position.clone();
+    from.y = PLAYER_HEIGHT;
+    var to = safe.clone();
+    to.y = PLAYER_HEIGHT;
+    var seg = to.clone().sub(from);
+    var segLen = seg.length();
+    if(segLen > 1e-6){
+      mapRaycaster.set(from, seg.clone().normalize());
+      mapRaycaster.far = segLen;
+      var hits = mapRaycaster.intersectObject(mapRoot, true);
+      if(hits && hits.length && hits[0] && hits[0].distance <= segLen){
+        return from.clone();
+      }
+    }
+  }
 
   for(var i = 0; i < colliders.length; i++){
     var c = colliders[i];
@@ -1747,6 +1767,17 @@ function resolveCollisionForAI(nx,nz){
 }
 function aiWouldHitWall(nx,nz){
   var r = AI_RADIUS;
+  if(mapRoot){
+    var from = new T.Vector3(nx, PLAYER_HEIGHT, nz);
+    var to = new T.Vector3(nx + Math.cos(0) * 0.01, PLAYER_HEIGHT, nz + Math.sin(0) * 0.01);
+    var dir = to.clone().sub(from);
+    if(dir.lengthSq() > 1e-10){
+      mapRaycaster.set(from, dir.clone().normalize());
+      mapRaycaster.far = 0.01;
+      var hits = mapRaycaster.intersectObject(mapRoot, true);
+      if(hits && hits.length) return true;
+    }
+  }
   for(var i = 0; i < colliders.length; i++){
     if(pointHitsCollider(nx, nz, colliders[i], r)) return true;
   }
@@ -2140,17 +2171,10 @@ function updateBombs(dt){
 function addKillFeed(text){var d=document.createElement('div');d.className='kfItem';d.textContent=text;killFeedEl.appendChild(d);setTimeout(function(){if(d.parentNode)d.parentNode.removeChild(d);},2600);}
 function flashHitIndicator(){hitIndicator.classList.add('active');setTimeout(function(){hitIndicator.classList.remove('active');},120);}
 function showKillAnnouncement(text){announceEl.textContent=text||'HIT!';announceEl.classList.remove('show');void announceEl.offsetWidth;announceEl.classList.add('show');}
-
-function grantRoundBomb(){
-  bombCharges = 1;
-  updateBombUI();
-  updateBombTrajectoryUI();
-}
-
 function resetRoundState(){
   roundResolved=false;matchOver=false;player.alive=true;player.spectating=false;spectateTargetId='';
   player.hp=player.maxHp=100;ammo=MAG_SIZE;reloading=false;reloadTimer=0;
-  grantRoundBomb();bombModeActive=false;bombs.length=0;
+  bombCharges=1;bombModeActive=false;bombs.length=0;
   gunState.reloadAnim=false;gunState.reloadAnimT=0;gunState.recoil=0;moveVel.set(0,0);
   resetTouchAndInputState();
   reviveHumansForNewRound();
@@ -2689,6 +2713,20 @@ function checkLocalShotHit(origin,dir){
   var MAX_RANGE=60;
   var end=origin.clone().addScaledVector(dir,MAX_RANGE);
   var nearest=null,nearestDist=Infinity;
+
+  if(mapRoot){
+    mapRaycaster.set(origin.clone(), dir.clone().normalize());
+    mapRaycaster.far = MAX_RANGE;
+    var mapHits = mapRaycaster.intersectObject(mapRoot, true);
+    if(mapHits && mapHits.length){
+      var mh = mapHits[0];
+      if(mh && mh.distance >= 0 && mh.distance <= MAX_RANGE && mh.distance < nearestDist){
+        nearestDist = mh.distance;
+        nearest = {type:'obstacle',point:mh.point.clone()};
+      }
+    }
+  }
+
   for(var i=0;i<colliders.length;i++){
     var d=rayIntersectAABBDistance(origin,dir,colliders[i]);
     if(d!==null&&d>=0&&d<=MAX_RANGE&&d<nearestDist){nearestDist=d;nearest={type:'obstacle',point:origin.clone().addScaledVector(dir,d)};}
@@ -2762,11 +2800,20 @@ function updateBullets(dt){
     var isLocal=b.ownerId===myId||b.ownerId==='local';
     if(!isLocal){
       var hit=false;
-      for(var c=0;c<colliders.length;c++){
-        var segDist=b.prev.distanceTo(b.pos);
-        if(segDist<1e-6){if(hitPointInBox(b.pos,colliders[c])){hit=true;break;}continue;}
+      var segDist=b.prev.distanceTo(b.pos);
+      if(mapRoot && segDist>1e-6){
         var segDir=b.pos.clone().sub(b.prev).normalize();
-        var hitDist=rayIntersectAABBDistance(b.prev,segDir,colliders[c]);
+        mapRaycaster.set(b.prev.clone(), segDir);
+        mapRaycaster.far = segDist;
+        var mapHits = mapRaycaster.intersectObject(mapRoot, true);
+        if(mapHits && mapHits.length && mapHits[0] && mapHits[0].distance <= segDist){
+          hit = true;
+        }
+      }
+      for(var c=0;c<colliders.length && !hit;c++){
+        if(segDist<1e-6){if(hitPointInBox(b.pos,colliders[c])){hit=true;break;}continue;}
+        var segDir2=b.pos.clone().sub(b.prev).normalize();
+        var hitDist=rayIntersectAABBDistance(b.prev,segDir2,colliders[c]);
         if(hitDist!==null&&hitDist<=segDist){hit=true;break;}
       }
       if(hit||Math.abs(b.pos.x)>MAP_BORDER+2||Math.abs(b.pos.z)>MAP_BORDER+2){flashKillFx(b.pos);b.dead=true;if(b.mesh&&b.mesh.parent)b.mesh.parent.remove(b.mesh);b.mesh=null;bullets.splice(i,1);continue;}
@@ -3193,6 +3240,11 @@ function triggerRecoil(){gunState.recoil=Math.min(1.0,gunState.recoil+(adsActive
 
 
 var currentMapId = 'arena';
+var MAP_MODEL_URL = 'building interior 3d model.glb';
+var MAP_TARGET_SIZE = 78;
+var mapRoot = null;
+var mapLoadToken = 0;
+var mapRaycaster = new T.Raycaster();
 var MAP_DEFS = {
   arena: {
     name: 'URBAN BLOCK',
@@ -3236,153 +3288,98 @@ var MAP_DEFS = {
 };
 
 function getSpawnPointsForMap(mapId,team){
-  var def=MAP_DEFS.arena;
-  return (def.spawns&&def.spawns[team])?def.spawns[team]:MAP_DEFS.arena.spawns[team];
+  var z = team===TEAM_RED ? Math.max(10, (MAP_BORDER || 39) - 10) : -Math.max(10, (MAP_BORDER || 39) - 10);
+  return [
+    {x:-12,z:z},
+    {x:0,z:z},
+    {x:12,z:z}
+  ];
 }
 
 
 
+function clearLoadedMapModel(){
+  if(mapRoot){
+    if(mapRoot.parent) mapRoot.parent.remove(mapRoot);
+    mapRoot = null;
+  }
+  mapLoadToken++;
+}
+
 function buildProceduralArena(){
   clearMapDecor();
+  clearLoadedMapModel();
+
   scene.fog = new T.FogExp2(0x101824, 0.0105);
   scene.background = new T.Color(0x081018);
 
-  // Single clean base floor to avoid z-fighting / floor flicker
+  // faint base floor so the map still reads while the GLB is loading
   addFloorPatch(0, 0, 84, 84, 0x0f1723, 1);
+  addNeonFloorLine(0, 0, 14, 0.14, 0x6078ff, 1);
 
-  // Strong top/bottom identity + lane guides
-  addNeonFloorLine(0, 34.2, 70, 0.24, 0xff5b78, 1);
-  addNeonFloorLine(0, -34.2, 70, 0.24, 0x4aa8ff, 1);
-  addNeonFloorLine(-34.2, 0, 0.24, 70, 0x7beeff, 1);
-  addNeonFloorLine(34.2, 0, 0.24, 70, 0xffb35c, 1);
-  addNeonFloorLine(0, 0, 12, 0.18, 0x7078ff, 1);
-  addNeonFloorLine(0, 16.4, 28, 0.14, 0xf3cf68, 1);
-  addNeonFloorLine(0, -16.4, 28, 0.14, 0x64d8ff, 1);
+  var token = ++mapLoadToken;
+  var loader = new GLTFLoader();
+  loader.load(
+    MAP_MODEL_URL,
+    function(gltf){
+      if(token !== mapLoadToken) return;
 
-  // Outer boundary
-  [
-    [0, 2.4, -36.4, 72, 4.8, 2.0, 0x171f2c],
-    [0, 2.4,  36.4, 72, 4.8, 2.0, 0x1b2333],
-    [-36.4, 2.4, 0, 2.0, 4.8, 72, 0x171f2c],
-    [36.4, 2.4, 0, 2.0, 4.8, 72, 0x1b2333]
-  ].forEach(function(v){
-    var wall = new T.Mesh(
-      new T.BoxGeometry(v[3], v[4], v[5]),
-      new T.MeshStandardMaterial({ color: v[6], roughness: 0.92, metalness: 0.04 })
-    );
-    wall.position.set(v[0], v[1], v[2]);
-    wall.castShadow = true;
-    wall.receiveShadow = true;
-    wall.userData.isMapDecor = true;
-    scene.add(wall);
-    addColliderBox(v[0], v[1], v[2], v[3], v[4], v[5], wall);
-  });
+      clearMapDecor();
+      clearLoadedMapModel();
 
-  // ================= RED SPAWN (top) =================
-  addBoxBlock({ x: -19.5, y: 0, z: 30.4, w: 9.0, h: 4.6, d: 6.6, color: 0x60303a, roofColor: 0x9f5b67, strip: true, stripColor: 0xffc2c8, yRot: 0.05 });
-  addBoxBlock({ x:   0.0, y: 0, z: 31.6, w: 10.0, h: 4.8, d: 5.6, color: 0x54303c, roofColor: 0x97616e, strip: true, stripColor: 0xffc8ce });
-  addBoxBlock({ x:  19.5, y: 0, z: 30.4, w: 9.0, h: 4.6, d: 6.6, color: 0x384f61, roofColor: 0x7aa8c6, strip: true, stripColor: 0xa8efff, yRot: -0.05 });
-  // Spawn exit chokepoints (two narrow doorways funnel into A Long / A Short)
-  addBoxBlock({ x: -8.4, y: 0, z: 28.2, w: 3.2, h: 4.2, d: 2.0, color: 0x3a2830, roofColor: 0x6c4a55 });
-  addBoxBlock({ x:  8.4, y: 0, z: 28.2, w: 3.2, h: 4.2, d: 2.0, color: 0x2c3a48, roofColor: 0x54718c });
+      var root = gltf.scene || (gltf.scenes && gltf.scenes[0]);
+      if(!root) return;
 
-  // ================= A LONG (left lane, red -> A) =================
-  addBoxBlock({ x: -26.6, y: 0, z: 25.0, w: 4.4, h: 4.6, d: 9.0, color: 0x2c3a4e, roofColor: 0x5d7590, strip: true, stripColor: 0xb0dfff, yRot: 0.10 });
-  addBoxBlock({ x: -30.2, y: 0, z: 15.4, w: 4.0, h: 4.6, d: 11.0, color: 0x25313f, roofColor: 0x53687f, strip: true, stripColor: 0xa4d4f2, yRot: -0.08 });
-  addBoxBlock({ x: -25.6, y: 0, z:  6.6, w: 5.4, h: 4.4, d: 6.4, color: 0x2f3f52, roofColor: 0x65809c, strip: true, stripColor: 0xb6e6ff, yRot: 0.14 });
-  addRaisedPlatform({ x: -28.4, y: 0.34, z: 20.2, w: 3.6, h: 0.66, d: 5.0, color: 0x1c2733, emissive: 0x0a1520, emissiveIntensity: 0.08 });
-  addCarBlock({ x: -28.6, y: 0, z: 12.6, yRot: 1.48, bodyColor: 0x3a3a44, glassColor: 0x8fb0d0 });
+      root.traverse(function(o){
+        if(o && o.isMesh){
+          o.castShadow = true;
+          o.receiveShadow = true;
+          if(o.material && o.material.isMaterial){
+            o.material = o.material.clone();
+          }
+        }
+      });
 
-  // ================= A SHORT (right lane, red -> A, narrow entry) =================
-  addBoxBlock({ x:  22.4, y: 0, z: 22.6, w: 5.0, h: 4.2, d: 6.8, color: 0x4e3a2d, roofColor: 0x8f6b52, strip: true, stripColor: 0xf0cc87, yRot: -0.12 });
-  addBoxBlock({ x:  27.0, y: 0, z: 14.8, w: 3.6, h: 4.4, d: 9.6, color: 0x453322, roofColor: 0x7d5d44, strip: true, stripColor: 0xf0cc87, yRot: 0.10 });
-  addBoxBlock({ x:  19.6, y: 0, z: 12.4, w: 3.6, h: 4.0, d: 4.4, color: 0x54402c, roofColor: 0x8f6b4c, yRot: -0.06 });
+      var box = new T.Box3().setFromObject(root);
+      var size = new T.Vector3();
+      var center = new T.Vector3();
+      box.getSize(size);
+      box.getCenter(center);
 
-  // ================= A SITE (narrow, boxed-in, hard angles) =================
-  addBoxBlock({ x: -12.6, y: 0, z: 17.2, w: 5.0, h: 4.2, d: 4.6, color: 0x39465a, roofColor: 0x71849a, strip: true, stripColor: 0xc3d0e0, yRot: -0.08 });
-  addBoxBlock({ x:  -4.0, y: 0, z: 19.4, w: 4.4, h: 4.0, d: 4.0, color: 0x3d3040, roofColor: 0x7d6278, strip: true, stripColor: 0xf0b7df, yRot: 0.12 });
-  addBoxBlock({ x:   4.4, y: 0, z: 19.2, w: 4.4, h: 4.0, d: 4.0, color: 0x364d62, roofColor: 0x708ca5, strip: true, stripColor: 0xa4e9ff, yRot: -0.10 });
-  addBoxBlock({ x:  12.8, y: 0, z: 17.0, w: 5.0, h: 4.2, d: 4.6, color: 0x4c5d6f, roofColor: 0x8296a9, strip: true, stripColor: 0xe8ebef, yRot: 0.08 });
-  addRaisedPlatform({ x: 0.0, y: 0.32, z: 13.6, w: 8.0, h: 0.62, d: 3.2, color: 0x2a2038, emissive: 0x160f22, emissiveIntensity: 0.10 });
-  addBoxBlock({ x: -7.0, y: 0, z: 12.0, w: 3.4, h: 4.0, d: 3.0, color: 0x2f3948, roofColor: 0x73859a, yRot: -0.10 });
-  addBoxBlock({ x:  7.0, y: 0, z: 12.0, w: 3.4, h: 4.0, d: 3.0, color: 0x2f3948, roofColor: 0x73859a, yRot: 0.10 });
-  addCarBlock({ x: -10.6, y: 0, z: 21.6, yRot: 0.5, bodyColor: 0x8a2b36, glassColor: 0x9fbfe0 });
+      var maxDim = Math.max(size.x, size.z, 0.001);
+      var scale = MAP_TARGET_SIZE / maxDim;
 
-  // ================= HEAVEN / HIGH GROUND (ladder-access platform above A) =================
-  addRaisedPlatform({ x: 22.0, y: 2.5, z: 4.2, w: 6.0, h: 0.5, d: 8.0, color: 0x1c2c3c, emissive: 0x0a1420, emissiveIntensity: 0.10 });
-  addBoxBlock({ x: 22.0, y: 0, z: 4.2, w: 1.2, h: 5.0, d: 1.2, color: 0x2a3b4e, roof: false });
+      root.scale.setScalar(scale);
+      root.updateMatrixWorld(true);
 
-  // ================= MID (narrow winding chicane, no straight sightline through) =================
-  addBoxBlock({ x: -16.8, y: 0, z: 4.0, w: 4.6, h: 4.2, d: 4.4, color: 0x273244, roofColor: 0x5d6d83, strip: true, stripColor: 0xa6b8d0, yRot: 0.14 });
-  addBoxBlock({ x:  -8.6, y: 0, z: 2.4, w: 4.2, h: 4.0, d: 4.0, color: 0x38485a, roofColor: 0x667d95, strip: true, stripColor: 0xd3e0eb, yRot: -0.16 });
-  addBoxBlock({ x:   0.0, y: 0, z: 4.2, w: 4.6, h: 4.0, d: 4.2, color: 0x5a4636, roofColor: 0x94755d, strip: true, stripColor: 0xffdd9a, yRot: 0.10 });
-  addBoxBlock({ x:   8.6, y: 0, z: 2.4, w: 4.2, h: 4.0, d: 4.0, color: 0x35485d, roofColor: 0x6f8aa5, strip: true, stripColor: 0x95e8ff, yRot: -0.14 });
-  addBoxBlock({ x:  16.8, y: 0, z: 4.0, w: 4.6, h: 4.2, d: 4.4, color: 0x4a3d2d, roofColor: 0x8c6d50, strip: true, stripColor: 0xf1ca86, yRot: 0.16 });
-  addRaisedPlatform({ x: -4.2, y: 0.28, z: -1.0, w: 2.6, h: 0.56, d: 2.6, color: 0x1c2530, emissive: 0x0a1420, emissiveIntensity: 0.08 });
-  addRaisedPlatform({ x:  4.2, y: 0.28, z: -1.0, w: 2.6, h: 0.56, d: 2.6, color: 0x1c2530, emissive: 0x0a1420, emissiveIntensity: 0.08 });
-  addBoxBlock({ x: -22.6, y: 0, z: -3.0, w: 4.0, h: 4.4, d: 7.2, color: 0x1f3343, roofColor: 0x4f7892, strip: true, stripColor: 0x89d8ff, yRot: -0.10 });
-  addBoxBlock({ x:  22.6, y: 0, z: -3.0, w: 4.0, h: 4.4, d: 7.2, color: 0x34475e, roofColor: 0x6783a0, strip: true, stripColor: 0x8ad0ff, yRot: 0.10 });
+      var scaledBox = new T.Box3().setFromObject(root);
+      var scaledCenter = new T.Vector3();
+      scaledBox.getCenter(scaledCenter);
 
-  // ================= CONNECTORS (site-to-site, offset from mid so no single sightline dominates) =================
-  addBoxBlock({ x: -30.6, y: 0, z: -3.0, w: 3.6, h: 4.6, d: 15.0, color: 0x25313f, roofColor: 0x557088, strip: true, stripColor: 0xa4d4f2, yRot: 0.06 });
-  addBoxBlock({ x:  30.6, y: 0, z: -3.0, w: 3.6, h: 4.6, d: 15.0, color: 0x3a434f, roofColor: 0x6c7884, strip: true, stripColor: 0xe7dfd0, yRot: -0.06 });
-  addBoxBlock({ x: -25.0, y: 0, z: -14.6, w: 5.0, h: 4.2, d: 4.6, color: 0x24384b, roofColor: 0x667c8b, strip: true, stripColor: 0xc2d0de, yRot: -0.18 });
-  addBoxBlock({ x:  25.0, y: 0, z: -14.6, w: 5.0, h: 4.2, d: 4.6, color: 0x2f3a4b, roofColor: 0x5e6c7d, strip: true, stripColor: 0xd6dee6, yRot: 0.18 });
+      root.position.x -= scaledCenter.x;
+      root.position.z -= scaledCenter.z;
+      root.position.y -= scaledBox.min.y;
+      root.userData.isMapDecor = true;
 
-  // ================= MARKET (winding alley, right side, B approach) =================
-  addBoxBlock({ x: 15.6, y: 0, z: -8.4, w: 3.4, h: 4.0, d: 5.4, color: 0x4a392c, roofColor: 0x8f6f52, strip: true, stripColor: 0xf0c688, yRot: 0.30 });
-  addBoxBlock({ x: 19.8, y: 0, z: -14.0, w: 3.4, h: 4.0, d: 5.4, color: 0x453322, roofColor: 0x7d5d44, strip: true, stripColor: 0xf0cc87, yRot: -0.24 });
-  addBoxBlock({ x: 14.8, y: 0, z: -18.6, w: 3.4, h: 4.0, d: 4.8, color: 0x54402c, roofColor: 0x8f6b4c, strip: true, stripColor: 0xf0cc87, yRot: 0.20 });
-  addCarBlock({ x: 21.2, y: 0, z: -8.8, yRot: -0.4, bodyColor: 0x6a4a20, glassColor: 0xd8c090 });
+      scene.add(root);
+      mapRoot = root;
 
-  // ================= B SHORT (narrow left entry into B) =================
-  addBoxBlock({ x: -20.6, y: 0, z: -12.4, w: 3.6, h: 4.2, d: 5.4, color: 0x36566f, roofColor: 0x749bb9, strip: true, stripColor: 0xb9efff, yRot: -0.10 });
-  addBoxBlock({ x: -16.4, y: 0, z: -18.0, w: 3.4, h: 4.0, d: 5.0, color: 0x2f5c3e, roofColor: 0x7ca88d, strip: true, stripColor: 0xbcefd2, yRot: 0.14 });
+      var xSize = scaledBox.max.x - scaledBox.min.x;
+      var zSize = scaledBox.max.z - scaledBox.min.z;
+      MAP_BORDER = Math.max(34, Math.max(xSize, zSize) * 0.5 + 2.5);
 
-  // ================= B LONG (right lane down to B, long sightline) =================
-  addBoxBlock({ x: 24.4, y: 0, z: -24.4, w: 4.2, h: 4.6, d: 11.0, color: 0x2b3f2c, roofColor: 0x5f8262, strip: true, stripColor: 0xbcefd2, yRot: 0.08 });
-  addRaisedPlatform({ x: 24.4, y: 0.32, z: -18.6, w: 3.4, h: 0.62, d: 4.4, color: 0x1a2a1c, emissive: 0x0a160c, emissiveIntensity: 0.08 });
-
-  // ================= B SITE (boxed, low sightlines, crates for cover) =================
-  addBoxBlock({ x: -10.6, y: 0, z: -17.8, w: 4.6, h: 4.0, d: 4.2, color: 0x33445a, roofColor: 0x6f8aa8, strip: true, stripColor: 0xa2e8ff, yRot: -0.12 });
-  addBoxBlock({ x:  -2.4, y: 0, z: -19.6, w: 4.2, h: 4.0, d: 3.8, color: 0x2a3242, roofColor: 0x687689, strip: true, stripColor: 0xdde7f5, yRot: 0.10 });
-  addBoxBlock({ x:   5.6, y: 0, z: -19.4, w: 4.2, h: 4.0, d: 3.8, color: 0x463524, roofColor: 0x8f7050, strip: true, stripColor: 0xf0c787, yRot: -0.10 });
-  addBoxBlock({ x:  13.0, y: 0, z: -17.4, w: 4.6, h: 4.0, d: 4.2, color: 0x2f485b, roofColor: 0x6f8ea9, strip: true, stripColor: 0x96e7ff, yRot: 0.12 });
-  addRaisedPlatform({ x: 1.6, y: 0.30, z: -22.6, w: 9.0, h: 0.58, d: 3.0, color: 0x18232e, emissive: 0x0a1420, emissiveIntensity: 0.08 });
-  addBoxBlock({ x: -3.6, y: 0, z: -25.0, w: 3.0, h: 3.8, d: 2.8, color: 0x24384b, roof: false, yRot: 0.2 });
-  addBoxBlock({ x:  6.6, y: 0, z: -25.2, w: 3.0, h: 3.8, d: 2.8, color: 0x4c372b, roof: false, yRot: -0.2 });
-
-  // ================= UNDERPASS (B site to BLUE spawn, short tunnel feel) =================
-  addBoxBlock({ x: -18.0, y: 0, z: -26.6, w: 4.6, h: 4.2, d: 5.4, color: 0x2a1820, roofColor: 0x543040, strip: true, stripColor: 0xf0b8e0, yRot: 0.16 });
-  addBoxBlock({ x:  18.0, y: 0, z: -26.6, w: 4.6, h: 4.2, d: 5.4, color: 0x18312c, roofColor: 0x3c6058, strip: true, stripColor: 0x9ceedd, yRot: -0.16 });
-
-  // ================= BLUE SPAWN (bottom) =================
-  addBoxBlock({ x: -19.5, y: 0, z: -31.6, w: 9.0, h: 4.6, d: 6.6, color: 0x2d4b63, roofColor: 0x6da1c7, strip: true, stripColor: 0xb4efff, yRot: -0.05 });
-  addBoxBlock({ x:   0.0, y: 0, z: -31.6, w: 10.0, h: 4.8, d: 5.6, color: 0x274156, roofColor: 0x5d90b6, strip: true, stripColor: 0xb4efff });
-  addBoxBlock({ x:  19.5, y: 0, z: -31.6, w: 9.0, h: 4.6, d: 6.6, color: 0x365a49, roofColor: 0x7ca88d, strip: true, stripColor: 0xbcefd2, yRot: 0.05 });
-  addBoxBlock({ x: -8.4, y: 0, z: -29.4, w: 3.2, h: 4.2, d: 2.0, color: 0x203040, roofColor: 0x3e5c78 });
-  addBoxBlock({ x:  8.4, y: 0, z: -29.4, w: 3.2, h: 4.2, d: 2.0, color: 0x203828, roofColor: 0x3e6250 });
-
-  // ================= Lamp posts, tucked at corners so they never sit in a lane =================
-  [
-    [-33.6, 33.6, 0xff667f],
-    [ 33.6, 33.6, 0x6eecff],
-    [-33.6,-33.6, 0x6fc8ff],
-    [ 33.6,-33.6, 0xffdb6a],
-    [-33.6,  0.0, 0xa97bff],
-    [ 33.6,  0.0, 0x7cff98],
-    [  0.0, 24.0, 0xffb0c0],
-    [  0.0,-24.0, 0xa0e8ff]
-  ].forEach(function(p){
-    addLampPost(p[0], p[1], p[2]);
-  });
-
-  // ================= Labels matching the reference map =================
-  addSpawnMarker('RED スポーン', 0, 34.6, '#ff607f');
-  addSpawnMarker('BLUE スポーン', 0, -35.6, '#63baff');
-  addSpawnMarker('A', 0, 17.6, '#ffd16d');
-  addSpawnMarker('B', 1.6, -19.4, '#7fc7ff');
-  addSpawnMarker('ミッド', 0, 3.2, '#8fa0ff');
+      // reference markers for the loaded map
+      addSpawnMarker('RED スポーン', 0, MAP_BORDER - 5.0, '#ff607f');
+      addSpawnMarker('BLUE スポーン', 0, -MAP_BORDER + 5.0, '#63baff');
+      addSpawnMarker('A', 0, MAP_BORDER * 0.40, '#ffd16d');
+      addSpawnMarker('B', 0, -MAP_BORDER * 0.32, '#7fc7ff');
+      addSpawnMarker('ミッド', 0, 0, '#8fa0ff');
+    },
+    undefined,
+    function(err){
+      console.error('Map GLB load failed:', err);
+    }
+  );
 }
 
 function buildMap(mapId){

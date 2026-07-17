@@ -280,7 +280,7 @@ var SEND_HZ = 50;
 var MATCH_PLAYER_MIN = 2;
 var MAX_PLAYERS = 8;
 var MAP_BORDER = 35.2;
-var PLAYER_RADIUS = 0.36;
+var PLAYER_RADIUS = 0.42;
 var PLAYER_HEIGHT = 1.6;
 var BULLET_SPEED = 85;
 var BULLET_LIFE = 0.45;
@@ -683,7 +683,6 @@ function playGunSound(isBot){
 function clamp(v,mn,mx){return Math.max(mn,Math.min(mx,v));}
 function clamp01(v){return clamp(v,0,1);}
 function lerp(a,b,t){return a+(b-a)*t;}
-function lerpAngle(a,b,t){var d=Math.atan2(Math.sin(b-a),Math.cos(b-a));return a+d*t;}
 function escapeHtml(s){return String(s).replace(/[&<>"']/g,function(ch){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[ch];});}
 function getRoomInput(){return (roomInput.value||'').replace(/[^0-9]/g,'').slice(0,4);}
 function clampVecToMap(v){v.x=clamp(v.x,-MAP_BORDER,MAP_BORDER);v.z=clamp(v.z,-MAP_BORDER,MAP_BORDER);return v;}
@@ -713,16 +712,14 @@ function colliderLocalToWorld(lx,lz,c){
 }
 function pointHitsCollider(px,pz,c,r){
   var local = worldToColliderLocal(px,pz,c);
-  var pad = 0.06;
-  var hx = Math.max(0.02, c.w / 2 + r - pad);
-  var hz = Math.max(0.02, c.d / 2 + r - pad);
+  var hx = c.w / 2 + r;
+  var hz = c.d / 2 + r;
   return Math.abs(local.x) < hx && Math.abs(local.z) < hz;
 }
 function pushPointOutOfCollider(px,pz,c,r){
   var local = worldToColliderLocal(px,pz,c);
-  var pad = 0.06;
-  var hx = Math.max(0.02, c.w / 2 + r - pad);
-  var hz = Math.max(0.02, c.d / 2 + r - pad);
+  var hx = c.w / 2 + r;
+  var hz = c.d / 2 + r;
   var penX = hx - Math.abs(local.x);
   var penZ = hz - Math.abs(local.z);
   if(penX <= 0 || penZ <= 0) return {x:px,z:pz,hit:false};
@@ -920,14 +917,7 @@ function addBoxBlock(spec){
   scene.add(group);
 
   group.updateMatrixWorld(true);
-  var box = new T.Box3().setFromObject(group);
-  if(!box.isEmpty()){
-    var size = new T.Vector3();
-    var center = new T.Vector3();
-    box.getSize(size);
-    box.getCenter(center);
-    addColliderBox(center.x, center.y, center.z, size.x, size.y, size.z, group, spec.yRot || 0);
-  }
+  addColliderBox(spec.x || 0, spec.y || 0, spec.z || 0, spec.w, spec.h, spec.d, group, spec.yRot || 0);
   return group;
 }
 
@@ -990,20 +980,30 @@ function addCarBlock(spec){
     });
   });
 
+  g.updateMatrixWorld(true);
+  var localBox = new T.Box3().setFromObject(g);
+  var localSize = new T.Vector3();
+  var localCenter = new T.Vector3();
+  localBox.getSize(localSize);
+  localBox.getCenter(localCenter);
   g.position.set(spec.x || 0, spec.y || 0, spec.z || 0);
   g.rotation.y = spec.yRot || 0;
   g.scale.setScalar(spec.scale || 1);
   g.userData.isMapDecor = true;
   scene.add(g);
   g.updateMatrixWorld(true);
-  var box = new T.Box3().setFromObject(g);
-  if(!box.isEmpty()){
-    var size = new T.Vector3();
-    var center = new T.Vector3();
-    box.getSize(size);
-    box.getCenter(center);
-    addColliderBox(center.x, center.y, center.z, size.x, size.y, size.z, g, spec.yRot || 0);
-  }
+  var scl = spec.scale || 1;
+  var ry = spec.yRot || 0;
+  var cos = Math.cos(ry), sin = Math.sin(ry);
+  var rx = localCenter.x * cos - localCenter.z * sin;
+  var rz = localCenter.x * sin + localCenter.z * cos;
+  addColliderBox(
+    (spec.x || 0) + rx * scl,
+    (spec.y || 0) + localCenter.y * scl,
+    (spec.z || 0) + rz * scl,
+    localSize.x * scl, localSize.y * scl, localSize.z * scl,
+    g, ry
+  );
   return g;
 }
 
@@ -1717,7 +1717,7 @@ function updateWaitingUI(){
 function getSpawnForTeam(team){return team===TEAM_RED?new T.Vector3(12,1.6,-20):new T.Vector3(-12,1.6,20);}
 function updateLobbyCamera(dt){camera.position.lerp(new T.Vector3(0,16,33),1-Math.exp(-2.5*dt));camera.lookAt(0,1.2,0);}
 function syncCameraRotation(){camera.rotation.x=pitch;camera.rotation.y=yaw;}
-var AI_RADIUS=0.42;
+var AI_RADIUS=0.5;
 function resolveCollision(next){
   var safe = next.clone();
   safe.y = PLAYER_HEIGHT;
@@ -2545,17 +2545,7 @@ function applyRemoteState(id,s){
   roomPlayers[id]=roomPlayers[id]||{};
   Object.assign(roomPlayers[id],{name:normalized.name,team:normalized.team,room:normalized.room,x:normalized.x,y:normalized.y,z:normalized.z,ry:normalized.ry,alive:normalized.alive,hp:normalized.hp,shotSeq:normalized.shotSeq,lastShotAt:normalized.lastShotAt});
   var av=ensureAvatar(id,normalized.team,normalized.name);
-  if(av && av.userData){
-    if(!Number.isFinite(av.userData._remoteX)) av.position.set(normalized.x,0,normalized.z);
-    if(!Number.isFinite(av.userData._remoteRY)) av.rotation.y=normalized.ry;
-    av.userData._remoteX = normalized.x;
-    av.userData._remoteY = normalized.y;
-    av.userData._remoteZ = normalized.z;
-    av.userData._remoteRY = normalized.ry;
-    av.userData._lastNetSyncAt = performance.now();
-  }else{
-    av.position.set(normalized.x,0,normalized.z); av.rotation.y=normalized.ry;
-  }
+  av.position.set(normalized.x,0,normalized.z); av.rotation.y=normalized.ry;
   av.visible=normalized.alive!==false;
   ensureNameTag(av,normalized.name,normalized.team); updateAvatarHPBar(av,normalized.hp);
   if(normalized.shotSeq>0){
@@ -2648,41 +2638,24 @@ function markAvatarShooting(id, shotSeq, shotAt){
   requestAnimationFrame(function(){ forceUpdateRemoteAvatarAnimation(id, true); });
   setTimeout(function(){ forceUpdateRemoteAvatarAnimation(id, true); }, 120);
 }
-function updateRemotePlayersFromState(dt){
+function updateRemotePlayersFromState(){
   var ids={};
-  var smooth = Math.min(1, Math.max(0, Number.isFinite(dt) ? dt * 14 : 0.18));
   Object.keys(roomPlayers||{}).forEach(function(id){ids[id]=true;});
   Object.keys(remoteStates||{}).forEach(function(id){ids[id]=true;});
   Object.keys(ids).forEach(function(id){
     if(socket&&id===socket.id)return;
     var p=remoteStates[id]||roomPlayers[id]; if(!p)return;
     var av=ensureAvatar(id,p.team||TEAM_BLUE,p.name||id);
-    if(!av.userData) av.userData = {};
-    var tx=Number(p.x)||0, ty=Number(p.y)||PLAYER_HEIGHT, tz=Number(p.z)||0, tryaw=Number(p.ry)||0;
-    if(!Number.isFinite(av.userData._remoteX)){
-      av.userData._remoteX = tx;
-      av.userData._remoteY = ty;
-      av.userData._remoteZ = tz;
-      av.userData._remoteRY = tryaw;
-      av.position.set(tx,0,tz);
-      av.rotation.y = tryaw;
-    }
-    var prevX=Number.isFinite(av.userData._prevX)?av.userData._prevX:av.userData._remoteX;
-    var prevZ=Number.isFinite(av.userData._prevZ)?av.userData._prevZ:av.userData._remoteZ;
-    av.userData._prevX = av.userData._remoteX;
-    av.userData._prevZ = av.userData._remoteZ;
-    av.userData._remoteX = tx;
-    av.userData._remoteY = ty;
-    av.userData._remoteZ = tz;
-    av.userData._remoteRY = tryaw;
-    av.position.x = lerp(av.position.x, tx, smooth);
-    av.position.z = lerp(av.position.z, tz, smooth);
-    av.position.y = 0;
-    av.rotation.y = lerpAngle(av.rotation.y, tryaw, smooth);
+    var nx=Number(p.x)||0, nz=Number(p.z)||0;
+    var prevX=Number.isFinite(av.userData._prevX)?av.userData._prevX:nx;
+    var prevZ=Number.isFinite(av.userData._prevZ)?av.userData._prevZ:nz;
+    var movedDist=Math.hypot(nx-prevX,nz-prevZ);
+    av.userData._prevX=nx; av.userData._prevZ=nz;
+    av.position.set(nx,0,nz);
+    av.rotation.y=Number(p.ry)||0;
     av.visible=p.alive!==false;
     ensureNameTag(av,p.name||id,p.team||TEAM_BLUE);
     updateAvatarHPBar(av,Number.isFinite(p.hp)?p.hp:100);
-    var movedDist=Math.hypot(tx-prevX,tz-prevZ);
     var isMoving = movedDist > REMOTE_MOVING_THRESHOLD;
     var nowMs = performance.now();
     var lastShotSeq = getRemoteShotSeq(id, av);
@@ -3064,16 +3037,19 @@ function initSocket(){
   socket.on('playerState',function(d){
     if(!d||!d.playerId)return;
     if(socket&&d.playerId===socket.id)return;
-    if(roomPlayers[d.playerId]){
-      if(d.x!==undefined)roomPlayers[d.playerId].x=d.x;
-      if(d.y!==undefined)roomPlayers[d.playerId].y=d.y;
-      if(d.z!==undefined)roomPlayers[d.playerId].z=d.z;
-      if(d.ry!==undefined)roomPlayers[d.playerId].ry=d.ry;
-      if(Number.isFinite(d.shotSeq)) roomPlayers[d.playerId].shotSeq = d.shotSeq;
-      if(Number.isFinite(d.lastShotAt)) roomPlayers[d.playerId]._lastShotAt = d.lastShotAt;
-    }
-    if(Number.isFinite(d.shotSeq)) remoteShotSeq[d.playerId] = Math.max(remoteShotSeq[d.playerId]||0, d.shotSeq);
-    if(Number.isFinite(d.lastShotAt)) remoteShotAt[d.playerId] = Math.max(remoteShotAt[d.playerId]||0, d.lastShotAt);
+    var pid=d.playerId;
+    if(!roomPlayers[pid]) roomPlayers[pid]={};
+    if(!remoteStates[pid]) remoteStates[pid]={};
+    [roomPlayers[pid],remoteStates[pid]].forEach(function(target){
+      if(d.x!==undefined)target.x=d.x;
+      if(d.y!==undefined)target.y=d.y;
+      if(d.z!==undefined)target.z=d.z;
+      if(d.ry!==undefined)target.ry=d.ry;
+      if(Number.isFinite(d.shotSeq)) target.shotSeq = d.shotSeq;
+      if(Number.isFinite(d.lastShotAt)) target._lastShotAt = d.lastShotAt;
+    });
+    if(Number.isFinite(d.shotSeq)) remoteShotSeq[pid] = Math.max(remoteShotSeq[pid]||0, d.shotSeq);
+    if(Number.isFinite(d.lastShotAt)) remoteShotAt[pid] = Math.max(remoteShotAt[pid]||0, d.lastShotAt);
     if(inWaiting)updateWaitingUI(); updateRemotePlayersFromState();
   });
   socket.on('playerDisconnected',function(d){var id=d&&(d.id||d);if(!id)return;removeAvatar(id);delete roomPlayers[id];delete remoteStates[id];if(inWaiting)updateWaitingUI();});
@@ -3295,89 +3271,111 @@ function buildProceduralArena(){
     addColliderBox(v[0], v[1], v[2], v[3], v[4], v[5], wall);
   });
 
-  // ---- RED spawn / top zone ----
-  addBoxBlock({ x: -22.0, y: 0, z: 27.8, w: 6.8, h: 4.5, d: 8.0, color: 0x60303a, roofColor: 0x9f5b67, strip: true, stripColor: 0xffc2c8, yRot: 0.08 });
-  addBoxBlock({ x: -10.0, y: 0, z: 30.0, w: 5.4, h: 4.2, d: 6.2, color: 0x4a3440, roofColor: 0x8f6c7d, strip: true, stripColor: 0xf0b8e0, yRot: -0.20 });
-  addBoxBlock({ x:  10.5, y: 0, z: 30.2, w: 7.8, h: 4.8, d: 8.8, color: 0x6c4a31, roofColor: 0xb79063, strip: true, stripColor: 0xffe19d, yRot: 0.10 });
-  addBoxBlock({ x:  22.4, y: 0, z: 26.8, w: 6.2, h: 4.7, d: 9.2, color: 0x384f61, roofColor: 0x7aa8c6, strip: true, stripColor: 0xa8efff, yRot: 0.28 });
-  addRaisedPlatform({ x: 0.0, y: 0.34, z: 22.2, w: 9.6, h: 0.66, d: 4.0, color: 0x24171d, emissive: 0x261116, emissiveIntensity: 0.10 });
-  addRaisedPlatform({ x: -13.8, y: 0.34, z: 21.6, w: 4.6, h: 0.72, d: 7.8, color: 0x29384a, emissive: 0x0a1620, emissiveIntensity: 0.10 });
-  addRaisedPlatform({ x: 13.8, y: 0.34, z: 21.4, w: 4.6, h: 0.72, d: 7.8, color: 0x40311f, emissive: 0x170d05, emissiveIntensity: 0.10 });
+  // ================= RED SPAWN (top) =================
+  addBoxBlock({ x: -19.5, y: 0, z: 30.4, w: 9.0, h: 4.6, d: 6.6, color: 0x60303a, roofColor: 0x9f5b67, strip: true, stripColor: 0xffc2c8, yRot: 0.05 });
+  addBoxBlock({ x:   0.0, y: 0, z: 31.6, w: 10.0, h: 4.8, d: 5.6, color: 0x54303c, roofColor: 0x97616e, strip: true, stripColor: 0xffc8ce });
+  addBoxBlock({ x:  19.5, y: 0, z: 30.4, w: 9.0, h: 4.6, d: 6.6, color: 0x384f61, roofColor: 0x7aa8c6, strip: true, stripColor: 0xa8efff, yRot: -0.05 });
+  // Spawn exit chokepoints (two narrow doorways funnel into A Long / A Short)
+  addBoxBlock({ x: -8.4, y: 0, z: 28.2, w: 3.2, h: 4.2, d: 2.0, color: 0x3a2830, roofColor: 0x6c4a55 });
+  addBoxBlock({ x:  8.4, y: 0, z: 28.2, w: 3.2, h: 4.2, d: 2.0, color: 0x2c3a48, roofColor: 0x54718c });
 
-  // A site shell: open middle with cover at edges
-  addBoxBlock({ x: -24.4, y: 0, z: 13.6, w: 6.0, h: 4.2, d: 5.2, color: 0x39465a, roofColor: 0x71849a, strip: true, stripColor: 0xc3d0e0, yRot: -0.06 });
-  addBoxBlock({ x: -18.8, y: 0, z:  9.2, w: 4.6, h: 4.0, d: 7.2, color: 0x5b4435, roofColor: 0x93755a, strip: true, stripColor: 0xffd28c, yRot: 0.10 });
-  addBoxBlock({ x: -7.4,  y: 0, z: 10.8, w: 4.8, h: 4.0, d: 8.4, color: 0x3d3040, roofColor: 0x7d6278, strip: true, stripColor: 0xf0b7df, yRot: -0.12 });
-  addBoxBlock({ x:  0.0,  y: 0, z:  7.8, w: 7.8, h: 4.1, d: 4.8, color: 0x2f3948, roofColor: 0x73859a, strip: true, stripColor: 0xdde8f7 });
-  addBoxBlock({ x:  8.4,  y: 0, z: 10.8, w: 4.8, h: 4.0, d: 8.4, color: 0x364d62, roofColor: 0x708ca5, strip: true, stripColor: 0xa4e9ff, yRot: 0.14 });
-  addBoxBlock({ x: 18.8,  y: 0, z:  9.4, w: 4.6, h: 4.0, d: 7.2, color: 0x4c5d6f, roofColor: 0x8296a9, strip: true, stripColor: 0xe8ebef, yRot: -0.08 });
-  addBoxBlock({ x: 24.0,  y: 0, z: 13.8, w: 6.0, h: 4.2, d: 5.2, color: 0x4e3a2d, roofColor: 0x8f6b52, strip: true, stripColor: 0xf0cc87, yRot: 0.06 });
-  addRaisedPlatform({ x: 0.0, y: 0.34, z: 14.8, w: 14.0, h: 0.60, d: 5.0, color: 0x30231f, emissive: 0x1a0f0a, emissiveIntensity: 0.08 });
+  // ================= A LONG (left lane, red -> A) =================
+  addBoxBlock({ x: -26.6, y: 0, z: 25.0, w: 4.4, h: 4.6, d: 9.0, color: 0x2c3a4e, roofColor: 0x5d7590, strip: true, stripColor: 0xb0dfff, yRot: 0.10 });
+  addBoxBlock({ x: -30.2, y: 0, z: 15.4, w: 4.0, h: 4.6, d: 11.0, color: 0x25313f, roofColor: 0x53687f, strip: true, stripColor: 0xa4d4f2, yRot: -0.08 });
+  addBoxBlock({ x: -25.6, y: 0, z:  6.6, w: 5.4, h: 4.4, d: 6.4, color: 0x2f3f52, roofColor: 0x65809c, strip: true, stripColor: 0xb6e6ff, yRot: 0.14 });
+  addRaisedPlatform({ x: -28.4, y: 0.34, z: 20.2, w: 3.6, h: 0.66, d: 5.0, color: 0x1c2733, emissive: 0x0a1520, emissiveIntensity: 0.08 });
+  addCarBlock({ x: -28.6, y: 0, z: 12.6, yRot: 1.48, bodyColor: 0x3a3a44, glassColor: 0x8fb0d0 });
 
-  // Mid connectors / cross lanes
-  addBoxBlock({ x: -24.8, y: 0, z:  2.0, w: 5.0, h: 4.4, d: 14.0, color: 0x273244, roofColor: 0x5d6d83, strip: true, stripColor: 0xa6b8d0, yRot: 0.10 });
-  addBoxBlock({ x: -14.0, y: 0, z:  1.0, w: 4.4, h: 4.0, d: 6.2, color: 0x38485a, roofColor: 0x667d95, strip: true, stripColor: 0xd3e0eb, yRot: -0.10 });
-  addBoxBlock({ x:  -5.6, y: 0, z:  0.8, w: 5.4, h: 4.0, d: 5.8, color: 0x5a4636, roofColor: 0x94755d, strip: true, stripColor: 0xffdd9a });
-  addBoxBlock({ x:   5.6, y: 0, z:  0.8, w: 5.4, h: 4.0, d: 5.8, color: 0x35485d, roofColor: 0x6f8aa5, strip: true, stripColor: 0x95e8ff });
-  addRaisedPlatform({ x: 0.0, y: 0.30, z: 0.6, w: 2.6, h: 0.58, d: 2.6, color: 0x1c2530, emissive: 0x0a1420, emissiveIntensity: 0.08 });
-  addBoxBlock({ x:  14.0, y: 0, z:  1.0, w: 4.4, h: 4.0, d: 6.2, color: 0x4a3d2d, roofColor: 0x8c6d50, strip: true, stripColor: 0xf1ca86, yRot: 0.10 });
-  addBoxBlock({ x:  24.8, y: 0, z:  2.0, w: 5.0, h: 4.4, d: 14.0, color: 0x3a434f, roofColor: 0x6c7884, strip: true, stripColor: 0xe7dfd0, yRot: -0.10 });
+  // ================= A SHORT (right lane, red -> A, narrow entry) =================
+  addBoxBlock({ x:  22.4, y: 0, z: 22.6, w: 5.0, h: 4.2, d: 6.8, color: 0x4e3a2d, roofColor: 0x8f6b52, strip: true, stripColor: 0xf0cc87, yRot: -0.12 });
+  addBoxBlock({ x:  27.0, y: 0, z: 14.8, w: 3.6, h: 4.4, d: 9.6, color: 0x453322, roofColor: 0x7d5d44, strip: true, stripColor: 0xf0cc87, yRot: 0.10 });
+  addBoxBlock({ x:  19.6, y: 0, z: 12.4, w: 3.6, h: 4.0, d: 4.4, color: 0x54402c, roofColor: 0x8f6b4c, yRot: -0.06 });
 
-  // Left long lane / alley
-  addBoxBlock({ x: -30.0, y: 0, z:  9.8, w: 4.2, h: 4.8, d: 18.0, color: 0x253244, roofColor: 0x55677a, strip: true, stripColor: 0xa4b5cc, yRot: 0.18 });
-  addBoxBlock({ x: -31.8, y: 0, z: -9.8, w: 4.2, h: 4.8, d: 18.0, color: 0x2b3340, roofColor: 0x5f6c7d, strip: true, stripColor: 0xcbd3dd, yRot: -0.08 });
-  addBoxBlock({ x: -21.8, y: 0, z: -12.8, w: 4.8, h: 4.2, d: 8.4, color: 0x1f3343, roofColor: 0x4f7892, strip: true, stripColor: 0x89d8ff });
-  addBoxBlock({ x: -17.8, y: 0, z: -23.6, w: 5.6, h: 4.2, d: 7.8, color: 0x24384b, roofColor: 0x667c8b, strip: true, stripColor: 0xc2d0de, yRot: -0.16 });
+  // ================= A SITE (narrow, boxed-in, hard angles) =================
+  addBoxBlock({ x: -12.6, y: 0, z: 17.2, w: 5.0, h: 4.2, d: 4.6, color: 0x39465a, roofColor: 0x71849a, strip: true, stripColor: 0xc3d0e0, yRot: -0.08 });
+  addBoxBlock({ x:  -4.0, y: 0, z: 19.4, w: 4.4, h: 4.0, d: 4.0, color: 0x3d3040, roofColor: 0x7d6278, strip: true, stripColor: 0xf0b7df, yRot: 0.12 });
+  addBoxBlock({ x:   4.4, y: 0, z: 19.2, w: 4.4, h: 4.0, d: 4.0, color: 0x364d62, roofColor: 0x708ca5, strip: true, stripColor: 0xa4e9ff, yRot: -0.10 });
+  addBoxBlock({ x:  12.8, y: 0, z: 17.0, w: 5.0, h: 4.2, d: 4.6, color: 0x4c5d6f, roofColor: 0x8296a9, strip: true, stripColor: 0xe8ebef, yRot: 0.08 });
+  addRaisedPlatform({ x: 0.0, y: 0.32, z: 13.6, w: 8.0, h: 0.62, d: 3.2, color: 0x2a2038, emissive: 0x160f22, emissiveIntensity: 0.10 });
+  addBoxBlock({ x: -7.0, y: 0, z: 12.0, w: 3.4, h: 4.0, d: 3.0, color: 0x2f3948, roofColor: 0x73859a, yRot: -0.10 });
+  addBoxBlock({ x:  7.0, y: 0, z: 12.0, w: 3.4, h: 4.0, d: 3.0, color: 0x2f3948, roofColor: 0x73859a, yRot: 0.10 });
+  addCarBlock({ x: -10.6, y: 0, z: 21.6, yRot: 0.5, bodyColor: 0x8a2b36, glassColor: 0x9fbfe0 });
 
-  // Right long lane / market side
-  addBoxBlock({ x: 30.0, y: 0, z:  9.8, w: 4.2, h: 4.8, d: 18.0, color: 0x38424d, roofColor: 0x687782, strip: true, stripColor: 0xe7d9c7, yRot: -0.18 });
-  addBoxBlock({ x: 31.8, y: 0, z: -9.8, w: 4.2, h: 4.8, d: 18.0, color: 0x4a392c, roofColor: 0x8f6f52, strip: true, stripColor: 0xf0c688, yRot: 0.08 });
-  addBoxBlock({ x: 21.8, y: 0, z: -12.8, w: 4.8, h: 4.2, d: 8.4, color: 0x34475e, roofColor: 0x6783a0, strip: true, stripColor: 0x8ad0ff });
-  addBoxBlock({ x: 17.8, y: 0, z: -23.4, w: 5.6, h: 4.2, d: 7.8, color: 0x2f3a4b, roofColor: 0x5e6c7d, strip: true, stripColor: 0xd6dee6, yRot: 0.18 });
+  // ================= HEAVEN / HIGH GROUND (ladder-access platform above A) =================
+  addRaisedPlatform({ x: 22.0, y: 2.5, z: 4.2, w: 6.0, h: 0.5, d: 8.0, color: 0x1c2c3c, emissive: 0x0a1420, emissiveIntensity: 0.10 });
+  addBoxBlock({ x: 22.0, y: 0, z: 4.2, w: 1.2, h: 5.0, d: 1.2, color: 0x2a3b4e, roof: false });
 
-  // B site shell
-  addBoxBlock({ x: -23.6, y: 0, z: -13.8, w: 5.8, h: 4.2, d: 5.0, color: 0x36566f, roofColor: 0x749bb9, strip: true, stripColor: 0xb9efff, yRot: -0.06 });
-  addBoxBlock({ x: -17.8, y: 0, z: -18.8, w: 4.4, h: 4.0, d: 7.6, color: 0x593f31, roofColor: 0x94755b, strip: true, stripColor: 0xf0cd89, yRot: 0.08 });
-  addBoxBlock({ x: -7.0,  y: 0, z: -17.2, w: 4.8, h: 4.0, d: 8.0, color: 0x33445a, roofColor: 0x6f8aa8, strip: true, stripColor: 0xa2e8ff, yRot: -0.10 });
-  addBoxBlock({ x:  0.0,  y: 0, z: -19.8, w: 7.8, h: 4.1, d: 5.0, color: 0x2a3242, roofColor: 0x687689, strip: true, stripColor: 0xdde7f5 });
-  addBoxBlock({ x:  8.0,  y: 0, z: -17.2, w: 4.8, h: 4.0, d: 8.0, color: 0x463524, roofColor: 0x8f7050, strip: true, stripColor: 0xf0c787, yRot: 0.10 });
-  addBoxBlock({ x: 17.8, y: 0, z: -18.8, w: 4.4, h: 4.0, d: 7.6, color: 0x2f485b, roofColor: 0x6f8ea9, strip: true, stripColor: 0x96e7ff, yRot: -0.08 });
-  addBoxBlock({ x: 23.6, y: 0, z: -13.8, w: 5.8, h: 4.2, d: 5.0, color: 0x4c372b, roofColor: 0x8f6c4d, strip: true, stripColor: 0xf1ca87, yRot: 0.06 });
+  // ================= MID (narrow winding chicane, no straight sightline through) =================
+  addBoxBlock({ x: -16.8, y: 0, z: 4.0, w: 4.6, h: 4.2, d: 4.4, color: 0x273244, roofColor: 0x5d6d83, strip: true, stripColor: 0xa6b8d0, yRot: 0.14 });
+  addBoxBlock({ x:  -8.6, y: 0, z: 2.4, w: 4.2, h: 4.0, d: 4.0, color: 0x38485a, roofColor: 0x667d95, strip: true, stripColor: 0xd3e0eb, yRot: -0.16 });
+  addBoxBlock({ x:   0.0, y: 0, z: 4.2, w: 4.6, h: 4.0, d: 4.2, color: 0x5a4636, roofColor: 0x94755d, strip: true, stripColor: 0xffdd9a, yRot: 0.10 });
+  addBoxBlock({ x:   8.6, y: 0, z: 2.4, w: 4.2, h: 4.0, d: 4.0, color: 0x35485d, roofColor: 0x6f8aa5, strip: true, stripColor: 0x95e8ff, yRot: -0.14 });
+  addBoxBlock({ x:  16.8, y: 0, z: 4.0, w: 4.6, h: 4.2, d: 4.4, color: 0x4a3d2d, roofColor: 0x8c6d50, strip: true, stripColor: 0xf1ca86, yRot: 0.16 });
+  addRaisedPlatform({ x: -4.2, y: 0.28, z: -1.0, w: 2.6, h: 0.56, d: 2.6, color: 0x1c2530, emissive: 0x0a1420, emissiveIntensity: 0.08 });
+  addRaisedPlatform({ x:  4.2, y: 0.28, z: -1.0, w: 2.6, h: 0.56, d: 2.6, color: 0x1c2530, emissive: 0x0a1420, emissiveIntensity: 0.08 });
+  addBoxBlock({ x: -22.6, y: 0, z: -3.0, w: 4.0, h: 4.4, d: 7.2, color: 0x1f3343, roofColor: 0x4f7892, strip: true, stripColor: 0x89d8ff, yRot: -0.10 });
+  addBoxBlock({ x:  22.6, y: 0, z: -3.0, w: 4.0, h: 4.4, d: 7.2, color: 0x34475e, roofColor: 0x6783a0, strip: true, stripColor: 0x8ad0ff, yRot: 0.10 });
 
-  // Bottom entry / BLUE spawn approach
-  addBoxBlock({ x: -22.0, y: 0, z: -27.8, w: 6.8, h: 4.5, d: 8.0, color: 0x2d4b63, roofColor: 0x6da1c7, strip: true, stripColor: 0xb4efff, yRot: -0.08 });
-  addBoxBlock({ x: -10.0, y: 0, z: -30.0, w: 5.4, h: 4.2, d: 6.2, color: 0x4a3541, roofColor: 0x8f6d7d, strip: true, stripColor: 0xf0b8e0, yRot: 0.18 });
-  addBoxBlock({ x:  10.5, y: 0, z: -30.2, w: 7.8, h: 4.8, d: 8.8, color: 0x365a49, roofColor: 0x7ca88d, strip: true, stripColor: 0xbcefd2, yRot: -0.10 });
-  addBoxBlock({ x:  22.4, y: 0, z: -26.8, w: 6.2, h: 4.7, d: 9.2, color: 0x404654, roofColor: 0x7a8796, strip: true, stripColor: 0xe7dfd0, yRot: -0.28 });
-  addRaisedPlatform({ x: 0.0, y: 0.34, z: -22.2, w: 9.6, h: 0.66, d: 4.0, color: 0x1e2733, emissive: 0x0a1120, emissiveIntensity: 0.10 });
-  addRaisedPlatform({ x: -13.8, y: 0.34, z: -21.6, w: 4.6, h: 0.72, d: 7.8, color: 0x2a1820, emissive: 0x14080c, emissiveIntensity: 0.10 });
-  addRaisedPlatform({ x: 13.8, y: 0.34, z: -21.4, w: 4.6, h: 0.72, d: 7.8, color: 0x18312c, emissive: 0x08120d, emissiveIntensity: 0.10 });
+  // ================= CONNECTORS (site-to-site, offset from mid so no single sightline dominates) =================
+  addBoxBlock({ x: -30.6, y: 0, z: -3.0, w: 3.6, h: 4.6, d: 15.0, color: 0x25313f, roofColor: 0x557088, strip: true, stripColor: 0xa4d4f2, yRot: 0.06 });
+  addBoxBlock({ x:  30.6, y: 0, z: -3.0, w: 3.6, h: 4.6, d: 15.0, color: 0x3a434f, roofColor: 0x6c7884, strip: true, stripColor: 0xe7dfd0, yRot: -0.06 });
+  addBoxBlock({ x: -25.0, y: 0, z: -14.6, w: 5.0, h: 4.2, d: 4.6, color: 0x24384b, roofColor: 0x667c8b, strip: true, stripColor: 0xc2d0de, yRot: -0.18 });
+  addBoxBlock({ x:  25.0, y: 0, z: -14.6, w: 5.0, h: 4.2, d: 4.6, color: 0x2f3a4b, roofColor: 0x5e6c7d, strip: true, stripColor: 0xd6dee6, yRot: 0.18 });
 
-  // Lamp posts tucked at corners so they never sit in a walking lane
+  // ================= MARKET (winding alley, right side, B approach) =================
+  addBoxBlock({ x: 15.6, y: 0, z: -8.4, w: 3.4, h: 4.0, d: 5.4, color: 0x4a392c, roofColor: 0x8f6f52, strip: true, stripColor: 0xf0c688, yRot: 0.30 });
+  addBoxBlock({ x: 19.8, y: 0, z: -14.0, w: 3.4, h: 4.0, d: 5.4, color: 0x453322, roofColor: 0x7d5d44, strip: true, stripColor: 0xf0cc87, yRot: -0.24 });
+  addBoxBlock({ x: 14.8, y: 0, z: -18.6, w: 3.4, h: 4.0, d: 4.8, color: 0x54402c, roofColor: 0x8f6b4c, strip: true, stripColor: 0xf0cc87, yRot: 0.20 });
+  addCarBlock({ x: 21.2, y: 0, z: -8.8, yRot: -0.4, bodyColor: 0x6a4a20, glassColor: 0xd8c090 });
+
+  // ================= B SHORT (narrow left entry into B) =================
+  addBoxBlock({ x: -20.6, y: 0, z: -12.4, w: 3.6, h: 4.2, d: 5.4, color: 0x36566f, roofColor: 0x749bb9, strip: true, stripColor: 0xb9efff, yRot: -0.10 });
+  addBoxBlock({ x: -16.4, y: 0, z: -18.0, w: 3.4, h: 4.0, d: 5.0, color: 0x2f5c3e, roofColor: 0x7ca88d, strip: true, stripColor: 0xbcefd2, yRot: 0.14 });
+
+  // ================= B LONG (right lane down to B, long sightline) =================
+  addBoxBlock({ x: 24.4, y: 0, z: -24.4, w: 4.2, h: 4.6, d: 11.0, color: 0x2b3f2c, roofColor: 0x5f8262, strip: true, stripColor: 0xbcefd2, yRot: 0.08 });
+  addRaisedPlatform({ x: 24.4, y: 0.32, z: -18.6, w: 3.4, h: 0.62, d: 4.4, color: 0x1a2a1c, emissive: 0x0a160c, emissiveIntensity: 0.08 });
+
+  // ================= B SITE (boxed, low sightlines, crates for cover) =================
+  addBoxBlock({ x: -10.6, y: 0, z: -17.8, w: 4.6, h: 4.0, d: 4.2, color: 0x33445a, roofColor: 0x6f8aa8, strip: true, stripColor: 0xa2e8ff, yRot: -0.12 });
+  addBoxBlock({ x:  -2.4, y: 0, z: -19.6, w: 4.2, h: 4.0, d: 3.8, color: 0x2a3242, roofColor: 0x687689, strip: true, stripColor: 0xdde7f5, yRot: 0.10 });
+  addBoxBlock({ x:   5.6, y: 0, z: -19.4, w: 4.2, h: 4.0, d: 3.8, color: 0x463524, roofColor: 0x8f7050, strip: true, stripColor: 0xf0c787, yRot: -0.10 });
+  addBoxBlock({ x:  13.0, y: 0, z: -17.4, w: 4.6, h: 4.0, d: 4.2, color: 0x2f485b, roofColor: 0x6f8ea9, strip: true, stripColor: 0x96e7ff, yRot: 0.12 });
+  addRaisedPlatform({ x: 1.6, y: 0.30, z: -22.6, w: 9.0, h: 0.58, d: 3.0, color: 0x18232e, emissive: 0x0a1420, emissiveIntensity: 0.08 });
+  addBoxBlock({ x: -3.6, y: 0, z: -25.0, w: 3.0, h: 3.8, d: 2.8, color: 0x24384b, roof: false, yRot: 0.2 });
+  addBoxBlock({ x:  6.6, y: 0, z: -25.2, w: 3.0, h: 3.8, d: 2.8, color: 0x4c372b, roof: false, yRot: -0.2 });
+
+  // ================= UNDERPASS (B site to BLUE spawn, short tunnel feel) =================
+  addBoxBlock({ x: -18.0, y: 0, z: -26.6, w: 4.6, h: 4.2, d: 5.4, color: 0x2a1820, roofColor: 0x543040, strip: true, stripColor: 0xf0b8e0, yRot: 0.16 });
+  addBoxBlock({ x:  18.0, y: 0, z: -26.6, w: 4.6, h: 4.2, d: 5.4, color: 0x18312c, roofColor: 0x3c6058, strip: true, stripColor: 0x9ceedd, yRot: -0.16 });
+
+  // ================= BLUE SPAWN (bottom) =================
+  addBoxBlock({ x: -19.5, y: 0, z: -31.6, w: 9.0, h: 4.6, d: 6.6, color: 0x2d4b63, roofColor: 0x6da1c7, strip: true, stripColor: 0xb4efff, yRot: -0.05 });
+  addBoxBlock({ x:   0.0, y: 0, z: -31.6, w: 10.0, h: 4.8, d: 5.6, color: 0x274156, roofColor: 0x5d90b6, strip: true, stripColor: 0xb4efff });
+  addBoxBlock({ x:  19.5, y: 0, z: -31.6, w: 9.0, h: 4.6, d: 6.6, color: 0x365a49, roofColor: 0x7ca88d, strip: true, stripColor: 0xbcefd2, yRot: 0.05 });
+  addBoxBlock({ x: -8.4, y: 0, z: -29.4, w: 3.2, h: 4.2, d: 2.0, color: 0x203040, roofColor: 0x3e5c78 });
+  addBoxBlock({ x:  8.4, y: 0, z: -29.4, w: 3.2, h: 4.2, d: 2.0, color: 0x203828, roofColor: 0x3e6250 });
+
+  // ================= Lamp posts, tucked at corners so they never sit in a lane =================
   [
     [-33.6, 33.6, 0xff667f],
     [ 33.6, 33.6, 0x6eecff],
     [-33.6,-33.6, 0x6fc8ff],
     [ 33.6,-33.6, 0xffdb6a],
     [-33.6,  0.0, 0xa97bff],
-    [ 33.6,  0.0, 0x7cff98]
+    [ 33.6,  0.0, 0x7cff98],
+    [  0.0, 24.0, 0xffb0c0],
+    [  0.0,-24.0, 0xa0e8ff]
   ].forEach(function(p){
     addLampPost(p[0], p[1], p[2]);
   });
 
-  // Parked cars tucked into building alcoves, offset from lane centerlines
-  addCarBlock({ x: -27.4, y: 0, z: 24.6, yRot: 0.42, bodyColor: 0x8a2b36, glassColor: 0x9fbfe0 });
-  addCarBlock({ x:  27.0, y: 0, z: 24.2, yRot: -0.30, bodyColor: 0x2b4f7a, glassColor: 0x9fd8f0 });
-  addCarBlock({ x: -27.6, y: 0, z: -6.6, yRot: 1.55, bodyColor: 0x3a3a44, glassColor: 0x8fb0d0 });
-  addCarBlock({ x:  27.6, y: 0, z:  6.6, yRot: 1.55, bodyColor: 0x5a3a20, glassColor: 0x9fc0da });
-  addCarBlock({ x: -27.2, y: 0, z: -24.6, yRot: 0.20, bodyColor: 0x2f5c3e, glassColor: 0x9fd8c0 });
-  addCarBlock({ x:  27.2, y: 0, z: -24.4, yRot: -0.36, bodyColor: 0x6a4a20, glassColor: 0xd8c090 });
-
-  // Labels to match the reference image
-  addSpawnMarker('RED スポーン', 0, 31.0, '#ff607f');
-  addSpawnMarker('BLUE スポーン', 0, -31.0, '#63baff');
-  addSpawnMarker('A', 0, 14.6, '#ffd16d');
-  addSpawnMarker('B', 0, -14.6, '#7fc7ff');
+  // ================= Labels matching the reference map =================
+  addSpawnMarker('RED スポーン', 0, 34.6, '#ff607f');
+  addSpawnMarker('BLUE スポーン', 0, -35.6, '#63baff');
+  addSpawnMarker('A', 0, 17.6, '#ffd16d');
+  addSpawnMarker('B', 1.6, -19.4, '#7fc7ff');
+  addSpawnMarker('ミッド', 0, 3.2, '#8fa0ff');
 }
 
 function buildMap(mapId){
@@ -3399,10 +3397,10 @@ function animate(){
     updateLobbyCamera(dt);
   }else if(gameMode===GAME_MODE.BATTLE){
     syncCameraRotation();movePlayer(dt);updateGun(dt);updateMuzzleFlashes(dt);updateBullets(dt);updateBombs(dt);updateBombTrajectoryUI();
-    updateAI(dt);updateReload(dt);updatePlayerHPUI();updateSendLoop(dt);updateRemotePlayersFromState(dt);updateRoundTimer(dt);updateRoundIfEnded();
+    updateAI(dt);updateReload(dt);updatePlayerHPUI();updateSendLoop(dt);updateRemotePlayersFromState();updateRoundTimer(dt);updateRoundIfEnded();
   }else if(gameMode===GAME_MODE.SPECTATE){
     updateSpectateCamera(dt);updateGun(dt);updateMuzzleFlashes(dt);updateBullets(dt);updateBombs(dt);updateBombTrajectoryUI();
-    updateAI(dt);updateSendLoop(dt);updateRemotePlayersFromState(dt);updateRoundTimer(dt);updateRoundIfEnded();
+    updateAI(dt);updateSendLoop(dt);updateRemotePlayersFromState();updateRoundTimer(dt);updateRoundIfEnded();
   }else if(gameMode===GAME_MODE.RESULT){updateSendLoop(0);}
   if(gunRoot&&gameMode===GAME_MODE.BATTLE)gunPosTarget.copy(adsActive?gunPosAds:gunPosNormal);
   renderer.render(scene,camera);

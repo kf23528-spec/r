@@ -3522,21 +3522,52 @@ function addLightMarker(parent, x, z, color){
   return ring;
 }
 
+
 function buildFallbackArena(root){
-  var floorGeo = new T.BoxGeometry(76, 0.06, 76);
+  var floorGeo = new T.BoxGeometry(48, 0.06, 48);
   var floorMat = new T.MeshStandardMaterial({color:0x132131, roughness:1, metalness:0});
   var floor = new T.Mesh(floorGeo, floorMat);
   floor.position.set(0, -0.03, 0);
   floor.userData.isMapDecor = true;
   root.add(floor);
 
-  addSimpleProp(root, {x:0,y:1.5,z:36,w:76,h:3,d:0.8,color:0x2c3541});
-  addSimpleProp(root, {x:0,y:1.5,z:-36,w:76,h:3,d:0.8,color:0x2c3541});
-  addSimpleProp(root, {x:36,y:1.5,z:0,w:0.8,h:3,d:76,color:0x2c3541});
-  addSimpleProp(root, {x:-36,y:1.5,z:0,w:0.8,h:3,d:76,color:0x2c3541});
+  addSimpleProp(root, {x:0,y:1.5,z:22.5,w:48,h:3,d:0.8,color:0x2c3541});
+  addSimpleProp(root, {x:0,y:1.5,z:-22.5,w:48,h:3,d:0.8,color:0x2c3541});
+  addSimpleProp(root, {x:22.5,y:1.5,z:0,w:0.8,h:3,d:48,color:0x2c3541});
+  addSimpleProp(root, {x:-22.5,y:1.5,z:0,w:0.8,h:3,d:48,color:0x2c3541});
 }
 
-function assembleModularArena(floorTemplate, wallTemplate, token){
+function addTemplateProp(parent, template, spec){
+  if(!parent || !template || !spec) return null;
+  var obj = addTemplateInstance(parent, template, spec.x || 0, spec.y || 0, spec.z || 0, spec.ry || 0, spec.scale || 1);
+  if(obj && spec.collider){
+    var c = spec.collider;
+    addColliderBox(
+      spec.x || 0,
+      (spec.y || 0) + (c[1] || 1) * 0.5,
+      spec.z || 0,
+      c[0] || 1, c[1] || 1, c[2] || 1,
+      obj,
+      spec.ry || 0
+    );
+  }
+  return obj;
+}
+
+function addRepeatedWalls(parent, template, items, scale, collider){
+  if(!items || !items.length) return;
+  for(var i=0;i<items.length;i++){
+    var it = items[i];
+    addTemplateProp(parent, template, {
+      x: it[0], y: it[1] || 0, z: it[2],
+      ry: it[3] || 0,
+      scale: scale,
+      collider: collider
+    });
+  }
+}
+
+function assembleModularArena(models, token){
   if(token !== mapLoadToken) return;
 
   clearMapDecor();
@@ -3547,81 +3578,112 @@ function assembleModularArena(floorTemplate, wallTemplate, token){
   scene.add(root);
   mapRoot = root;
 
-  scene.background = new T.Color(0x0c121a);
-  scene.fog = new T.FogExp2(0x101824, 0.0115);
+  scene.background = new T.Color(0x0d141c);
+  scene.fog = new T.FogExp2(0x101824, 0.0105);
 
-  var mapSize = 75;
-  var tileStep = 5;
-  var half = mapSize * 0.5 - 2.5;
+  var floorTemplate = models.floor;
+  var wallTemplate = models.wall;
+  var cornerTemplate = models.corner;
+  var stairsTemplate = models.stairs;
+  var crateTemplate = models.crate;
+  var containerTemplate = models.container;
+  var pillarTemplate = models.pillar;
+  var gateTemplate = models.gate;
+  var barrierTemplate = models.barrier;
+  var carTemplate = models.car;
 
-  for(var iz = -7; iz <= 7; iz++){
-    for(var ix = -7; ix <= 7; ix++){
-      addFloorTile(root, floorTemplate, ix * tileStep, iz * tileStep);
+  // Floor grid (9x9 tiles)
+  for(var iz=-4; iz<=4; iz++){
+    for(var ix=-4; ix<=4; ix++){
+      addTemplateProp(root, floorTemplate, {
+        x: ix * 5,
+        y: -0.18,
+        z: iz * 5,
+        scale: 1,
+        collider: null
+      });
     }
   }
 
-  // Outer shell
-  for(var x = -30; x <= 30; x += 6){
-    if(Math.abs(x) > 6){
-      addWallPiece(root, wallTemplate, x, 34, 0);
-      addWallPiece(root, wallTemplate, x, -34, 0);
-    }
+  // Perimeter wall ring with openings near the middle
+  var wallScale = 0.42;
+  var wallCollider = [4.7, 2.35, 0.48];
+  var wallX = [-20, -15, -10, 10, 15, 20];
+  var wallZ = [-20, -15, -10, 10, 15, 20];
+
+  addRepeatedWalls(root, wallTemplate, wallX.map(function(x){ return [x, 0, 22.6, 0]; }), wallScale, wallCollider);
+  addRepeatedWalls(root, wallTemplate, wallX.map(function(x){ return [x, 0, -22.6, 0]; }), wallScale, wallCollider);
+  addRepeatedWalls(root, wallTemplate, wallZ.map(function(z){ return [22.6, 0, z, Math.PI/2]; }), wallScale, wallCollider);
+  addRepeatedWalls(root, wallTemplate, wallZ.map(function(z){ return [-22.6, 0, z, Math.PI/2]; }), wallScale, wallCollider);
+
+  // Corner blocks
+  addTemplateProp(root, cornerTemplate, {x:-22.6, y:0, z:22.6, ry:Math.PI, scale:0.80, collider:[4.9,2.4,2.5]});
+  addTemplateProp(root, cornerTemplate, {x:22.6, y:0, z:22.6, ry:Math.PI/2, scale:0.80, collider:[4.9,2.4,2.5]});
+  addTemplateProp(root, cornerTemplate, {x:-22.6, y:0, z:-22.6, ry:-Math.PI/2, scale:0.80, collider:[4.9,2.4,2.5]});
+  addTemplateProp(root, cornerTemplate, {x:22.6, y:0, z:-22.6, ry:0, scale:0.80, collider:[4.9,2.4,2.5]});
+
+  // Inner lane walls using sci-fi_wall
+  var innerWallScale = 0.40;
+  var innerCollider = [4.8, 2.2, 0.45];
+  addRepeatedWalls(root, wallTemplate, [[-10,0,7,0],[-5,0,7,0],[5,0,7,0],[10,0,7,0]], innerWallScale, innerCollider);
+  addRepeatedWalls(root, wallTemplate, [[-10,0,-7,0],[-5,0,-7,0],[5,0,-7,0],[10,0,-7,0]], innerWallScale, innerCollider);
+  addRepeatedWalls(root, wallTemplate, [[-7,0,-10,Math.PI/2],[-7,0,-5,Math.PI/2],[-7,0,5,Math.PI/2],[-7,0,10,Math.PI/2]], innerWallScale, innerCollider);
+  addRepeatedWalls(root, wallTemplate, [[7,0,-10,Math.PI/2],[7,0,-5,Math.PI/2],[7,0,5,Math.PI/2],[7,0,10,Math.PI/2]], innerWallScale, innerCollider);
+
+  // Gate chokepoints and connectors
+  addTemplateProp(root, gateTemplate, {x:0, y:0, z:14.4, ry:0, scale:1.12, collider:[5.0,3.2,1.5]});
+  addTemplateProp(root, gateTemplate, {x:0, y:0, z:-14.4, ry:Math.PI, scale:1.12, collider:[5.0,3.2,1.5]});
+  addTemplateProp(root, gateTemplate, {x:14.4, y:0, z:0, ry:Math.PI/2, scale:1.10, collider:[5.0,3.2,1.5]});
+  addTemplateProp(root, gateTemplate, {x:-14.4, y:0, z:0, ry:-Math.PI/2, scale:1.10, collider:[5.0,3.2,1.5]});
+
+  // Site props
+  addTemplateProp(root, containerTemplate, {x:12.2, y:0, z:13.2, ry:0, scale:0.05, collider:[5.5,2.5,6.0]});
+  addTemplateProp(root, containerTemplate, {x:-12.2, y:0, z:-13.2, ry:Math.PI/2, scale:0.05, collider:[5.5,2.5,6.0]});
+
+  addTemplateProp(root, carTemplate, {x:-13.2, y:0, z:12.4, ry:Math.PI/2, scale:0.55, collider:[4.7,1.9,5.0]});
+  addTemplateProp(root, carTemplate, {x:13.2, y:0, z:-12.4, ry:0, scale:0.55, collider:[4.7,1.9,5.0]});
+
+  addTemplateProp(root, stairsTemplate, {x:15.0, y:0, z:5.6, ry:Math.PI/2, scale:1.45, collider:[2.4,1.3,3.0]});
+  addTemplateProp(root, stairsTemplate, {x:-15.0, y:0, z:-5.6, ry:-Math.PI/2, scale:1.45, collider:[2.4,1.3,3.0]});
+
+  addTemplateProp(root, pillarTemplate, {x:0, y:0, z:0, ry:0, scale:2.6, collider:[0.55,1.45,0.55]});
+  addTemplateProp(root, pillarTemplate, {x:4.2, y:0, z:0, ry:0, scale:2.6, collider:[0.55,1.45,0.55]});
+  addTemplateProp(root, pillarTemplate, {x:-4.2, y:0, z:0, ry:0, scale:2.6, collider:[0.55,1.45,0.55]});
+
+  // Combat cover: crates and barriers
+  var crateScale = 0.09;
+  var crateCollider = [1.4, 1.4, 1.4];
+  var cratePositions = [
+    [-9.5, 0, 12.8, 0],[-8.2, 0, 12.1, 0],[-9.0, 0, 14.1, 0],
+    [9.2, 0, -12.7, 0],[8.0, 0, -13.5, 0],[10.2, 0, -13.6, 0],
+    [-2.0,0,2.2,0],[2.0,0,-2.2,0],[2.6,0,2.8,0],[-2.8,0,-2.6,0]
+  ];
+  for(var ci=0; ci<cratePositions.length; ci++){
+    var cp = cratePositions[ci];
+    addTemplateProp(root, crateTemplate, {x:cp[0], y:cp[1], z:cp[2], ry:cp[3], scale:crateScale, collider:crateCollider});
   }
-  for(var z = -28; z <= 28; z += 6){
-    if(Math.abs(z) > 8){
-      addWallPiece(root, wallTemplate, 34, z, Math.PI / 2);
-      addWallPiece(root, wallTemplate, -34, z, Math.PI / 2);
-    }
-  }
 
-  // Main lanes and site boxes
-  for(var lx = -24; lx <= 24; lx += 6){
-    if(Math.abs(lx) > 6){
-      addWallPiece(root, wallTemplate, lx, 14, 0);
-      addWallPiece(root, wallTemplate, lx, -14, 0);
-    }
-  }
-  for(var lz = -22; lz <= 22; lz += 6){
-    if(Math.abs(lz) > 10){
-      addWallPiece(root, wallTemplate, -14, lz, Math.PI / 2);
-      addWallPiece(root, wallTemplate, 14, lz, Math.PI / 2);
-    }
-  }
+  var barrierScale = 2.1;
+  var barrierCollider = [4.0, 2.2, 1.4];
+  addTemplateProp(root, barrierTemplate, {x:-5.5, y:0, z:0, ry:Math.PI/2, scale:barrierScale, collider:barrierCollider});
+  addTemplateProp(root, barrierTemplate, {x:5.5, y:0, z:0, ry:Math.PI/2, scale:barrierScale, collider:barrierCollider});
+  addTemplateProp(root, barrierTemplate, {x:0, y:0, z:5.5, ry:0, scale:barrierScale, collider:barrierCollider});
+  addTemplateProp(root, barrierTemplate, {x:0, y:0, z:-5.5, ry:0, scale:barrierScale, collider:barrierCollider});
 
-  // Small site details
-  addContainer(root, 10, 19, 0);
-  addContainer(root, -10, -19, Math.PI * 0.5);
-  addCrateStack(root, 2.3, 16.5, 4);
-  addCrateStack(root, -2.7, -16.5, 4);
-  addBarrier(root, 0, 8, 0);
-  addBarrier(root, 0, -8, 0);
-  addBarrier(root, -8, 0, Math.PI * 0.5);
-  addBarrier(root, 8, 0, Math.PI * 0.5);
-  addPillarProp(root, -18, 4, true);
-  addPillarProp(root, 18, -4, true);
-  addCarProp(root, 18, 19, Math.PI * 0.5);
-  addCarProp(root, -18, -19, 0);
+  // Visual touch-ups
+  addSimpleProp(root, {x:0,y:0.03,z:0,w:1.0,h:0.08,d:1.0,color:0x9fb6d0, roughness:0.4, metalness:0.12});
+  addSimpleProp(root, {x:0,y:0.03,z:16.8,w:16.0,h:0.08,d:0.4,color:0x31435c, roughness:0.9, metalness:0.02});
+  addSimpleProp(root, {x:0,y:0.03,z:-16.8,w:16.0,h:0.08,d:0.4,color:0x31435c, roughness:0.9, metalness:0.02});
+  addSimpleProp(root, {x:16.8,y:0.03,z:0,w:0.4,h:0.08,d:16.0,color:0x31435c, roughness:0.9, metalness:0.02});
+  addSimpleProp(root, {x:-16.8,y:0.03,z:0,w:0.4,h:0.08,d:16.0,color:0x31435c, roughness:0.9, metalness:0.02});
 
-  // gentle stairs / ramps made from steps
-  addStepBlock(root, -24, 0.30, -4, 4.0, 0.6, 3.0, 0x546171);
-  addStepBlock(root, -24, 0.90, -4, 4.0, 0.6, 3.0, 0x667483);
-  addStepBlock(root, 24, 0.30, 4, 4.0, 0.6, 3.0, 0x546171);
-  addStepBlock(root, 24, 0.90, 4, 4.0, 0.6, 3.0, 0x667483);
+  root.position.y = -0.18;
+  MAP_BORDER = 24;
 
-  // Decorative markers
-  addLightMarker(root, 0, 0, 0x8fa0ff);
-  addLightMarker(root, 0, 16, 0xffd16d);
-  addLightMarker(root, 0, -16, 0x7fc7ff);
-
-  // Lower the full map slightly so it sits on the ground better.
-  root.position.y = -0.20;
-
-  MAP_BORDER = 36;
-
-  addSpawnMarker('RED スポーン', 0, MAP_BORDER - 5.0, '#ff607f');
-  addSpawnMarker('BLUE スポーン', 0, -MAP_BORDER + 5.0, '#63baff');
-  addSpawnMarker('A', 0, MAP_BORDER * 0.40, '#ffd16d');
-  addSpawnMarker('B', 0, -MAP_BORDER * 0.32, '#7fc7ff');
+  addSpawnMarker('RED スポーン', 0, 19.0, '#ff607f');
+  addSpawnMarker('BLUE スポーン', 0, -19.0, '#63baff');
+  addSpawnMarker('A', 10.2, 11.2, '#ffd16d');
+  addSpawnMarker('B', -10.2, -11.2, '#7fc7ff');
   addSpawnMarker('ミッド', 0, 0, '#8fa0ff');
 }
 
@@ -3634,34 +3696,43 @@ function buildProceduralArena(){
   scene.background = new T.Color(0x081018);
 
   // Temporary base while loading
-  addFloorPatch(0, 0, 84, 84, 0x0f1723, 1);
+  addFloorPatch(0, 0, 48, 48, 0x0f1723, 1);
   addNeonFloorLine(0, 0, 14, 0.14, 0x6078ff, 1);
 
-  // NOTE: only the two uploaded assets are used here, with their exact filenames.
-  Promise.all([
-    loadGltfScene('./theappxr_Floor_2_NODRACO_standard (1).glb'),
-    loadGltfScene('./gd50_varun_wall_and_corner.glb')
-  ]).then(function(models){
+  var assetNames = [
+    'theappxr_Floor_2_NODRACO_standard (1).glb',
+    'sci-fi_wall.glb',
+    'gd50_varun_wall_and_corner.glb',
+    'stairs.glb',
+    'interior_-_wooden_crate__minecraft.glb',
+    'shipping_container.glb',
+    'broken_pillar_concrete_damaged.glb',
+    'sci-fi_gate.glb',
+    'jersey_barrier.glb',
+    'car.glb'
+  ];
+
+  Promise.all(assetNames.map(function(name){
+    return loadGltfScene('./' + name);
+  })).then(function(models){
     if(token !== mapLoadToken) return;
-    var floorTemplate = prepareTemplateRoot(models[0]);
-    var wallTemplate = prepareTemplateRoot(models[1]);
+    var loaded = {
+      floor: prepareTemplateRoot(models[0]),
+      wall: prepareTemplateRoot(models[1]),
+      corner: prepareTemplateRoot(models[2]),
+      stairs: prepareTemplateRoot(models[3]),
+      crate: prepareTemplateRoot(models[4]),
+      container: prepareTemplateRoot(models[5]),
+      pillar: prepareTemplateRoot(models[6]),
+      gate: prepareTemplateRoot(models[7]),
+      barrier: prepareTemplateRoot(models[8]),
+      car: prepareTemplateRoot(models[9])
+    };
 
-    if(!floorTemplate || !wallTemplate){
-      var fallbackRoot = new T.Group();
-      fallbackRoot.userData.isMapDecor = true;
-      scene.add(fallbackRoot);
-      mapRoot = fallbackRoot;
-      buildFallbackArena(fallbackRoot);
-      MAP_BORDER = 36;
-      addSpawnMarker('RED スポーン', 0, MAP_BORDER - 5.0, '#ff607f');
-      addSpawnMarker('BLUE スポーン', 0, -MAP_BORDER + 5.0, '#63baff');
-      addSpawnMarker('A', 0, MAP_BORDER * 0.40, '#ffd16d');
-      addSpawnMarker('B', 0, -MAP_BORDER * 0.32, '#7fc7ff');
-      addSpawnMarker('ミッド', 0, 0, '#8fa0ff');
-      return;
+    for(var k in loaded){
+      if(!loaded[k]) throw new Error('Missing template: ' + k);
     }
-
-    assembleModularArena(floorTemplate, wallTemplate, token);
+    assembleModularArena(loaded, token);
   }).catch(function(err){
     if(token !== mapLoadToken) return;
     console.error('Map GLB load failed:', err);
@@ -3670,11 +3741,11 @@ function buildProceduralArena(){
     scene.add(fallbackRoot);
     mapRoot = fallbackRoot;
     buildFallbackArena(fallbackRoot);
-    MAP_BORDER = 36;
-    addSpawnMarker('RED スポーン', 0, MAP_BORDER - 5.0, '#ff607f');
-    addSpawnMarker('BLUE スポーン', 0, -MAP_BORDER + 5.0, '#63baff');
-    addSpawnMarker('A', 0, MAP_BORDER * 0.40, '#ffd16d');
-    addSpawnMarker('B', 0, -MAP_BORDER * 0.32, '#7fc7ff');
+    MAP_BORDER = 24;
+    addSpawnMarker('RED スポーン', 0, 19.0, '#ff607f');
+    addSpawnMarker('BLUE スポーン', 0, -19.0, '#63baff');
+    addSpawnMarker('A', 10.2, 11.2, '#ffd16d');
+    addSpawnMarker('B', -10.2, -11.2, '#7fc7ff');
     addSpawnMarker('ミッド', 0, 0, '#8fa0ff');
   });
 }
@@ -3685,6 +3756,7 @@ function buildMap(mapId){
 }
 
 function rebuildMapIfNeeded(mapId, force){
+
   var wantedMapId = 'arena';
   if(!force && currentMapId === wantedMapId) return;
   buildMap(wantedMapId);

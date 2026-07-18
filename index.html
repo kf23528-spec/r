@@ -3240,7 +3240,6 @@ function triggerRecoil(){gunState.recoil=Math.min(1.0,gunState.recoil+(adsActive
 
 
 var currentMapId = 'arena';
-var MAP_MODEL_URL = 'building interior 3d model.glb';
 var MAP_TARGET_SIZE = 76;
 var mapRoot = null;
 var mapLoadToken = 0;
@@ -3638,9 +3637,10 @@ function buildProceduralArena(){
   addFloorPatch(0, 0, 84, 84, 0x0f1723, 1);
   addNeonFloorLine(0, 0, 14, 0.14, 0x6078ff, 1);
 
+  // NOTE: only the two uploaded assets are used here, with their exact filenames.
   Promise.all([
-    loadGltfScene('theappxr_Floor_2_NODRACO_standard (1).glb'),
-    loadGltfScene('gd50_varun_wall_and_corner.glb')
+    loadGltfScene('./theappxr_Floor_2_NODRACO_standard (1).glb'),
+    loadGltfScene('./gd50_varun_wall_and_corner.glb')
   ]).then(function(models){
     if(token !== mapLoadToken) return;
     var floorTemplate = prepareTemplateRoot(models[0]);

@@ -3287,16 +3287,15 @@ var MAP_DEFS = {
   }
 };
 
+
 function getSpawnPointsForMap(mapId,team){
-  var z = team===TEAM_RED ? Math.max(10, (MAP_BORDER || 39) - 10) : -Math.max(10, (MAP_BORDER || 39) - 10);
+  var z = team===TEAM_RED ? Math.max(10, (MAP_BORDER || 38) - 8) : -Math.max(10, (MAP_BORDER || 38) - 8);
   return [
     {x:-12,z:z},
     {x:0,z:z},
     {x:12,z:z}
   ];
 }
-
-
 
 function clearLoadedMapModel(){
   if(mapRoot){
@@ -3306,81 +3305,378 @@ function clearLoadedMapModel(){
   mapLoadToken++;
 }
 
+function loadGltfScene(url){
+  return new Promise(function(resolve, reject){
+    var loader = new GLTFLoader();
+    loader.load(
+      encodeURI(url),
+      function(gltf){
+        var root = gltf && gltf.scene ? gltf.scene : (gltf && gltf.scenes && gltf.scenes[0]) ? gltf.scenes[0] : null;
+        resolve(root);
+      },
+      undefined,
+      function(err){
+        reject(err);
+      }
+    );
+  });
+}
+
+function prepareTemplateRoot(root){
+  if(!root) return null;
+  root = root.clone(true);
+  root.traverse(function(o){
+    if(o && o.isMesh){
+      o.castShadow = false;
+      o.receiveShadow = false;
+      if(o.material && o.material.isMaterial){
+        o.material = o.material.clone();
+      }
+    }
+  });
+  root.updateMatrixWorld(true);
+  var box = new T.Box3().setFromObject(root);
+  var center = new T.Vector3();
+  box.getCenter(center);
+  root.position.x -= center.x;
+  root.position.z -= center.z;
+  root.updateMatrixWorld(true);
+  box = new T.Box3().setFromObject(root);
+  root.position.y -= box.min.y;
+  root.updateMatrixWorld(true);
+  return root;
+}
+
+function addTemplateInstance(parent, template, x, y, z, ry, scale){
+  if(!parent || !template) return null;
+  var obj = template.clone(true);
+  if(scale !== undefined && scale !== null){
+    obj.scale.setScalar(scale);
+  }
+  obj.position.set(x || 0, y || 0, z || 0);
+  obj.rotation.set(0, ry || 0, 0);
+  obj.userData.isMapDecor = true;
+  parent.add(obj);
+  return obj;
+}
+
+function addSimpleProp(parent, spec){
+  if(!parent || !spec) return null;
+  var geo = new T.BoxGeometry(spec.w || 1, spec.h || 1, spec.d || 1);
+  var mat = new T.MeshStandardMaterial({
+    color: spec.color || 0x3b4552,
+    roughness: spec.roughness === undefined ? 0.88 : spec.roughness,
+    metalness: spec.metalness === undefined ? 0.04 : spec.metalness,
+    emissive: spec.emissive || 0x000000,
+    emissiveIntensity: spec.emissiveIntensity === undefined ? 0 : spec.emissiveIntensity
+  });
+  var mesh = new T.Mesh(geo, mat);
+  mesh.position.set(spec.x || 0, spec.y || 0, spec.z || 0);
+  mesh.rotation.y = spec.ry || 0;
+  mesh.castShadow = false;
+  mesh.receiveShadow = false;
+  mesh.userData.isMapDecor = true;
+  parent.add(mesh);
+  return mesh;
+}
+
+function addPropCollider(spec, mesh){
+  addColliderBox(spec.x || 0, spec.y || 0, spec.z || 0, spec.w || 1, spec.h || 1, spec.d || 1, mesh || null, spec.ry || 0);
+}
+
+function addWallPiece(parent, template, x, z, ry){
+  var obj = addTemplateInstance(parent, template, x, 0, z, ry || 0, 1);
+  if(obj){
+    obj.position.y = 0;
+    addColliderBox(x || 0, 1.5, z || 0, 6.2, 3.0, 3.2, obj, ry || 0);
+  }
+  return obj;
+}
+
+function addFloorTile(parent, template, x, z){
+  var obj = addTemplateInstance(parent, template, x, 0, z, 0, 1);
+  if(obj){
+    obj.position.y = -0.02;
+  }
+  return obj;
+}
+
+function addStepBlock(parent, x, y, z, w, h, d, color){
+  return addSimpleProp(parent, {x:x, y:y, z:z, w:w, h:h, d:d, color:color || 0x596577, roughness:0.96, metalness:0.02});
+}
+
+function addCrateStack(parent, x, z, count){
+  count = count || 1;
+  for(var i=0;i<count;i++){
+    addSimpleProp(parent, {
+      x: x + (i % 2) * 1.25,
+      y: 0.55 + Math.floor(i / 2) * 1.05,
+      z: z + (i % 3) * 0.55,
+      w: 1.15,
+      h: 1.0,
+      d: 1.15,
+      color: 0x8a6338
+    });
+  }
+}
+
+function addBarrier(parent, x, z, ry){
+  return addSimpleProp(parent, {
+    x: x,
+    y: 0.55,
+    z: z,
+    w: 3.4,
+    h: 1.0,
+    d: 1.0,
+    ry: ry || 0,
+    color: 0xb8c2cd,
+    roughness: 0.72,
+    metalness: 0.04
+  });
+}
+
+function addContainer(parent, x, z, ry){
+  return addSimpleProp(parent, {
+    x: x,
+    y: 1.25,
+    z: z,
+    w: 5.8,
+    h: 2.5,
+    d: 2.6,
+    ry: ry || 0,
+    color: 0x4f6578,
+    roughness: 0.78,
+    metalness: 0.12
+  });
+}
+
+function addCarProp(parent, x, z, ry){
+  var base = addSimpleProp(parent, {
+    x: x,
+    y: 0.7,
+    z: z,
+    w: 4.2,
+    h: 1.0,
+    d: 2.0,
+    ry: ry || 0,
+    color: 0x3f4b5a,
+    roughness: 0.7,
+    metalness: 0.08
+  });
+  addSimpleProp(parent, {
+    x: x,
+    y: 1.25,
+    z: z - 0.1,
+    w: 2.2,
+    h: 0.85,
+    d: 1.6,
+    ry: ry || 0,
+    color: 0x667483,
+    roughness: 0.65,
+    metalness: 0.08
+  });
+  return base;
+}
+
+function addPillarProp(parent, x, z, broken){
+  var p = addSimpleProp(parent, {
+    x: x,
+    y: 1.5,
+    z: z,
+    w: 1.3,
+    h: 3.0,
+    d: 1.3,
+    color: broken ? 0x8b8a84 : 0x7e858d,
+    roughness: 0.92,
+    metalness: 0.02
+  });
+  if(broken){
+    addSimpleProp(parent, {
+      x: x + 0.15,
+      y: 2.7,
+      z: z - 0.05,
+      w: 1.6,
+      h: 0.55,
+      d: 1.6,
+      color: 0x5c6166,
+      roughness: 0.98,
+      metalness: 0
+    });
+  }
+  return p;
+}
+
+function addLightMarker(parent, x, z, color){
+  var ring = new T.Mesh(
+    new T.CylinderGeometry(0.75, 0.75, 0.05, 20),
+    new T.MeshStandardMaterial({
+      color: color,
+      emissive: color,
+      emissiveIntensity: 0.85,
+      roughness: 0.35,
+      metalness: 0.0
+    })
+  );
+  ring.position.set(x, 0.04, z);
+  ring.userData.isMapDecor = true;
+  parent.add(ring);
+  return ring;
+}
+
+function buildFallbackArena(root){
+  var floorGeo = new T.BoxGeometry(76, 0.06, 76);
+  var floorMat = new T.MeshStandardMaterial({color:0x132131, roughness:1, metalness:0});
+  var floor = new T.Mesh(floorGeo, floorMat);
+  floor.position.set(0, -0.03, 0);
+  floor.userData.isMapDecor = true;
+  root.add(floor);
+
+  addSimpleProp(root, {x:0,y:1.5,z:36,w:76,h:3,d:0.8,color:0x2c3541});
+  addSimpleProp(root, {x:0,y:1.5,z:-36,w:76,h:3,d:0.8,color:0x2c3541});
+  addSimpleProp(root, {x:36,y:1.5,z:0,w:0.8,h:3,d:76,color:0x2c3541});
+  addSimpleProp(root, {x:-36,y:1.5,z:0,w:0.8,h:3,d:76,color:0x2c3541});
+}
+
+function assembleModularArena(floorTemplate, wallTemplate, token){
+  if(token !== mapLoadToken) return;
+
+  clearMapDecor();
+  clearLoadedMapModel();
+
+  var root = new T.Group();
+  root.userData.isMapDecor = true;
+  scene.add(root);
+  mapRoot = root;
+
+  scene.background = new T.Color(0x0c121a);
+  scene.fog = new T.FogExp2(0x101824, 0.0115);
+
+  var mapSize = 75;
+  var tileStep = 5;
+  var half = mapSize * 0.5 - 2.5;
+
+  for(var iz = -7; iz <= 7; iz++){
+    for(var ix = -7; ix <= 7; ix++){
+      addFloorTile(root, floorTemplate, ix * tileStep, iz * tileStep);
+    }
+  }
+
+  // Outer shell
+  for(var x = -30; x <= 30; x += 6){
+    if(Math.abs(x) > 6){
+      addWallPiece(root, wallTemplate, x, 34, 0);
+      addWallPiece(root, wallTemplate, x, -34, 0);
+    }
+  }
+  for(var z = -28; z <= 28; z += 6){
+    if(Math.abs(z) > 8){
+      addWallPiece(root, wallTemplate, 34, z, Math.PI / 2);
+      addWallPiece(root, wallTemplate, -34, z, Math.PI / 2);
+    }
+  }
+
+  // Main lanes and site boxes
+  for(var lx = -24; lx <= 24; lx += 6){
+    if(Math.abs(lx) > 6){
+      addWallPiece(root, wallTemplate, lx, 14, 0);
+      addWallPiece(root, wallTemplate, lx, -14, 0);
+    }
+  }
+  for(var lz = -22; lz <= 22; lz += 6){
+    if(Math.abs(lz) > 10){
+      addWallPiece(root, wallTemplate, -14, lz, Math.PI / 2);
+      addWallPiece(root, wallTemplate, 14, lz, Math.PI / 2);
+    }
+  }
+
+  // Small site details
+  addContainer(root, 10, 19, 0);
+  addContainer(root, -10, -19, Math.PI * 0.5);
+  addCrateStack(root, 2.3, 16.5, 4);
+  addCrateStack(root, -2.7, -16.5, 4);
+  addBarrier(root, 0, 8, 0);
+  addBarrier(root, 0, -8, 0);
+  addBarrier(root, -8, 0, Math.PI * 0.5);
+  addBarrier(root, 8, 0, Math.PI * 0.5);
+  addPillarProp(root, -18, 4, true);
+  addPillarProp(root, 18, -4, true);
+  addCarProp(root, 18, 19, Math.PI * 0.5);
+  addCarProp(root, -18, -19, 0);
+
+  // gentle stairs / ramps made from steps
+  addStepBlock(root, -24, 0.30, -4, 4.0, 0.6, 3.0, 0x546171);
+  addStepBlock(root, -24, 0.90, -4, 4.0, 0.6, 3.0, 0x667483);
+  addStepBlock(root, 24, 0.30, 4, 4.0, 0.6, 3.0, 0x546171);
+  addStepBlock(root, 24, 0.90, 4, 4.0, 0.6, 3.0, 0x667483);
+
+  // Decorative markers
+  addLightMarker(root, 0, 0, 0x8fa0ff);
+  addLightMarker(root, 0, 16, 0xffd16d);
+  addLightMarker(root, 0, -16, 0x7fc7ff);
+
+  // Lower the full map slightly so it sits on the ground better.
+  root.position.y = -0.20;
+
+  MAP_BORDER = 36;
+
+  addSpawnMarker('RED スポーン', 0, MAP_BORDER - 5.0, '#ff607f');
+  addSpawnMarker('BLUE スポーン', 0, -MAP_BORDER + 5.0, '#63baff');
+  addSpawnMarker('A', 0, MAP_BORDER * 0.40, '#ffd16d');
+  addSpawnMarker('B', 0, -MAP_BORDER * 0.32, '#7fc7ff');
+  addSpawnMarker('ミッド', 0, 0, '#8fa0ff');
+}
+
 function buildProceduralArena(){
   clearMapDecor();
   clearLoadedMapModel();
+  var token = ++mapLoadToken;
 
   scene.fog = new T.FogExp2(0x101824, 0.0105);
   scene.background = new T.Color(0x081018);
 
-  // faint base floor so the map still reads while the GLB is loading
+  // Temporary base while loading
   addFloorPatch(0, 0, 84, 84, 0x0f1723, 1);
   addNeonFloorLine(0, 0, 14, 0.14, 0x6078ff, 1);
 
-  var token = ++mapLoadToken;
-  var loader = new GLTFLoader();
-  loader.load(
-    MAP_MODEL_URL,
-    function(gltf){
-      if(token !== mapLoadToken) return;
+  Promise.all([
+    loadGltfScene('theappxr_Floor_2_NODRACO_standard (1).glb'),
+    loadGltfScene('gd50_varun_wall_and_corner.glb')
+  ]).then(function(models){
+    if(token !== mapLoadToken) return;
+    var floorTemplate = prepareTemplateRoot(models[0]);
+    var wallTemplate = prepareTemplateRoot(models[1]);
 
-      clearMapDecor();
-      clearLoadedMapModel();
-
-      var root = gltf.scene || (gltf.scenes && gltf.scenes[0]);
-      if(!root) return;
-
-      root.traverse(function(o){
-        if(o && o.isMesh){
-          o.castShadow = false;
-          o.receiveShadow = false;
-          if(o.material && o.material.isMaterial){
-            o.material = o.material.clone();
-          }
-        }
-      });
-
-      var box = new T.Box3().setFromObject(root);
-      var size = new T.Vector3();
-      var center = new T.Vector3();
-      box.getSize(size);
-      box.getCenter(center);
-
-      var maxDim = Math.max(size.x, size.z, 0.001);
-      var scale = MAP_TARGET_SIZE / maxDim;
-
-      root.scale.setScalar(scale);
-      root.updateMatrixWorld(true);
-
-      var scaledBox = new T.Box3().setFromObject(root);
-      var scaledCenter = new T.Vector3();
-      scaledBox.getCenter(scaledCenter);
-
-      root.position.x -= scaledCenter.x;
-      root.position.z -= scaledCenter.z;
-      root.position.y -= scaledBox.min.y;
-      root.position.y -= 0.18;
-      root.userData.isMapDecor = true;
-
-      scene.add(root);
-      mapRoot = root;
-
-      var xSize = scaledBox.max.x - scaledBox.min.x;
-      var zSize = scaledBox.max.z - scaledBox.min.z;
-      MAP_BORDER = Math.max(34, Math.max(xSize, zSize) * 0.5 + 2.5);
-
-      // reference markers for the loaded map
+    if(!floorTemplate || !wallTemplate){
+      var fallbackRoot = new T.Group();
+      fallbackRoot.userData.isMapDecor = true;
+      scene.add(fallbackRoot);
+      mapRoot = fallbackRoot;
+      buildFallbackArena(fallbackRoot);
+      MAP_BORDER = 36;
       addSpawnMarker('RED スポーン', 0, MAP_BORDER - 5.0, '#ff607f');
       addSpawnMarker('BLUE スポーン', 0, -MAP_BORDER + 5.0, '#63baff');
       addSpawnMarker('A', 0, MAP_BORDER * 0.40, '#ffd16d');
       addSpawnMarker('B', 0, -MAP_BORDER * 0.32, '#7fc7ff');
       addSpawnMarker('ミッド', 0, 0, '#8fa0ff');
-    },
-    undefined,
-    function(err){
-      console.error('Map GLB load failed:', err);
+      return;
     }
-  );
+
+    assembleModularArena(floorTemplate, wallTemplate, token);
+  }).catch(function(err){
+    if(token !== mapLoadToken) return;
+    console.error('Map GLB load failed:', err);
+    var fallbackRoot = new T.Group();
+    fallbackRoot.userData.isMapDecor = true;
+    scene.add(fallbackRoot);
+    mapRoot = fallbackRoot;
+    buildFallbackArena(fallbackRoot);
+    MAP_BORDER = 36;
+    addSpawnMarker('RED スポーン', 0, MAP_BORDER - 5.0, '#ff607f');
+    addSpawnMarker('BLUE スポーン', 0, -MAP_BORDER + 5.0, '#63baff');
+    addSpawnMarker('A', 0, MAP_BORDER * 0.40, '#ffd16d');
+    addSpawnMarker('B', 0, -MAP_BORDER * 0.32, '#7fc7ff');
+    addSpawnMarker('ミッド', 0, 0, '#8fa0ff');
+  });
 }
 
 function buildMap(mapId){

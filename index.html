@@ -3286,7 +3286,9 @@ function prepareTemplateRoot(root){
   });
   root.updateMatrixWorld(true);
   var box = new T.Box3().setFromObject(root);
+  var size = new T.Vector3();
   var center = new T.Vector3();
+  box.getSize(size);
   box.getCenter(center);
   root.position.x -= center.x;
   root.position.z -= center.z;
@@ -3295,8 +3297,23 @@ function prepareTemplateRoot(root){
   root.position.y -= box.min.y;
   // Slight lift so GLB-based props sit cleanly on the floor instead of clipping into it.
   root.position.y += 0.04;
+
+  // Car / wall / prop models need a little more vertical clearance than floor tiles.
+  // Keep flat floor tiles untouched.
+  var isFloorLike = size.y <= Math.max(0.18, Math.min(size.x, size.z) * 0.08);
+  root.userData = root.userData || {};
+  root.userData._templateIsFloorLike = !!isFloorLike;
+  root.userData._templateLiftY = isFloorLike ? 0 : Math.min(0.6, Math.max(0.18, size.y * 0.22));
   root.updateMatrixWorld(true);
   return root;
+}
+
+
+function getTemplateLiftY(template, scale){
+  var base = template && template.userData && Number(template.userData._templateLiftY);
+  if(!Number.isFinite(base) || base <= 0) return 0;
+  var s = Number.isFinite(scale) ? scale : 1;
+  return base * s;
 }
 
 function addTemplateInstance(parent, template, x, y, z, ry, scale){
@@ -3305,7 +3322,8 @@ function addTemplateInstance(parent, template, x, y, z, ry, scale){
   if(scale !== undefined && scale !== null){
     obj.scale.setScalar(scale);
   }
-  obj.position.set(x || 0, y || 0, z || 0);
+  var liftY = getTemplateLiftY(template, scale);
+  obj.position.set(x || 0, (y || 0) + liftY, z || 0);
   obj.rotation.set(0, ry || 0, 0);
   obj.userData.isMapDecor = true;
   parent.add(obj);
@@ -3339,10 +3357,11 @@ function addPropCollider(spec, mesh){
 }
 
 function addWallPiece(parent, template, x, z, ry){
+  var liftY = getTemplateLiftY(template, 1);
   var obj = addTemplateInstance(parent, template, (x || 0) * ARENA_POS_SCALE, 0, (z || 0) * ARENA_POS_SCALE, ry || 0, 1);
   if(obj){
-    obj.position.y = 0;
-    addColliderBox((x || 0) * ARENA_POS_SCALE, 1.5, (z || 0) * ARENA_POS_SCALE, 6.2, 3.0, 3.2, obj, ry || 0);
+    obj.position.y = liftY;
+    addColliderBox((x || 0) * ARENA_POS_SCALE, 1.5 + liftY, (z || 0) * ARENA_POS_SCALE, 6.2, 3.0, 3.2, obj, ry || 0);
   }
   return obj;
 }
@@ -3518,12 +3537,13 @@ function addTemplateProp(parent, template, spec){
   var px = (spec.x || 0) * posScale;
   var py = spec.y || 0;
   var pz = (spec.z || 0) * posScale;
+  var liftY = getTemplateLiftY(template, spec.scale || 1);
   var obj = addTemplateInstance(parent, template, px, py, pz, spec.ry || 0, spec.scale || 1);
   if(obj && spec.collider){
     var c = spec.collider;
     addColliderBox(
       px,
-      py + (c[1] || 1) * 0.5,
+      py + liftY + (c[1] || 1) * 0.5,
       pz,
       c[0] || 1, c[1] || 1, c[2] || 1,
       obj,

@@ -3592,8 +3592,8 @@ function assembleModularArena(models, token){
 
   // Wider floor grid so the arena matches the intended scale better.
   // The floor asset is a 5m x 5m tile, so spacing stays at 5.
-  for(var iz=-7; iz<=7; iz++){
-    for(var ix=-7; ix<=7; ix++){
+  for(var iz=-10; iz<=10; iz++){
+    for(var ix=-10; ix<=10; ix++){
       addTemplateProp(root, floorTemplate, {
         x: ix * 5,
         y: 0,
@@ -3614,33 +3614,35 @@ function assembleModularArena(models, token){
   var pillarScale = 13.5;
   var barrierScale = 1.85;
   var carScale = 0.56;
+  var wallLiftY = 0.18;
+  var carLiftY = 0.18;
 
   // Arena border.
   var wallCollider = [6.4, 3.0, 0.75];
   var borderXs = [-28, -21, -14, -7, 7, 14, 21, 28];
   var borderZs = [-28, -21, -14, -7, 7, 14, 21, 28];
-  addRepeatedWalls(root, wallTemplate, borderXs.map(function(x){ return [x, 0, 31.6, 0]; }), wallScale, wallCollider);
-  addRepeatedWalls(root, wallTemplate, borderXs.map(function(x){ return [x, 0, -31.6, 0]; }), wallScale, wallCollider);
-  addRepeatedWalls(root, wallTemplate, borderZs.map(function(z){ return [31.6, 0, z, Math.PI/2]; }), wallScale, wallCollider);
-  addRepeatedWalls(root, wallTemplate, borderZs.map(function(z){ return [-31.6, 0, z, Math.PI/2]; }), wallScale, wallCollider);
+  addRepeatedWalls(root, wallTemplate, borderXs.map(function(x){ return [x, wallLiftY, 31.6, 0]; }), wallScale, wallCollider);
+  addRepeatedWalls(root, wallTemplate, borderXs.map(function(x){ return [x, wallLiftY, -31.6, 0]; }), wallScale, wallCollider);
+  addRepeatedWalls(root, wallTemplate, borderZs.map(function(z){ return [31.6, wallLiftY, z, Math.PI/2]; }), wallScale, wallCollider);
+  addRepeatedWalls(root, wallTemplate, borderZs.map(function(z){ return [-31.6, wallLiftY, z, Math.PI/2]; }), wallScale, wallCollider);
 
-  addTemplateProp(root, cornerTemplate, {x:-31.6, y:0, z:31.6, ry:Math.PI, scale:cornerScale, collider:[5.8, 3.0, 3.2]});
-  addTemplateProp(root, cornerTemplate, {x:31.6, y:0, z:31.6, ry:Math.PI/2, scale:cornerScale, collider:[5.8, 3.0, 3.2]});
-  addTemplateProp(root, cornerTemplate, {x:-31.6, y:0, z:-31.6, ry:-Math.PI/2, scale:cornerScale, collider:[5.8, 3.0, 3.2]});
-  addTemplateProp(root, cornerTemplate, {x:31.6, y:0, z:-31.6, ry:0, scale:cornerScale, collider:[5.8, 3.0, 3.2]});
+  addTemplateProp(root, cornerTemplate, {x:-31.6, y:wallLiftY, z:31.6, ry:Math.PI, scale:cornerScale, collider:[5.8, 3.0, 3.2]});
+  addTemplateProp(root, cornerTemplate, {x:31.6, y:wallLiftY, z:31.6, ry:Math.PI/2, scale:cornerScale, collider:[5.8, 3.0, 3.2]});
+  addTemplateProp(root, cornerTemplate, {x:-31.6, y:wallLiftY, z:-31.6, ry:-Math.PI/2, scale:cornerScale, collider:[5.8, 3.0, 3.2]});
+  addTemplateProp(root, cornerTemplate, {x:31.6, y:wallLiftY, z:-31.6, ry:0, scale:cornerScale, collider:[5.8, 3.0, 3.2]});
 
   // Long lanes / site walls.
   var laneWallCollider = [6.0, 2.8, 0.7];
-  addRepeatedWalls(root, wallTemplate, [[-18,0,14,0],[-10,0,14,0],[10,0,14,0],[18,0,14,0]], wallScale, laneWallCollider);
-  addRepeatedWalls(root, wallTemplate, [[-18,0,-14,0],[-10,0,-14,0],[10,0,-14,0],[18,0,-14,0]], wallScale, laneWallCollider);
-  addRepeatedWalls(root, wallTemplate, [[-14,0,-18,Math.PI/2],[-14,0,-10,Math.PI/2],[-14,0,10,Math.PI/2],[-14,0,18,Math.PI/2]], wallScale, laneWallCollider);
-  addRepeatedWalls(root, wallTemplate, [[14,0,-18,Math.PI/2],[14,0,-10,Math.PI/2],[14,0,10,Math.PI/2],[14,0,18,Math.PI/2]], wallScale, laneWallCollider);
+  addRepeatedWalls(root, wallTemplate, [[-18,wallLiftY,14,0],[-10,wallLiftY,14,0],[10,wallLiftY,14,0],[18,wallLiftY,14,0]], wallScale, laneWallCollider);
+  addRepeatedWalls(root, wallTemplate, [[-18,wallLiftY,-14,0],[-10,wallLiftY,-14,0],[10,wallLiftY,-14,0],[18,wallLiftY,-14,0]], wallScale, laneWallCollider);
+  addRepeatedWalls(root, wallTemplate, [[-14,wallLiftY,-18,Math.PI/2],[-14,wallLiftY,-10,Math.PI/2],[-14,wallLiftY,10,Math.PI/2],[-14,wallLiftY,18,Math.PI/2]], wallScale, laneWallCollider);
+  addRepeatedWalls(root, wallTemplate, [[14,wallLiftY,-18,Math.PI/2],[14,wallLiftY,-10,Math.PI/2],[14,wallLiftY,10,Math.PI/2],[14,wallLiftY,18,Math.PI/2]], wallScale, laneWallCollider);
 
   // Main chokepoints.
-  addTemplateProp(root, gateTemplate, {x:0, y:0, z:18.5, ry:0, scale:gateScale, collider:[5.0,3.0,1.8]});
-  addTemplateProp(root, gateTemplate, {x:0, y:0, z:-18.5, ry:Math.PI, scale:gateScale, collider:[5.0,3.0,1.8]});
-  addTemplateProp(root, gateTemplate, {x:18.5, y:0, z:0, ry:Math.PI/2, scale:gateScale, collider:[5.0,3.0,1.8]});
-  addTemplateProp(root, gateTemplate, {x:-18.5, y:0, z:0, ry:-Math.PI/2, scale:gateScale, collider:[5.0,3.0,1.8]});
+  addTemplateProp(root, gateTemplate, {x:0, y:wallLiftY, z:18.5, ry:0, scale:gateScale, collider:[5.0,3.0,1.8]});
+  addTemplateProp(root, gateTemplate, {x:0, y:wallLiftY, z:-18.5, ry:Math.PI, scale:gateScale, collider:[5.0,3.0,1.8]});
+  addTemplateProp(root, gateTemplate, {x:18.5, y:wallLiftY, z:0, ry:Math.PI/2, scale:gateScale, collider:[5.0,3.0,1.8]});
+  addTemplateProp(root, gateTemplate, {x:-18.5, y:wallLiftY, z:0, ry:-Math.PI/2, scale:gateScale, collider:[5.0,3.0,1.8]});
 
   // Flat A/B lanes only; stairs have been removed.
 
@@ -3667,8 +3669,8 @@ function assembleModularArena(models, token){
 
   addTemplateProp(root, containerTemplate, {x:-22.5, y:0, z:20.0, ry:0, scale:containerScale, collider:[5.8,2.5,6.0]});
   addTemplateProp(root, containerTemplate, {x:22.5, y:0, z:-20.0, ry:Math.PI/2, scale:containerScale, collider:[5.8,2.5,6.0]});
-  addTemplateProp(root, carTemplate, {x:-23.0, y:0, z:-19.5, ry:Math.PI/2, scale:carScale, collider:[4.5,2.0,5.0]});
-  addTemplateProp(root, carTemplate, {x:23.0, y:0, z:19.5, ry:0, scale:carScale, collider:[4.5,2.0,5.0]});
+  addTemplateProp(root, carTemplate, {x:-23.0, y:carLiftY, z:-19.5, ry:Math.PI/2, scale:carScale, collider:[4.5,2.0,5.0]});
+  addTemplateProp(root, carTemplate, {x:23.0, y:carLiftY, z:19.5, ry:0, scale:carScale, collider:[4.5,2.0,5.0]});
 
   // A few extra simple platforms to help readability and prevent dead empty space.
   addSimpleProp(root, {x:-24, y:0.03, z:0, w:10, h:0.08, d:16, color:0x1b2734, roughness:0.98, metalness:0.0, posScale:1});

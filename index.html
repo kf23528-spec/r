@@ -3592,8 +3592,8 @@ function assembleModularArena(models, token){
 
   // Wider floor grid so the arena matches the intended scale better.
   // The floor asset is a 5m x 5m tile, so spacing stays at 5.
-  for(var iz=-10; iz<=10; iz++){
-    for(var ix=-10; ix<=10; ix++){
+  for(var iz=-9; iz<=9; iz++){
+    for(var ix=-9; ix<=9; ix++){
       addTemplateProp(root, floorTemplate, {
         x: ix * 5,
         y: 0,
@@ -3638,18 +3638,12 @@ function assembleModularArena(models, token){
   addRepeatedWalls(root, wallTemplate, [[-14,wallLiftY,-18,Math.PI/2],[-14,wallLiftY,-10,Math.PI/2],[-14,wallLiftY,10,Math.PI/2],[-14,wallLiftY,18,Math.PI/2]], wallScale, laneWallCollider);
   addRepeatedWalls(root, wallTemplate, [[14,wallLiftY,-18,Math.PI/2],[14,wallLiftY,-10,Math.PI/2],[14,wallLiftY,10,Math.PI/2],[14,wallLiftY,18,Math.PI/2]], wallScale, laneWallCollider);
 
-  // Main chokepoints.
-  addTemplateProp(root, gateTemplate, {x:0, y:wallLiftY, z:18.5, ry:0, scale:gateScale, collider:[5.0,3.0,1.8]});
-  addTemplateProp(root, gateTemplate, {x:0, y:wallLiftY, z:-18.5, ry:Math.PI, scale:gateScale, collider:[5.0,3.0,1.8]});
-  addTemplateProp(root, gateTemplate, {x:18.5, y:wallLiftY, z:0, ry:Math.PI/2, scale:gateScale, collider:[5.0,3.0,1.8]});
-  addTemplateProp(root, gateTemplate, {x:-18.5, y:wallLiftY, z:0, ry:-Math.PI/2, scale:gateScale, collider:[5.0,3.0,1.8]});
-
   // Flat A/B lanes only; stairs have been removed.
 
   // Mid connector and center cover.
-  addTemplateProp(root, pillarTemplate, {x:0, y:0, z:0, ry:0, scale:pillarScale, collider:[2.0, 6.5, 2.0]});
-  addTemplateProp(root, pillarTemplate, {x:4.5, y:0, z:0, ry:0, scale:pillarScale, collider:[2.0, 6.5, 2.0]});
-  addTemplateProp(root, pillarTemplate, {x:-4.5, y:0, z:0, ry:0, scale:pillarScale, collider:[2.0, 6.5, 2.0]});
+  addTemplateProp(root, pillarTemplate, {x:0, y:-0.35, z:0, ry:0, scale:pillarScale, collider:[2.0, 6.5, 2.0]});
+  addTemplateProp(root, pillarTemplate, {x:4.5, y:-0.35, z:0, ry:0, scale:pillarScale, collider:[2.0, 6.5, 2.0]});
+  addTemplateProp(root, pillarTemplate, {x:-4.5, y:-0.35, z:0, ry:0, scale:pillarScale, collider:[2.0, 6.5, 2.0]});
 
   // Cover pieces.  These are kept intentionally sparse to avoid clutter and physics noise.
   var cratePositions = [
@@ -3697,7 +3691,7 @@ function buildProceduralArena(){
   scene.background = new T.Color(0x081018);
 
   // Temporary base while loading
-  addFloorPatch(0, 0, 60, 60, 0x0f1723, 1);
+  addFloorPatch(0, 0, 54, 54, 0x0f1723, 1);
   addNeonFloorLine(0, 0, 14, 0.14, 0x6078ff, 1);
 
   var assetNames = [

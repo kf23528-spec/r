@@ -686,33 +686,6 @@ function lerp(a,b,t){return a+(b-a)*t;}
 function escapeHtml(s){return String(s).replace(/[&<>"']/g,function(ch){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[ch];});}
 function getRoomInput(){return (roomInput.value||'').replace(/[^0-9]/g,'').slice(0,4);}
 function clampVecToMap(v){v.x=clamp(v.x,-MAP_BORDER,MAP_BORDER);v.z=clamp(v.z,-MAP_BORDER,MAP_BORDER);return v;}
-
-function smoothstep01(t){ t = clamp01(t); return t * t * (3 - 2 * t); }
-
-function getGroundHeightAt(x, z){
-  var h = 0;
-
-  // A site staircase / raised lane on the upper-left.
-  if(x >= -30 && x <= -22 && z >= 10 && z <= 18){
-    var ta = smoothstep01((x + 30) / 8);
-    h = Math.max(h, ta * 1.05);
-  }
-
-  // B site staircase / raised lane on the lower-right.
-  if(x >= 22 && x <= 30 && z >= -18 && z <= -10){
-    var tb = smoothstep01((30 - x) / 8);
-    h = Math.max(h, tb * 1.05);
-  }
-
-  // Small mid bump so the center feels less perfectly flat.
-  if(x >= -5 && x <= 5 && z >= -5 && z <= 5){
-    var tm = 1 - Math.max(Math.abs(x), Math.abs(z)) / 5;
-    h = Math.max(h, smoothstep01(tm) * 0.30);
-  }
-
-  return h;
-}
-
 function isInteractiveTarget(el){return !!(el&&el.closest&&el.closest('button,input,textarea,select,label,a,#lobbyOverlay,#waitingOverlay,#loadingOverlay,#resultOverlay'));}
 function addColliderBox(x,y,z,w,h,d,mesh,ry){
   colliders.push({x:x,y:y,z:z,w:w,h:h,d:d,ry:ry||0,mesh:mesh||null});
@@ -1748,11 +1721,28 @@ function getSpawnForTeam(team){
 function updateLobbyCamera(dt){camera.position.lerp(new T.Vector3(0,16,33),1-Math.exp(-2.5*dt));camera.lookAt(0,1.2,0);}
 function syncCameraRotation(){camera.rotation.x=pitch;camera.rotation.y=yaw;}
 var AI_RADIUS=0.5;
-
 function resolveCollision(next){
   var safe = next.clone();
   safe.y = PLAYER_HEIGHT;
   var r = PLAYER_RADIUS;
+
+  if(mapRoot){
+    var from = camera.position.clone();
+    from.y = PLAYER_HEIGHT;
+    var to = safe.clone();
+    to.y = PLAYER_HEIGHT;
+    var seg = to.clone().sub(from);
+    var segLen = seg.length();
+    if(segLen > 1e-6){
+      mapRaycaster.set(from, seg.clone().normalize());
+      mapRaycaster.far = segLen;
+      var hits = mapRaycaster.intersectObject(mapRoot, true);
+      var blocking = firstBlockingHit(hits);
+      if(blocking && blocking.distance <= segLen){
+        return from.clone();
+      }
+    }
+  }
 
   for(var i = 0; i < colliders.length; i++){
     var c = colliders[i];
@@ -1764,8 +1754,6 @@ function resolveCollision(next){
   clampVecToMap(safe);
   return safe;
 }
-
-
 function resolveCollisionForAI(nx,nz){
   var r = AI_RADIUS;
   var sx = nx, sz = nz;
@@ -1778,17 +1766,25 @@ function resolveCollisionForAI(nx,nz){
   }
   return {x: clamp(sx,-MAP_BORDER,MAP_BORDER), z: clamp(sz,-MAP_BORDER,MAP_BORDER)};
 }
-
-
 function aiWouldHitWall(nx,nz){
   var r = AI_RADIUS;
+  if(mapRoot){
+    var from = new T.Vector3(nx, PLAYER_HEIGHT, nz);
+    var to = new T.Vector3(nx + Math.cos(0) * 0.01, PLAYER_HEIGHT, nz + Math.sin(0) * 0.01);
+    var dir = to.clone().sub(from);
+    if(dir.lengthSq() > 1e-10){
+      mapRaycaster.set(from, dir.clone().normalize());
+      mapRaycaster.far = 0.01;
+      var hits = mapRaycaster.intersectObject(mapRoot, true);
+      var blocking = firstBlockingHit(hits);
+      if(blocking) return true;
+    }
+  }
   for(var i = 0; i < colliders.length; i++){
     if(pointHitsCollider(nx, nz, colliders[i], r)) return true;
   }
   return Math.abs(nx) >= MAP_BORDER || Math.abs(nz) >= MAP_BORDER;
 }
-
-
 function movePlayer(dt){
   if(!player.alive||gameMode!==GAME_MODE.BATTLE) return;
   syncCameraRotation();
@@ -1805,10 +1801,8 @@ function movePlayer(dt){
   moveVel.y=T.MathUtils.lerp(moveVel.y,des.z,1-Math.exp(-acc*dt));
   var nx=new T.Vector3(camera.position.x+moveVel.x*dt,PLAYER_HEIGHT,camera.position.z+moveVel.y*dt);
   camera.position.copy(resolveCollision(nx));
-  camera.position.y = PLAYER_HEIGHT + getGroundHeightAt(camera.position.x, camera.position.z);
   player.x=camera.position.x; player.y=camera.position.y; player.z=camera.position.z;
 }
-
 function startReload(){if(reloading||ammo>=MAG_SIZE||!player.alive||matchOver||gameMode!==GAME_MODE.BATTLE)return;reloading=true;reloadTimer=0;gunState.reloadAnim=true;gunState.reloadAnimT=0;updateAmmoUI();}
 function updateReload(dt){if(!reloading)return;reloadTimer+=dt;updateAmmoUI();if(reloadTimer>=RELOAD_TIME){ammo=MAG_SIZE;reloading=false;reloadTimer=0;gunState.reloadAnim=false;updateAmmoUI();}}
 function setADS(on){adsActive=!!on;adsButton.classList.toggle('ads-active',adsActive);gunPosTarget.copy(adsActive?gunPosAds:gunPosNormal);}
@@ -2355,7 +2349,6 @@ function clearAIUnits(){
   }
   aiUnits.length=0;
 }
-
 function makeAIUnit(team,index){
   var tk=team===TEAM_RED?'red':'blue';
   var seed=(aiMatchSeed+index*97+(tk==='red'?999:111))>>>0;
@@ -2374,10 +2367,9 @@ function makeAIUnit(team,index){
     fireCooldown: nowSec + 0.5 + rng()*1.0,
     lastShotAt:0,
     stuckTimer:0,lastCheckPos:{x:spawn.x,z:spawn.z},unstuckDir:null,unstuckUntil:0};
-  avatar.position.set(unit.x,getGroundHeightAt(unit.x,unit.z),unit.z); avatar.rotation.y=unit.yaw; avatar.visible=true;
+  avatar.position.set(unit.x,0,unit.z); avatar.rotation.y=unit.yaw; avatar.visible=true;
   updateAvatarHPBar(avatar,unit.hp); return unit;
 }
-
 function getCombatTargetsFor(team){
   var targets=[];
   Object.keys(roomPlayers||{}).forEach(function(id){
@@ -2527,7 +2519,6 @@ function updateAI(dt){
     if(av&&av.userData._mixer) av.userData._mixer.update(dt);
   });
 }
-
 function reviveHumansForNewRound(){
   var ids={};
   Object.keys(roomPlayers||{}).forEach(function(id){ids[id]=true;});
@@ -2546,7 +2537,6 @@ function reviveHumansForNewRound(){
   });
   updateRemotePlayersFromState();
 }
-
 function initAIForMatch(data){
   var startedAt=Number(data&&data.startedAt)||Date.now();
   aiMatchSeed=(hashRoomSeed(currentRoom)^(startedAt>>>0)^((startedAt/65536)>>>0))>>>0;
@@ -2555,7 +2545,6 @@ function initAIForMatch(data){
   for(var i=0;i<aiCount;i++) aiUnits.push(makeAIUnit(TEAM_BLUE,i));
   for(var j=0;j<aiCount;j++) aiUnits.push(makeAIUnit(TEAM_RED,j));
 }
-
 function resetAIForRound(){
   var nowSec=performance.now()/1000;
   for(var i=0;i<aiUnits.length;i++){
@@ -2566,7 +2555,7 @@ function resetAIForRound(){
     u.lastShotAt=0;
     u.stuckTimer=0;u.lastCheckPos={x:u.x,z:u.z};u.unstuckDir=null;u.unstuckUntil=0;
     if(u.avatar){
-      u.avatar.visible=true;u.avatar.position.set(u.x,getGroundHeightAt(u.x,u.z),u.z);
+      u.avatar.visible=true;u.avatar.position.set(u.x,0,u.z);
       u.avatar.rotation.y=getAIVisualYaw(u);ensureNameTag(u.avatar,'AI',u.team);
       updateAvatarHPBar(u.avatar,u.hp);
       u.avatar.userData._animMode = 'none';
@@ -2574,14 +2563,12 @@ function resetAIForRound(){
     }
   }
 }
-
-
 function applyRemoteState(id,s){
   if(!s)return;
   remoteStates[id]=remoteStates[id]||{};
   var normalized={
     id:id,name:s.name||id,team:s.team||TEAM_BLUE,room:s.room||currentRoom,
-    x:Number(s.x)||0,y:Number.isFinite(Number(s.y))?Number(s.y):PLAYER_HEIGHT,z:Number(s.z)||0,ry:Number(s.ry)||0,
+    x:Number(s.x)||0,y:Number(s.y)||PLAYER_HEIGHT,z:Number(s.z)||0,ry:Number(s.ry)||0,
     alive:s.alive!==false,hp:Number.isFinite(s.hp)?s.hp:(remoteStates[id].hp||100),
     shotSeq:Number.isFinite(s.shotSeq)?s.shotSeq:(remoteStates[id].shotSeq||0)
   };
@@ -2591,8 +2578,7 @@ function applyRemoteState(id,s){
   roomPlayers[id]=roomPlayers[id]||{};
   Object.assign(roomPlayers[id],{name:normalized.name,team:normalized.team,room:normalized.room,x:normalized.x,y:normalized.y,z:normalized.z,ry:normalized.ry,alive:normalized.alive,hp:normalized.hp,shotSeq:normalized.shotSeq,lastShotAt:normalized.lastShotAt});
   var av=ensureAvatar(id,normalized.team,normalized.name);
-  var gy = getGroundHeightAt(normalized.x, normalized.z);
-  av.position.set(normalized.x, gy, normalized.z); av.rotation.y=normalized.ry;
+  av.position.set(normalized.x,0,normalized.z); av.rotation.y=normalized.ry;
   av.visible=normalized.alive!==false;
   ensureNameTag(av,normalized.name,normalized.team); updateAvatarHPBar(av,normalized.hp);
   if(normalized.shotSeq>0){
@@ -2614,7 +2600,6 @@ function applyRemoteState(id,s){
     }
   }
 }
-
 var REMOTE_MOVING_THRESHOLD = 0.012;
 var SHOOTING_FLAG_DURATION_MS = 1100;
 function getRemoteLastShotAt(id, av){
@@ -2686,7 +2671,6 @@ function markAvatarShooting(id, shotSeq, shotAt){
   requestAnimationFrame(function(){ forceUpdateRemoteAvatarAnimation(id, true); });
   setTimeout(function(){ forceUpdateRemoteAvatarAnimation(id, true); }, 120);
 }
-
 function updateRemotePlayersFromState(){
   var ids={};
   Object.keys(roomPlayers||{}).forEach(function(id){ids[id]=true;});
@@ -2700,7 +2684,7 @@ function updateRemotePlayersFromState(){
     var prevZ=Number.isFinite(av.userData._prevZ)?av.userData._prevZ:nz;
     var movedDist=Math.hypot(nx-prevX,nz-prevZ);
     av.userData._prevX=nx; av.userData._prevZ=nz;
-    av.position.set(nx, getGroundHeightAt(nx, nz), nz);
+    av.position.set(nx,0,nz);
     av.rotation.y=Number(p.ry)||0;
     av.visible=p.alive!==false;
     ensureNameTag(av,p.name||id,p.team||TEAM_BLUE);
@@ -2721,17 +2705,27 @@ function updateRemotePlayersFromState(){
     if(!ids[id])removeAvatar(id);
   });
 }
-
 function updateSendLoop(dt){
   if(!socket||!socket.connected||gameMode!==GAME_MODE.BATTLE)return;
   if(!player.alive)return;
   sendTimer+=dt*1000;
   if(sendTimer>=SEND_HZ){sendTimer=0;socket.emit('playerMovement',{room:currentRoom,name:PLAYER_NAME,team:player.team,x:camera.position.x,y:camera.position.y,z:camera.position.z,ry:yaw,alive:player.alive,hp:player.hp});}
 }
-
 function checkLocalShotHit(origin,dir){
   var MAX_RANGE=60;
+  var end=origin.clone().addScaledVector(dir,MAX_RANGE);
   var nearest=null,nearestDist=Infinity;
+
+  if(mapRoot){
+    mapRaycaster.set(origin.clone(), dir.clone().normalize());
+    mapRaycaster.far = MAX_RANGE;
+    var mapHits = mapRaycaster.intersectObject(mapRoot, true);
+    var blocking = firstBlockingHit(mapHits);
+    if(blocking && blocking.distance >= 0 && blocking.distance <= MAX_RANGE && blocking.distance < nearestDist){
+      nearestDist = blocking.distance;
+      nearest = {type:'obstacle',point:blocking.point.clone()};
+    }
+  }
 
   for(var i=0;i<colliders.length;i++){
     var d=rayIntersectAABBDistance(origin,dir,colliders[i]);
@@ -2739,22 +2733,20 @@ function checkLocalShotHit(origin,dir){
   }
   Object.keys(roomPlayers||{}).forEach(function(id){
     if(socket&&id===socket.id)return;
-    var p=roomPlayers[id]||remoteStates[id];
-    if(!p||p.alive===false)return;
-    var box={x:Number(p.x)||0,y:PLAYER_HEIGHT,z:Number(p.z)||0,w:PLAYER_RADIUS*2.2,h:PLAYER_HEIGHT*1.6,d:PLAYER_RADIUS*2.2};
-    var d=rayIntersectAABBDistance(origin,dir,box);
-    if(d!==null&&d>=0&&d<=MAX_RANGE&&d<nearestDist){nearestDist=d;nearest={type:'human',id:id,point:origin.clone().addScaledVector(dir,d)};}
+    var p=roomPlayers[id];if(!p||p.alive===false)return;
+    var av=remoteAvatars.get(id);if(!av)return;
+    var checkEnd=nearestDist<MAX_RANGE?origin.clone().addScaledVector(dir,nearestDist):end;
+    var hit=bulletHitsAvatar(origin,checkEnd,av.position.clone());
+    if(hit){var hd=hit.distanceTo(origin);if(hd<nearestDist){nearestDist=hd;nearest={type:'human',id:id,point:hit,team:p.team||TEAM_RED};}}
   });
-  for(var i=0;i<aiUnits.length;i++){
-    var u=aiUnits[i];
-    if(!u||!u.alive) continue;
-    var box2={x:u.x,y:PLAYER_HEIGHT,z:u.z,w:AI_RADIUS*2.0,h:PLAYER_HEIGHT*1.7,d:AI_RADIUS*2.0};
-    var d2=rayIntersectAABBDistance(origin,dir,box2);
-    if(d2!==null&&d2>=0&&d2<=MAX_RANGE&&d2<nearestDist){nearestDist=d2;nearest={type:'ai',unit:u,point:origin.clone().addScaledVector(dir,d2)};}
+  for(var j=0;j<aiUnits.length;j++){
+    var u=aiUnits[j]; if(!u||!u.alive) continue; if(u.team===player.team) continue;
+    var checkEnd2=nearestDist<MAX_RANGE?origin.clone().addScaledVector(dir,nearestDist):end;
+    var ahit=bulletHitsAIAvatar(origin,checkEnd2,u.x,u.z);
+    if(ahit){var ad=ahit.distanceTo(origin);if(ad<nearestDist){nearestDist=ad;nearest={type:'ai',unitId:u.id,point:ahit,unit:u};}}
   }
   return nearest;
 }
-
 function applyLocalShotHit(hitInfo,point){
   var u=hitInfo.unit; if(!u||!u.alive)return;
   flashKillFx(point); addKillFeed('💥 AI HIT!'); showKillAnnouncement('HIT!');
@@ -2809,6 +2801,16 @@ function updateBullets(dt){
     if(!isLocal){
       var hit=false;
       var segDist=b.prev.distanceTo(b.pos);
+      if(mapRoot && segDist>1e-6){
+        var segDir=b.pos.clone().sub(b.prev).normalize();
+        mapRaycaster.set(b.prev.clone(), segDir);
+        mapRaycaster.far = segDist;
+        var mapHits = mapRaycaster.intersectObject(mapRoot, true);
+        var blocking = firstBlockingHit(mapHits);
+        if(blocking && blocking.distance <= segDist){
+          hit = true;
+        }
+      }
       for(var c=0;c<colliders.length && !hit;c++){
         if(segDist<1e-6){if(hitPointInBox(b.pos,colliders[c])){hit=true;break;}continue;}
         var segDir2=b.pos.clone().sub(b.prev).normalize();
@@ -3320,7 +3322,6 @@ function loadGltfScene(url){
   });
 }
 
-
 function prepareTemplateRoot(root){
   if(!root) return null;
   root = root.clone(true);
@@ -3343,17 +3344,18 @@ function prepareTemplateRoot(root){
   box = new T.Box3().setFromObject(root);
   root.position.y -= box.min.y;
   root.updateMatrixWorld(true);
-  box = new T.Box3().setFromObject(root);
-  var size = new T.Vector3();
-  box.getSize(size);
-  root.userData.baseBoundsSize = {x:size.x, y:size.y, z:size.z};
   return root;
 }
-
 
 function addTemplateInstance(parent, template, x, y, z, ry, scale){
   if(!parent || !template) return null;
   var obj = template.clone(true);
+  obj.traverse(function(o){
+    if(o && o.isObject3D){
+      o.userData = o.userData || {};
+      if(o.userData.blockMove === undefined) o.userData.blockMove = true;
+    }
+  });
   if(scale !== undefined && scale !== null){
     obj.scale.setScalar(scale);
   }
@@ -3542,35 +3544,59 @@ function buildFallbackArena(root){
   addSimpleProp(root, {x:-22.5,y:1.5,z:0,w:0.8,h:3,d:48,color:0x2c3541});
 }
 
-
 function addTemplateProp(parent, template, spec){
   if(!parent || !template || !spec) return null;
-  var scale = (spec.scale === undefined || spec.scale === null) ? 1 : spec.scale;
-  var obj = addTemplateInstance(parent, template, spec.x || 0, spec.y || 0, spec.z || 0, spec.ry || 0, scale);
-  if(obj && spec.collider !== false){
-    var c = spec.collider;
-    if(!c){
-      var bs = template && template.userData && template.userData.baseBoundsSize ? template.userData.baseBoundsSize : null;
-      if(bs){
-        var shrink = spec.colliderScale === undefined ? 0.90 : spec.colliderScale;
-        c = [Math.max(0.15, bs.x * scale * shrink), Math.max(0.15, bs.y * scale * shrink), Math.max(0.15, bs.z * scale * shrink)];
+  var obj = addTemplateInstance(parent, template, spec.x || 0, spec.y || 0, spec.z || 0, spec.ry || 0, spec.scale || 1);
+  if(obj){
+    var blockMove = spec.blockMove !== false;
+    obj.traverse(function(o){
+      if(o && o.isObject3D){
+        o.userData = o.userData || {};
+        o.userData.blockMove = blockMove;
       }
-    }
-    if(c){
-      addColliderBox(
-        spec.x || 0,
-        (spec.y || 0) + (c[1] || 1) * 0.5,
-        spec.z || 0,
-        c[0] || 1, c[1] || 1, c[2] || 1,
-        obj,
-        spec.ry || 0
-      );
-    }
+    });
+  }
+  if(obj && spec.collider){
+    var c = spec.collider;
+    addColliderBox(
+      spec.x || 0,
+      (spec.y || 0) + (c[1] || 1) * 0.5,
+      spec.z || 0,
+      c[0] || 1, c[1] || 1, c[2] || 1,
+      obj,
+      spec.ry || 0
+    );
   }
   return obj;
 }
 
-
+function hitBlocksMovement(hit){
+  if(!hit || !hit.object) return false;
+  var o = hit.object;
+  while(o){
+    if(o.userData && o.userData.blockMove === false) return false;
+    if(o.userData && o.userData.blockMove === true) return true;
+    o = o.parent;
+  }
+  return true;
+}
+function firstBlockingHit(hits){
+  if(!hits || !hits.length) return null;
+  for(var i=0;i<hits.length;i++){
+    if(hitBlocksMovement(hits[i])) return hits[i];
+  }
+  return null;
+}
+function markTemplatePassable(obj){
+  if(!obj) return obj;
+  obj.traverse(function(o){
+    if(o && o.isObject3D){
+      o.userData = o.userData || {};
+      o.userData.blockMove = false;
+    }
+  });
+  return obj;
+}
 function addRepeatedWalls(parent, template, items, scale, collider){
   if(!items || !items.length) return;
   for(var i=0;i<items.length;i++){
@@ -3584,7 +3610,6 @@ function addRepeatedWalls(parent, template, items, scale, collider){
   }
 }
 
-
 function assembleModularArena(models, token){
   if(token !== mapLoadToken) return;
 
@@ -3596,8 +3621,8 @@ function assembleModularArena(models, token){
   scene.add(root);
   mapRoot = root;
 
-  scene.background = new T.Color(0x0d151d);
-  scene.fog = new T.FogExp2(0x101824, 0.0082);
+  scene.background = new T.Color(0x0d141c);
+  scene.fog = new T.FogExp2(0x101824, 0.0105);
 
   var floorTemplate = models.floor;
   var wallTemplate = models.wall;
@@ -3610,124 +3635,161 @@ function assembleModularArena(models, token){
   var barrierTemplate = models.barrier;
   var carTemplate = models.car;
 
-  function place(template, x, y, z, ry, scale, collider, colliderScale){
-    return addTemplateProp(root, template, {
-      x: x, y: y || 0, z: z, ry: ry || 0, scale: scale || 1,
-      collider: collider === undefined ? null : collider,
-      colliderScale: colliderScale
-    });
-  }
+  var FLOOR_Y = -0.24;
+  var MAP_HALF = 46;
+  var TILE = 7;
+  var GRID = 6;
 
-  // Bigger floor: 15x15 tiles, 75x75 total.
-  for(var iz=-7; iz<=7; iz++){
-    for(var ix=-7; ix<=7; ix++){
+  // Large floor grid to match the reference scale
+  for(var iz=-GRID; iz<=GRID; iz++){
+    for(var ix=-GRID; ix<=GRID; ix++){
       addTemplateProp(root, floorTemplate, {
-        x: ix * 5,
-        y: -0.22,
-        z: iz * 5,
+        x: ix * TILE,
+        y: FLOOR_Y,
+        z: iz * TILE,
         scale: 1,
-        collider: false
+        collider: null,
+        blockMove: false
       });
     }
   }
 
-  // Outer shell, no accidental overlaps at the corners.
-  var wallScale = 0.58;
-  var wallStep = 8.6;
-  var wallXs = [-30, -20, -10, 10, 20, 30];
-  var wallZs = [-30, -20, -10, 10, 20, 30];
-  var wallY = 0;
+  // Tinted main lanes so the map reads bigger in first person
+  addSimpleProp(root, {x:0, y:FLOOR_Y+0.02, z:0, w:86, h:0.04, d:86, color:0x0d1219, roughness:1, metalness:0});
+  addSimpleProp(root, {x:0, y:FLOOR_Y+0.021, z:22, w:78, h:0.03, d:11, color:0x111720, roughness:1, metalness:0});
+  addSimpleProp(root, {x:0, y:FLOOR_Y+0.021, z:-22, w:78, h:0.03, d:11, color:0x111720, roughness:1, metalness:0});
 
-  for(var i=0;i<wallXs.length;i++){
-    place(wallTemplate, wallXs[i], wallY, 34.0, 0, wallScale, null, 0.90);
-    place(wallTemplate, wallXs[i], wallY, -34.0, 0, wallScale, null, 0.90);
+  // Size calibration from the actual assets:
+  // wall ≈ 11.3m wide, corner ≈ 6.1m wide, gate ≈ 4.5m, stairs ≈ 1.55m wide, car ≈ 4.2m long at scale 0.5
+  var wallScale = 0.95;
+  var wallCollider = [10.7, 5.2, 0.95];
+  var innerWallScale = 0.88;
+  var innerCollider = [9.8, 4.9, 0.90];
+  var cornerScale = 1.05;
+  var cornerCollider = [6.4, 3.2, 3.2];
+  var gateScale = 1.10;
+  var gateCollider = [4.8, 3.1, 1.5];
+  var crateScale = 0.11;
+  var crateCollider = [1.7, 1.7, 1.7];
+  var containerScale = 0.048;
+  var containerCollider = [5.4, 2.6, 5.8];
+  var pillarScale = 2.35;
+  var pillarCollider = [0.6, 1.35, 0.6];
+  var barrierScale = 1.65;
+  var barrierCollider = [3.7, 2.0, 1.2];
+  var carScale = 0.50;
+  var carCollider = [4.3, 1.7, 2.0];
+  var stairsScale = 2.25;
+  var stairsCollider = [2.2, 1.0, 3.2];
+
+  function wallLine(xs, z, ry){
+    for(var i=0;i<xs.length;i++){
+      addTemplateProp(root, wallTemplate, {x:xs[i], y:0, z:z, ry:ry || 0, scale:wallScale, collider:wallCollider, blockMove:true});
+    }
   }
-  for(var j=0;j<wallZs.length;j++){
-    place(wallTemplate, 34.0, wallY, wallZs[j], Math.PI/2, wallScale, null, 0.90);
-    place(wallTemplate, -34.0, wallY, wallZs[j], Math.PI/2, wallScale, null, 0.90);
+  function wallColumn(zs, x, ry){
+    for(var i=0;i<zs.length;i++){
+      addTemplateProp(root, wallTemplate, {x:x, y:0, z:zs[i], ry:ry || 0, scale:wallScale, collider:wallCollider, blockMove:true});
+    }
   }
 
-  // Corner anchors.
-  place(cornerTemplate, -34.0, 0, 34.0, Math.PI, 0.82, null, 0.90);
-  place(cornerTemplate, 34.0, 0, 34.0, Math.PI/2, 0.82, null, 0.90);
-  place(cornerTemplate, -34.0, 0, -34.0, -Math.PI/2, 0.82, null, 0.90);
-  place(cornerTemplate, 34.0, 0, -34.0, 0, 0.82, null, 0.90);
+  // Outer shell - big enough to feel like real buildings
+  var outerXs = [-35, -24, -13, 13, 24, 35];
+  var outerZs = [-35, -24, -13, 13, 24, 35];
+  wallLine(outerXs, 43.5, 0);
+  wallLine(outerXs, -43.5, 0);
+  wallColumn(outerZs, 43.5, Math.PI/2);
+  wallColumn(outerZs, -43.5, Math.PI/2);
+  addTemplateProp(root, cornerTemplate, {x:-43.5, y:0, z:43.5, ry:Math.PI, scale:cornerScale, collider:cornerCollider, blockMove:true});
+  addTemplateProp(root, cornerTemplate, {x:43.5, y:0, z:43.5, ry:Math.PI/2, scale:cornerScale, collider:cornerCollider, blockMove:true});
+  addTemplateProp(root, cornerTemplate, {x:-43.5, y:0, z:-43.5, ry:-Math.PI/2, scale:cornerScale, collider:cornerCollider, blockMove:true});
+  addTemplateProp(root, cornerTemplate, {x:43.5, y:0, z:-43.5, ry:0, scale:cornerScale, collider:cornerCollider, blockMove:true});
 
-  // Inner lane walls create readable routes without closing the map too hard.
-  var innerXs = [-22, -13, 13, 22];
-  var innerZs = [-22, -13, 13, 22];
-  for(i=0;i<innerXs.length;i++){
-    place(wallTemplate, innerXs[i], 0, 20.0, 0, 0.50, null, 0.85);
-    place(wallTemplate, innerXs[i], 0, -20.0, 0, 0.50, null, 0.85);
+  // Midline shell to make the arena read like a city block instead of a flat parking lot
+  wallLine([-28,-16,16,28], 12.5, 0);
+  wallLine([-28,-16,16,28], -12.5, 0);
+  wallColumn([-28,-16,16,28], 12.5, Math.PI/2);
+  wallColumn([-28,-16,16,28], -12.5, Math.PI/2);
+
+  // Main route walls / A site / B site / mid lanes
+  wallLine([-34,-22,-10,10,22,34], 28.5, 0);
+  wallLine([-34,-22,-10,10,22,34], -28.5, 0);
+  wallColumn([-34,-22,-10,10,22,34], 28.5, Math.PI/2);
+  wallColumn([-34,-22,-10,10,22,34], -28.5, Math.PI/2);
+
+  // Internal walls: create the reference-style route split
+  addTemplateProp(root, wallTemplate, {x:-16, y:0, z:0, ry:0, scale:innerWallScale, collider:innerCollider, blockMove:true});
+  addTemplateProp(root, wallTemplate, {x:-8, y:0, z:0, ry:0, scale:innerWallScale, collider:innerCollider, blockMove:true});
+  addTemplateProp(root, wallTemplate, {x:8, y:0, z:0, ry:0, scale:innerWallScale, collider:innerCollider, blockMove:true});
+  addTemplateProp(root, wallTemplate, {x:16, y:0, z:0, ry:0, scale:innerWallScale, collider:innerCollider, blockMove:true});
+  addTemplateProp(root, wallTemplate, {x:0, y:0, z:16, ry:Math.PI/2, scale:innerWallScale, collider:innerCollider, blockMove:true});
+  addTemplateProp(root, wallTemplate, {x:0, y:0, z:-16, ry:Math.PI/2, scale:innerWallScale, collider:innerCollider, blockMove:true});
+  addTemplateProp(root, wallTemplate, {x:0, y:0, z:8, ry:Math.PI/2, scale:innerWallScale, collider:innerCollider, blockMove:true});
+  addTemplateProp(root, wallTemplate, {x:0, y:0, z:-8, ry:Math.PI/2, scale:innerWallScale, collider:innerCollider, blockMove:true});
+
+  // Gate openings / chokepoints
+  addTemplateProp(root, gateTemplate, {x:0, y:0, z:18.4, ry:0, scale:gateScale, collider:gateCollider, blockMove:true});
+  addTemplateProp(root, gateTemplate, {x:0, y:0, z:-18.4, ry:Math.PI, scale:gateScale, collider:gateCollider, blockMove:true});
+  addTemplateProp(root, gateTemplate, {x:18.4, y:0, z:0, ry:Math.PI/2, scale:gateScale, collider:gateCollider, blockMove:true});
+  addTemplateProp(root, gateTemplate, {x:-18.4, y:0, z:0, ry:-Math.PI/2, scale:gateScale, collider:gateCollider, blockMove:true});
+
+  // Site structures: these are the dense building masses the screenshot needs
+  addTemplateProp(root, containerTemplate, {x:27.5, y:0, z:28.0, ry:0, scale:containerScale, collider:containerCollider, blockMove:true});
+  addTemplateProp(root, containerTemplate, {x:-27.5, y:0, z:-28.0, ry:Math.PI/2, scale:containerScale, collider:containerCollider, blockMove:true});
+  addTemplateProp(root, containerTemplate, {x:-29.5, y:0, z:28.0, ry:0, scale:containerScale, collider:containerCollider, blockMove:true});
+  addTemplateProp(root, containerTemplate, {x:29.5, y:0, z:-28.0, ry:Math.PI/2, scale:containerScale, collider:containerCollider, blockMove:true});
+
+  addTemplateProp(root, carTemplate, {x:-31.0, y:0, z:24.0, ry:Math.PI/2, scale:carScale, collider:carCollider, blockMove:true});
+  addTemplateProp(root, carTemplate, {x:31.0, y:0, z:-24.0, ry:0, scale:carScale, collider:carCollider, blockMove:true});
+  addTemplateProp(root, carTemplate, {x:25.0, y:0, z:-31.0, ry:0.3, scale:carScale, collider:carCollider, blockMove:true});
+
+  addTemplateProp(root, stairsTemplate, {x:25.0, y:0, z:10.5, ry:Math.PI/2, scale:stairsScale, collider:stairsCollider, blockMove:false});
+  addTemplateProp(root, stairsTemplate, {x:-25.0, y:0, z:-10.5, ry:-Math.PI/2, scale:stairsScale, collider:stairsCollider, blockMove:false});
+  addTemplateProp(root, stairsTemplate, {x:0, y:0, z:-31.5, ry:0, scale:stairsScale, collider:stairsCollider, blockMove:false});
+
+  // Cover and clutter, spaced so nothing clips into each other
+  var cratePositions = [
+    [-20,  22, 0],[-18,  24, 0],[-22,  18, 1],[-24,  19, 0],
+    [ 20, -22, 0],[ 18, -24, 0],[ 22, -18, 1],[ 24, -19, 0],
+    [ -6,   6, 0],[ -8,   8, 0],[  6,  -6, 0],[  8,  -8, 0],
+    [  8,  22, 0],[ 10,  24, 0],[-10, -22, 0],[-12, -24, 0]
+  ];
+  for(var ci=0; ci<cratePositions.length; ci++){
+    var cp = cratePositions[ci];
+    addTemplateProp(root, crateTemplate, {x:cp[0], y:0, z:cp[1], ry:cp[2], scale:crateScale, collider:crateCollider, blockMove:true});
   }
-  for(j=0;j<innerZs.length;j++){
-    place(wallTemplate, 20.0, 0, innerZs[j], Math.PI/2, 0.50, null, 0.85);
-    place(wallTemplate, -20.0, 0, innerZs[j], Math.PI/2, 0.50, null, 0.85);
+
+  var pillarPositions = [
+    [0,0], [5,0], [-5,0], [0,5], [0,-5],
+    [16,16],[-16,16],[16,-16],[-16,-16]
+  ];
+  for(var pi=0; pi<pillarPositions.length; pi++){
+    var pp = pillarPositions[pi];
+    addTemplateProp(root, pillarTemplate, {x:pp[0], y:0, z:pp[1], ry:0, scale:pillarScale, collider:pillarCollider, blockMove:true});
   }
 
-  // Center cross and chokepoints.
-  place(gateTemplate, 0, 0, 16.0, 0, 1.05, null, 0.82);
-  place(gateTemplate, 0, 0, -16.0, Math.PI, 1.05, null, 0.82);
-  place(gateTemplate, 16.0, 0, 0, Math.PI/2, 1.05, null, 0.82);
-  place(gateTemplate, -16.0, 0, 0, -Math.PI/2, 1.05, null, 0.82);
+  addTemplateProp(root, barrierTemplate, {x:-12, y:0, z:4.5, ry:0, scale:barrierScale, collider:barrierCollider, blockMove:true});
+  addTemplateProp(root, barrierTemplate, {x:12, y:0, z:-4.5, ry:0, scale:barrierScale, collider:barrierCollider, blockMove:true});
+  addTemplateProp(root, barrierTemplate, {x:-4.5, y:0, z:-12, ry:Math.PI/2, scale:barrierScale, collider:barrierCollider, blockMove:true});
+  addTemplateProp(root, barrierTemplate, {x:4.5, y:0, z:12, ry:Math.PI/2, scale:barrierScale, collider:barrierCollider, blockMove:true});
 
-  // Mid cover.
-  place(barrierTemplate, -6.5, 0, 0, Math.PI/2, 2.7, null, 0.92);
-  place(barrierTemplate, 6.5, 0, 0, Math.PI/2, 2.7, null, 0.92);
-  place(barrierTemplate, 0, 0, 6.5, 0, 2.7, null, 0.92);
-  place(barrierTemplate, 0, 0, -6.5, 0, 2.7, null, 0.92);
-
-  place(pillarTemplate, -2.8, 0, 2.8, 0, 8.0, null, 0.90);
-  place(pillarTemplate, 2.8, 0, -2.8, 0, 8.0, null, 0.90);
-  place(pillarTemplate, 0, 0, 0, 0, 8.0, null, 0.90);
-
-  // A site (upper-left), open but covered.
-  place(containerTemplate, -22.0, 0, 18.0, 0, 0.018, null, 0.90);
-  place(carTemplate, -18.0, 0, 14.5, Math.PI/2, 0.68, null, 0.90);
-  place(crateTemplate, -25.0, 0, 14.0, 0, 0.10, null, 0.90);
-  place(crateTemplate, -23.2, 0, 16.2, 0, 0.10, null, 0.90);
-  place(crateTemplate, -20.7, 0, 17.4, 0, 0.10, null, 0.90);
-  place(barrierTemplate, -14.5, 0, 20.0, 0, 2.3, null, 0.90);
-
-  // B site (lower-right), mirrored with different cover shapes.
-  place(containerTemplate, 22.0, 0, -18.0, Math.PI/2, 0.018, null, 0.90);
-  place(carTemplate, 18.0, 0, -14.5, 0, 0.68, null, 0.90);
-  place(crateTemplate, 25.0, 0, -14.0, 0, 0.10, null, 0.90);
-  place(crateTemplate, 23.2, 0, -16.2, 0, 0.10, null, 0.90);
-  place(crateTemplate, 20.7, 0, -17.4, 0, 0.10, null, 0.90);
-  place(barrierTemplate, 14.5, 0, -20.0, 0, 2.3, null, 0.90);
-
-  // Side lanes and extra sightline breakers.
-  place(wallTemplate, -26.0, 0, 8.0, 0, 0.48, null, 0.85);
-  place(wallTemplate, -26.0, 0, -8.0, 0, 0.48, null, 0.85);
-  place(wallTemplate, 26.0, 0, 8.0, 0, 0.48, null, 0.85);
-  place(wallTemplate, 26.0, 0, -8.0, 0, 0.48, null, 0.85);
-
-  place(barrierTemplate, -12.0, 0, 12.0, 0, 2.0, null, 0.90);
-  place(barrierTemplate, 12.0, 0, -12.0, 0, 2.0, null, 0.90);
-
-  // Stairs: no collider on the visual mesh. The height ramp handles traversal.
-  place(stairsTemplate, -23.0, 0, 11.0, Math.PI/2, 3.4, false, 0.95);
-  place(stairsTemplate, 23.0, 0, -11.0, -Math.PI/2, 3.4, false, 0.95);
-  place(stairsTemplate, 0.0, 0, 4.0, 0, 2.0, false, 0.95);
-
-  // Light filler props so the map doesn't feel empty.
-  place(pillarTemplate, -29.0, 0, 0.0, 0, 6.0, null, 0.90);
-  place(pillarTemplate, 29.0, 0, 0.0, 0, 6.0, null, 0.90);
-  place(crateTemplate, -4.0, 0, -18.0, 0, 0.12, null, 0.90);
-  place(crateTemplate, 4.0, 0, 18.0, 0, 0.12, null, 0.90);
+  // Visual touch-ups - broad lanes instead of tiny props
+  addSimpleProp(root, {x:0,y:FLOOR_Y+0.03,z:0,w:2.0,h:0.08,d:2.0,color:0x9fb6d0, roughness:0.35, metalness:0.12});
+  addSimpleProp(root, {x:0,y:FLOOR_Y+0.03,z:31,w:28.0,h:0.08,d:0.55,color:0x31435c, roughness:0.9, metalness:0.02});
+  addSimpleProp(root, {x:0,y:FLOOR_Y+0.03,z:-31,w:28.0,h:0.08,d:0.55,color:0x31435c, roughness:0.9, metalness:0.02});
+  addSimpleProp(root, {x:31,y:FLOOR_Y+0.03,z:0,w:0.55,h:0.08,d:28.0,color:0x31435c, roughness:0.9, metalness:0.02});
+  addSimpleProp(root, {x:-31,y:FLOOR_Y+0.03,z:0,w:0.55,h:0.08,d:28.0,color:0x31435c, roughness:0.9, metalness:0.02});
 
   root.position.y = -0.24;
-  MAP_BORDER = 34.5;
+  MAP_BORDER = MAP_HALF;
 
-  addSpawnMarker('RED スポーン', 0, 28.5, '#ff607f');
-  addSpawnMarker('BLUE スポーン', 0, -28.5, '#63baff');
-  addSpawnMarker('A', -20.0, 18.5, '#ffd16d');
-  addSpawnMarker('B', 20.0, -18.5, '#7fc7ff');
+  // Spawn / objective markers
+  addSpawnMarker('RED スポーン', 0, 39.5, '#ff607f');
+  addSpawnMarker('BLUE スポーン', 0, -39.5, '#63baff');
+  addSpawnMarker('A', 0, 17.5, '#ffd16d');
+  addSpawnMarker('B', 0, -17.5, '#7fc7ff');
   addSpawnMarker('ミッド', 0, 0, '#8fa0ff');
 }
-
-
 function buildProceduralArena(){
   clearMapDecor();
   clearLoadedMapModel();
@@ -3737,8 +3799,8 @@ function buildProceduralArena(){
   scene.background = new T.Color(0x081018);
 
   // Temporary base while loading
-  addFloorPatch(0, 0, 96, 96, 0x0f1723, 1);
-  addNeonFloorLine(0, 0, 28, 0.14, 0x6078ff, 1);
+  addFloorPatch(0, 0, 48, 48, 0x0f1723, 1);
+  addNeonFloorLine(0, 0, 14, 0.14, 0x6078ff, 1);
 
   var assetNames = [
     'theappxr_Floor_2_NODRACO_standard (1).glb',
@@ -3782,11 +3844,11 @@ function buildProceduralArena(){
     scene.add(fallbackRoot);
     mapRoot = fallbackRoot;
     buildFallbackArena(fallbackRoot);
-    MAP_BORDER = 32;
-    addSpawnMarker('RED スポーン', 0, 24.0, '#ff607f');
-    addSpawnMarker('BLUE スポーン', 0, -24.0, '#63baff');
-    addSpawnMarker('A', -15.0, 14.0, '#ffd16d');
-    addSpawnMarker('B', 15.0, -14.0, '#7fc7ff');
+    MAP_BORDER = 24;
+    addSpawnMarker('RED スポーン', 0, 19.0, '#ff607f');
+    addSpawnMarker('BLUE スポーン', 0, -19.0, '#63baff');
+    addSpawnMarker('A', 10.2, 11.2, '#ffd16d');
+    addSpawnMarker('B', -10.2, -11.2, '#7fc7ff');
     addSpawnMarker('ミッド', 0, 0, '#8fa0ff');
   });
 }

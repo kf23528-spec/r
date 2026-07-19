@@ -1087,7 +1087,7 @@ function addSpawnMarker(text, x, z, color){
     scaleX: 5.8,
     scaleY: 2.9
   });
-  sprite.position.set(x, 0.10, z);
+  sprite.position.set((x || 0) * ARENA_POS_SCALE, 0.10, (z || 0) * ARENA_POS_SCALE);
   sprite.userData.isMapDecor = true;
   scene.add(sprite);
   return sprite;
@@ -3223,7 +3223,8 @@ function triggerRecoil(){gunState.recoil=Math.min(1.0,gunState.recoil+(adsActive
 
 
 var currentMapId = 'arena';
-var MAP_TARGET_SIZE = 76;
+var MAP_TARGET_SIZE = 88;
+var ARENA_POS_SCALE = 1.28;
 var mapRoot = null;
 var mapLoadToken = 0;
 var mapRaycaster = new T.Raycaster();
@@ -3353,7 +3354,8 @@ function addSimpleProp(parent, spec){
     emissiveIntensity: spec.emissiveIntensity === undefined ? 0 : spec.emissiveIntensity
   });
   var mesh = new T.Mesh(geo, mat);
-  mesh.position.set(spec.x || 0, spec.y || 0, spec.z || 0);
+  var posScale = spec.posScale === undefined ? ARENA_POS_SCALE : spec.posScale;
+  mesh.position.set((spec.x || 0) * posScale, spec.y || 0, (spec.z || 0) * posScale);
   mesh.rotation.y = spec.ry || 0;
   mesh.castShadow = false;
   mesh.receiveShadow = false;
@@ -3363,20 +3365,21 @@ function addSimpleProp(parent, spec){
 }
 
 function addPropCollider(spec, mesh){
-  addColliderBox(spec.x || 0, spec.y || 0, spec.z || 0, spec.w || 1, spec.h || 1, spec.d || 1, mesh || null, spec.ry || 0);
+  var posScale = spec && spec.posScale === undefined ? ARENA_POS_SCALE : (spec && spec.posScale);
+  addColliderBox((spec.x || 0) * posScale, spec.y || 0, (spec.z || 0) * posScale, spec.w || 1, spec.h || 1, spec.d || 1, mesh || null, spec.ry || 0);
 }
 
 function addWallPiece(parent, template, x, z, ry){
-  var obj = addTemplateInstance(parent, template, x, 0, z, ry || 0, 1);
+  var obj = addTemplateInstance(parent, template, (x || 0) * ARENA_POS_SCALE, 0, (z || 0) * ARENA_POS_SCALE, ry || 0, 1);
   if(obj){
     obj.position.y = 0;
-    addColliderBox(x || 0, 1.5, z || 0, 6.2, 3.0, 3.2, obj, ry || 0);
+    addColliderBox((x || 0) * ARENA_POS_SCALE, 1.5, (z || 0) * ARENA_POS_SCALE, 6.2, 3.0, 3.2, obj, ry || 0);
   }
   return obj;
 }
 
 function addFloorTile(parent, template, x, z){
-  var obj = addTemplateInstance(parent, template, x, 0, z, 0, 1);
+  var obj = addTemplateInstance(parent, template, (x || 0) * ARENA_POS_SCALE, 0, (z || 0) * ARENA_POS_SCALE, 0, 1);
   if(obj){
     obj.position.y = -0.02;
   }
@@ -3542,13 +3545,17 @@ function buildFallbackArena(root){
 
 function addTemplateProp(parent, template, spec){
   if(!parent || !template || !spec) return null;
-  var obj = addTemplateInstance(parent, template, spec.x || 0, spec.y || 0, spec.z || 0, spec.ry || 0, spec.scale || 1);
+  var posScale = spec.posScale === undefined ? ARENA_POS_SCALE : spec.posScale;
+  var px = (spec.x || 0) * posScale;
+  var py = spec.y || 0;
+  var pz = (spec.z || 0) * posScale;
+  var obj = addTemplateInstance(parent, template, px, py, pz, spec.ry || 0, spec.scale || 1);
   if(obj && spec.collider){
     var c = spec.collider;
     addColliderBox(
-      spec.x || 0,
-      (spec.y || 0) + (c[1] || 1) * 0.5,
-      spec.z || 0,
+      px,
+      py + (c[1] || 1) * 0.5,
+      pz,
       c[0] || 1, c[1] || 1, c[2] || 1,
       obj,
       spec.ry || 0
@@ -3587,7 +3594,6 @@ function assembleModularArena(models, token){
   var floorTemplate = models.floor;
   var wallTemplate = models.wall;
   var cornerTemplate = models.corner;
-  var stairsTemplate = models.stairs;
   var crateTemplate = models.crate;
   var containerTemplate = models.container;
   var pillarTemplate = models.pillar;
@@ -3597,28 +3603,28 @@ function assembleModularArena(models, token){
 
   // Wider floor grid so the arena matches the intended scale better.
   // The floor asset is a 5m x 5m tile, so spacing stays at 5.
-  for(var iz=-6; iz<=6; iz++){
-    for(var ix=-6; ix<=6; ix++){
+  for(var iz=-7; iz<=7; iz++){
+    for(var ix=-7; ix<=7; ix++){
       addTemplateProp(root, floorTemplate, {
         x: ix * 5,
         y: 0,
         z: iz * 5,
         scale: 1,
+        posScale: 1,
         collider: null
       });
     }
   }
 
   // Scales tuned from the actual GLB bounding boxes.
-  var wallScale = 0.56;
-  var cornerScale = 0.92;
-  var gateScale = 1.00;
-  var stairsScale = 3.50;
-  var crateScale = 0.10;
-  var containerScale = 0.05;
-  var pillarScale = 11.5;
-  var barrierScale = 1.65;
-  var carScale = 0.48;
+  var wallScale = 0.92;
+  var cornerScale = 1.08;
+  var gateScale = 1.10;
+  var crateScale = 0.11;
+  var containerScale = 0.048;
+  var pillarScale = 13.5;
+  var barrierScale = 1.85;
+  var carScale = 0.56;
 
   // Arena border.
   var wallCollider = [6.4, 3.0, 0.75];
@@ -3647,13 +3653,7 @@ function assembleModularArena(models, token){
   addTemplateProp(root, gateTemplate, {x:18.5, y:0, z:0, ry:Math.PI/2, scale:gateScale, collider:[5.0,3.0,1.8]});
   addTemplateProp(root, gateTemplate, {x:-18.5, y:0, z:0, ry:-Math.PI/2, scale:gateScale, collider:[5.0,3.0,1.8]});
 
-  // Raised A/B platforms are now built from collision-safe ramps.
-  addRampSteps(root, -8.0, 15.0, 0, 5.5, 7.0, 0.0, 1.1, 5, 0x99a7b8);
-  addRampSteps(root, 8.0, -15.0, Math.PI, 5.5, 7.0, 0.0, 1.1, 5, 0x99a7b8);
-  addSimpleProp(root, {x:-8.0, y:1.12, z:17.0, w:10.5, h:0.20, d:7.0, color:0x7f8fa6, roughness:0.95, metalness:0.02});
-  addSimpleProp(root, {x:8.0, y:1.12, z:-17.0, w:10.5, h:0.20, d:7.0, color:0x7f8fa6, roughness:0.95, metalness:0.02});
-  addTemplateProp(root, stairsTemplate, {x:-8.0, y:0, z:13.2, ry:0, scale:stairsScale, collider:null});
-  addTemplateProp(root, stairsTemplate, {x:8.0, y:0, z:-13.2, ry:Math.PI, scale:stairsScale, collider:null});
+  // Flat A/B lanes only; stairs have been removed.
 
   // Mid connector and center cover.
   addTemplateProp(root, pillarTemplate, {x:0, y:0, z:0, ry:0, scale:pillarScale, collider:[2.0, 6.5, 2.0]});
@@ -3682,17 +3682,17 @@ function assembleModularArena(models, token){
   addTemplateProp(root, carTemplate, {x:23.0, y:0, z:19.5, ry:0, scale:carScale, collider:[4.5,2.0,5.0]});
 
   // A few extra simple platforms to help readability and prevent dead empty space.
-  addSimpleProp(root, {x:-24, y:0.03, z:0, w:10, h:0.08, d:16, color:0x1b2734, roughness:0.98, metalness:0.0});
-  addSimpleProp(root, {x:24, y:0.03, z:0, w:10, h:0.08, d:16, color:0x1b2734, roughness:0.98, metalness:0.0});
-  addSimpleProp(root, {x:0, y:0.03, z:0, w:8, h:0.08, d:8, color:0x223245, roughness:0.98, metalness:0.0});
+  addSimpleProp(root, {x:-24, y:0.03, z:0, w:10, h:0.08, d:16, color:0x1b2734, roughness:0.98, metalness:0.0, posScale:1});
+  addSimpleProp(root, {x:24, y:0.03, z:0, w:10, h:0.08, d:16, color:0x1b2734, roughness:0.98, metalness:0.0, posScale:1});
+  addSimpleProp(root, {x:0, y:0.03, z:0, w:8, h:0.08, d:8, color:0x223245, roughness:0.98, metalness:0.0, posScale:1});
 
   root.position.y = 0;
-  MAP_BORDER = 32;
+  MAP_BORDER = 48;
 
-  addSpawnMarker('RED スポーン', 0, 26.0, '#ff607f');
-  addSpawnMarker('BLUE スポーン', 0, -26.0, '#63baff');
-  addSpawnMarker('A', -8.0, 17.0, '#ffd16d');
-  addSpawnMarker('B', 8.0, -17.0, '#7fc7ff');
+  addSpawnMarker('RED スポーン', 0, 28.0, '#ff607f');
+  addSpawnMarker('BLUE スポーン', 0, -28.0, '#63baff');
+  addSpawnMarker('A', -10.0, 18.0, '#ffd16d');
+  addSpawnMarker('B', 10.0, -18.0, '#7fc7ff');
   addSpawnMarker('ミッド', 0, 0, '#8fa0ff');
 }
 
@@ -3706,14 +3706,13 @@ function buildProceduralArena(){
   scene.background = new T.Color(0x081018);
 
   // Temporary base while loading
-  addFloorPatch(0, 0, 48, 48, 0x0f1723, 1);
+  addFloorPatch(0, 0, 60, 60, 0x0f1723, 1);
   addNeonFloorLine(0, 0, 14, 0.14, 0x6078ff, 1);
 
   var assetNames = [
     'theappxr_Floor_2_NODRACO_standard (1).glb',
     'sci-fi_wall.glb',
     'gd50_varun_wall_and_corner.glb',
-    'stairs.glb',
     'interior_-_wooden_crate__minecraft.glb',
     'shipping_container.glb',
     'broken_pillar_concrete_damaged.glb',
@@ -3730,13 +3729,12 @@ function buildProceduralArena(){
       floor: prepareTemplateRoot(models[0]),
       wall: prepareTemplateRoot(models[1]),
       corner: prepareTemplateRoot(models[2]),
-      stairs: prepareTemplateRoot(models[3]),
-      crate: prepareTemplateRoot(models[4]),
-      container: prepareTemplateRoot(models[5]),
-      pillar: prepareTemplateRoot(models[6]),
-      gate: prepareTemplateRoot(models[7]),
-      barrier: prepareTemplateRoot(models[8]),
-      car: prepareTemplateRoot(models[9])
+      crate: prepareTemplateRoot(models[3]),
+      container: prepareTemplateRoot(models[4]),
+      pillar: prepareTemplateRoot(models[5]),
+      gate: prepareTemplateRoot(models[6]),
+      barrier: prepareTemplateRoot(models[7]),
+      car: prepareTemplateRoot(models[8])
     };
 
     for(var k in loaded){
@@ -3751,11 +3749,11 @@ function buildProceduralArena(){
     scene.add(fallbackRoot);
     mapRoot = fallbackRoot;
     buildFallbackArena(fallbackRoot);
-    MAP_BORDER = 24;
-    addSpawnMarker('RED スポーン', 0, 19.0, '#ff607f');
-    addSpawnMarker('BLUE スポーン', 0, -19.0, '#63baff');
-    addSpawnMarker('A', 10.2, 11.2, '#ffd16d');
-    addSpawnMarker('B', -10.2, -11.2, '#7fc7ff');
+    MAP_BORDER = 30;
+    addSpawnMarker('RED スポーン', 0, 20.5, '#ff607f');
+    addSpawnMarker('BLUE スポーン', 0, -20.5, '#63baff');
+    addSpawnMarker('A', 12.0, 12.0, '#ffd16d');
+    addSpawnMarker('B', -12.0, -12.0, '#7fc7ff');
     addSpawnMarker('ミッド', 0, 0, '#8fa0ff');
   });
 }

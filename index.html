@@ -2354,7 +2354,6 @@ function getCombatTargetsFor(team){
     if(!targets.find(function(t){return t.id===myId;}))
       targets.push({type:'human',id:myId,team:player.team,pos:{x:camera.position.x,y:camera.position.y,z:camera.position.z}});
   }
-  for(var i=0;i<aiUnits.length;i++){var u=aiUnits[i];if(!u||!u.alive||u.team===team)continue;targets.push({type:'ai',id:u.id,team:u.team,pos:{x:u.x,y:PLAYER_HEIGHT,z:u.z}});}
   return targets;
 }
 function getNearestTarget(unit){
@@ -3641,9 +3640,9 @@ function assembleModularArena(models, token){
   // Flat A/B lanes only; stairs have been removed.
 
   // Mid connector and center cover.
-  addTemplateProp(root, pillarTemplate, {x:0, y:-0.35, z:0, ry:0, scale:pillarScale, collider:[2.0, 6.5, 2.0]});
-  addTemplateProp(root, pillarTemplate, {x:4.5, y:-0.35, z:0, ry:0, scale:pillarScale, collider:[2.0, 6.5, 2.0]});
-  addTemplateProp(root, pillarTemplate, {x:-4.5, y:-0.35, z:0, ry:0, scale:pillarScale, collider:[2.0, 6.5, 2.0]});
+  addTemplateProp(root, pillarTemplate, {x:0, y:-0.72, z:0, ry:0, scale:pillarScale, collider:[2.0, 6.5, 2.0]});
+  addTemplateProp(root, pillarTemplate, {x:4.5, y:-0.72, z:0, ry:0, scale:pillarScale, collider:[2.0, 6.5, 2.0]});
+  addTemplateProp(root, pillarTemplate, {x:-4.5, y:-0.72, z:0, ry:0, scale:pillarScale, collider:[2.0, 6.5, 2.0]});
 
   // Cover pieces.  These are kept intentionally sparse to avoid clutter and physics noise.
   var cratePositions = [

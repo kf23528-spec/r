@@ -688,29 +688,31 @@ function getRoomInput(){return (roomInput.value||'').replace(/[^0-9]/g,'').slice
 function clampVecToMap(v){v.x=clamp(v.x,-MAP_BORDER,MAP_BORDER);v.z=clamp(v.z,-MAP_BORDER,MAP_BORDER);return v;}
 
 function smoothstep01(t){ t = clamp01(t); return t * t * (3 - 2 * t); }
+
 function getGroundHeightAt(x, z){
   var h = 0;
 
-  // A-site ramp
-  if(x >= -26 && x <= -20 && z >= 8 && z <= 14){
-    var ta = smoothstep01((x + 26) / 6);
-    h = Math.max(h, ta * 1.35);
+  // A site staircase / raised lane on the upper-left.
+  if(x >= -30 && x <= -22 && z >= 10 && z <= 18){
+    var ta = smoothstep01((x + 30) / 8);
+    h = Math.max(h, ta * 1.05);
   }
 
-  // B-site ramp
-  if(x >= 20 && x <= 26 && z >= -14 && z <= -8){
-    var tb = smoothstep01((26 - x) / 6);
-    h = Math.max(h, tb * 1.35);
+  // B site staircase / raised lane on the lower-right.
+  if(x >= 22 && x <= 30 && z >= -18 && z <= -10){
+    var tb = smoothstep01((30 - x) / 8);
+    h = Math.max(h, tb * 1.05);
   }
 
-  // Small mid connector step
-  if(x >= -4 && x <= 4 && z >= 1 && z <= 7){
-    var tm = smoothstep01((z - 1) / 6);
-    h = Math.max(h, tm * 0.7);
+  // Small mid bump so the center feels less perfectly flat.
+  if(x >= -5 && x <= 5 && z >= -5 && z <= 5){
+    var tm = 1 - Math.max(Math.abs(x), Math.abs(z)) / 5;
+    h = Math.max(h, smoothstep01(tm) * 0.30);
   }
 
   return h;
 }
+
 function isInteractiveTarget(el){return !!(el&&el.closest&&el.closest('button,input,textarea,select,label,a,#lobbyOverlay,#waitingOverlay,#loadingOverlay,#resultOverlay'));}
 function addColliderBox(x,y,z,w,h,d,mesh,ry){
   colliders.push({x:x,y:y,z:z,w:w,h:h,d:d,ry:ry||0,mesh:mesh||null});
@@ -3735,8 +3737,8 @@ function buildProceduralArena(){
   scene.background = new T.Color(0x081018);
 
   // Temporary base while loading
-  addFloorPatch(0, 0, 48, 48, 0x0f1723, 1);
-  addNeonFloorLine(0, 0, 14, 0.14, 0x6078ff, 1);
+  addFloorPatch(0, 0, 96, 96, 0x0f1723, 1);
+  addNeonFloorLine(0, 0, 28, 0.14, 0x6078ff, 1);
 
   var assetNames = [
     'theappxr_Floor_2_NODRACO_standard (1).glb',
@@ -3780,11 +3782,11 @@ function buildProceduralArena(){
     scene.add(fallbackRoot);
     mapRoot = fallbackRoot;
     buildFallbackArena(fallbackRoot);
-    MAP_BORDER = 24;
-    addSpawnMarker('RED スポーン', 0, 19.0, '#ff607f');
-    addSpawnMarker('BLUE スポーン', 0, -19.0, '#63baff');
-    addSpawnMarker('A', 10.2, 11.2, '#ffd16d');
-    addSpawnMarker('B', -10.2, -11.2, '#7fc7ff');
+    MAP_BORDER = 32;
+    addSpawnMarker('RED スポーン', 0, 24.0, '#ff607f');
+    addSpawnMarker('BLUE スポーン', 0, -24.0, '#63baff');
+    addSpawnMarker('A', -15.0, 14.0, '#ffd16d');
+    addSpawnMarker('B', 15.0, -14.0, '#7fc7ff');
     addSpawnMarker('ミッド', 0, 0, '#8fa0ff');
   });
 }

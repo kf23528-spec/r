@@ -494,7 +494,6 @@ function buildNeutralEnvironment(){
   }catch(e){}
 }
 buildNeutralEnvironment();
-buildNeutralEnvironment();
 var clock = new T.Clock();
 var socket = null;
 var netOnline = false;
@@ -572,6 +571,7 @@ var moveVel = new T.Vector2(0,0);
 var joy = {x:0,y:0};
 var joyTouchId = null, lookTouchId = null, mouseLocked = false;
 var sendTimer = 0;
+var remoteSyncTimer = 0;
 var player = {x:0,y:1.6,z:15,hp:100,maxHp:100,alive:true,team:TEAM_BLUE,spectating:false};
 var colliders = [];
 var remoteAvatars = new Map();
@@ -1750,17 +1750,6 @@ function resolveCollisionForAI(nx,nz){
 }
 function aiWouldHitWall(nx,nz){
   var r = AI_RADIUS;
-  if(mapRoot){
-    var from = new T.Vector3(nx, PLAYER_HEIGHT, nz);
-    var to = new T.Vector3(nx + Math.cos(0) * 0.01, PLAYER_HEIGHT, nz + Math.sin(0) * 0.01);
-    var dir = to.clone().sub(from);
-    if(dir.lengthSq() > 1e-10){
-      mapRaycaster.set(from, dir.clone().normalize());
-      mapRaycaster.far = 0.01;
-      var hits = mapRaycaster.intersectObject(mapRoot, true);
-      if(hits && hits.length) return true;
-    }
-  }
   for(var i = 0; i < colliders.length; i++){
     if(pointHitsCollider(nx, nz, colliders[i], r)) return true;
   }
@@ -2697,19 +2686,6 @@ function checkLocalShotHit(origin,dir){
   var end=origin.clone().addScaledVector(dir,MAX_RANGE);
   var nearest=null,nearestDist=Infinity;
 
-  if(mapRoot){
-    mapRaycaster.set(origin.clone(), dir.clone().normalize());
-    mapRaycaster.far = MAX_RANGE;
-    var mapHits = mapRaycaster.intersectObject(mapRoot, true);
-    if(mapHits && mapHits.length){
-      var mh = mapHits[0];
-      if(mh && mh.distance >= 0 && mh.distance <= MAX_RANGE && mh.distance < nearestDist){
-        nearestDist = mh.distance;
-        nearest = {type:'obstacle',point:mh.point.clone()};
-      }
-    }
-  }
-
   for(var i=0;i<colliders.length;i++){
     var d=rayIntersectAABBDistance(origin,dir,colliders[i]);
     if(d!==null&&d>=0&&d<=MAX_RANGE&&d<nearestDist){nearestDist=d;nearest={type:'obstacle',point:origin.clone().addScaledVector(dir,d)};}
@@ -2784,15 +2760,6 @@ function updateBullets(dt){
     if(!isLocal){
       var hit=false;
       var segDist=b.prev.distanceTo(b.pos);
-      if(mapRoot && segDist>1e-6){
-        var segDir=b.pos.clone().sub(b.prev).normalize();
-        mapRaycaster.set(b.prev.clone(), segDir);
-        mapRaycaster.far = segDist;
-        var mapHits = mapRaycaster.intersectObject(mapRoot, true);
-        if(mapHits && mapHits.length && mapHits[0] && mapHits[0].distance <= segDist){
-          hit = true;
-        }
-      }
       for(var c=0;c<colliders.length && !hit;c++){
         if(segDist<1e-6){if(hitPointInBox(b.pos,colliders[c])){hit=true;break;}continue;}
         var segDir2=b.pos.clone().sub(b.prev).normalize();
@@ -3326,6 +3293,8 @@ function prepareTemplateRoot(root){
   root.updateMatrixWorld(true);
   box = new T.Box3().setFromObject(root);
   root.position.y -= box.min.y;
+  // Slight lift so GLB-based props sit cleanly on the floor instead of clipping into it.
+  root.position.y += 0.04;
   root.updateMatrixWorld(true);
   return root;
 }
@@ -3381,7 +3350,7 @@ function addWallPiece(parent, template, x, z, ry){
 function addFloorTile(parent, template, x, z){
   var obj = addTemplateInstance(parent, template, (x || 0) * ARENA_POS_SCALE, 0, (z || 0) * ARENA_POS_SCALE, 0, 1);
   if(obj){
-    obj.position.y = -0.02;
+    obj.position.y = 0;
   }
   return obj;
 }
@@ -3533,14 +3502,14 @@ function buildFallbackArena(root){
   var floorGeo = new T.BoxGeometry(48, 0.06, 48);
   var floorMat = new T.MeshStandardMaterial({color:0x132131, roughness:1, metalness:0});
   var floor = new T.Mesh(floorGeo, floorMat);
-  floor.position.set(0, -0.03, 0);
+  floor.position.set(0, -0.01, 0);
   floor.userData.isMapDecor = true;
   root.add(floor);
 
-  addSimpleProp(root, {x:0,y:1.5,z:22.5,w:48,h:3,d:0.8,color:0x2c3541});
-  addSimpleProp(root, {x:0,y:1.5,z:-22.5,w:48,h:3,d:0.8,color:0x2c3541});
-  addSimpleProp(root, {x:22.5,y:1.5,z:0,w:0.8,h:3,d:48,color:0x2c3541});
-  addSimpleProp(root, {x:-22.5,y:1.5,z:0,w:0.8,h:3,d:48,color:0x2c3541});
+  addSimpleProp(root, {x:0,y:1.52,z:22.5,w:48,h:3,d:0.8,color:0x2c3541});
+  addSimpleProp(root, {x:0,y:1.52,z:-22.5,w:48,h:3,d:0.8,color:0x2c3541});
+  addSimpleProp(root, {x:22.5,y:1.52,z:0,w:0.8,h:3,d:48,color:0x2c3541});
+  addSimpleProp(root, {x:-22.5,y:1.52,z:0,w:0.8,h:3,d:48,color:0x2c3541});
 }
 
 function addTemplateProp(parent, template, spec){
@@ -3778,10 +3747,16 @@ function animate(){
     updateLobbyCamera(dt);
   }else if(gameMode===GAME_MODE.BATTLE){
     syncCameraRotation();movePlayer(dt);updateGun(dt);updateMuzzleFlashes(dt);updateBullets(dt);updateBombs(dt);updateBombTrajectoryUI();
-    updateAI(dt);updateReload(dt);updatePlayerHPUI();updateSendLoop(dt);updateRemotePlayersFromState();updateRoundTimer(dt);updateRoundIfEnded();
+    updateAI(dt);updateReload(dt);updatePlayerHPUI();updateSendLoop(dt);
+    remoteSyncTimer += dt;
+    if(remoteSyncTimer >= 0.05){ remoteSyncTimer = 0; updateRemotePlayersFromState(); }
+    updateRoundTimer(dt);updateRoundIfEnded();
   }else if(gameMode===GAME_MODE.SPECTATE){
     updateSpectateCamera(dt);updateGun(dt);updateMuzzleFlashes(dt);updateBullets(dt);updateBombs(dt);updateBombTrajectoryUI();
-    updateAI(dt);updateSendLoop(dt);updateRemotePlayersFromState();updateRoundTimer(dt);updateRoundIfEnded();
+    updateAI(dt);updateSendLoop(dt);
+    remoteSyncTimer += dt;
+    if(remoteSyncTimer >= 0.05){ remoteSyncTimer = 0; updateRemotePlayersFromState(); }
+    updateRoundTimer(dt);updateRoundIfEnded();
   }else if(gameMode===GAME_MODE.RESULT){updateSendLoop(0);}
   if(gunRoot&&gameMode===GAME_MODE.BATTLE)gunPosTarget.copy(adsActive?gunPosAds:gunPosNormal);
   renderer.render(scene,camera);

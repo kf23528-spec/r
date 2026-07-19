@@ -1087,7 +1087,7 @@ function addSpawnMarker(text, x, z, color){
     scaleX: 5.8,
     scaleY: 2.9
   });
-  sprite.position.set(x, 0.10, z);
+  sprite.position.set(x * MAP_LAYOUT_SCALE, 0.10, z * MAP_LAYOUT_SCALE);
   sprite.userData.isMapDecor = true;
   scene.add(sprite);
   return sprite;
@@ -1638,6 +1638,7 @@ function restoreBattleViewAfterRespawn(){
   resetTouchAndInputState();
   reloading = false; reloadTimer = 0; moveVel.set(0,0);
   camera.position.copy(getSpawnForTeam(player.team || TEAM_BLUE));
+  camera.position.y = PLAYER_HEIGHT + getGroundHeightAt(camera.position.x, camera.position.z);
   if(player.team===TEAM_RED) yaw = 0; else yaw = Math.PI;
   pitch = 0; syncCameraRotation();
   updatePlayerHPUI(); updateAmmoUI(); updateBombUI();
@@ -1715,7 +1716,7 @@ function updateWaitingUI(){
   updateWaitingLaunchBtn();
 }
 function getSpawnForTeam(team){
-  var z = Math.max(10, (MAP_BORDER || 39) - 8);
+  var z = Math.max(10, (MAP_BORDER || 42) - 8);
   return team===TEAM_RED ? new T.Vector3(0,1.6,z) : new T.Vector3(0,1.6,-z);
 }
 function updateLobbyCamera(dt){camera.position.lerp(new T.Vector3(0,16,33),1-Math.exp(-2.5*dt));camera.lookAt(0,1.2,0);}
@@ -1723,10 +1724,8 @@ function syncCameraRotation(){camera.rotation.x=pitch;camera.rotation.y=yaw;}
 var AI_RADIUS=0.5;
 function resolveCollision(next){
   var safe = next.clone();
-  safe.y = PLAYER_HEIGHT;
   var r = PLAYER_RADIUS;
-
-  if(mapRoot){
+  if(ENABLE_MESH_RAYCAST_COLLISION && mapRoot){
     var from = camera.position.clone();
     from.y = PLAYER_HEIGHT;
     var to = safe.clone();
@@ -1737,8 +1736,7 @@ function resolveCollision(next){
       mapRaycaster.set(from, seg.clone().normalize());
       mapRaycaster.far = segLen;
       var hits = mapRaycaster.intersectObject(mapRoot, true);
-      var blocking = firstBlockingHit(hits);
-      if(blocking && blocking.distance <= segLen){
+      if(hits && hits.length && hits[0] && hits[0].distance <= segLen){
         return from.clone();
       }
     }
@@ -1752,6 +1750,7 @@ function resolveCollision(next){
     safe.z = pushed.z;
   }
   clampVecToMap(safe);
+  safe.y = PLAYER_HEIGHT + getGroundHeightAt(safe.x, safe.z);
   return safe;
 }
 function resolveCollisionForAI(nx,nz){
@@ -1768,7 +1767,7 @@ function resolveCollisionForAI(nx,nz){
 }
 function aiWouldHitWall(nx,nz){
   var r = AI_RADIUS;
-  if(mapRoot){
+  if(ENABLE_MESH_RAYCAST_COLLISION && mapRoot){
     var from = new T.Vector3(nx, PLAYER_HEIGHT, nz);
     var to = new T.Vector3(nx + Math.cos(0) * 0.01, PLAYER_HEIGHT, nz + Math.sin(0) * 0.01);
     var dir = to.clone().sub(from);
@@ -1776,8 +1775,7 @@ function aiWouldHitWall(nx,nz){
       mapRaycaster.set(from, dir.clone().normalize());
       mapRaycaster.far = 0.01;
       var hits = mapRaycaster.intersectObject(mapRoot, true);
-      var blocking = firstBlockingHit(hits);
-      if(blocking) return true;
+      if(hits && hits.length) return true;
     }
   }
   for(var i = 0; i < colliders.length; i++){
@@ -2497,7 +2495,7 @@ function updateAIUnit(unit,dt,nowSec){
     unit.stuckTimer=0;
   }
   unit.x=resolved.x; unit.z=resolved.z;
-  unit.avatar.position.set(unit.x,0,unit.z);
+  unit.avatar.position.set(unit.x, PLAYER_HEIGHT + getGroundHeightAt(unit.x, unit.z), unit.z);
   unit.avatar.rotation.y=getAIVisualYaw(unit);
   unit.avatar.visible=true;
   updateAvatarHPBar(unit.avatar,unit.hp);
@@ -2555,7 +2553,7 @@ function resetAIForRound(){
     u.lastShotAt=0;
     u.stuckTimer=0;u.lastCheckPos={x:u.x,z:u.z};u.unstuckDir=null;u.unstuckUntil=0;
     if(u.avatar){
-      u.avatar.visible=true;u.avatar.position.set(u.x,0,u.z);
+      u.avatar.visible=true;u.avatar.position.set(u.x, PLAYER_HEIGHT + getGroundHeightAt(u.x, u.z), u.z);
       u.avatar.rotation.y=getAIVisualYaw(u);ensureNameTag(u.avatar,'AI',u.team);
       updateAvatarHPBar(u.avatar,u.hp);
       u.avatar.userData._animMode = 'none';
@@ -2720,10 +2718,12 @@ function checkLocalShotHit(origin,dir){
     mapRaycaster.set(origin.clone(), dir.clone().normalize());
     mapRaycaster.far = MAX_RANGE;
     var mapHits = mapRaycaster.intersectObject(mapRoot, true);
-    var blocking = firstBlockingHit(mapHits);
-    if(blocking && blocking.distance >= 0 && blocking.distance <= MAX_RANGE && blocking.distance < nearestDist){
-      nearestDist = blocking.distance;
-      nearest = {type:'obstacle',point:blocking.point.clone()};
+    if(mapHits && mapHits.length){
+      var mh = mapHits[0];
+      if(mh && mh.distance >= 0 && mh.distance <= MAX_RANGE && mh.distance < nearestDist){
+        nearestDist = mh.distance;
+        nearest = {type:'obstacle',point:mh.point.clone()};
+      }
     }
   }
 
@@ -2806,8 +2806,7 @@ function updateBullets(dt){
         mapRaycaster.set(b.prev.clone(), segDir);
         mapRaycaster.far = segDist;
         var mapHits = mapRaycaster.intersectObject(mapRoot, true);
-        var blocking = firstBlockingHit(mapHits);
-        if(blocking && blocking.distance <= segDist){
+        if(mapHits && mapHits.length && mapHits[0] && mapHits[0].distance <= segDist){
           hit = true;
         }
       }
@@ -3245,6 +3244,9 @@ var MAP_TARGET_SIZE = 76;
 var mapRoot = null;
 var mapLoadToken = 0;
 var mapRaycaster = new T.Raycaster();
+var MAP_LAYOUT_SCALE = 1.60;
+var ENABLE_MESH_RAYCAST_COLLISION = false;
+var stairZones = [];
 var MAP_DEFS = {
   arena: {
     name: 'URBAN BLOCK',
@@ -3350,16 +3352,10 @@ function prepareTemplateRoot(root){
 function addTemplateInstance(parent, template, x, y, z, ry, scale){
   if(!parent || !template) return null;
   var obj = template.clone(true);
-  obj.traverse(function(o){
-    if(o && o.isObject3D){
-      o.userData = o.userData || {};
-      if(o.userData.blockMove === undefined) o.userData.blockMove = true;
-    }
-  });
   if(scale !== undefined && scale !== null){
     obj.scale.setScalar(scale);
   }
-  obj.position.set(x || 0, y || 0, z || 0);
+  obj.position.set((x || 0) * MAP_LAYOUT_SCALE, y || 0, (z || 0) * MAP_LAYOUT_SCALE);
   obj.rotation.set(0, ry || 0, 0);
   obj.userData.isMapDecor = true;
   parent.add(obj);
@@ -3368,7 +3364,7 @@ function addTemplateInstance(parent, template, x, y, z, ry, scale){
 
 function addSimpleProp(parent, spec){
   if(!parent || !spec) return null;
-  var geo = new T.BoxGeometry(spec.w || 1, spec.h || 1, spec.d || 1);
+  var geo = new T.BoxGeometry((spec.w || 1) * MAP_LAYOUT_SCALE, spec.h || 1, (spec.d || 1) * MAP_LAYOUT_SCALE);
   var mat = new T.MeshStandardMaterial({
     color: spec.color || 0x3b4552,
     roughness: spec.roughness === undefined ? 0.88 : spec.roughness,
@@ -3377,7 +3373,7 @@ function addSimpleProp(parent, spec){
     emissiveIntensity: spec.emissiveIntensity === undefined ? 0 : spec.emissiveIntensity
   });
   var mesh = new T.Mesh(geo, mat);
-  mesh.position.set(spec.x || 0, spec.y || 0, spec.z || 0);
+  mesh.position.set((spec.x || 0) * MAP_LAYOUT_SCALE, spec.y || 0, (spec.z || 0) * MAP_LAYOUT_SCALE);
   mesh.rotation.y = spec.ry || 0;
   mesh.castShadow = false;
   mesh.receiveShadow = false;
@@ -3546,23 +3542,19 @@ function buildFallbackArena(root){
 
 function addTemplateProp(parent, template, spec){
   if(!parent || !template || !spec) return null;
-  var obj = addTemplateInstance(parent, template, spec.x || 0, spec.y || 0, spec.z || 0, spec.ry || 0, spec.scale || 1);
-  if(obj){
-    var blockMove = spec.blockMove !== false;
-    obj.traverse(function(o){
-      if(o && o.isObject3D){
-        o.userData = o.userData || {};
-        o.userData.blockMove = blockMove;
-      }
-    });
-  }
+  var sc = (spec.scale === undefined || spec.scale === null) ? 1 : spec.scale;
+  var px = (spec.x || 0) * MAP_LAYOUT_SCALE;
+  var pz = (spec.z || 0) * MAP_LAYOUT_SCALE;
+  var obj = addTemplateInstance(parent, template, spec.x || 0, spec.y || 0, spec.z || 0, spec.ry || 0, sc);
   if(obj && spec.collider){
     var c = spec.collider;
     addColliderBox(
-      spec.x || 0,
-      (spec.y || 0) + (c[1] || 1) * 0.5,
-      spec.z || 0,
-      c[0] || 1, c[1] || 1, c[2] || 1,
+      px,
+      (spec.y || 0) + (c[1] || 1) * 0.5 * sc,
+      pz,
+      (c[0] || 1) * sc,
+      (c[1] || 1) * sc,
+      (c[2] || 1) * sc,
       obj,
       spec.ry || 0
     );
@@ -3570,33 +3562,6 @@ function addTemplateProp(parent, template, spec){
   return obj;
 }
 
-function hitBlocksMovement(hit){
-  if(!hit || !hit.object) return false;
-  var o = hit.object;
-  while(o){
-    if(o.userData && o.userData.blockMove === false) return false;
-    if(o.userData && o.userData.blockMove === true) return true;
-    o = o.parent;
-  }
-  return true;
-}
-function firstBlockingHit(hits){
-  if(!hits || !hits.length) return null;
-  for(var i=0;i<hits.length;i++){
-    if(hitBlocksMovement(hits[i])) return hits[i];
-  }
-  return null;
-}
-function markTemplatePassable(obj){
-  if(!obj) return obj;
-  obj.traverse(function(o){
-    if(o && o.isObject3D){
-      o.userData = o.userData || {};
-      o.userData.blockMove = false;
-    }
-  });
-  return obj;
-}
 function addRepeatedWalls(parent, template, items, scale, collider){
   if(!items || !items.length) return;
   for(var i=0;i<items.length;i++){
@@ -3608,6 +3573,40 @@ function addRepeatedWalls(parent, template, items, scale, collider){
       collider: collider
     });
   }
+}
+
+function addStairZone(spec){
+  if(!spec) return;
+  stairZones.push({
+    x: (spec.x || 0) * MAP_LAYOUT_SCALE,
+    z: (spec.z || 0) * MAP_LAYOUT_SCALE,
+    ry: spec.ry || 0,
+    w: (spec.w || 1) * MAP_LAYOUT_SCALE,
+    d: (spec.d || 1) * MAP_LAYOUT_SCALE,
+    rise: spec.rise || 1.6,
+    base: spec.base || 0,
+    flip: !!spec.flip
+  });
+}
+
+function getGroundHeightAt(px, pz){
+  var h = 0;
+  for(var i=0;i<stairZones.length;i++){
+    var s = stairZones[i];
+    var local = worldToColliderLocal(px, pz, s);
+    var hw = s.w * 0.5;
+    var hd = s.d * 0.5;
+    if(Math.abs(local.x) > hw || Math.abs(local.z) > hd) continue;
+    if(s.type === 'plateau'){
+      h = Math.max(h, s.base + s.rise);
+      continue;
+    }
+    var t = (local.z + hd) / Math.max(0.0001, s.d);
+    if(s.flip) t = 1 - t;
+    t = clamp01(t);
+    h = Math.max(h, s.base + s.rise * t);
+  }
+  return h;
 }
 
 function assembleModularArena(models, token){
@@ -3635,164 +3634,114 @@ function assembleModularArena(models, token){
   var barrierTemplate = models.barrier;
   var carTemplate = models.car;
 
-  var FLOOR_Y = -0.24;
-  var MAP_HALF = 46;
-  var TILE = 7;
-  var GRID = 6;
-
-  // Large floor grid to match the reference scale
-  for(var iz=-GRID; iz<=GRID; iz++){
-    for(var ix=-GRID; ix<=GRID; ix++){
+  // Floor grid (9x9 tiles)
+  for(var iz=-4; iz<=4; iz++){
+    for(var ix=-4; ix<=4; ix++){
       addTemplateProp(root, floorTemplate, {
-        x: ix * TILE,
-        y: FLOOR_Y,
-        z: iz * TILE,
-        scale: 1,
-        collider: null,
-        blockMove: false
+        x: ix * 5,
+        y: -0.18,
+        z: iz * 5,
+        scale: 1.20,
+        collider: null
       });
     }
   }
 
-  // Tinted main lanes so the map reads bigger in first person
-  addSimpleProp(root, {x:0, y:FLOOR_Y+0.02, z:0, w:86, h:0.04, d:86, color:0x0d1219, roughness:1, metalness:0});
-  addSimpleProp(root, {x:0, y:FLOOR_Y+0.021, z:22, w:78, h:0.03, d:11, color:0x111720, roughness:1, metalness:0});
-  addSimpleProp(root, {x:0, y:FLOOR_Y+0.021, z:-22, w:78, h:0.03, d:11, color:0x111720, roughness:1, metalness:0});
+  // Perimeter wall ring with openings near the middle
+  var wallScale = 0.60;
+  var wallCollider = [4.7, 2.35, 0.48];
+  var wallX = [-20, -15, -10, 10, 15, 20];
+  var wallZ = [-20, -15, -10, 10, 15, 20];
 
-  // Size calibration from the actual assets:
-  // wall ≈ 11.3m wide, corner ≈ 6.1m wide, gate ≈ 4.5m, stairs ≈ 1.55m wide, car ≈ 4.2m long at scale 0.5
-  var wallScale = 0.95;
-  var wallCollider = [10.7, 5.2, 0.95];
-  var innerWallScale = 0.88;
-  var innerCollider = [9.8, 4.9, 0.90];
-  var cornerScale = 1.05;
-  var cornerCollider = [6.4, 3.2, 3.2];
-  var gateScale = 1.10;
-  var gateCollider = [4.8, 3.1, 1.5];
+  addRepeatedWalls(root, wallTemplate, wallX.map(function(x){ return [x, 0, 22.6, 0]; }), wallScale, wallCollider);
+  addRepeatedWalls(root, wallTemplate, wallX.map(function(x){ return [x, 0, -22.6, 0]; }), wallScale, wallCollider);
+  addRepeatedWalls(root, wallTemplate, wallZ.map(function(z){ return [22.6, 0, z, Math.PI/2]; }), wallScale, wallCollider);
+  addRepeatedWalls(root, wallTemplate, wallZ.map(function(z){ return [-22.6, 0, z, Math.PI/2]; }), wallScale, wallCollider);
+
+  // Corner blocks
+  addTemplateProp(root, cornerTemplate, {x:-22.6, y:0, z:22.6, ry:Math.PI, scale:0.80, collider:[4.9,2.4,2.5]});
+  addTemplateProp(root, cornerTemplate, {x:22.6, y:0, z:22.6, ry:Math.PI/2, scale:0.80, collider:[4.9,2.4,2.5]});
+  addTemplateProp(root, cornerTemplate, {x:-22.6, y:0, z:-22.6, ry:-Math.PI/2, scale:0.80, collider:[4.9,2.4,2.5]});
+  addTemplateProp(root, cornerTemplate, {x:22.6, y:0, z:-22.6, ry:0, scale:0.80, collider:[4.9,2.4,2.5]});
+
+  // Inner lane walls using sci-fi_wall
+  var innerWallScale = 0.56;
+  var innerCollider = [4.8, 2.2, 0.45];
+  addRepeatedWalls(root, wallTemplate, [[-10,0,7,0],[-5,0,7,0],[5,0,7,0],[10,0,7,0]], innerWallScale, innerCollider);
+  addRepeatedWalls(root, wallTemplate, [[-10,0,-7,0],[-5,0,-7,0],[5,0,-7,0],[10,0,-7,0]], innerWallScale, innerCollider);
+  addRepeatedWalls(root, wallTemplate, [[-7,0,-10,Math.PI/2],[-7,0,-5,Math.PI/2],[-7,0,5,Math.PI/2],[-7,0,10,Math.PI/2]], innerWallScale, innerCollider);
+  addRepeatedWalls(root, wallTemplate, [[7,0,-10,Math.PI/2],[7,0,-5,Math.PI/2],[7,0,5,Math.PI/2],[7,0,10,Math.PI/2]], innerWallScale, innerCollider);
+
+  // Gate chokepoints and connectors
+  addTemplateProp(root, gateTemplate, {x:0, y:0, z:14.4, ry:0, scale:1.45, collider:[5.0,3.2,1.5]});
+  addTemplateProp(root, gateTemplate, {x:0, y:0, z:-14.4, ry:Math.PI, scale:1.45, collider:[5.0,3.2,1.5]});
+  addTemplateProp(root, gateTemplate, {x:14.4, y:0, z:0, ry:Math.PI/2, scale:1.45, collider:[5.0,3.2,1.5]});
+  addTemplateProp(root, gateTemplate, {x:-14.4, y:0, z:0, ry:-Math.PI/2, scale:1.45, collider:[5.0,3.2,1.5]});
+
+  // Site props
+  addTemplateProp(root, containerTemplate, {x:12.2, y:0, z:13.2, ry:0, scale:0.07, collider:[5.5,2.5,6.0]});
+  addTemplateProp(root, containerTemplate, {x:-12.2, y:0, z:-13.2, ry:Math.PI/2, scale:0.07, collider:[5.5,2.5,6.0]});
+
+  addTemplateProp(root, carTemplate, {x:-13.2, y:0, z:12.4, ry:Math.PI/2, scale:0.78, collider:[4.7,1.9,5.0]});
+  addTemplateProp(root, carTemplate, {x:13.2, y:0, z:-12.4, ry:0, scale:0.78, collider:[4.7,1.9,5.0]});
+
+  addTemplateProp(root, stairsTemplate, {x:15.0, y:0, z:5.6, ry:Math.PI/2, scale:2.25, collider:[2.4,1.3,3.0]});
+  addTemplateProp(root, stairsTemplate, {x:-15.0, y:0, z:-5.6, ry:-Math.PI/2, scale:2.25, collider:[2.4,1.3,3.0]});
+  addStairZone({x:15.0, z:5.6, ry:Math.PI/2, w:4.8, d:6.2, rise:1.55, base:0, flip:false});
+  addStairZone({x:-15.0, z:-5.6, ry:-Math.PI/2, w:4.8, d:6.2, rise:1.55, base:0, flip:false});
+  addStairZone({type:'plateau', x:19.0, z:8.2, ry:0, w:12.5, d:8.5, rise:1.55, base:0, flip:false});
+  addStairZone({type:'plateau', x:-19.0, z:-8.2, ry:0, w:12.5, d:8.5, rise:1.55, base:0, flip:false});
+
+  addSimpleProp(root, {x:17.0, y:1.55, z:8.8, w:8.0, h:0.18, d:6.5, color:0x223044, roughness:0.95, metalness:0.02});
+  addSimpleProp(root, {x:-17.0, y:1.55, z:-8.8, w:8.0, h:0.18, d:6.5, color:0x223044, roughness:0.95, metalness:0.02});
+  addSimpleProp(root, {x:15.6, y:1.95, z:10.2, w:0.3, h:1.6, d:6.8, color:0x6078ff, roughness:0.7, metalness:0.2});
+  addSimpleProp(root, {x:-15.6, y:1.95, z:-10.2, w:0.3, h:1.6, d:6.8, color:0x6078ff, roughness:0.7, metalness:0.2});
+
+  addTemplateProp(root, pillarTemplate, {x:0, y:0, z:0, ry:0, scale:6.0, collider:[0.55,1.45,0.55]});
+  addTemplateProp(root, pillarTemplate, {x:4.2, y:0, z:0, ry:0, scale:6.0, collider:[0.55,1.45,0.55]});
+  addTemplateProp(root, pillarTemplate, {x:-4.2, y:0, z:0, ry:0, scale:6.0, collider:[0.55,1.45,0.55]});
+
+  // Combat cover: crates and barriers
   var crateScale = 0.11;
-  var crateCollider = [1.7, 1.7, 1.7];
-  var containerScale = 0.048;
-  var containerCollider = [5.4, 2.6, 5.8];
-  var pillarScale = 2.35;
-  var pillarCollider = [0.6, 1.35, 0.6];
-  var barrierScale = 1.65;
-  var barrierCollider = [3.7, 2.0, 1.2];
-  var carScale = 0.50;
-  var carCollider = [4.3, 1.7, 2.0];
-  var stairsScale = 2.25;
-  var stairsCollider = [2.2, 1.0, 3.2];
-
-  function wallLine(xs, z, ry){
-    for(var i=0;i<xs.length;i++){
-      addTemplateProp(root, wallTemplate, {x:xs[i], y:0, z:z, ry:ry || 0, scale:wallScale, collider:wallCollider, blockMove:true});
-    }
-  }
-  function wallColumn(zs, x, ry){
-    for(var i=0;i<zs.length;i++){
-      addTemplateProp(root, wallTemplate, {x:x, y:0, z:zs[i], ry:ry || 0, scale:wallScale, collider:wallCollider, blockMove:true});
-    }
-  }
-
-  // Outer shell - big enough to feel like real buildings
-  var outerXs = [-35, -24, -13, 13, 24, 35];
-  var outerZs = [-35, -24, -13, 13, 24, 35];
-  wallLine(outerXs, 43.5, 0);
-  wallLine(outerXs, -43.5, 0);
-  wallColumn(outerZs, 43.5, Math.PI/2);
-  wallColumn(outerZs, -43.5, Math.PI/2);
-  addTemplateProp(root, cornerTemplate, {x:-43.5, y:0, z:43.5, ry:Math.PI, scale:cornerScale, collider:cornerCollider, blockMove:true});
-  addTemplateProp(root, cornerTemplate, {x:43.5, y:0, z:43.5, ry:Math.PI/2, scale:cornerScale, collider:cornerCollider, blockMove:true});
-  addTemplateProp(root, cornerTemplate, {x:-43.5, y:0, z:-43.5, ry:-Math.PI/2, scale:cornerScale, collider:cornerCollider, blockMove:true});
-  addTemplateProp(root, cornerTemplate, {x:43.5, y:0, z:-43.5, ry:0, scale:cornerScale, collider:cornerCollider, blockMove:true});
-
-  // Midline shell to make the arena read like a city block instead of a flat parking lot
-  wallLine([-28,-16,16,28], 12.5, 0);
-  wallLine([-28,-16,16,28], -12.5, 0);
-  wallColumn([-28,-16,16,28], 12.5, Math.PI/2);
-  wallColumn([-28,-16,16,28], -12.5, Math.PI/2);
-
-  // Main route walls / A site / B site / mid lanes
-  wallLine([-34,-22,-10,10,22,34], 28.5, 0);
-  wallLine([-34,-22,-10,10,22,34], -28.5, 0);
-  wallColumn([-34,-22,-10,10,22,34], 28.5, Math.PI/2);
-  wallColumn([-34,-22,-10,10,22,34], -28.5, Math.PI/2);
-
-  // Internal walls: create the reference-style route split
-  addTemplateProp(root, wallTemplate, {x:-16, y:0, z:0, ry:0, scale:innerWallScale, collider:innerCollider, blockMove:true});
-  addTemplateProp(root, wallTemplate, {x:-8, y:0, z:0, ry:0, scale:innerWallScale, collider:innerCollider, blockMove:true});
-  addTemplateProp(root, wallTemplate, {x:8, y:0, z:0, ry:0, scale:innerWallScale, collider:innerCollider, blockMove:true});
-  addTemplateProp(root, wallTemplate, {x:16, y:0, z:0, ry:0, scale:innerWallScale, collider:innerCollider, blockMove:true});
-  addTemplateProp(root, wallTemplate, {x:0, y:0, z:16, ry:Math.PI/2, scale:innerWallScale, collider:innerCollider, blockMove:true});
-  addTemplateProp(root, wallTemplate, {x:0, y:0, z:-16, ry:Math.PI/2, scale:innerWallScale, collider:innerCollider, blockMove:true});
-  addTemplateProp(root, wallTemplate, {x:0, y:0, z:8, ry:Math.PI/2, scale:innerWallScale, collider:innerCollider, blockMove:true});
-  addTemplateProp(root, wallTemplate, {x:0, y:0, z:-8, ry:Math.PI/2, scale:innerWallScale, collider:innerCollider, blockMove:true});
-
-  // Gate openings / chokepoints
-  addTemplateProp(root, gateTemplate, {x:0, y:0, z:18.4, ry:0, scale:gateScale, collider:gateCollider, blockMove:true});
-  addTemplateProp(root, gateTemplate, {x:0, y:0, z:-18.4, ry:Math.PI, scale:gateScale, collider:gateCollider, blockMove:true});
-  addTemplateProp(root, gateTemplate, {x:18.4, y:0, z:0, ry:Math.PI/2, scale:gateScale, collider:gateCollider, blockMove:true});
-  addTemplateProp(root, gateTemplate, {x:-18.4, y:0, z:0, ry:-Math.PI/2, scale:gateScale, collider:gateCollider, blockMove:true});
-
-  // Site structures: these are the dense building masses the screenshot needs
-  addTemplateProp(root, containerTemplate, {x:27.5, y:0, z:28.0, ry:0, scale:containerScale, collider:containerCollider, blockMove:true});
-  addTemplateProp(root, containerTemplate, {x:-27.5, y:0, z:-28.0, ry:Math.PI/2, scale:containerScale, collider:containerCollider, blockMove:true});
-  addTemplateProp(root, containerTemplate, {x:-29.5, y:0, z:28.0, ry:0, scale:containerScale, collider:containerCollider, blockMove:true});
-  addTemplateProp(root, containerTemplate, {x:29.5, y:0, z:-28.0, ry:Math.PI/2, scale:containerScale, collider:containerCollider, blockMove:true});
-
-  addTemplateProp(root, carTemplate, {x:-31.0, y:0, z:24.0, ry:Math.PI/2, scale:carScale, collider:carCollider, blockMove:true});
-  addTemplateProp(root, carTemplate, {x:31.0, y:0, z:-24.0, ry:0, scale:carScale, collider:carCollider, blockMove:true});
-  addTemplateProp(root, carTemplate, {x:25.0, y:0, z:-31.0, ry:0.3, scale:carScale, collider:carCollider, blockMove:true});
-
-  addTemplateProp(root, stairsTemplate, {x:25.0, y:0, z:10.5, ry:Math.PI/2, scale:stairsScale, collider:stairsCollider, blockMove:false});
-  addTemplateProp(root, stairsTemplate, {x:-25.0, y:0, z:-10.5, ry:-Math.PI/2, scale:stairsScale, collider:stairsCollider, blockMove:false});
-  addTemplateProp(root, stairsTemplate, {x:0, y:0, z:-31.5, ry:0, scale:stairsScale, collider:stairsCollider, blockMove:false});
-
-  // Cover and clutter, spaced so nothing clips into each other
+  var crateCollider = [1.4, 1.4, 1.4];
   var cratePositions = [
-    [-20,  22, 0],[-18,  24, 0],[-22,  18, 1],[-24,  19, 0],
-    [ 20, -22, 0],[ 18, -24, 0],[ 22, -18, 1],[ 24, -19, 0],
-    [ -6,   6, 0],[ -8,   8, 0],[  6,  -6, 0],[  8,  -8, 0],
-    [  8,  22, 0],[ 10,  24, 0],[-10, -22, 0],[-12, -24, 0]
+    [-9.5, 0, 12.8, 0],[-8.2, 0, 12.1, 0],[-9.0, 0, 14.1, 0],
+    [9.2, 0, -12.7, 0],[8.0, 0, -13.5, 0],[10.2, 0, -13.6, 0],
+    [-2.0,0,2.2,0],[2.0,0,-2.2,0],[2.6,0,2.8,0],[-2.8,0,-2.6,0]
   ];
   for(var ci=0; ci<cratePositions.length; ci++){
     var cp = cratePositions[ci];
-    addTemplateProp(root, crateTemplate, {x:cp[0], y:0, z:cp[1], ry:cp[2], scale:crateScale, collider:crateCollider, blockMove:true});
+    addTemplateProp(root, crateTemplate, {x:cp[0], y:cp[1], z:cp[2], ry:cp[3], scale:crateScale, collider:crateCollider});
   }
 
-  var pillarPositions = [
-    [0,0], [5,0], [-5,0], [0,5], [0,-5],
-    [16,16],[-16,16],[16,-16],[-16,-16]
-  ];
-  for(var pi=0; pi<pillarPositions.length; pi++){
-    var pp = pillarPositions[pi];
-    addTemplateProp(root, pillarTemplate, {x:pp[0], y:0, z:pp[1], ry:0, scale:pillarScale, collider:pillarCollider, blockMove:true});
-  }
+  var barrierScale = 2.4;
+  var barrierCollider = [4.0, 2.2, 1.4];
+  addTemplateProp(root, barrierTemplate, {x:-5.5, y:0, z:0, ry:Math.PI/2, scale:barrierScale, collider:barrierCollider});
+  addTemplateProp(root, barrierTemplate, {x:5.5, y:0, z:0, ry:Math.PI/2, scale:barrierScale, collider:barrierCollider});
+  addTemplateProp(root, barrierTemplate, {x:0, y:0, z:5.5, ry:0, scale:barrierScale, collider:barrierCollider});
+  addTemplateProp(root, barrierTemplate, {x:0, y:0, z:-5.5, ry:0, scale:barrierScale, collider:barrierCollider});
 
-  addTemplateProp(root, barrierTemplate, {x:-12, y:0, z:4.5, ry:0, scale:barrierScale, collider:barrierCollider, blockMove:true});
-  addTemplateProp(root, barrierTemplate, {x:12, y:0, z:-4.5, ry:0, scale:barrierScale, collider:barrierCollider, blockMove:true});
-  addTemplateProp(root, barrierTemplate, {x:-4.5, y:0, z:-12, ry:Math.PI/2, scale:barrierScale, collider:barrierCollider, blockMove:true});
-  addTemplateProp(root, barrierTemplate, {x:4.5, y:0, z:12, ry:Math.PI/2, scale:barrierScale, collider:barrierCollider, blockMove:true});
+  // Visual touch-ups
+  addSimpleProp(root, {x:0,y:0.03,z:0,w:1.0,h:0.08,d:1.0,color:0x9fb6d0, roughness:0.4, metalness:0.12});
+  addSimpleProp(root, {x:0,y:0.03,z:16.8,w:16.0,h:0.08,d:0.4,color:0x31435c, roughness:0.9, metalness:0.02});
+  addSimpleProp(root, {x:0,y:0.03,z:-16.8,w:16.0,h:0.08,d:0.4,color:0x31435c, roughness:0.9, metalness:0.02});
+  addSimpleProp(root, {x:16.8,y:0.03,z:0,w:0.4,h:0.08,d:16.0,color:0x31435c, roughness:0.9, metalness:0.02});
+  addSimpleProp(root, {x:-16.8,y:0.03,z:0,w:0.4,h:0.08,d:16.0,color:0x31435c, roughness:0.9, metalness:0.02});
 
-  // Visual touch-ups - broad lanes instead of tiny props
-  addSimpleProp(root, {x:0,y:FLOOR_Y+0.03,z:0,w:2.0,h:0.08,d:2.0,color:0x9fb6d0, roughness:0.35, metalness:0.12});
-  addSimpleProp(root, {x:0,y:FLOOR_Y+0.03,z:31,w:28.0,h:0.08,d:0.55,color:0x31435c, roughness:0.9, metalness:0.02});
-  addSimpleProp(root, {x:0,y:FLOOR_Y+0.03,z:-31,w:28.0,h:0.08,d:0.55,color:0x31435c, roughness:0.9, metalness:0.02});
-  addSimpleProp(root, {x:31,y:FLOOR_Y+0.03,z:0,w:0.55,h:0.08,d:28.0,color:0x31435c, roughness:0.9, metalness:0.02});
-  addSimpleProp(root, {x:-31,y:FLOOR_Y+0.03,z:0,w:0.55,h:0.08,d:28.0,color:0x31435c, roughness:0.9, metalness:0.02});
+  root.position.y = -0.12;
+  MAP_BORDER = 42;
 
-  root.position.y = -0.24;
-  MAP_BORDER = MAP_HALF;
-
-  // Spawn / objective markers
-  addSpawnMarker('RED スポーン', 0, 39.5, '#ff607f');
-  addSpawnMarker('BLUE スポーン', 0, -39.5, '#63baff');
-  addSpawnMarker('A', 0, 17.5, '#ffd16d');
-  addSpawnMarker('B', 0, -17.5, '#7fc7ff');
+  addSpawnMarker('RED スポーン', 0, 19.0, '#ff607f');
+  addSpawnMarker('BLUE スポーン', 0, -19.0, '#63baff');
+  addSpawnMarker('A', 10.2, 11.2, '#ffd16d');
+  addSpawnMarker('B', -10.2, -11.2, '#7fc7ff');
   addSpawnMarker('ミッド', 0, 0, '#8fa0ff');
 }
+
 function buildProceduralArena(){
   clearMapDecor();
   clearLoadedMapModel();
+  stairZones.length = 0;
   var token = ++mapLoadToken;
 
   scene.fog = new T.FogExp2(0x101824, 0.0105);

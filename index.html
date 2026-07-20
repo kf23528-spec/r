@@ -60,6 +60,12 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 #adsButton:active{transform:scale(0.92);filter:brightness(1.16)}
 #adsButton.ads-active{border-color:rgba(100,220,255,0.9);box-shadow:0 0 18px rgba(100,200,255,0.5),inset 0 0 12px rgba(100,200,255,0.2)}
 #adsButton::before{content:"◎";font-size:20px;color:rgba(130,210,255,0.9);text-shadow:0 0 6px rgba(100,200,255,0.6)}
+#skillButton{position:absolute;right:calc(8px + min(17vw,100px) + 12px - 2px);bottom:calc(24px + min(14vw,84px) + 10px + (min(14vw,84px) + 10px) * 3);width:min(14vw,84px);height:min(14vw,84px);max-width:84px;max-height:84px;min-width:64px;min-height:64px;border:none;border-radius:50%;background:linear-gradient(160deg,#153b34,#081a17);border:2px solid rgba(140,255,210,0.7);box-shadow:0 6px 20px rgba(0,0,0,0.50),inset 0 0 12px rgba(140,255,210,0.12);pointer-events:auto;z-index:100;touch-action:none;-webkit-tap-highlight-color:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center}
+#skillButton:active{transform:scale(0.92);filter:brightness(1.12)}
+#skillButton.skill-active{border-color:rgba(170,255,230,0.98);box-shadow:0 0 18px rgba(140,255,210,0.48),inset 0 0 12px rgba(140,255,210,0.22)}
+#skillButton.skill-cooling{opacity:0.40;filter:grayscale(0.45)}
+#skillButton::before{content:"";position:absolute;width:42%;height:42%;border-radius:50%;border:2px solid rgba(170,255,230,0.95);box-shadow:0 0 10px rgba(140,255,210,0.55)}
+#skillButton::after{content:"";position:absolute;width:9px;height:9px;border-radius:50%;background:rgba(210,255,245,0.98);box-shadow:0 0 10px rgba(140,255,210,0.8)}
 #bombButton{position:absolute;right:calc(8px + min(17vw,100px) + 12px - 2px);bottom:calc(24px + min(14vw,84px) + 10px + min(14vw,84px) + 10px);width:min(14vw,84px);height:min(14vw,84px);max-width:84px;max-height:84px;min-width:64px;min-height:64px;border:none;border-radius:50%;background:linear-gradient(160deg,#5a3710,#2b1605);border:2px solid rgba(255,176,84,0.65);box-shadow:0 6px 20px rgba(0,0,0,0.50),inset 0 0 12px rgba(255,176,84,0.08);pointer-events:auto;z-index:100;touch-action:none;-webkit-tap-highlight-color:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center}
 #bombButton:active{transform:scale(0.92);filter:brightness(1.16)}
 #bombButton.bomb-active{border-color:rgba(255,214,126,0.95);box-shadow:0 0 18px rgba(255,176,84,0.48),inset 0 0 12px rgba(255,176,84,0.18)}
@@ -239,7 +245,7 @@ input,button{-webkit-appearance:none;appearance:none}
   #hpBlock{width:min(52vw,220px);top:12px;left:12px}
   #onlineCount{top:54px;right:12px}
   #status{top:72px;left:12px}
-}</style></head><body><div id="game"><canvas id="c"></canvas><div id="hud"><div id="touchLookArea"></div><div id="hpBlock"><div id="hpLabel"><span>💚 HP</span><span id="hpText">100 / 100</span></div><div id="hpBarOuter"><div id="hpBarInner"></div></div></div><div class="connecting" id="netBadge">🟡 接続中...</div><div id="onlineCount">👥 同室: 1人</div><div id="status"><div id="scoreBoard">BLUE <span id="blueScore">0</span> / RED <span id="redScore">0</span></div><div id="roundState">ROUND: <span id="roundText">1</span> | 先に5点で勝利</div><span id="ammo">AMMO: <span id="ammoCount">30</span> / ∞</span><span id="reloadIndicator">⟳ RELOADING...</span><div id="reloadBar"><div id="reloadBarFill"></div></div></div><div id="hitIndicator"></div><div id="crosshair"></div><div id="crosshairDot"></div><div id="announce"></div><div id="killFeed"></div><div id="joystickContainer"><div class="base"></div><div class="knob" id="knob"></div></div><button id="shootButton">FIRE</button><button aria-label="リロード" id="reloadButton"></button><button aria-label="爆弾" id="bombButton"></button><div id="bombSettingsPanel"><div id="bombSettingsTitle">BOMB CONTROL</div><div class="bombSettingRow"><div class="bombSettingLabel"><span>ANGLE</span><span class="bombSettingValue" id="bombAngleValue">35°</span></div><input class="bombSlider" id="bombAngleSlider" type="range" min="10" max="70" step="1" value="35"/></div><div class="bombSettingRow"><div class="bombSettingLabel"><span>DISTANCE</span><span class="bombSettingValue" id="bombPowerValue">100%</span></div><input class="bombSlider" id="bombPowerSlider" type="range" min="70" max="160" step="1" value="100"/></div><div id="bombHint">爆弾モード中に投擲角度と飛距離を調整できます</div></div><button aria-label="ADS" id="adsButton"></button>
+}</style></head><body><div id="game"><canvas id="c"></canvas><div id="hud"><div id="touchLookArea"></div><div id="hpBlock"><div id="hpLabel"><span>💚 HP</span><span id="hpText">100 / 100</span></div><div id="hpBarOuter"><div id="hpBarInner"></div></div></div><div class="connecting" id="netBadge">🟡 接続中...</div><div id="onlineCount">👥 同室: 1人</div><div id="status"><div id="scoreBoard">BLUE <span id="blueScore">0</span> / RED <span id="redScore">0</span></div><div id="roundState">ROUND: <span id="roundText">1</span> | 先に5点で勝利</div><span id="ammo">AMMO: <span id="ammoCount">30</span> / ∞</span><span id="reloadIndicator">⟳ RELOADING...</span><div id="reloadBar"><div id="reloadBarFill"></div></div></div><div id="hitIndicator"></div><div id="crosshair"></div><div id="crosshairDot"></div><div id="announce"></div><div id="killFeed"></div><div id="joystickContainer"><div class="base"></div><div class="knob" id="knob"></div></div><button id="shootButton">FIRE</button><button aria-label="リロード" id="reloadButton"></button><button aria-label="爆弾" id="bombButton"></button><div id="bombSettingsPanel"><div id="bombSettingsTitle">BOMB CONTROL</div><div class="bombSettingRow"><div class="bombSettingLabel"><span>ANGLE</span><span class="bombSettingValue" id="bombAngleValue">35°</span></div><input class="bombSlider" id="bombAngleSlider" type="range" min="10" max="70" step="1" value="35"/></div><div class="bombSettingRow"><div class="bombSettingLabel"><span>DISTANCE</span><span class="bombSettingValue" id="bombPowerValue">100%</span></div><input class="bombSlider" id="bombPowerSlider" type="range" min="70" max="160" step="1" value="100"/></div><div id="bombHint">爆弾モード中に投擲角度と飛距離を調整できます</div></div><button aria-label="ADS" id="adsButton"></button><button aria-label="スキル" id="skillButton" title="スキル"></button>
 <div id="bombTrajectory"><div id="bombTrajectoryLine"></div><div id="bombTrajectoryTip"></div><div id="bombTrajectoryText"></div></div>
 <div id="bombQuickControls"><div class="bombQuickGroup"><div class="bombQuickReadout"><span>ANGLE</span><span class="val" id="bombAngleButtonValue">35°</span></div><button class="bombQuickButton" id="bombAngleButton" type="button" aria-label="角度調整"></button></div><div class="bombQuickGroup"><div class="bombQuickReadout"><span>DIST</span><span class="val" id="bombDistanceButtonValue">100%</span></div><button class="bombQuickButton" id="bombDistanceButton" type="button" aria-label="距離調整"></button></div></div><div id="lobbyOverlay"><div id="lobbyShell"><div id="lobbyCard"><div id="lobbyBadge">NEON // ONLINE ARENA</div><div id="lobbyTitle">NEON ARENA<br/>ONLINE</div><div id="lobbySub">部屋番号を入力して、同じ番号のプレイヤーとマッチング。</div><div id="roomPanel"><div id="roomPanelLabel">ROOM NUMBER（4桁）</div><div id="roomInputRow"><input autocomplete="off" autocorrect="off" id="roomInput" inputmode="numeric" maxlength="4" pattern="[0-9]*" placeholder="0000" spellcheck="false" type="tel"/><button id="roomGenBtn" title="ランダム生成">🎲</button></div><div id="roomHint">同じ番号の相手が入室するとマッチング開始</div></div><div id="rankPanel"><div id="rankRow"><span id="rankName">ブロンズ I</span><span id="rankPct">0%</span></div><div id="rankBar"><div id="rankFill"></div></div><div id="rankHint">RANK SAVED TO LOCAL STORAGE</div></div><button id="randomBattleBtn">⚡ RANDOM BATTLE</button><button disabled="" id="lobbyStartBtn">部屋に入る →</button></div><div id="lobbySide"><div id="lobbyStats"><div class="statCard"><div class="statLabel">MODE</div><div class="statValue" id="lobbyModeValue">RANKED</div><div class="statSub">CASUAL / RANKED</div></div><div class="statCard"><div class="statLabel">GOAL</div><div class="statValue">5</div><div class="statSub">FIRST TO FIVE</div></div><div class="statCard"><div class="statLabel">NET</div><div class="statValue" id="lobbyNetValue">--</div><div class="statSub">SOCKET.IO STATUS</div></div><div class="statCard"><div class="statLabel">ROOM</div><div class="statValue" id="lobbyRoomValue">----</div><div class="statSub">4-DIGIT NUMBER</div></div></div><div id="modePanel"><div id="modeLabelLine">MATCH TYPE</div><div id="modeButtons"><button class="modeBtn" id="casualModeBtn" type="button">CASUAL</button><button class="modeBtn active" id="rankedModeBtn" type="button">RANKED</button><button class="modeBtn" id="randomModeBtn" type="button">⚡ RANDOM</button></div><div id="modeDesc">ランク戦はXP獲得。先に5点で勝利。</div></div></div></div></div><div id="waitingOverlay"><div id="waitingCard"><div id="waitingRoomNum">ROOM NUMBER</div><div id="waitingTitle">WAITING FOR PLAYERS</div><div id="waitingSubtitle">同じ部屋の本物のプレイヤーを待っています</div><div id="randomCountdownWrap"><div id="randomCountdownLabel">RANDOM MATCH STARTING IN</div><div id="randomCountdownNum">30</div><div id="randomCountdownBar"><div id="randomCountdownFill"></div></div></div><div id="playerCountBadge">🟢 <span id="waitingCountText">あなたのみ</span></div><div id="playerListWrap"><div id="playerListLabel">IN THIS ROOM</div><div id="playerList"></div></div><div id="waitingProgress"><div id="waitingProgressFill"></div></div><div id="waitingHint">2人以上で出撃ボタンが表示されます</div><button id="battleLaunchBtn">出撃</button><button id="waitingCancelBtn">← 戻る</button></div></div><div id="loadingOverlay"><div id="loadingCard"><div id="loadingSpinner"></div><div id="loadingText">DEPLOYING</div><div id="loadingSub">戦場を同期しています...</div><div id="loadingBar"><div id="loadingFill"></div></div></div></div><div id="resultOverlay"><div class="resultBackdrop"></div><div class="resultScanlines"></div><div class="resultGlow resultGlowA"></div><div class="resultGlow resultGlowB"></div><div class="resultGlow resultGlowC"></div><div class="resultCard"><div id="resultMedal">VICTORY</div><div id="resultText">YOUR TEAM WON</div><div id="resultSub">LOADING BACK TO THE HUB...</div><div aria-hidden="true" id="resultPromo"></div><div id="resultStatsPanel"><div id="resultStatsGrid"><div class="resultStatCard"><div class="resultStatLabel">KILLS</div><div class="resultStatValue" id="resultKills">0</div></div><div class="resultStatCard"><div class="resultStatLabel">DEATHS</div><div class="resultStatValue" id="resultDeaths">0</div></div><div class="resultStatCard"><div class="resultStatLabel">K/D RATIO</div><div class="resultStatValue" id="resultKdr">0.00</div></div><div class="resultStatCard"><div class="resultStatLabel">FINAL SCORE</div><div class="resultStatValue" id="resultFinalScore">0 - 0</div></div></div><div id="resultRankRow"><span id="resultRankName">ブロンズ I</span><span id="resultRankDelta">+0 XP</span></div></div></div></div><div id="spectateOverlay"><div id="spectateOverlay">SPECTATING</div><div id="rotateOverlay">📱 画面を横向きにしてください</div></div></div><script type="module">import * as THREE_NS from 'three';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
@@ -369,6 +375,7 @@ var bombPowerSlider = document.getElementById('bombPowerSlider');
 var bombAngleValue = document.getElementById('bombAngleValue');
 var bombPowerValue = document.getElementById('bombPowerValue');
 var adsButton = document.getElementById('adsButton');
+var skillButton = document.getElementById('skillButton');
 var bombQuickControls = document.getElementById('bombQuickControls');
 var bombAngleButton = document.getElementById('bombAngleButton');
 var bombDistanceButton = document.getElementById('bombDistanceButton');
@@ -1661,7 +1668,7 @@ function setModeUI(){
   resultOverlay.style.display=gameMode===GAME_MODE.RESULT?'flex':'none';
   spectateOverlay.style.display=gameMode===GAME_MODE.SPECTATE?'block':'none';
   var show=gameMode===GAME_MODE.BATTLE;
-  [shootButton,reloadButton,bombButton,adsButton,joystickContainer].forEach(function(el){if(el)el.style.display=show?'':'none';});
+  [shootButton,reloadButton,bombButton,adsButton,skillButton,joystickContainer].forEach(function(el){if(el)el.style.display=show?'':'none';});
   document.getElementById('crosshair').style.display=show?'':'none';
   document.getElementById('crosshairDot').style.display=show?'':'none';
   hitIndicator.style.display=show?'':'none';
@@ -1673,6 +1680,7 @@ function setModeUI(){
   announceEl.style.display=show?'':'none';
   netBadge.style.display=(gameMode===GAME_MODE.LOBBY||gameMode===GAME_MODE.WAITING)?'none':'';
   onlineCountEl.style.display=gameMode===GAME_MODE.LOBBY?'none':'';
+  if(gameMode!==GAME_MODE.BATTLE && tacticalSkill.active) exitSkillMode();
 }
 function updateModeButtonsUI(){
   casualModeBtn.classList.toggle('active',matchMode==='casual'&&!isRandomMatch);
@@ -1756,7 +1764,7 @@ function aiWouldHitWall(nx,nz){
   return Math.abs(nx) >= MAP_BORDER || Math.abs(nz) >= MAP_BORDER;
 }
 function movePlayer(dt){
-  if(!player.alive||gameMode!==GAME_MODE.BATTLE) return;
+  if(!player.alive||gameMode!==GAME_MODE.BATTLE||tacticalSkill.active) return;
   syncCameraRotation();
   var ix=clamp(joy.x,-1,1),iy=clamp(joy.y,-1,1);
   var mag=Math.min(1,Math.hypot(ix,iy));
@@ -1776,6 +1784,146 @@ function movePlayer(dt){
 function startReload(){if(reloading||ammo>=MAG_SIZE||!player.alive||matchOver||gameMode!==GAME_MODE.BATTLE)return;reloading=true;reloadTimer=0;gunState.reloadAnim=true;gunState.reloadAnimT=0;updateAmmoUI();}
 function updateReload(dt){if(!reloading)return;reloadTimer+=dt;updateAmmoUI();if(reloadTimer>=RELOAD_TIME){ammo=MAG_SIZE;reloading=false;reloadTimer=0;gunState.reloadAnim=false;updateAmmoUI();}}
 function setADS(on){adsActive=!!on;adsButton.classList.toggle('ads-active',adsActive);gunPosTarget.copy(adsActive?gunPosAds:gunPosNormal);}
+function makeSmokeTexture(){
+  var cv=document.createElement('canvas');
+  cv.width=128;cv.height=128;
+  var ctx=cv.getContext('2d');
+  var g=ctx.createRadialGradient(64,64,8,64,64,64);
+  g.addColorStop(0,'rgba(255,255,255,0.82)');
+  g.addColorStop(0.30,'rgba(220,220,220,0.46)');
+  g.addColorStop(0.62,'rgba(180,180,180,0.22)');
+  g.addColorStop(1,'rgba(180,180,180,0)');
+  ctx.fillStyle=g;
+  ctx.fillRect(0,0,128,128);
+  var tex=new T.CanvasTexture(cv);
+  tex.needsUpdate=true;
+  return tex;
+}
+function ensureSmokeTexture(){
+  if(!smokeTexture) smokeTexture = makeSmokeTexture();
+  return smokeTexture;
+}
+function setCombatCharactersVisible(visible){
+  remoteAvatars.forEach(function(av){
+    if(!av) return;
+    av.visible = !!visible && !(remoteStates[av.userData.entityId] && remoteStates[av.userData.entityId].alive===false);
+  });
+  for(var i=0;i<aiUnits.length;i++){
+    var u=aiUnits[i];
+    if(u&&u.avatar) u.avatar.visible = !!visible && !!u.alive;
+  }
+}
+function spawnSmokeScreen(x,z){
+  var g=new T.Group();
+  g.position.set(x,0.03,z);
+  g.userData.isMapDecor = true;
+  scene.add(g);
+  var s=new T.Sprite(new T.SpriteMaterial({
+    map: ensureSmokeTexture(),
+    transparent: true,
+    opacity: 0.0,
+    depthWrite: false,
+    depthTest: true
+  }));
+  s.position.set(0,1.15,0);
+  s.scale.set(0.6,0.6,1);
+  g.add(s);
+  tacticalSkill.smokes.push({
+    group: g,
+    sprite: s,
+    age: 0,
+    life: tacticalSkill.smokeLife
+  });
+  return g;
+}
+function updateSmokeScreens(dt){
+  for(var i=tacticalSkill.smokes.length-1;i>=0;i--){
+    var fx=tacticalSkill.smokes[i];
+    if(!fx||!fx.sprite){ tacticalSkill.smokes.splice(i,1); continue; }
+    fx.age += dt*1000;
+    fx.life -= dt*1000;
+    var t = clamp01(fx.age / tacticalSkill.smokeLife);
+    var fadeIn = clamp01(t / 0.14);
+    var fadeOut = clamp01((1 - t) / 0.22);
+    fx.sprite.material.opacity = 0.70 * Math.min(fadeIn, fadeOut);
+    var scale = 12 + t * 12;
+    fx.sprite.scale.set(scale, scale, 1);
+    fx.group.rotation.y += dt * 0.18;
+    if(fx.life <= 0){
+      if(fx.group.parent) fx.group.parent.remove(fx.group);
+      tacticalSkill.smokes.splice(i,1);
+    }
+  }
+}
+function enterSkillMode(){
+  if(gameMode!==GAME_MODE.BATTLE || matchOver || !player.alive) return false;
+  var now = Date.now();
+  if(now < tacticalSkill.readyAt) return false;
+  if(tacticalSkill.active) return true;
+  tacticalSkill.saved = {
+    pos: camera.position.clone(),
+    rotX: camera.rotation.x,
+    rotY: camera.rotation.y,
+    rotZ: camera.rotation.z,
+    up: camera.up.clone(),
+    fov: camera.fov
+  };
+  tacticalSkill.active = true;
+  if(skillButton) skillButton.classList.add('skill-active');
+  if(gunRoot) gunRoot.visible = false;
+  setCombatCharactersVisible(false);
+  document.getElementById('crosshair').style.display='none';
+  document.getElementById('crosshairDot').style.display='none';
+  return true;
+}
+function exitSkillMode(){
+  if(!tacticalSkill.active) return;
+  tacticalSkill.active = false;
+  if(skillButton) skillButton.classList.remove('skill-active');
+  if(tacticalSkill.saved){
+    camera.position.copy(tacticalSkill.saved.pos);
+    camera.rotation.set(tacticalSkill.saved.rotX, tacticalSkill.saved.rotY, tacticalSkill.saved.rotZ);
+    camera.up.copy(tacticalSkill.saved.up);
+    camera.fov = tacticalSkill.saved.fov;
+    camera.updateProjectionMatrix();
+    tacticalSkill.saved = null;
+  }
+  if(gunRoot) gunRoot.visible = (gameMode===GAME_MODE.BATTLE && !bombModeActive);
+  setCombatCharactersVisible(true);
+  updateRemotePlayersFromState();
+}
+function updateSkillCamera(dt){
+  if(gameMode!==GAME_MODE.BATTLE || !tacticalSkill.active) return;
+  camera.up.set(0,0,-1);
+  camera.position.set(player.x, tacticalSkill.viewHeight, player.z);
+  camera.lookAt(player.x,0,player.z);
+  camera.fov = tacticalSkill.viewFov;
+  camera.updateProjectionMatrix();
+}
+function updateSkillUI(){
+  if(!skillButton) return;
+  var canUse = gameMode===GAME_MODE.BATTLE && player.alive && !matchOver;
+  var cooling = Date.now() < tacticalSkill.readyAt;
+  skillButton.style.display = canUse ? '' : 'none';
+  skillButton.disabled = !canUse || cooling || tacticalSkill.active;
+  skillButton.classList.toggle('skill-cooling', cooling && canUse && !tacticalSkill.active);
+  skillButton.classList.toggle('skill-active', tacticalSkill.active);
+}
+function placeSkillSmokeFromEvent(e){
+  if(!tacticalSkill.active || gameMode!==GAME_MODE.BATTLE) return false;
+  var rect = canvas.getBoundingClientRect();
+  var mx = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+  var my = -(((e.clientY - rect.top) / rect.height) * 2 - 1);
+  skillPointer.set(mx, my);
+  skillRaycaster.setFromCamera(skillPointer, camera);
+  var hit = new T.Vector3();
+  if(!skillRaycaster.ray.intersectPlane(skillPlane, hit)) return false;
+  spawnSmokeScreen(hit.x, hit.z);
+  tacticalSkill.readyAt = Date.now() + tacticalSkill.cooldownMs;
+  if(skillButton) skillButton.disabled = true;
+  exitSkillMode();
+  return true;
+}
 function getForwardVectorFromCamera(){var d=new T.Vector3();camera.getWorldDirection(d);if(d.lengthSq()<1e-8)d.set(0,0,-1);return d.normalize();}
 function makeBullet(origin,dir,ownerId,ownerTeam,isRemote){
   var mat=isRemote?BULLET_MAT_REMOTE:BULLET_MAT_LOCAL;
@@ -2159,6 +2307,7 @@ function resetRoundState(){
     roomPlayers[socket.id].z=camera.position.z; roomPlayers[socket.id].ry=yaw;
     remoteStates[socket.id]=remoteStates[socket.id]||{}; Object.assign(remoteStates[socket.id],roomPlayers[socket.id]);
   }
+  exitSkillMode();
   resetAIForRound();updatePlayerHPUI();updateAmmoUI();if(gunRoot)gunRoot.visible=true;spectateOverlay.style.display='none';
   syncRoundStateToRoom({alive:true,hp:100,phase:GAME_MODE.BATTLE});
 }
@@ -2769,7 +2918,7 @@ function updateBullets(dt){
     }else if(Math.abs(b.pos.x)>MAP_BORDER+2||Math.abs(b.pos.z)>MAP_BORDER+2){b.dead=true;if(b.mesh&&b.mesh.parent)b.mesh.parent.remove(b.mesh);b.mesh=null;bullets.splice(i,1);}
   }
 }
-function enterSpectate(){player.spectating=true;gameMode=GAME_MODE.SPECTATE;setModeUI();spectateTargetId='';spectateOverlay.style.display='block';if(gunRoot)gunRoot.visible=false;}
+function enterSpectate(){exitSkillMode();player.spectating=true;gameMode=GAME_MODE.SPECTATE;setModeUI();spectateTargetId='';spectateOverlay.style.display='block';if(gunRoot)gunRoot.visible=false;}
 function getSpectateTargetState(){
   var sid=spectateTargetId;
   function alivePlayer(p){return p&&p.alive!==false;}
@@ -3117,21 +3266,21 @@ function initSocket(){
 }
 canvas.addEventListener('click',function(){if(gameMode===GAME_MODE.BATTLE&&!portraitMode&&!mouseLocked)canvas.requestPointerLock();});
 document.addEventListener('pointerlockchange',function(){mouseLocked=(document.pointerLockElement===canvas);});
-document.addEventListener('mousemove',function(e){if(!mouseLocked||gameMode!==GAME_MODE.BATTLE)return;yaw-=e.movementX*0.0028;pitch-=e.movementY*0.0028;pitch=clamp(pitch,-(Math.PI/2-0.04),Math.PI/2-0.04);});
+document.addEventListener('mousemove',function(e){if(!mouseLocked||gameMode!==GAME_MODE.BATTLE||tacticalSkill.active)return;yaw-=e.movementX*0.0028;pitch-=e.movementY*0.0028;pitch=clamp(pitch,-(Math.PI/2-0.04),Math.PI/2-0.04);});
 var keys=window.__keys={};
 document.addEventListener('keydown',function(e){keys[e.code]=true;if(e.code==='KeyR'&&gameMode===GAME_MODE.BATTLE&&!reloading&&ammo<MAG_SIZE)startReload();if(e.code==='Space'&&gameMode===GAME_MODE.BATTLE&&!adsActive)setADS(true);});
 document.addEventListener('keyup',function(e){keys[e.code]=false;if(e.code==='Space')setADS(false);});
-document.addEventListener('pointerdown',function(e){if(isInteractiveTarget(e.target))return;if(gameMode!==GAME_MODE.BATTLE)return;if(e.target&&e.target.closest&&e.target.closest('#touchLookArea'))lookTouchId=e.pointerId;});
-document.addEventListener('pointermove',function(e){if(gameMode!==GAME_MODE.BATTLE||lookTouchId!==e.pointerId||isInteractiveTarget(e.target))return;yaw-=e.movementX*(portraitMode?0.0020:0.0028);pitch-=e.movementY*(portraitMode?0.0020:0.0028);pitch=clamp(pitch,-(Math.PI/2-0.04),Math.PI/2-0.04);});
+document.addEventListener('pointerdown',function(e){if(isInteractiveTarget(e.target))return;if(gameMode!==GAME_MODE.BATTLE||tacticalSkill.active)return;if(e.target&&e.target.closest&&e.target.closest('#touchLookArea'))lookTouchId=e.pointerId;});
+document.addEventListener('pointermove',function(e){if(gameMode!==GAME_MODE.BATTLE||tacticalSkill.active||lookTouchId!==e.pointerId||isInteractiveTarget(e.target))return;yaw-=e.movementX*(portraitMode?0.0020:0.0028);pitch-=e.movementY*(portraitMode?0.0020:0.0028);pitch=clamp(pitch,-(Math.PI/2-0.04),Math.PI/2-0.04);});
 document.addEventListener('pointerup',function(e){if(lookTouchId===e.pointerId)lookTouchId=null;});
 joystickContainer.addEventListener('pointerdown',function(e){if(gameMode!==GAME_MODE.BATTLE)return;e.preventDefault();unlockAudio();joyTouchId=e.pointerId;var rect=joystickContainer.getBoundingClientRect();var cx=rect.left+rect.width/2,cy=rect.top+rect.height/2;var dx=e.clientX-cx,dy=e.clientY-cy;var len=Math.hypot(dx,dy),max=rect.width*0.32;if(len>max){dx=dx/len*max;dy=dy/len*max;}joy.x=clamp(dx/max,-1,1);joy.y=clamp(dy/max,-1,1);updateJoystickVisual();});
 joystickContainer.addEventListener('pointermove',function(e){if(joyTouchId!==e.pointerId)return;e.preventDefault();var rect=joystickContainer.getBoundingClientRect();var cx=rect.left+rect.width/2,cy=rect.top+rect.height/2;var dx=e.clientX-cx,dy=e.clientY-cy;var len=Math.hypot(dx,dy),max=rect.width*0.32;if(len>max){dx=dx/len*max;dy=dy/len*max;}joy.x=clamp(dx/max,-1,1);joy.y=clamp(dy/max,-1,1);updateJoystickVisual();});
 joystickContainer.addEventListener('pointerup',function(e){if(joyTouchId!==e.pointerId)return;e.preventDefault();joy.x=0;joy.y=0;knobEl.style.left='50%';knobEl.style.top='50%';joyTouchId=null;});
 joystickContainer.addEventListener('pointercancel',function(e){if(joyTouchId!==e.pointerId)return;joyTouchId=null;joy.x=0;joy.y=0;knobEl.style.left='50%';knobEl.style.top='50%';});
 function updateJoystickVisual(){var rect=joystickContainer.getBoundingClientRect();var max=rect.width*0.32;knobEl.style.left=(50+joy.x*50*(max/(rect.width/2)))+'%';knobEl.style.top=(50+joy.y*50*(max/(rect.height/2)))+'%';}
-function updateKeyboardInput(){if(gameMode!==GAME_MODE.BATTLE)return;var jx=0,jy=0;if(keys['KeyW']||keys['ArrowUp'])jy=-1;if(keys['KeyS']||keys['ArrowDown'])jy=1;if(keys['KeyA']||keys['ArrowLeft'])jx=-1;if(keys['KeyD']||keys['ArrowRight'])jx=1;if((jx||jy)&&joyTouchId===null){joy.x=jx;joy.y=jy;}else if(joyTouchId===null){joy.x=0;joy.y=0;}}
+function updateKeyboardInput(){if(gameMode!==GAME_MODE.BATTLE||tacticalSkill.active)return;var jx=0,jy=0;if(keys['KeyW']||keys['ArrowUp'])jy=-1;if(keys['KeyS']||keys['ArrowDown'])jy=1;if(keys['KeyA']||keys['ArrowLeft'])jx=-1;if(keys['KeyD']||keys['ArrowRight'])jx=1;if((jx||jy)&&joyTouchId===null){joy.x=jx;joy.y=jy;}else if(joyTouchId===null){joy.x=0;joy.y=0;}}
 var lastShootTouchAt=0;
-function handleShootDown(e){e.preventDefault();e.stopPropagation();unlockAudio();if(gameMode!==GAME_MODE.BATTLE)return;if(bombModeActive){fireOnce();return;}firingHeld=true;fireOnce();if(!fireLoopTimer)fireLoopTimer=setInterval(function(){if(!firingHeld){clearInterval(fireLoopTimer);fireLoopTimer=null;return;}fireOnce();},Math.max(30,FIRE_INTERVAL*1000));}
+function handleShootDown(e){e.preventDefault();e.stopPropagation();unlockAudio();if(gameMode!==GAME_MODE.BATTLE||tacticalSkill.active)return;if(bombModeActive){fireOnce();return;}firingHeld=true;fireOnce();if(!fireLoopTimer)fireLoopTimer=setInterval(function(){if(!firingHeld){clearInterval(fireLoopTimer);fireLoopTimer=null;return;}fireOnce();},Math.max(30,FIRE_INTERVAL*1000));}
 shootButton.addEventListener('pointerdown',function(e){if(e.pointerType==='touch'&&(Date.now()-lastShootTouchAt)<140)return;handleShootDown(e);});
 shootButton.addEventListener('pointerup',function(e){e.preventDefault();e.stopPropagation();firingHeld=false;if(fireLoopTimer){clearInterval(fireLoopTimer);fireLoopTimer=null;}});
 shootButton.addEventListener('pointercancel',function(){firingHeld=false;if(fireLoopTimer){clearInterval(fireLoopTimer);fireLoopTimer=null;}});
@@ -3140,7 +3289,11 @@ shootButton.addEventListener('touchend',function(e){e.preventDefault();e.stopPro
 shootButton.addEventListener('touchcancel',function(e){e.preventDefault();firingHeld=false;},{passive:false});
 reloadButton.addEventListener('pointerdown',function(e){e.preventDefault();e.stopPropagation();unlockAudio();startReload();});
 adsButton.addEventListener('pointerdown',function(e){e.preventDefault();e.stopPropagation();unlockAudio();setADS(!adsActive);});
+if(skillButton){
+  skillButton.addEventListener('pointerdown',function(e){e.preventDefault();e.stopPropagation();unlockAudio();enterSkillMode();});
+}
 bombButton.addEventListener('pointerdown',function(e){e.preventDefault();e.stopPropagation();unlockAudio();toggleBombMode();});
+canvas.addEventListener('pointerdown',function(e){if(!tacticalSkill.active||gameMode!==GAME_MODE.BATTLE||isInteractiveTarget(e.target))return;e.preventDefault();e.stopPropagation();unlockAudio();placeSkillSmokeFromEvent(e);},{passive:false,capture:true});
 if(bombAngleButton){
   bombAngleButton.addEventListener('pointerdown',function(e){e.preventDefault();e.stopPropagation();unlockAudio();startBombHold('angle', BOMB_ANGLE_STEP);});
   bombAngleButton.addEventListener('pointerup',function(){stopBombHold('angle');});
@@ -3194,6 +3347,20 @@ var ARENA_POS_SCALE = 1.28;
 var mapRoot = null;
 var mapLoadToken = 0;
 var mapRaycaster = new T.Raycaster();
+var skillRaycaster = new T.Raycaster();
+var skillPointer = new T.Vector2();
+var skillPlane = new T.Plane(new T.Vector3(0,1,0),0);
+var tacticalSkill = {
+  active: false,
+  readyAt: 0,
+  cooldownMs: 30000,
+  smokeLife: 4800,
+  viewHeight: 78,
+  viewFov: 75,
+  saved: null,
+  smokes: []
+};
+var smokeTexture = null;
 var MAP_DEFS = {
   arena: {
     name: 'URBAN BLOCK',
@@ -3757,15 +3924,24 @@ function rebuildMapIfNeeded(mapId, force){
 function animate(){
   requestAnimationFrame(animate);
   var dt=Math.min(clock.getDelta(),0.034);
-  updateOrientationUI();updateKeyboardInput();
+  updateOrientationUI();updateKeyboardInput();updateSkillUI();
   if(gameMode===GAME_MODE.LOBBY||gameMode===GAME_MODE.WAITING||gameMode===GAME_MODE.LOADING){
     updateLobbyCamera(dt);
   }else if(gameMode===GAME_MODE.BATTLE){
-    syncCameraRotation();movePlayer(dt);updateGun(dt);updateMuzzleFlashes(dt);updateBullets(dt);updateBombs(dt);updateBombTrajectoryUI();
-    updateAI(dt);updateReload(dt);updatePlayerHPUI();updateSendLoop(dt);
-    remoteSyncTimer += dt;
-    if(remoteSyncTimer >= 0.05){ remoteSyncTimer = 0; updateRemotePlayersFromState(); }
-    updateRoundTimer(dt);updateRoundIfEnded();
+    if(tacticalSkill.active){
+      updateSkillCamera(dt);
+      updateSmokeScreens(dt);
+      updateBullets(dt);updateBombs(dt);updateAI(dt);updateSendLoop(dt);
+      remoteSyncTimer += dt;
+      if(remoteSyncTimer >= 0.05){ remoteSyncTimer = 0; updateRemotePlayersFromState(); }
+      updateRoundTimer(dt);updateRoundIfEnded();
+    }else{
+      syncCameraRotation();movePlayer(dt);updateGun(dt);updateMuzzleFlashes(dt);updateBullets(dt);updateBombs(dt);updateBombTrajectoryUI();
+      updateAI(dt);updateReload(dt);updatePlayerHPUI();updateSendLoop(dt);
+      remoteSyncTimer += dt;
+      if(remoteSyncTimer >= 0.05){ remoteSyncTimer = 0; updateRemotePlayersFromState(); }
+      updateRoundTimer(dt);updateRoundIfEnded();
+    }
   }else if(gameMode===GAME_MODE.SPECTATE){
     updateSpectateCamera(dt);updateGun(dt);updateMuzzleFlashes(dt);updateBullets(dt);updateBombs(dt);updateBombTrajectoryUI();
     updateAI(dt);updateSendLoop(dt);

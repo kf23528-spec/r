@@ -60,7 +60,7 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 #adsButton:active{transform:scale(0.92);filter:brightness(1.16)}
 #adsButton.ads-active{border-color:rgba(100,220,255,0.9);box-shadow:0 0 18px rgba(100,200,255,0.5),inset 0 0 12px rgba(100,200,255,0.2)}
 #adsButton::before{content:"◎";font-size:20px;color:rgba(130,210,255,0.9);text-shadow:0 0 6px rgba(100,200,255,0.6)}
-#skillButton{position:absolute;right:calc(8px + min(17vw,100px) + 12px - 10px);bottom:calc(24px + min(14vw,84px) + 10px + (min(14vw,84px) + 10px) * 3 - 10px);width:min(14vw,84px);height:min(14vw,84px);max-width:84px;max-height:84px;min-width:64px;min-height:64px;border:none;border-radius:50%;background:linear-gradient(160deg,#153b34,#081a17);border:2px solid rgba(140,255,210,0.7);box-shadow:0 6px 20px rgba(0,0,0,0.50),inset 0 0 12px rgba(140,255,210,0.12);pointer-events:auto;z-index:100;touch-action:none;-webkit-tap-highlight-color:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center}
+#skillButton{position:absolute;right:calc(8px + min(17vw,100px) + 12px - 2px);bottom:calc(24px + min(14vw,84px) + 10px + (min(14vw,84px) + 10px) * 3);width:min(14vw,84px);height:min(14vw,84px);max-width:84px;max-height:84px;min-width:64px;min-height:64px;border:none;border-radius:50%;background:linear-gradient(160deg,#153b34,#081a17);border:2px solid rgba(140,255,210,0.7);box-shadow:0 6px 20px rgba(0,0,0,0.50),inset 0 0 12px rgba(140,255,210,0.12);pointer-events:auto;z-index:100;touch-action:none;-webkit-tap-highlight-color:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center}
 #skillButton:active{transform:scale(0.92);filter:brightness(1.12)}
 #skillButton.skill-active{border-color:rgba(170,255,230,0.98);box-shadow:0 0 18px rgba(140,255,210,0.48),inset 0 0 12px rgba(140,255,210,0.22)}
 #skillButton.skill-cooling{opacity:0.40;filter:grayscale(0.45)}
@@ -1818,95 +1818,37 @@ function spawnSmokeScreen(x,z){
   g.position.set(x,0.03,z);
   g.userData.isMapDecor = true;
   scene.add(g);
-  var tex = ensureSmokeTexture();
-
-  var fx = {
-    group: g,
-    core: null,
-    shells: [],
-    age: 0,
-    life: tacticalSkill.smokeLife
-  };
-
-  var core = new T.Sprite(new T.SpriteMaterial({
-    map: tex,
+  var s=new T.Sprite(new T.SpriteMaterial({
+    map: ensureSmokeTexture(),
     transparent: true,
     opacity: 0.0,
     depthWrite: false,
     depthTest: true
   }));
-  core.position.set(0,0.96,0);
-  core.scale.set(1.45,1.45,1);
-  g.add(core);
-  fx.core = core;
-
-  function addPuff(radius, angle, y, scale, opacity){
-    var s = new T.Sprite(new T.SpriteMaterial({
-      map: tex,
-      transparent: true,
-      opacity: 0.0,
-      depthWrite: false,
-      depthTest: true
-    }));
-    s.position.set(Math.cos(angle) * radius, y, Math.sin(angle) * radius);
-    s.scale.set(scale, scale, 1);
-    g.add(s);
-    fx.shells.push({
-      sprite: s,
-      radius: radius,
-      angle: angle,
-      y: y,
-      scale: scale,
-      opacity: opacity
-    });
-  }
-
-  var outerCount = 12;
-  for(var i=0;i<outerCount;i++){
-    addPuff(3.9, (Math.PI * 2 * i / outerCount), 1.02, 2.15, 0.92);
-  }
-
-  var midCount = 8;
-  for(var j=0;j<midCount;j++){
-    addPuff(2.15, (Math.PI * 2 * j / midCount) + 0.18, 0.98, 1.55, 0.28);
-  }
-
-  tacticalSkill.smokes.push(fx);
+  s.position.set(0,1.15,0);
+  s.scale.set(0.6,0.6,1);
+  g.add(s);
+  tacticalSkill.smokes.push({
+    group: g,
+    sprite: s,
+    age: 0,
+    life: tacticalSkill.smokeLife
+  });
   return g;
 }
 function updateSmokeScreens(dt){
   for(var i=tacticalSkill.smokes.length-1;i>=0;i--){
     var fx=tacticalSkill.smokes[i];
-    if(!fx||!fx.group){ tacticalSkill.smokes.splice(i,1); continue; }
+    if(!fx||!fx.sprite){ tacticalSkill.smokes.splice(i,1); continue; }
     fx.age += dt*1000;
     fx.life -= dt*1000;
     var t = clamp01(fx.age / tacticalSkill.smokeLife);
-    var fadeIn = clamp01(t / 0.12);
-    var fadeOut = clamp01((1 - t) / 0.20);
-    var lifeAlpha = Math.min(fadeIn, fadeOut);
-
-    if(fx.core){
-      fx.core.material.opacity = 0.08 * lifeAlpha;
-      fx.core.scale.set(1.45 + t * 4.8, 1.45 + t * 4.8, 1);
-      fx.core.position.y = 0.96 + t * 0.22;
-    }
-
-    for(var j=0;j<fx.shells.length;j++){
-      var sh = fx.shells[j];
-      if(!sh || !sh.sprite) continue;
-      var dense = sh.radius > 3.0 ? 1.0 : 0.42;
-      var shellSpin = fx.age * 0.00012 + sh.angle * 0.5;
-      var expand = sh.radius + t * (sh.radius > 3.0 ? 1.8 : 0.9);
-      sh.sprite.position.x = Math.cos(sh.angle + shellSpin) * expand;
-      sh.sprite.position.z = Math.sin(sh.angle + shellSpin) * expand;
-      sh.sprite.position.y = sh.y + t * (sh.radius > 3.0 ? 0.28 : 0.18);
-      sh.sprite.material.opacity = sh.opacity * lifeAlpha * dense;
-      var scaleGrow = sh.radius > 3.0 ? (t * 3.6) : (t * 1.8);
-      sh.sprite.scale.set(sh.scale + scaleGrow, sh.scale + scaleGrow, 1);
-    }
-
-    fx.group.rotation.y += dt * 0.10;
-
+    var fadeIn = clamp01(t / 0.14);
+    var fadeOut = clamp01((1 - t) / 0.22);
+    fx.sprite.material.opacity = 0.70 * Math.min(fadeIn, fadeOut);
+    var scale = 12 + t * 12;
+    fx.sprite.scale.set(scale, scale, 1);
+    fx.group.rotation.y += dt * 0.18;
     if(fx.life <= 0){
       if(fx.group.parent) fx.group.parent.remove(fx.group);
       tacticalSkill.smokes.splice(i,1);
@@ -1914,7 +1856,6 @@ function updateSmokeScreens(dt){
   }
 }
 function enterSkillMode(){
-
   if(gameMode!==GAME_MODE.BATTLE || matchOver || !player.alive) return false;
   var now = Date.now();
   if(now < tacticalSkill.readyAt) return false;
@@ -2034,13 +1975,116 @@ function flashKillFx(at){
   setTimeout(function(){if(g.parent)g.parent.remove(g);},420);
 }
 function flashBombFx(at){
-  var g=new T.Group();
-  var core=new T.Mesh(new T.SphereGeometry(0.18,10,10),new T.MeshStandardMaterial({color:0xffd36a,emissive:0xff9d1f,emissiveIntensity:1.4,transparent:true,opacity:0.88}));
-  var ring=new T.Mesh(new T.RingGeometry(0.5,1.9,24),new T.MeshBasicMaterial({color:0xffc14d,transparent:true,opacity:0.55,side:T.DoubleSide}));
-  ring.rotation.x=-Math.PI/2;
-  g.add(core); g.add(ring); g.position.copy(at);
+  var g = new T.Group();
+
+  // ほんの少し中心の残光
+  var core = new T.Mesh(
+    new T.SphereGeometry(0.24, 12, 12),
+    new T.MeshStandardMaterial({
+      color: 0x2a2019,
+      emissive: 0x000000,
+      transparent: true,
+      opacity: 0.16,
+      roughness: 1.0,
+      metalness: 0.0
+    })
+  );
+  core.position.set(0, 0.14, 0);
+  g.add(core);
+
+  // 外側がめちゃくちゃ濃いドーム煙
+  var smokeCount = 220;
+  for (var i = 0; i < smokeCount; i++) {
+    var u = Math.random();
+    var v = Math.random();
+
+    // 上方向にふくらむ半球
+    var theta = Math.acos(1 - u * 0.92);
+    var phi = Math.PI * 2 * v;
+
+    // 外周ほど密度を上げる
+    var edge = Math.pow(Math.random(), 0.22);
+    var r = 1.5 + edge * 3.4;
+
+    var x = Math.cos(phi) * Math.sin(theta) * r;
+    var y = Math.abs(Math.cos(theta)) * (1.2 + Math.random() * 1.8);
+    var z = Math.sin(phi) * Math.sin(theta) * r;
+
+    var s = 0.16 + edge * 0.66;
+    var puff = new T.Mesh(
+      new T.SphereGeometry(s, 8, 8),
+      new T.MeshStandardMaterial({
+        color: 0x101010,
+        roughness: 1.0,
+        metalness: 0.0,
+        transparent: true,
+        depthWrite: false,
+        opacity: 0.09 + edge * 0.50
+      })
+    );
+
+    puff.position.set(x, y, z);
+    puff.scale.set(
+      0.82 + Math.random() * 0.50,
+      0.72 + Math.random() * 0.62,
+      0.82 + Math.random() * 0.50
+    );
+    g.add(puff);
+  }
+
+  // 外周の輪っかをさらに濃くしてドーム感を出す
+  var ringCount = 78;
+  for (var j = 0; j < ringCount; j++) {
+    var a = Math.random() * Math.PI * 2;
+    var rr = 3.4 + Math.random() * 1.0;
+    var yy = 0.18 + Math.random() * 2.25;
+    var ringPuff = new T.Mesh(
+      new T.SphereGeometry(0.18 + Math.random() * 0.24, 8, 8),
+      new T.MeshStandardMaterial({
+        color: 0x090909,
+        roughness: 1.0,
+        metalness: 0.0,
+        transparent: true,
+        depthWrite: false,
+        opacity: 0.30 + Math.random() * 0.44
+      })
+    );
+    ringPuff.position.set(Math.cos(a) * rr, yy, Math.sin(a) * rr);
+    ringPuff.scale.set(1.18, 0.82, 1.18);
+    g.add(ringPuff);
+  }
+
+  // 地面の煙
+  var groundRing = new T.Mesh(
+    new T.RingGeometry(0.85, 5.2, 44),
+    new T.MeshBasicMaterial({
+      color: 0x050505,
+      transparent: true,
+      opacity: 0.24,
+      side: T.DoubleSide,
+      depthWrite: false
+    })
+  );
+  groundRing.rotation.x = -Math.PI / 2;
+  groundRing.position.y = 0.02;
+  g.add(groundRing);
+
+  g.position.copy(at);
+  g.scale.setScalar(1.08);
   scene.add(g);
-  setTimeout(function(){if(g.parent)g.parent.remove(g);},520);
+
+  // 少しふくらむ
+  var start = performance.now();
+  function anim(){
+    if (!g.parent) return;
+    var t = Math.min(1, (performance.now() - start) / 260);
+    var k = 1.08 + t * 0.16;
+    g.scale.setScalar(k);
+    if (t < 1) requestAnimationFrame(anim);
+  }
+  anim();
+
+  setTimeout(function(){ if (g.parent) g.parent.remove(g); }, 1300);
 }
 function syncBombSettingValues(){
   if(bombAngleValue) bombAngleValue.textContent = String(BOMB_ANGLE_DEG) + '°';

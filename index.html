@@ -1878,7 +1878,7 @@ function setCombatCharactersVisible(visible){
 
 function spawnSmokeScreen(x,z){
   var g=new T.Group();
-  g.position.set(x,0.08,z);
+  g.position.set(x,0.18,z);
   g.userData.isMapDecor = true;
   scene.add(g);
 
@@ -1893,8 +1893,8 @@ function spawnSmokeScreen(x,z){
     side: T.DoubleSide
   });
   var dome = new T.Mesh(domeGeo, domeMat);
-  dome.position.set(0, 0.12, 0);
-  dome.scale.set(7.8, 5.0, 7.8);
+  dome.position.set(0, 0.22, 0);
+  dome.scale.set(6.8, 5.8, 6.8);
   g.add(dome);
 
   var ground = new T.Mesh(
@@ -1942,12 +1942,12 @@ function updateSmokeScreens(dt){
     fx.ground.material.opacity = 1.00;
 
     // 少しずつ広がる
-    var domeScale = 7.8 + t * 3.8;
+    var domeScale = 6.8 + t * 4.6;
     fx.dome.scale.set(domeScale, 5.0 + t * 0.8, domeScale);
     fx.ground.scale.set(8.4 + t * 4.0, 8.4 + t * 4.0, 1);
 
     // 画像っぽく少しだけ揺らす
-    fx.group.rotation.y += dt * 0.08;
+    fx.group.rotation.y += dt * 0.11;
 
     if(fx.life <= 0){
       if(fx.group.parent) fx.group.parent.remove(fx.group);

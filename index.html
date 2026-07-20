@@ -60,13 +60,13 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 #adsButton:active{transform:scale(0.92);filter:brightness(1.16)}
 #adsButton.ads-active{border-color:rgba(100,220,255,0.9);box-shadow:0 0 18px rgba(100,200,255,0.5),inset 0 0 12px rgba(100,200,255,0.2)}
 #adsButton::before{content:"◎";font-size:20px;color:rgba(130,210,255,0.9);text-shadow:0 0 6px rgba(100,200,255,0.6)}
-#skillButton{position:absolute;right:calc(8px + min(17vw,100px) + 12px - 2px);bottom:calc(24px + min(14vw,96px) + 10px + (min(14vw,96px) + 10px) * 3);width:min(17vw,104px);height:min(17vw,104px);max-width:104px;max-height:104px;min-width:72px;min-height:72px;border:none;border-radius:50%;background:linear-gradient(160deg,#153b34,#081a17);border:2px solid rgba(140,255,210,0.7);box-shadow:0 6px 20px rgba(0,0,0,0.50),inset 0 0 12px rgba(140,255,210,0.12);pointer-events:auto;z-index:100;touch-action:none;-webkit-tap-highlight-color:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center}
+#skillButton{position:absolute;right:calc(8px + min(17vw,100px) + 12px - 2px);bottom:calc(24px + min(14vw,84px) + 10px + (min(14vw,84px) + 10px) * 3);width:min(14vw,84px);height:min(14vw,84px);max-width:84px;max-height:84px;min-width:64px;min-height:64px;border:none;border-radius:50%;background:linear-gradient(160deg,#153b34,#081a17);border:2px solid rgba(140,255,210,0.7);box-shadow:0 6px 20px rgba(0,0,0,0.50),inset 0 0 12px rgba(140,255,210,0.12);pointer-events:auto;z-index:100;touch-action:none;-webkit-tap-highlight-color:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center}
 #skillButton:active{transform:scale(0.92);filter:brightness(1.12)}
 #skillButton.skill-active{border-color:rgba(170,255,230,0.98);box-shadow:0 0 18px rgba(140,255,210,0.48),inset 0 0 12px rgba(140,255,210,0.22)}
 #skillButton.skill-cooling{opacity:0.40;filter:grayscale(0.45)}
 #skillButton::before{content:"";position:absolute;width:42%;height:42%;border-radius:50%;border:2px solid rgba(170,255,230,0.95);box-shadow:0 0 10px rgba(140,255,210,0.55)}
 #skillButton::after{content:"";position:absolute;width:9px;height:9px;border-radius:50%;background:rgba(210,255,245,0.98);box-shadow:0 0 10px rgba(140,255,210,0.8)}
-#bombButton{position:absolute;right:calc(8px + min(17vw,100px) + 12px - 2px);bottom:calc(24px + min(14vw,96px) + 10px + min(14vw,96px) + 10px);width:min(17vw,104px);height:min(17vw,104px);max-width:104px;max-height:104px;min-width:72px;min-height:72px;border:none;border-radius:50%;background:linear-gradient(160deg,#5a3710,#2b1605);border:2px solid rgba(255,176,84,0.65);box-shadow:0 6px 20px rgba(0,0,0,0.50),inset 0 0 12px rgba(255,176,84,0.08);pointer-events:auto;z-index:100;touch-action:none;-webkit-tap-highlight-color:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center}
+#bombButton{position:absolute;right:calc(8px + min(17vw,100px) + 12px - 2px);bottom:calc(24px + min(14vw,84px) + 10px + min(14vw,84px) + 10px);width:min(14vw,84px);height:min(14vw,84px);max-width:84px;max-height:84px;min-width:64px;min-height:64px;border:none;border-radius:50%;background:linear-gradient(160deg,#5a3710,#2b1605);border:2px solid rgba(255,176,84,0.65);box-shadow:0 6px 20px rgba(0,0,0,0.50),inset 0 0 12px rgba(255,176,84,0.08);pointer-events:auto;z-index:100;touch-action:none;-webkit-tap-highlight-color:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center}
 #bombButton:active{transform:scale(0.92);filter:brightness(1.16)}
 #bombButton.bomb-active{border-color:rgba(255,214,126,0.95);box-shadow:0 0 18px rgba(255,176,84,0.48),inset 0 0 12px rgba(255,176,84,0.18)}
 #bombButton:disabled{opacity:0.42;filter:grayscale(0.35);cursor:not-allowed}
@@ -79,7 +79,7 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 .bombSettingValue{display:none}
 .bombSlider{display:none}
 #bombHint{display:none}
-#bombQuickControls{display:none !important;position:absolute;right:calc(8px + min(17vw,100px) + 12px + 2px);bottom:calc(24px + min(14vw,96px) + 10px + min(14vw,96px) + 10px + 6px);flex-direction:column;gap:10px;align-items:flex-end;z-index:101;pointer-events:auto}
+#bombQuickControls{display:none !important;position:absolute;right:calc(8px + min(17vw,100px) + 12px + 2px);bottom:calc(24px + min(14vw,84px) + 10px + min(14vw,84px) + 10px + 6px);flex-direction:column;gap:10px;align-items:flex-end;z-index:101;pointer-events:auto}
 #bombQuickControls.show{display:none !important}
 .bombQuickGroup{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
 .bombQuickReadout{display:flex;align-items:center;gap:8px;font-size:10px;font-weight:900;letter-spacing:0.16em;color:rgba(255,255,255,0.82);text-shadow:0 1px 8px rgba(0,0,0,0.72)}
@@ -394,6 +394,7 @@ var ammoCountEl = document.getElementById('ammoCount');
 var hpTextEl = document.getElementById('hpText');
 var hpBarInner = document.getElementById('hpBarInner');
 var joystickContainer = document.getElementById('joystickContainer');
+var touchLookArea = document.getElementById('touchLookArea');
 var knobEl = document.getElementById('knob');
 var rotateOverlay = document.getElementById('rotateOverlay');
 var reloadIndicator = document.getElementById('reloadIndicator');
@@ -1788,12 +1789,11 @@ function makeSmokeTexture(){
   var cv=document.createElement('canvas');
   cv.width=128;cv.height=128;
   var ctx=cv.getContext('2d');
-  var g=ctx.createRadialGradient(64,64,4,64,64,64);
-  g.addColorStop(0,'rgba(255,255,255,0.96)');
-  g.addColorStop(0.18,'rgba(245,245,245,0.78)');
-  g.addColorStop(0.42,'rgba(190,190,190,0.38)');
-  g.addColorStop(0.70,'rgba(90,90,90,0.16)');
-  g.addColorStop(1,'rgba(20,20,20,0)');
+  var g=ctx.createRadialGradient(64,64,8,64,64,64);
+  g.addColorStop(0,'rgba(255,255,255,0.82)');
+  g.addColorStop(0.30,'rgba(220,220,220,0.46)');
+  g.addColorStop(0.62,'rgba(180,180,180,0.22)');
+  g.addColorStop(1,'rgba(180,180,180,0)');
   ctx.fillStyle=g;
   ctx.fillRect(0,0,128,128);
   var tex=new T.CanvasTexture(cv);
@@ -1821,67 +1821,63 @@ function spawnSmokeScreen(x,z){
   scene.add(g);
 
   var tex = ensureSmokeTexture();
+  var parts = [];
+  var layers = [
+    {count:10, radius:1.0, yMin:0.35, yMax:1.25, scaleMin:0.95, scaleMax:1.45, opacityMin:0.14, opacityMax:0.24},
+    {count:16, radius:2.0, yMin:0.65, yMax:2.05, scaleMin:1.20, scaleMax:1.95, opacityMin:0.22, opacityMax:0.38},
+    {count:24, radius:3.35, yMin:0.90, yMax:2.95, scaleMin:1.55, scaleMax:2.55, opacityMin:0.34, opacityMax:0.62}
+  ];
 
-  function addPuff(px, py, pz, sx, sy, sz, opacity, color){
-    var s = new T.Sprite(new T.SpriteMaterial({
+  function addPuff(cfg, outerBias){
+    var m = new T.Sprite(new T.SpriteMaterial({
       map: tex,
-      color: color || 0xffffff,
       transparent: true,
-      opacity: opacity,
+      opacity: 0.0,
       depthWrite: false,
       depthTest: true,
-      blending: T.NormalBlending
+      color: 0xffffff
     }));
-    s.position.set(px, py, pz);
-    s.scale.set(sx, sy, 1);
-    s.userData.baseOpacity = opacity;
-    g.add(s);
-    return s;
+    var a = Math.random() * Math.PI * 2;
+    var rr = Math.pow(Math.random(), 0.42) * cfg.radius;
+    var yy = cfg.yMin + Math.pow(Math.random(), 0.55) * (cfg.yMax - cfg.yMin);
+    var shell = outerBias || (cfg.radius / 3.35);
+    m.position.set(Math.cos(a) * rr, yy, Math.sin(a) * rr);
+    var baseScale = cfg.scaleMin + Math.random() * (cfg.scaleMax - cfg.scaleMin);
+    m.scale.set(baseScale, baseScale, 1);
+    m.userData.smokeBaseScale = baseScale;
+    m.userData.smokeBaseOpacity = cfg.opacityMin + Math.random() * (cfg.opacityMax - cfg.opacityMin);
+    m.userData.smokeShell = shell;
+    m.userData.smokePulse = 0.85 + Math.random() * 0.35;
+    g.add(m);
+    parts.push(m);
   }
 
-  // 中心の薄い核
-  addPuff(0, 1.1, 0, 1.0, 0.78, 1, 0.12, 0xffffff);
+  // 中心の薄い芯
+  for(var i=0;i<layers[0].count;i++) addPuff(layers[0], 0.15);
+  // 中間層
+  for(var j=0;j<layers[1].count;j++) addPuff(layers[1], 0.55);
+  // 外周の濃いドーム
+  for(var k=0;k<layers[2].count;k++) addPuff(layers[2], 1.0);
 
-  // ドームの外周を濃くする層
-  var ringCount = 48;
-  for(var i=0;i<ringCount;i++){
-    var a = (Math.PI * 2 * i) / ringCount + (Math.random() * 0.10);
-    var rr = 1.9 + Math.random() * 0.8;
-    var edge = 0.78 + Math.random() * 0.22;
-    var x2 = Math.cos(a) * rr;
-    var z2 = Math.sin(a) * rr;
-    var y2 = 0.95 + Math.random() * 1.6;
-    addPuff(x2, y2, z2, 1.0 + edge * 1.9, 0.95 + edge * 1.3, 1, 0.18 + edge * 0.34, 0x1a1a1a);
-  }
-
-  // 外側の“壁”をかなり濃く
-  var shellCount = 96;
-  for(var j=0;j<shellCount;j++){
-    var phi = Math.random() * Math.PI * 2;
-    var cost = Math.random() * 0.85; // 上方向寄り
-    var sint = Math.sqrt(1 - cost * cost);
-    var edgeBias = Math.pow(Math.random(), 0.22);
-    var rr2 = 2.2 + edgeBias * 3.0;
-    var px = Math.cos(phi) * sint * rr2;
-    var pz = Math.sin(phi) * sint * rr2;
-    var py = (0.45 + cost * 2.35) + Math.random() * 0.25;
-    var size = 0.34 + edgeBias * 0.75;
-    addPuff(px, py, pz, size * 1.6, size * 1.15, 1, 0.16 + edgeBias * 0.50, 0x0d0d0d);
-  }
-
-  // 足元の拡がり
-  var groundCount = 28;
-  for(var k=0;k<groundCount;k++){
-    var a2 = Math.random() * Math.PI * 2;
-    var rr3 = 1.2 + Math.random() * 2.9;
-    addPuff(Math.cos(a2) * rr3, 0.08 + Math.random() * 0.18, Math.sin(a2) * rr3, 1.0 + Math.random() * 0.9, 0.28 + Math.random() * 0.35, 1, 0.06 + Math.random() * 0.16, 0x111111);
-  }
+  // 地面に広がる大きめの煙輪
+  var groundRing = new T.Mesh(new T.RingGeometry(1.6, 5.1, 44), new T.MeshBasicMaterial({
+    color: 0x090909,
+    transparent: true,
+    opacity: 0.0,
+    side: T.DoubleSide,
+    depthWrite: false
+  }));
+  groundRing.rotation.x = -Math.PI / 2;
+  groundRing.position.y = 0.02;
+  groundRing.userData.smokeGround = true;
+  g.add(groundRing);
+  parts.push(groundRing);
 
   tacticalSkill.smokes.push({
     group: g,
+    parts: parts,
     age: 0,
-    life: tacticalSkill.smokeLife,
-    baseScale: 1.0 + Math.random() * 0.08
+    life: tacticalSkill.smokeLife
   });
   return g;
 }
@@ -1892,23 +1888,33 @@ function updateSmokeScreens(dt){
     fx.age += dt*1000;
     fx.life -= dt*1000;
     var t = clamp01(fx.age / tacticalSkill.smokeLife);
-
-    // 立ち上がりは早く、消えるのは最後の2秒くらい
     var fadeIn = clamp01(t / 0.10);
     var fadeOut = clamp01((1 - t) / 0.18);
-    var alive = Math.min(fadeIn, fadeOut);
+    var lifeAlpha = Math.min(fadeIn, fadeOut);
+    var dome = 1 + t * 0.72;
+    fx.group.rotation.y += dt * 0.10;
+    fx.group.scale.setScalar(dome);
 
-    fx.group.scale.setScalar((1 + t * 0.26) * fx.baseScale);
-    fx.group.rotation.y += dt * 0.14;
-    fx.group.position.y = 0.03 + Math.sin(t * Math.PI) * 0.18;
-
-    // グループ全体の濃さを維持しつつ、最後にしっかりフェード
-    fx.group.traverse(function(node){
-      if(node && node.material && typeof node.material.opacity === 'number'){
-        var base = (node.userData && typeof node.userData.baseOpacity === 'number') ? node.userData.baseOpacity : node.material.opacity;
-        node.material.opacity = Math.max(0, base * alive);
+    for(var p=0;p<fx.parts.length;p++){
+      var part = fx.parts[p];
+      if(!part || !part.material) continue;
+      var shell = Number(part.userData && part.userData.smokeShell);
+      var baseOpacity = Number(part.userData && part.userData.smokeBaseOpacity) || 0.25;
+      var pulse = Number(part.userData && part.userData.smokePulse) || 1;
+      var alpha = lifeAlpha * baseOpacity;
+      if(part.userData && part.userData.smokeGround){
+        part.material.opacity = 0.22 * lifeAlpha;
+        part.scale.set(1 + t * 1.55, 1 + t * 1.55, 1);
+        continue;
       }
-    });
+      var lift = 1 + t * 0.82;
+      var scaleBoost = 1 + t * 2.55 + shell * 0.22;
+      part.position.y = part.position.y * 0.995 + (part.position.y * lift) * 0.005;
+      part.material.opacity = alpha * (0.72 + shell * 0.62) * pulse;
+      var s = Number(part.userData && part.userData.smokeBaseScale) || 1;
+      part.scale.set(s * scaleBoost, s * (0.88 + t * 0.22) * scaleBoost, 1);
+      if(shell >= 0.75) part.material.opacity *= 1.18;
+    }
 
     if(fx.life <= 0){
       if(fx.group.parent) fx.group.parent.remove(fx.group);
@@ -1916,51 +1922,97 @@ function updateSmokeScreens(dt){
     }
   }
 }
-function placeSkillSmokeFromEvent(e){
+function enterSkillMode(){
+  if(gameMode!==GAME_MODE.BATTLE || matchOver || !player.alive) return false;
+  var now = Date.now();
+  if(now < tacticalSkill.readyAt) return false;
+  if(tacticalSkill.active) return true;
+  tacticalSkill.saved = {
+    pos: camera.position.clone(),
+    rotX: camera.rotation.x,
+    rotY: camera.rotation.y,
+    rotZ: camera.rotation.z,
+    up: camera.up.clone(),
+    fov: camera.fov
+  };
+  tacticalSkill.active = true;
+  if(skillButton) skillButton.classList.add('skill-active');
+  if(touchLookArea) touchLookArea.style.pointerEvents = 'none';
+  if(gunRoot) gunRoot.visible = false;
+  setCombatCharactersVisible(false);
+  document.getElementById('crosshair').style.display='none';
+  document.getElementById('crosshairDot').style.display='none';
+  return true;
+}
+function exitSkillMode(){
+  if(!tacticalSkill.active) return;
+  tacticalSkill.active = false;
+  if(skillButton) skillButton.classList.remove('skill-active');
+  if(touchLookArea) touchLookArea.style.pointerEvents = 'auto';
+  if(tacticalSkill.saved){
+    camera.position.copy(tacticalSkill.saved.pos);
+    camera.rotation.set(tacticalSkill.saved.rotX, tacticalSkill.saved.rotY, tacticalSkill.saved.rotZ);
+    camera.up.copy(tacticalSkill.saved.up);
+    camera.fov = tacticalSkill.saved.fov;
+    camera.updateProjectionMatrix();
+    tacticalSkill.saved = null;
+  }
+  if(gunRoot) gunRoot.visible = (gameMode===GAME_MODE.BATTLE && !bombModeActive);
+  setCombatCharactersVisible(true);
+  updateRemotePlayersFromState();
+}
+function updateSkillCamera(dt){
+  if(gameMode!==GAME_MODE.BATTLE || !tacticalSkill.active) return;
+  camera.up.set(0,0,-1);
+  camera.position.set(player.x, tacticalSkill.viewHeight, player.z);
+  camera.lookAt(player.x,0,player.z);
+  camera.fov = tacticalSkill.viewFov;
+  camera.updateProjectionMatrix();
+}
+function updateSkillUI(){
+  if(!skillButton) return;
+  var canUse = gameMode===GAME_MODE.BATTLE && player.alive && !matchOver;
+  var cooling = Date.now() < tacticalSkill.readyAt;
+  skillButton.style.display = canUse ? '' : 'none';
+  skillButton.disabled = !canUse || cooling || tacticalSkill.active;
+  skillButton.classList.toggle('skill-cooling', cooling && canUse && !tacticalSkill.active);
+  skillButton.classList.toggle('skill-active', tacticalSkill.active);
+}
+function placeSkillSmokeAt(clientX, clientY){
   if(!tacticalSkill.active || gameMode!==GAME_MODE.BATTLE) return false;
   var rect = canvas.getBoundingClientRect();
-
-  var clientX = (typeof e.clientX === 'number') ? e.clientX : null;
-  var clientY = (typeof e.clientY === 'number') ? e.clientY : null;
-  if((clientX === null || clientY === null) && e.touches && e.touches[0]){
-    clientX = e.touches[0].clientX;
-    clientY = e.touches[0].clientY;
-  }
-  if(clientX === null || clientY === null){
-    clientX = rect.left + rect.width * 0.5;
-    clientY = rect.top + rect.height * 0.5;
-  }
-
-  var mx = ((clientX - rect.left) / rect.width) * 2 - 1;
-  var my = -(((clientY - rect.top) / rect.height) * 2 - 1);
+  var x = Number.isFinite(clientX) ? clientX : (rect.left + rect.width * 0.5);
+  var y = Number.isFinite(clientY) ? clientY : (rect.top + rect.height * 0.5);
+  var mx = ((x - rect.left) / rect.width) * 2 - 1;
+  var my = -(((y - rect.top) / rect.height) * 2 - 1);
   skillPointer.set(mx, my);
   skillRaycaster.setFromCamera(skillPointer, camera);
-
   var hit = new T.Vector3();
   var ok = skillRaycaster.ray.intersectPlane(skillPlane, hit);
-
-  // 失敗しやすい場合の保険：画面中心方向の地面へ置く
   if(!ok){
-    var dir = new T.Vector3();
-    camera.getWorldDirection(dir);
-    if(Math.abs(dir.y) < 1e-4) dir.y = -0.28;
-    if(dir.y > -0.03) dir.y = -Math.max(0.18, Math.abs(dir.y));
-    var denom = dir.y || -0.28;
-    var tGround = (0 - camera.position.y) / denom;
-    if(!isFinite(tGround) || tGround <= 0){
-      hit.copy(camera.position).add(dir.multiplyScalar(8));
-      hit.y = 0;
-    }else{
-      hit.copy(camera.position).add(dir.multiplyScalar(tGround));
+    var fallbackDir = new T.Vector3();
+    camera.getWorldDirection(fallbackDir);
+    if(fallbackDir.lengthSq() < 1e-8) fallbackDir.set(0,-1,0);
+    var camY = camera.position.y;
+    var t = camY / Math.max(0.0001, -fallbackDir.y);
+    if(!Number.isFinite(t) || t < 0){
+      hit.set(player.x, 0, player.z);
+    } else {
+      hit.copy(camera.position).addScaledVector(fallbackDir, t);
       hit.y = 0;
     }
   }
-
   spawnSmokeScreen(hit.x, hit.z);
   tacticalSkill.readyAt = Date.now() + tacticalSkill.cooldownMs;
   if(skillButton) skillButton.disabled = true;
   exitSkillMode();
   return true;
+}
+function placeSkillSmokeFromEvent(e){
+  var touch = e && e.touches && e.touches[0];
+  var cx = Number.isFinite(e && e.clientX) ? e.clientX : (touch ? touch.clientX : NaN);
+  var cy = Number.isFinite(e && e.clientY) ? e.clientY : (touch ? touch.clientY : NaN);
+  return placeSkillSmokeAt(cx, cy);
 }
 function getForwardVectorFromCamera(){var d=new T.Vector3();camera.getWorldDirection(d);if(d.lengthSq()<1e-8)d.set(0,0,-1);return d.normalize();}
 function makeBullet(origin,dir,ownerId,ownerTeam,isRemote){
@@ -3432,12 +3484,10 @@ reloadButton.addEventListener('pointerdown',function(e){e.preventDefault();e.sto
 adsButton.addEventListener('pointerdown',function(e){e.preventDefault();e.stopPropagation();unlockAudio();setADS(!adsActive);});
 if(skillButton){
   skillButton.addEventListener('pointerdown',function(e){e.preventDefault();e.stopPropagation();unlockAudio();enterSkillMode();});
-  skillButton.addEventListener('touchstart',function(e){e.preventDefault();e.stopPropagation();unlockAudio();enterSkillMode();},{passive:false});
 }
 bombButton.addEventListener('pointerdown',function(e){e.preventDefault();e.stopPropagation();unlockAudio();toggleBombMode();});
-canvas.addEventListener('pointerdown',function(e){if(!tacticalSkill.active||gameMode!==GAME_MODE.BATTLE||isInteractiveTarget(e.target))return;e.preventDefault();e.stopPropagation();unlockAudio();placeSkillSmokeFromEvent(e);},{passive:false,capture:true});
-canvas.addEventListener('pointerup',function(e){if(!tacticalSkill.active||gameMode!==GAME_MODE.BATTLE||isInteractiveTarget(e.target))return;e.preventDefault();e.stopPropagation();unlockAudio();placeSkillSmokeFromEvent(e);},{passive:false,capture:true});
-canvas.addEventListener('touchend',function(e){if(!tacticalSkill.active||gameMode!==GAME_MODE.BATTLE)return;var t=e.changedTouches&&e.changedTouches[0];if(!t)return;e.preventDefault();e.stopPropagation();unlockAudio();placeSkillSmokeFromEvent(t);},{passive:false,capture:true});
+document.addEventListener('pointerdown',function(e){if(!tacticalSkill.active||gameMode!==GAME_MODE.BATTLE||isInteractiveTarget(e.target))return;e.preventDefault();e.stopPropagation();unlockAudio();placeSkillSmokeFromEvent(e);},{passive:false,capture:true});
+document.addEventListener('touchstart',function(e){if(window.PointerEvent) return; if(!tacticalSkill.active||gameMode!==GAME_MODE.BATTLE||isInteractiveTarget(e.target))return;e.preventDefault();e.stopPropagation();unlockAudio();placeSkillSmokeFromEvent(e);},{passive:false,capture:true});
 if(bombAngleButton){
   bombAngleButton.addEventListener('pointerdown',function(e){e.preventDefault();e.stopPropagation();unlockAudio();startBombHold('angle', BOMB_ANGLE_STEP);});
   bombAngleButton.addEventListener('pointerup',function(){stopBombHold('angle');});
@@ -3499,8 +3549,8 @@ var tacticalSkill = {
   readyAt: 0,
   cooldownMs: 30000,
   smokeLife: 10000,
-  viewHeight: 78,
-  viewFov: 75,
+  viewHeight: 92,
+  viewFov: 68,
   saved: null,
   smokes: []
 };

@@ -1785,22 +1785,83 @@ function movePlayer(dt){
 function startReload(){if(reloading||ammo>=MAG_SIZE||!player.alive||matchOver||gameMode!==GAME_MODE.BATTLE)return;reloading=true;reloadTimer=0;gunState.reloadAnim=true;gunState.reloadAnimT=0;updateAmmoUI();}
 function updateReload(dt){if(!reloading)return;reloadTimer+=dt;updateAmmoUI();if(reloadTimer>=RELOAD_TIME){ammo=MAG_SIZE;reloading=false;reloadTimer=0;gunState.reloadAnim=false;updateAmmoUI();}}
 function setADS(on){adsActive=!!on;adsButton.classList.toggle('ads-active',adsActive);gunPosTarget.copy(adsActive?gunPosAds:gunPosNormal);}
+
 function makeSmokeTexture(){
   var cv=document.createElement('canvas');
-  cv.width=128;cv.height=128;
+  cv.width=256;cv.height=256;
   var ctx=cv.getContext('2d');
-  var g=ctx.createRadialGradient(64,64,8,64,64,64);
-  g.addColorStop(0,'rgba(255,255,255,0.82)');
-  g.addColorStop(0.30,'rgba(220,220,220,0.46)');
-  g.addColorStop(0.62,'rgba(180,180,180,0.22)');
-  g.addColorStop(1,'rgba(180,180,180,0)');
+
+  // Base dark dome
+  ctx.clearRect(0,0,256,256);
+
+  // Soft outer silhouette
+  var g=ctx.createRadialGradient(128,120,18,128,128,126);
+  g.addColorStop(0.00,'rgba(235,235,235,0.16)');
+  g.addColorStop(0.20,'rgba(150,150,150,0.28)');
+  g.addColorStop(0.52,'rgba(70,70,70,0.54)');
+  g.addColorStop(0.78,'rgba(20,20,20,0.82)');
+  g.addColorStop(1.00,'rgba(5,5,5,0)');
   ctx.fillStyle=g;
-  ctx.fillRect(0,0,128,128);
+  ctx.fillRect(0,0,256,256);
+
+  // Thick outer rim to make it feel like a dome
+  ctx.save();
+  ctx.translate(128,128);
+  ctx.filter='blur(8px)';
+  for(var i=0;i<4;i++){
+    var r1=70 + i*10;
+    var r2=122 + i*6;
+    var rim=ctx.createRadialGradient(0,0,r1,0,0,r2);
+    rim.addColorStop(0.00,'rgba(0,0,0,0)');
+    rim.addColorStop(0.62,'rgba(0,0,0,0.04)');
+    rim.addColorStop(0.82,'rgba(0,0,0,0.33)');
+    rim.addColorStop(1.00,'rgba(0,0,0,0.92)');
+    ctx.fillStyle=rim;
+    ctx.beginPath();
+    ctx.arc(0,0,124 - i*2,0,Math.PI*2);
+    ctx.fill();
+  }
+  ctx.restore();
+
+  // Subtle cloudy patches inside the dome
+  function puff(x,y,rx,ry,a){
+    ctx.save();
+    ctx.globalAlpha=a;
+    ctx.filter='blur(14px)';
+    var cg=ctx.createRadialGradient(x,y,2,x,y,Math.max(rx,ry));
+    cg.addColorStop(0,'rgba(255,255,255,0.24)');
+    cg.addColorStop(0.35,'rgba(190,190,190,0.18)');
+    cg.addColorStop(1,'rgba(20,20,20,0)');
+    ctx.fillStyle=cg;
+    ctx.beginPath();
+    ctx.ellipse(x,y,rx,ry,0,0,Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+  }
+  puff(92,96,42,26,0.75);
+  puff(146,88,50,30,0.70);
+  puff(165,150,46,28,0.58);
+  puff(82,156,58,34,0.55);
+  puff(128,130,78,52,0.64);
+
+  // Slightly brighter cap on top to read as a dome from above
+  var cap=ctx.createRadialGradient(128,92,8,128,92,92);
+  cap.addColorStop(0,'rgba(255,255,255,0.28)');
+  cap.addColorStop(0.3,'rgba(255,255,255,0.12)');
+  cap.addColorStop(1,'rgba(255,255,255,0)');
+  ctx.fillStyle=cap;
+  ctx.beginPath();
+  ctx.arc(128,96,78,0,Math.PI*2);
+  ctx.fill();
+
   var tex=new T.CanvasTexture(cv);
   tex.needsUpdate=true;
+  tex.minFilter=T.LinearFilter;
+  tex.magFilter=T.LinearFilter;
   return tex;
 }
 function ensureSmokeTexture(){
+
   if(!smokeTexture) smokeTexture = makeSmokeTexture();
   return smokeTexture;
 }
@@ -1814,105 +1875,77 @@ function setCombatCharactersVisible(visible){
     if(u&&u.avatar) u.avatar.visible = !!visible && !!u.alive;
   }
 }
+
 function spawnSmokeScreen(x,z){
   var g=new T.Group();
   g.position.set(x,0.03,z);
   g.userData.isMapDecor = true;
   scene.add(g);
 
-  var tex = ensureSmokeTexture();
-  var parts = [];
-  var layers = [
-    {count:12, radius:1.25, yMin:0.30, yMax:1.30, scaleMin:1.05, scaleMax:1.65, opacityMin:0.22, opacityMax:0.34},
-    {count:22, radius:2.45, yMin:0.55, yMax:2.35, scaleMin:1.45, scaleMax:2.20, opacityMin:0.48, opacityMax:0.72},
-    {count:36, radius:4.35, yMin:0.85, yMax:3.55, scaleMin:1.90, scaleMax:3.15, opacityMin:0.78, opacityMax:0.98}
-  ];
+  var domeGeo = new T.SphereGeometry(1, 32, 20, 0, Math.PI * 2, 0, Math.PI / 2);
+  var domeMat = new T.MeshBasicMaterial({
+    map: ensureSmokeTexture(),
+    transparent: true,
+    opacity: 0.00,
+    depthWrite: false,
+    depthTest: true,
+    side: T.BackSide
+  });
+  var dome = new T.Mesh(domeGeo, domeMat);
+  dome.position.set(0, 0.02, 0);
+  dome.scale.set(8.2, 5.2, 8.2);
+  g.add(dome);
 
-  function addPuff(cfg, outerBias){
-    var m = new T.Sprite(new T.SpriteMaterial({
-      map: tex,
+  var ground = new T.Mesh(
+    new T.CircleGeometry(1.0, 40),
+    new T.MeshBasicMaterial({
+      map: ensureSmokeTexture(),
       transparent: true,
-      opacity: 0.0,
+      opacity: 0.00,
       depthWrite: false,
       depthTest: true,
-      color: 0x0b0b0b
-    }));
-    var a = Math.random() * Math.PI * 2;
-    var rr = Math.pow(Math.random(), 0.24) * cfg.radius;
-    var yy = cfg.yMin + Math.pow(Math.random(), 0.50) * (cfg.yMax - cfg.yMin);
-    var shell = typeof outerBias === 'number' ? outerBias : (cfg.radius / 4.35);
-    m.position.set(Math.cos(a) * rr, yy, Math.sin(a) * rr);
-    var baseScale = cfg.scaleMin + Math.random() * (cfg.scaleMax - cfg.scaleMin);
-    m.scale.set(baseScale, baseScale, 1);
-    m.userData.smokeBaseScale = baseScale;
-    m.userData.smokeBaseOpacity = cfg.opacityMin + Math.random() * (cfg.opacityMax - cfg.opacityMin);
-    m.userData.smokeShell = shell;
-    m.userData.smokePulse = 0.90 + Math.random() * 0.22;
-    g.add(m);
-    parts.push(m);
-  }
-
-  // 中心は薄めに抑えて、外側へ行くほど濃くする
-  for(var i=0;i<layers[0].count;i++) addPuff(layers[0], 0.10);
-  for(var j=0;j<layers[1].count;j++) addPuff(layers[1], 0.58);
-  for(var k=0;k<layers[2].count;k++) addPuff(layers[2], 1.0);
-
-  // 地面に広がる濃い煙輪
-  var groundRing = new T.Mesh(new T.RingGeometry(1.9, 6.2, 48), new T.MeshBasicMaterial({
-    color: 0x050505,
-    transparent: true,
-    opacity: 0.0,
-    side: T.DoubleSide,
-    depthWrite: false
-  }));
-  groundRing.rotation.x = -Math.PI / 2;
-  groundRing.position.y = 0.02;
-  groundRing.userData.smokeGround = true;
-  g.add(groundRing);
-  parts.push(groundRing);
+      side: T.DoubleSide
+    })
+  );
+  ground.rotation.x = -Math.PI / 2;
+  ground.position.y = 0.01;
+  ground.scale.set(8.8, 8.8, 1);
+  g.add(ground);
 
   tacticalSkill.smokes.push({
     group: g,
-    parts: parts,
+    dome: dome,
+    ground: ground,
     age: 0,
     life: tacticalSkill.smokeLife
   });
   return g;
 }
+
 function updateSmokeScreens(dt){
   for(var i=tacticalSkill.smokes.length-1;i>=0;i--){
     var fx=tacticalSkill.smokes[i];
-    if(!fx||!fx.group){ tacticalSkill.smokes.splice(i,1); continue; }
+    if(!fx||!fx.dome||!fx.ground){ tacticalSkill.smokes.splice(i,1); continue; }
     fx.age += dt*1000;
     fx.life -= dt*1000;
     var t = clamp01(fx.age / tacticalSkill.smokeLife);
-    var fadeIn = clamp01(t / 0.08);
-    var fadeOut = clamp01((1 - t) / 0.12);
-    var lifeAlpha = Math.min(fadeIn, fadeOut);
-    var dome = 1 + t * 1.02;
-    fx.group.rotation.y += dt * 0.08;
-    fx.group.scale.setScalar(dome);
 
-    for(var p=0;p<fx.parts.length;p++){
-      var part = fx.parts[p];
-      if(!part || !part.material) continue;
-      var shell = Number(part.userData && part.userData.smokeShell);
-      var baseOpacity = Number(part.userData && part.userData.smokeBaseOpacity) || 0.25;
-      var pulse = Number(part.userData && part.userData.smokePulse) || 1;
-      var alpha = lifeAlpha * baseOpacity;
-      if(part.userData && part.userData.smokeGround){
-        part.material.opacity = 0.62 * lifeAlpha;
-        part.scale.set(1 + t * 2.05, 1 + t * 2.05, 1);
-        continue;
-      }
-      var lift = 1 + t * 1.00;
-      var scaleBoost = 1 + t * 3.10 + shell * 0.38;
-      part.position.y = part.position.y * 0.992 + (part.position.y * lift) * 0.008;
-      part.material.opacity = Math.min(1, alpha * (0.95 + shell * 0.85) * pulse);
-      var s = Number(part.userData && part.userData.smokeBaseScale) || 1;
-      part.scale.set(s * scaleBoost, s * (0.92 + t * 0.30) * scaleBoost, 1);
-      if(shell >= 0.75) part.material.opacity = Math.min(1, part.material.opacity * 1.10 + 0.06);
-    }
+    // 1秒で立ち上がって、最後1.5秒で消える
+    var fadeIn = clamp01(t / 0.10);
+    var fadeOut = clamp01((1 - t) / 0.15);
+    var alpha = Math.min(fadeIn, fadeOut);
+
+    // 外からは見えにくく、中に入るとドーム感が出る濃さ
+    fx.dome.material.opacity = 0.96 * alpha;
+    fx.ground.material.opacity = 0.52 * alpha;
+
+    // 少しずつ広がる
+    var domeScale = 8.2 + t * 4.2;
+    fx.dome.scale.set(domeScale, 5.2 + t * 1.0, domeScale);
+    fx.ground.scale.set(8.8 + t * 4.8, 8.8 + t * 4.8, 1);
+
+    // 画像っぽく少しだけ揺らす
+    fx.group.rotation.y += dt * 0.08;
 
     if(fx.life <= 0){
       if(fx.group.parent) fx.group.parent.remove(fx.group);

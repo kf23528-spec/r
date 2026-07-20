@@ -1888,9 +1888,9 @@ function spawnSmokeScreen(x,z){
     color: 0x181818,
     transparent: true,
     opacity: 1.00,
-    depthWrite: false,
+    depthWrite: true,
     depthTest: true,
-    side: T.BackSide
+    side: T.DoubleSide
   });
   var dome = new T.Mesh(domeGeo, domeMat);
   dome.position.set(0, 0.12, 0);
@@ -1904,7 +1904,7 @@ function spawnSmokeScreen(x,z){
       color: 0x141414,
       transparent: true,
       opacity: 1.00,
-      depthWrite: false,
+      depthWrite: true,
       depthTest: true,
       side: T.DoubleSide
     })

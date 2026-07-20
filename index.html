@@ -1878,13 +1878,14 @@ function setCombatCharactersVisible(visible){
 
 function spawnSmokeScreen(x,z){
   var g=new T.Group();
-  g.position.set(x,0.03,z);
+  g.position.set(x,0.08,z);
   g.userData.isMapDecor = true;
   scene.add(g);
 
   var domeGeo = new T.SphereGeometry(1, 32, 20, 0, Math.PI * 2, 0, Math.PI / 2);
   var domeMat = new T.MeshBasicMaterial({
     map: ensureSmokeTexture(),
+    color: 0x181818,
     transparent: true,
     opacity: 0.00,
     depthWrite: false,
@@ -1892,14 +1893,15 @@ function spawnSmokeScreen(x,z){
     side: T.BackSide
   });
   var dome = new T.Mesh(domeGeo, domeMat);
-  dome.position.set(0, 0.02, 0);
-  dome.scale.set(8.2, 5.2, 8.2);
+  dome.position.set(0, 0.12, 0);
+  dome.scale.set(7.8, 5.0, 7.8);
   g.add(dome);
 
   var ground = new T.Mesh(
     new T.CircleGeometry(1.0, 40),
     new T.MeshBasicMaterial({
       map: ensureSmokeTexture(),
+      color: 0x141414,
       transparent: true,
       opacity: 0.00,
       depthWrite: false,
@@ -1908,8 +1910,8 @@ function spawnSmokeScreen(x,z){
     })
   );
   ground.rotation.x = -Math.PI / 2;
-  ground.position.y = 0.01;
-  ground.scale.set(8.8, 8.8, 1);
+  ground.position.y = 0.02;
+  ground.scale.set(8.4, 8.4, 1);
   g.add(ground);
 
   tacticalSkill.smokes.push({
@@ -1930,19 +1932,19 @@ function updateSmokeScreens(dt){
     fx.life -= dt*1000;
     var t = clamp01(fx.age / tacticalSkill.smokeLife);
 
-    // 1秒で立ち上がって、最後1.5秒で消える
-    var fadeIn = clamp01(t / 0.10);
-    var fadeOut = clamp01((1 - t) / 0.15);
+    // 立ち上がりは速く、終盤だけ少し落とす
+    var fadeIn = clamp01(t / 0.08);
+    var fadeOut = clamp01((1 - t) / 0.14);
     var alpha = Math.min(fadeIn, fadeOut);
 
-    // 外からは見えにくく、中に入るとドーム感が出る濃さ
-    fx.dome.material.opacity = 0.96 * alpha;
-    fx.ground.material.opacity = 0.52 * alpha;
+    // 半透明っぽさを減らして、色をしっかり出す
+    fx.dome.material.opacity = 1.00 * alpha;
+    fx.ground.material.opacity = 0.90 * alpha;
 
     // 少しずつ広がる
-    var domeScale = 8.2 + t * 4.2;
-    fx.dome.scale.set(domeScale, 5.2 + t * 1.0, domeScale);
-    fx.ground.scale.set(8.8 + t * 4.8, 8.8 + t * 4.8, 1);
+    var domeScale = 7.8 + t * 3.8;
+    fx.dome.scale.set(domeScale, 5.0 + t * 0.8, domeScale);
+    fx.ground.scale.set(8.4 + t * 4.0, 8.4 + t * 4.0, 1);
 
     // 画像っぽく少しだけ揺らす
     fx.group.rotation.y += dt * 0.08;

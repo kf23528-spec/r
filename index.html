@@ -1823,9 +1823,9 @@ function spawnSmokeScreen(x,z){
   var tex = ensureSmokeTexture();
   var parts = [];
   var layers = [
-    {count:10, radius:1.0, yMin:0.35, yMax:1.25, scaleMin:0.95, scaleMax:1.45, opacityMin:0.14, opacityMax:0.24},
-    {count:16, radius:2.0, yMin:0.65, yMax:2.05, scaleMin:1.20, scaleMax:1.95, opacityMin:0.22, opacityMax:0.38},
-    {count:24, radius:3.35, yMin:0.90, yMax:2.95, scaleMin:1.55, scaleMax:2.55, opacityMin:0.34, opacityMax:0.62}
+    {count:12, radius:1.25, yMin:0.30, yMax:1.30, scaleMin:1.05, scaleMax:1.65, opacityMin:0.22, opacityMax:0.34},
+    {count:22, radius:2.45, yMin:0.55, yMax:2.35, scaleMin:1.45, scaleMax:2.20, opacityMin:0.48, opacityMax:0.72},
+    {count:36, radius:4.35, yMin:0.85, yMax:3.55, scaleMin:1.90, scaleMax:3.15, opacityMin:0.78, opacityMax:0.98}
   ];
 
   function addPuff(cfg, outerBias){
@@ -1835,33 +1835,31 @@ function spawnSmokeScreen(x,z){
       opacity: 0.0,
       depthWrite: false,
       depthTest: true,
-      color: 0xffffff
+      color: 0x0b0b0b
     }));
     var a = Math.random() * Math.PI * 2;
-    var rr = Math.pow(Math.random(), 0.42) * cfg.radius;
-    var yy = cfg.yMin + Math.pow(Math.random(), 0.55) * (cfg.yMax - cfg.yMin);
-    var shell = outerBias || (cfg.radius / 3.35);
+    var rr = Math.pow(Math.random(), 0.24) * cfg.radius;
+    var yy = cfg.yMin + Math.pow(Math.random(), 0.50) * (cfg.yMax - cfg.yMin);
+    var shell = typeof outerBias === 'number' ? outerBias : (cfg.radius / 4.35);
     m.position.set(Math.cos(a) * rr, yy, Math.sin(a) * rr);
     var baseScale = cfg.scaleMin + Math.random() * (cfg.scaleMax - cfg.scaleMin);
     m.scale.set(baseScale, baseScale, 1);
     m.userData.smokeBaseScale = baseScale;
     m.userData.smokeBaseOpacity = cfg.opacityMin + Math.random() * (cfg.opacityMax - cfg.opacityMin);
     m.userData.smokeShell = shell;
-    m.userData.smokePulse = 0.85 + Math.random() * 0.35;
+    m.userData.smokePulse = 0.90 + Math.random() * 0.22;
     g.add(m);
     parts.push(m);
   }
 
-  // 中心の薄い芯
-  for(var i=0;i<layers[0].count;i++) addPuff(layers[0], 0.15);
-  // 中間層
-  for(var j=0;j<layers[1].count;j++) addPuff(layers[1], 0.55);
-  // 外周の濃いドーム
+  // 中心は薄めに抑えて、外側へ行くほど濃くする
+  for(var i=0;i<layers[0].count;i++) addPuff(layers[0], 0.10);
+  for(var j=0;j<layers[1].count;j++) addPuff(layers[1], 0.58);
   for(var k=0;k<layers[2].count;k++) addPuff(layers[2], 1.0);
 
-  // 地面に広がる大きめの煙輪
-  var groundRing = new T.Mesh(new T.RingGeometry(1.6, 5.1, 44), new T.MeshBasicMaterial({
-    color: 0x090909,
+  // 地面に広がる濃い煙輪
+  var groundRing = new T.Mesh(new T.RingGeometry(1.9, 6.2, 48), new T.MeshBasicMaterial({
+    color: 0x050505,
     transparent: true,
     opacity: 0.0,
     side: T.DoubleSide,
@@ -1888,11 +1886,11 @@ function updateSmokeScreens(dt){
     fx.age += dt*1000;
     fx.life -= dt*1000;
     var t = clamp01(fx.age / tacticalSkill.smokeLife);
-    var fadeIn = clamp01(t / 0.10);
-    var fadeOut = clamp01((1 - t) / 0.18);
+    var fadeIn = clamp01(t / 0.08);
+    var fadeOut = clamp01((1 - t) / 0.12);
     var lifeAlpha = Math.min(fadeIn, fadeOut);
-    var dome = 1 + t * 0.72;
-    fx.group.rotation.y += dt * 0.10;
+    var dome = 1 + t * 1.02;
+    fx.group.rotation.y += dt * 0.08;
     fx.group.scale.setScalar(dome);
 
     for(var p=0;p<fx.parts.length;p++){
@@ -1903,17 +1901,17 @@ function updateSmokeScreens(dt){
       var pulse = Number(part.userData && part.userData.smokePulse) || 1;
       var alpha = lifeAlpha * baseOpacity;
       if(part.userData && part.userData.smokeGround){
-        part.material.opacity = 0.22 * lifeAlpha;
-        part.scale.set(1 + t * 1.55, 1 + t * 1.55, 1);
+        part.material.opacity = 0.62 * lifeAlpha;
+        part.scale.set(1 + t * 2.05, 1 + t * 2.05, 1);
         continue;
       }
-      var lift = 1 + t * 0.82;
-      var scaleBoost = 1 + t * 2.55 + shell * 0.22;
-      part.position.y = part.position.y * 0.995 + (part.position.y * lift) * 0.005;
-      part.material.opacity = alpha * (0.72 + shell * 0.62) * pulse;
+      var lift = 1 + t * 1.00;
+      var scaleBoost = 1 + t * 3.10 + shell * 0.38;
+      part.position.y = part.position.y * 0.992 + (part.position.y * lift) * 0.008;
+      part.material.opacity = Math.min(1, alpha * (0.95 + shell * 0.85) * pulse);
       var s = Number(part.userData && part.userData.smokeBaseScale) || 1;
-      part.scale.set(s * scaleBoost, s * (0.88 + t * 0.22) * scaleBoost, 1);
-      if(shell >= 0.75) part.material.opacity *= 1.18;
+      part.scale.set(s * scaleBoost, s * (0.92 + t * 0.30) * scaleBoost, 1);
+      if(shell >= 0.75) part.material.opacity = Math.min(1, part.material.opacity * 1.10 + 0.06);
     }
 
     if(fx.life <= 0){

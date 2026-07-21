@@ -16,7 +16,7 @@ const io = new Server(server, {
 const PORT = process.env.PORT || 3000;
 const MAX_PLAYERS = 8;
 const START_MIN_PLAYERS = 2;
-const RANDOM_START_MIN_PLAYERS = 2;
+const RANDOM_START_MIN_PLAYERS = 1;
 const START_DELAY_MS = 1800;
 const ROUND_DURATION_MS = 180000;
 const ROUND_RESET_DELAY_MS = 1200;
@@ -24,7 +24,12 @@ const WIN_SCORE = 5;
 
 const DAMAGE_PER_BULLET = 4;
 const AI_DAMAGE_PER_HIT = 4;
-const SHOT_MIN_INTERVAL_MS = 100;
+// クライアントの実発射間隔は FIRE_INTERVAL(0.10s) * 900 = 90ms 判定。
+// サーバー側の下限をこれと同値/それ以上にすると、通信遅延やタイマーの
+// わずかな揺れ(ジッター)だけで正規の連射が弾かれてしまう。
+// 70ms まで緩めておけば、意図した約90〜100msの連射は常に通り、
+// 明らかな異常連打(30ms未満の連続弾)だけを引き続き弾ける。
+const SHOT_MIN_INTERVAL_MS = 70;
 
 const OUTER_WALLS = [
   { x: 0, z: -35.4, w: 72, d: 1.2 },

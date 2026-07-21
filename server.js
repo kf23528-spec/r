@@ -24,7 +24,7 @@ const WIN_SCORE = 5;
 
 const DAMAGE_PER_BULLET = 4;
 const AI_DAMAGE_PER_HIT = 4;
-const SHOT_MIN_INTERVAL_MS = 90;
+const SHOT_MIN_INTERVAL_MS = 100;
 
 const OUTER_WALLS = [
   { x: 0, z: -35.4, w: 72, d: 1.2 },
@@ -503,10 +503,6 @@ function broadcastShotFX(roomId, payload) {
   io.to(roomId).emit('playerShot', payload);
   io.to(roomId).emit('playerShotFX', payload);
   io.to(roomId).emit('playerShoot', payload);
-}
-
-function broadcastBombFX(roomId, payload) {
-  io.to(roomId).emit('bomb-explode', payload);
 }
 
 function resetPlayersForNextRound(roomId) {
@@ -1089,25 +1085,6 @@ io.on('connection', socket => {
 
     broadcastRoomPlayers(roomId);
     checkRoundEndCondition(roomId, 'player-eliminated');
-  });
-
-  socket.on('bomb-explode', (data = {}) => {
-    const p = players[socket.id];
-    if (!p || !p.room) return;
-    const roomId = p.room;
-    const meta = roomMeta[roomId];
-    if (!meta || meta.phase !== 'playing') return;
-
-    const fxPayload = Object.assign({}, data, {
-      id: socket.id,
-      playerId: socket.id,
-      ownerId: data.ownerId || socket.id,
-      name: p.name,
-      team: p.team,
-      room: roomId
-    });
-
-    broadcastBombFX(roomId, fxPayload);
   });
 
   socket.on('ai-attack', (data = {}) => {

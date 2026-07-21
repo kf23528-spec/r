@@ -16,7 +16,7 @@ const io = new Server(server, {
 const PORT = process.env.PORT || 3000;
 const MAX_PLAYERS = 8;
 const START_MIN_PLAYERS = 2;
-const RANDOM_START_MIN_PLAYERS = 1;
+const RANDOM_START_MIN_PLAYERS = 2;
 const START_DELAY_MS = 1800;
 const ROUND_DURATION_MS = 180000;
 const ROUND_RESET_DELAY_MS = 1200;
@@ -503,6 +503,10 @@ function broadcastShotFX(roomId, payload) {
   io.to(roomId).emit('playerShot', payload);
   io.to(roomId).emit('playerShotFX', payload);
   io.to(roomId).emit('playerShoot', payload);
+}
+
+function broadcastBombFX(roomId, payload) {
+  io.to(roomId).emit('bomb-explode', payload);
 }
 
 function resetPlayersForNextRound(roomId) {
@@ -1085,6 +1089,25 @@ io.on('connection', socket => {
 
     broadcastRoomPlayers(roomId);
     checkRoundEndCondition(roomId, 'player-eliminated');
+  });
+
+  socket.on('bomb-explode', (data = {}) => {
+    const p = players[socket.id];
+    if (!p || !p.room) return;
+    const roomId = p.room;
+    const meta = roomMeta[roomId];
+    if (!meta || meta.phase !== 'playing') return;
+
+    const fxPayload = Object.assign({}, data, {
+      id: socket.id,
+      playerId: socket.id,
+      ownerId: data.ownerId || socket.id,
+      name: p.name,
+      team: p.team,
+      room: roomId
+    });
+
+    broadcastBombFX(roomId, fxPayload);
   });
 
   socket.on('ai-attack', (data = {}) => {

@@ -288,7 +288,7 @@ var MAX_PLAYERS = 8;
 var MAP_BORDER = 39.0;
 var PLAYER_RADIUS = 0.42;
 var PLAYER_HEIGHT = 1.6;
-var BULLET_SPEED = 85;
+var BULLET_SPEED = 110;
 var BULLET_LIFE = 0.45;
 var RANDOM_MATCH_WAIT = 30;
 var TEAM_BLUE = 'blue';
@@ -592,7 +592,7 @@ var aiUnits = [];
 var aiMatchSeed = 1;
 var gunRoot = null, gunLoaded = false;
 var gunPosNormal = new T.Vector3(0.62,-0.62,-0.92);
-var gunPosAds    = new T.Vector3(0.16,-0.30,-0.62);
+var gunPosAds    = new T.Vector3(0.08,-0.18,-0.52);
 var gunPosCurrent = gunPosNormal.clone();
 var gunPosTarget  = gunPosNormal.clone();
 var gunFovCurrent = CAM_FOV_NORMAL;
@@ -686,6 +686,44 @@ function playGunSound(isBot){
     var a = isBot ? enemyShootSound : myShootSound;
     a.pause(); a.currentTime=0; a.volume=isBot?0.7:0.95;
     var p=a.play(); if(p&&p.catch) p.catch(function(){});
+  }catch(e){}
+}
+var uiSfxCtx = null;
+function getUiSfxCtx(){
+  try{
+    var Ctor = window.AudioContext || window.webkitAudioContext;
+    if(!Ctor) return null;
+    if(!uiSfxCtx) uiSfxCtx = new Ctor();
+    if(uiSfxCtx.state === 'suspended' && uiSfxCtx.resume) uiSfxCtx.resume().catch(function(){});
+    return uiSfxCtx;
+  }catch(e){ return null; }
+}
+function playUiSfx(kind){
+  try{
+    var ctx = getUiSfxCtx();
+    if(!ctx) return;
+    var o = ctx.createOscillator();
+    var g = ctx.createGain();
+    o.type = 'sine';
+    var cfg = {
+      shot:   {f:420, d:0.06, a:0.06},
+      reload: {f:260, d:0.12, a:0.05},
+      adsOn:  {f:640, d:0.05, a:0.04},
+      adsOff: {f:340, d:0.05, a:0.04},
+      skillOn:{f:720, d:0.08, a:0.05},
+      skillOff:{f:220, d:0.08, a:0.05},
+      bombOn: {f:520, d:0.08, a:0.05},
+      bombOff:{f:180, d:0.08, a:0.05},
+      throw:  {f:180, d:0.10, a:0.06}
+    }[kind] || {f:360, d:0.06, a:0.04};
+    o.frequency.setValueAtTime(cfg.f, ctx.currentTime);
+    o.frequency.exponentialRampToValueAtTime(cfg.f * 0.76, ctx.currentTime + cfg.d);
+    g.gain.setValueAtTime(cfg.a, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + cfg.d);
+    o.connect(g);
+    g.connect(ctx.destination);
+    o.start();
+    o.stop(ctx.currentTime + cfg.d + 0.02);
   }catch(e){}
 }
 function clamp(v,mn,mx){return Math.max(mn,Math.min(mx,v));}
@@ -1782,9 +1820,9 @@ function movePlayer(dt){
   camera.position.copy(resolveCollision(nx));
   player.x=camera.position.x; player.y=camera.position.y; player.z=camera.position.z;
 }
-function startReload(){if(reloading||ammo>=MAG_SIZE||!player.alive||matchOver||gameMode!==GAME_MODE.BATTLE)return;reloading=true;reloadTimer=0;gunState.reloadAnim=true;gunState.reloadAnimT=0;updateAmmoUI();}
+function startReload(){if(reloading||ammo>=MAG_SIZE||!player.alive||matchOver||gameMode!==GAME_MODE.BATTLE)return;reloading=true;reloadTimer=0;gunState.reloadAnim=true;gunState.reloadAnimT=0;playUiSfx('reload');updateAmmoUI();}
 function updateReload(dt){if(!reloading)return;reloadTimer+=dt;updateAmmoUI();if(reloadTimer>=RELOAD_TIME){ammo=MAG_SIZE;reloading=false;reloadTimer=0;gunState.reloadAnim=false;updateAmmoUI();}}
-function setADS(on){adsActive=!!on;adsButton.classList.toggle('ads-active',adsActive);gunPosTarget.copy(adsActive?gunPosAds:gunPosNormal);}
+function setADS(on){adsActive=!!on;adsButton.classList.toggle('ads-active',adsActive);gunPosTarget.copy(adsActive?gunPosAds:gunPosNormal);playUiSfx(adsActive?'adsOn':'adsOff');}
 
 function makeSmokeTexture(){
   var cv=document.createElement('canvas');
@@ -1796,11 +1834,11 @@ function makeSmokeTexture(){
 
   // Soft outer silhouette
   var g=ctx.createRadialGradient(128,120,18,128,128,126);
-  g.addColorStop(0.00,'rgba(235,235,235,1)');
-  g.addColorStop(0.20,'rgba(150,150,150,1)');
-  g.addColorStop(0.52,'rgba(70,70,70,1)');
-  g.addColorStop(0.78,'rgba(20,20,20,1)');
-  g.addColorStop(1.00,'rgba(5,5,5,1)');
+  g.addColorStop(0.00,'rgba(235,235,235,0.16)');
+  g.addColorStop(0.20,'rgba(150,150,150,0.28)');
+  g.addColorStop(0.52,'rgba(70,70,70,0.54)');
+  g.addColorStop(0.78,'rgba(20,20,20,0.82)');
+  g.addColorStop(1.00,'rgba(5,5,5,0)');
   ctx.fillStyle=g;
   ctx.fillRect(0,0,256,256);
 
@@ -1812,10 +1850,10 @@ function makeSmokeTexture(){
     var r1=70 + i*10;
     var r2=122 + i*6;
     var rim=ctx.createRadialGradient(0,0,r1,0,0,r2);
-    rim.addColorStop(0.00,'rgba(0,0,0,1)');
-    rim.addColorStop(0.62,'rgba(0,0,0,1)');
-    rim.addColorStop(0.82,'rgba(0,0,0,1)');
-    rim.addColorStop(1.00,'rgba(0,0,0,1)');
+    rim.addColorStop(0.00,'rgba(0,0,0,0)');
+    rim.addColorStop(0.62,'rgba(0,0,0,0.04)');
+    rim.addColorStop(0.82,'rgba(0,0,0,0.33)');
+    rim.addColorStop(1.00,'rgba(0,0,0,0.92)');
     ctx.fillStyle=rim;
     ctx.beginPath();
     ctx.arc(0,0,124 - i*2,0,Math.PI*2);
@@ -1829,26 +1867,26 @@ function makeSmokeTexture(){
     ctx.globalAlpha=a;
     ctx.filter='blur(14px)';
     var cg=ctx.createRadialGradient(x,y,2,x,y,Math.max(rx,ry));
-    cg.addColorStop(0,'rgba(255,255,255,1)');
-    cg.addColorStop(0.35,'rgba(190,190,190,1)');
-    cg.addColorStop(1,'rgba(20,20,20,1)');
+    cg.addColorStop(0,'rgba(255,255,255,0.24)');
+    cg.addColorStop(0.35,'rgba(190,190,190,0.18)');
+    cg.addColorStop(1,'rgba(20,20,20,0)');
     ctx.fillStyle=cg;
     ctx.beginPath();
     ctx.ellipse(x,y,rx,ry,0,0,Math.PI*2);
     ctx.fill();
     ctx.restore();
   }
-  puff(92,96,42,26,1);
-  puff(146,88,50,30,1);
-  puff(165,150,46,28,1);
-  puff(82,156,58,34,1);
-  puff(128,130,78,52,1);
+  puff(92,96,42,26,0.75);
+  puff(146,88,50,30,0.70);
+  puff(165,150,46,28,0.58);
+  puff(82,156,58,34,0.55);
+  puff(128,130,78,52,0.64);
 
   // Slightly brighter cap on top to read as a dome from above
   var cap=ctx.createRadialGradient(128,92,8,128,92,92);
-  cap.addColorStop(0,'rgba(255,255,255,1)');
-  cap.addColorStop(0.3,'rgba(255,255,255,1)');
-  cap.addColorStop(1,'rgba(255,255,255,1)');
+  cap.addColorStop(0,'rgba(255,255,255,0.28)');
+  cap.addColorStop(0.3,'rgba(255,255,255,0.12)');
+  cap.addColorStop(1,'rgba(255,255,255,0)');
   ctx.fillStyle=cap;
   ctx.beginPath();
   ctx.arc(128,96,78,0,Math.PI*2);
@@ -1878,7 +1916,7 @@ function setCombatCharactersVisible(visible){
 
 function spawnSmokeScreen(x,z){
   var g=new T.Group();
-  g.position.set(x,0.18,z);
+  g.position.set(x,0.08,z);
   g.userData.isMapDecor = true;
   scene.add(g);
 
@@ -1887,14 +1925,14 @@ function spawnSmokeScreen(x,z){
     map: ensureSmokeTexture(),
     color: 0x181818,
     transparent: true,
-    opacity: 1.00,
-    depthWrite: true,
+    opacity: 0.00,
+    depthWrite: false,
     depthTest: true,
-    side: T.DoubleSide
+    side: T.BackSide
   });
   var dome = new T.Mesh(domeGeo, domeMat);
-  dome.position.set(0, 0.22, 0);
-  dome.scale.set(6.8, 5.8, 6.8);
+  dome.position.set(0, 0.12, 0);
+  dome.scale.set(7.8, 5.0, 7.8);
   g.add(dome);
 
   var ground = new T.Mesh(
@@ -1903,8 +1941,8 @@ function spawnSmokeScreen(x,z){
       map: ensureSmokeTexture(),
       color: 0x141414,
       transparent: true,
-      opacity: 1.00,
-      depthWrite: true,
+      opacity: 0.00,
+      depthWrite: false,
       depthTest: true,
       side: T.DoubleSide
     })
@@ -1938,16 +1976,16 @@ function updateSmokeScreens(dt){
     var alpha = Math.min(fadeIn, fadeOut);
 
     // 半透明っぽさを減らして、色をしっかり出す
-    fx.dome.material.opacity = 1.00;
-    fx.ground.material.opacity = 1.00;
+    fx.dome.material.opacity = 1.00 * alpha;
+    fx.ground.material.opacity = 0.90 * alpha;
 
     // 少しずつ広がる
-    var domeScale = 6.8 + t * 4.6;
+    var domeScale = 7.8 + t * 3.8;
     fx.dome.scale.set(domeScale, 5.0 + t * 0.8, domeScale);
     fx.ground.scale.set(8.4 + t * 4.0, 8.4 + t * 4.0, 1);
 
     // 画像っぽく少しだけ揺らす
-    fx.group.rotation.y += dt * 0.11;
+    fx.group.rotation.y += dt * 0.08;
 
     if(fx.life <= 0){
       if(fx.group.parent) fx.group.parent.remove(fx.group);
@@ -1969,6 +2007,11 @@ function enterSkillMode(){
     fov: camera.fov
   };
   tacticalSkill.active = true;
+  if(tacticalSkill.closeTimer){ clearTimeout(tacticalSkill.closeTimer); tacticalSkill.closeTimer = null; }
+  tacticalSkill.closeTimer = setTimeout(function(){
+    if(tacticalSkill.active) exitSkillMode();
+  }, 10000);
+  playUiSfx('skillOn');
   if(skillButton) skillButton.classList.add('skill-active');
   if(touchLookArea) touchLookArea.style.pointerEvents = 'none';
   if(gunRoot) gunRoot.visible = false;
@@ -1980,6 +2023,8 @@ function enterSkillMode(){
 function exitSkillMode(){
   if(!tacticalSkill.active) return;
   tacticalSkill.active = false;
+  if(tacticalSkill.closeTimer){ clearTimeout(tacticalSkill.closeTimer); tacticalSkill.closeTimer = null; }
+  playUiSfx('skillOff');
   if(skillButton) skillButton.classList.remove('skill-active');
   if(touchLookArea) touchLookArea.style.pointerEvents = 'auto';
   if(tacticalSkill.saved){
@@ -2348,9 +2393,12 @@ function updateBombUI(){
 }
 syncBombSettingValues();
 function setBombMode(on){
-  bombModeActive = !!on && bombCharges > 0 && gameMode===GAME_MODE.BATTLE && player.alive && !matchOver;
+  var next = !!on && bombCharges > 0 && gameMode===GAME_MODE.BATTLE && player.alive && !matchOver;
+  var changed = next !== bombModeActive;
+  bombModeActive = next;
   if(bombSettingsPanel) bombSettingsPanel.classList.remove('show');
   if(gunRoot) gunRoot.visible = (gameMode===GAME_MODE.BATTLE && !bombModeActive);
+  if(changed) playUiSfx(bombModeActive ? 'bombOn' : 'bombOff');
   updateBombUI();
   updateBombTrajectoryUI();
 }
@@ -2466,6 +2514,7 @@ function explodeBomb(bomb){
 }
 function throwBomb(){
   if(gameMode!==GAME_MODE.BATTLE || matchOver || !player.alive || bombCharges<=0) return;
+  playUiSfx('throw');
   var dir = getBombThrowVector();
   var speed = getBombThrowSpeed();
   var start = camera.position.clone().add(dir.clone().multiplyScalar(0.8));
@@ -3585,6 +3634,7 @@ var tacticalSkill = {
   viewHeight: 92,
   viewFov: 68,
   saved: null,
+  closeTimer: null,
   smokes: []
 };
 var smokeTexture = null;

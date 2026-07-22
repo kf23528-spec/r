@@ -372,10 +372,6 @@ var MAX_PLAYERS = 8;
 var MAP_BORDER = 39.0;
 var PLAYER_RADIUS = 0.42;
 var PLAYER_HEIGHT = 1.6;
-var WALL_COLLISION_PAD = 0.78;
-var WALL_HIT_PAD = 0.55;
-var RANDOM_BATTLE_MIN_REAL_PLAYERS = 2;
-var AI_FOOT_LIFT = 0.12;
 var BULLET_SPEED = 110;
 var BULLET_LIFE = 0.45;
 var RANDOM_MATCH_WAIT = 30;
@@ -833,6 +829,27 @@ function lerp(a,b,t){return a+(b-a)*t;}
 function escapeHtml(s){return String(s).replace(/[&<>"']/g,function(ch){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[ch];});}
 function getRoomInput(){return (roomInput.value||'').replace(/[^0-9]/g,'').slice(0,4);}
 function clampVecToMap(v){v.x=clamp(v.x,-MAP_BORDER,MAP_BORDER);v.z=clamp(v.z,-MAP_BORDER,MAP_BORDER);return v;}
+
+var WALL_COLLISION_PAD = 0.24;
+var WALL_RAY_PAD = 0.18;
+var RANDOM_COMBAT_MIN_HUMANS = 2;
+function expandColliderForRay(c,pad){
+  var p = Number(pad) || 0;
+  return {x:c.x,y:c.y,z:c.z,w:c.w + p * 2,h:c.h + p * 2,d:c.d + p * 2};
+}
+function getHumanPlayerCount(){
+  return Object.keys(roomPlayers || {}).length;
+}
+function isRandomCombatReady(){
+  return !isRandomMatch || getHumanPlayerCount() >= RANDOM_COMBAT_MIN_HUMANS;
+}
+function refreshBattleCrosshair(){
+  var show = (gameMode === GAME_MODE.BATTLE) && !tacticalSkill.active;
+  var ch = document.getElementById('crosshair');
+  var cd = document.getElementById('crosshairDot');
+  if(ch) ch.style.display = show ? '' : 'none';
+  if(cd) cd.style.display = show ? '' : 'none';
+}
 function isInteractiveTarget(el){return !!(el&&el.closest&&el.closest('button,input,textarea,select,label,a,#lobbyOverlay,#waitingOverlay,#loadingOverlay,#resultOverlay'));}
 function addColliderBox(x,y,z,w,h,d,mesh,ry){
   colliders.push({x:x,y:y,z:z,w:w,h:h,d:d,ry:ry||0,mesh:mesh||null});
@@ -859,16 +876,16 @@ function colliderLocalToWorld(lx,lz,c){
 }
 function pointHitsCollider(px,pz,c,r){
   var local = worldToColliderLocal(px,pz,c);
-  var pad = WALL_COLLISION_PAD;
-  var hx = c.w / 2 + r + pad;
-  var hz = c.d / 2 + r + pad;
+  var rr = (Number(r) || 0) + WALL_COLLISION_PAD;
+  var hx = c.w / 2 + rr;
+  var hz = c.d / 2 + rr;
   return Math.abs(local.x) < hx && Math.abs(local.z) < hz;
 }
 function pushPointOutOfCollider(px,pz,c,r){
   var local = worldToColliderLocal(px,pz,c);
-  var pad = WALL_COLLISION_PAD;
-  var hx = c.w / 2 + r + pad;
-  var hz = c.d / 2 + r + pad;
+  var rr = (Number(r) || 0) + WALL_COLLISION_PAD;
+  var hx = c.w / 2 + rr;
+  var hz = c.d / 2 + rr;
   var penX = hx - Math.abs(local.x);
   var penZ = hz - Math.abs(local.z);
   if(penX <= 0 || penZ <= 0) return {x:px,z:pz,hit:false};
@@ -1849,7 +1866,7 @@ function syncRoundStateToRoom(extra){
 }
 function restoreBattleViewAfterRespawn(){
   player.alive = true; player.spectating = false; spectateTargetId = '';
-  gameMode = GAME_MODE.BATTLE; setModeUI();
+  gameMode = GAME_MODE.BATTLE; setModeUI(); refreshBattleCrosshair();
   loadingOverlay.style.display = 'none';
   resultOverlay.style.display = 'none';
   spectateOverlay.style.display = 'none';
@@ -1883,8 +1900,7 @@ function setModeUI(){
   if(gameMode!==GAME_MODE.LOBBY) closeSettings();
   var show=gameMode===GAME_MODE.BATTLE;
   [shootButton,reloadButton,bombButton,adsButton,skillButton,joystickContainer].forEach(function(el){if(el)el.style.display=show?'':'none';});
-  document.getElementById('crosshair').style.display=show?'':'none';
-  document.getElementById('crosshairDot').style.display=show?'':'none';
+  refreshBattleCrosshair();
   hitIndicator.style.display=show?'':'none';
   if(gunRoot) gunRoot.visible=show && !bombModeActive;
   if(bombButton) bombButton.style.display=show?'':'none';
@@ -1963,7 +1979,7 @@ function updateWaitingUI(){
     playerListEl.appendChild(row);
   });
   waitingTitle.textContent=roomStarted?'MATCH STARTING':isRandomMatch?'RANDOM BATTLE LOBBY':'WAITING FOR PLAYERS';
-  waitingSubtitle.textContent=isRandomMatch?'30秒後にAIを補完して開戦！':'同じ部屋の本物のプレイヤーを待っています';
+  waitingSubtitle.textContent=isRandomMatch?(count>=2?'本物のプレイヤーがそろい次第開戦します':'本物のプレイヤーを待っています'):'同じ部屋の本物のプレイヤーを待っています';
   updateWaitingLaunchBtn();
 }
 function getSpawnForTeam(team){
@@ -2119,6 +2135,12 @@ function setCombatCharactersVisible(visible){
   }
 }
 
+
+function removeSmokeScreenFx(fx){
+  if(!fx) return;
+  if(fx.timer){ clearTimeout(fx.timer); fx.timer = null; }
+  if(fx.group && fx.group.parent) fx.group.parent.remove(fx.group);
+}
 function spawnSmokeScreen(x,z){
   var g=new T.Group();
   g.position.set(x,0.08,z);
@@ -2157,14 +2179,20 @@ function spawnSmokeScreen(x,z){
   ground.scale.set(8.4, 8.4, 1);
   g.add(ground);
 
-  tacticalSkill.smokes.push({
+  var fx = {
     group: g,
     dome: dome,
     ground: ground,
     age: 0,
     life: tacticalSkill.smokeLife,
-    expireAt: Date.now() + tacticalSkill.smokeLife
-  });
+    timer: null
+  };
+  fx.timer = setTimeout(function(){
+    var idx = tacticalSkill.smokes.indexOf(fx);
+    if(idx !== -1) tacticalSkill.smokes.splice(idx, 1);
+    removeSmokeScreenFx(fx);
+  }, tacticalSkill.smokeLife);
+  tacticalSkill.smokes.push(fx);
   return g;
 }
 
@@ -2175,7 +2203,6 @@ function updateSmokeScreens(dt){
     fx.age += dt*1000;
     fx.life -= dt*1000;
     var t = clamp01(fx.age / tacticalSkill.smokeLife);
-    var expired = (fx.expireAt && Date.now() >= fx.expireAt) || fx.life <= 0;
 
     // 立ち上がりは速く、終盤だけ少し落とす
     var alpha = 1.0;
@@ -2192,8 +2219,8 @@ function updateSmokeScreens(dt){
     // 画像っぽく少しだけ揺らす
     fx.group.rotation.y += dt * 0.08;
 
-    if(expired){
-      if(fx.group.parent) fx.group.parent.remove(fx.group);
+    if(fx.life <= 0){
+      removeSmokeScreenFx(fx);
       tacticalSkill.smokes.splice(i,1);
     }
   }
@@ -2212,7 +2239,6 @@ function enterSkillMode(){
     fov: camera.fov
   };
   tacticalSkill.active = true;
-  tacticalSkill.skillEndsAt = Date.now() + 10000;
   if(tacticalSkill.closeTimer){ clearTimeout(tacticalSkill.closeTimer); tacticalSkill.closeTimer = null; }
   tacticalSkill.closeTimer = setTimeout(function(){
     if(tacticalSkill.active) exitSkillMode();
@@ -2229,7 +2255,6 @@ function enterSkillMode(){
 function exitSkillMode(){
   if(!tacticalSkill.active) return;
   tacticalSkill.active = false;
-  tacticalSkill.skillEndsAt = 0;
   if(tacticalSkill.closeTimer){ clearTimeout(tacticalSkill.closeTimer); tacticalSkill.closeTimer = null; }
   playUiSfx('skillOff');
   if(skillButton) skillButton.classList.remove('skill-active');
@@ -2244,11 +2269,11 @@ function exitSkillMode(){
   }
   if(gunRoot) gunRoot.visible = (gameMode===GAME_MODE.BATTLE && !bombModeActive);
   setCombatCharactersVisible(true);
+  refreshBattleCrosshair();
   updateRemotePlayersFromState();
 }
 function updateSkillCamera(dt){
   if(gameMode!==GAME_MODE.BATTLE || !tacticalSkill.active) return;
-  if(tacticalSkill.skillEndsAt && Date.now() >= tacticalSkill.skillEndsAt){ exitSkillMode(); return; }
   camera.up.set(0,0,-1);
   camera.position.set(player.x, tacticalSkill.viewHeight, player.z);
   camera.lookAt(player.x,0,player.z);
@@ -2256,13 +2281,15 @@ function updateSkillCamera(dt){
   camera.updateProjectionMatrix();
 }
 function updateSkillUI(){
-  if(!skillButton) return;
   var canUse = gameMode===GAME_MODE.BATTLE && player.alive && !matchOver;
   var cooling = Date.now() < tacticalSkill.readyAt;
-  skillButton.style.display = canUse ? '' : 'none';
-  skillButton.disabled = !canUse || cooling || tacticalSkill.active;
-  skillButton.classList.toggle('skill-cooling', cooling && canUse && !tacticalSkill.active);
-  skillButton.classList.toggle('skill-active', tacticalSkill.active);
+  if(skillButton){
+    skillButton.style.display = canUse ? '' : 'none';
+    skillButton.disabled = !canUse || cooling || tacticalSkill.active;
+    skillButton.classList.toggle('skill-cooling', cooling && canUse && !tacticalSkill.active);
+    skillButton.classList.toggle('skill-active', tacticalSkill.active);
+  }
+  refreshBattleCrosshair();
 }
 function placeSkillSmokeAt(clientX, clientY){
   if(!tacticalSkill.active || gameMode!==GAME_MODE.BATTLE) return false;
@@ -2340,9 +2367,6 @@ function rayIntersectAABBDistance(origin,dir,box){
   }
   if(tmax<0) return null;
   return tmin>=0?tmin:tmax;
-}
-function getWallHitBox(c){
-  return {x:c.x,y:c.y,z:c.z,w:c.w + WALL_HIT_PAD*2,h:c.h,d:c.d + WALL_HIT_PAD*2};
 }
 function bulletHitsAvatar(prev,next,ap){return raySegmentHitsBox(prev,next,{x:ap.x,y:ap.y+0.95,z:ap.z,w:1.30,h:2.10,d:1.30});}
 function bulletHitsAIAvatar(prev,next,aiX,aiZ){
@@ -2552,22 +2576,22 @@ function worldToScreen(vec){
   };
 }
 function shouldShowNameTag(team){
-  return String(team || TEAM_BLUE) === String((player && player.team) || TEAM_BLUE);
+  return gameMode===GAME_MODE.BATTLE && String(team || TEAM_BLUE) === String((player && player.team) || TEAM_BLUE);
 }
 function getDamageWorldPos(targetId, targetType){
   if(targetType === 'human'){
     if(socket && targetId === socket.id){
-      return camera.position.clone().add(getForwardVectorFromCamera().multiplyScalar(1.8)).add(new T.Vector3(0.55, 0.85, 0));
+      return camera.position.clone().add(getForwardVectorFromCamera().multiplyScalar(1.9)).add(new T.Vector3(0.42, 1.05, 0));
     }
     var av = remoteAvatars.get(targetId);
-    if(av) return av.position.clone().add(new T.Vector3(0.55, 2.15, 0));
+    if(av) return av.position.clone().add(new T.Vector3(0.42, 2.35, 0));
     var rp = roomPlayers && roomPlayers[targetId];
-    if(rp) return new T.Vector3(Number(rp.x)||0, (Number(rp.y)||PLAYER_HEIGHT) + 2.0, Number(rp.z)||0);
+    if(rp) return new T.Vector3(Number(rp.x)||0, (Number(rp.y)||PLAYER_HEIGHT) + 2.15, Number(rp.z)||0);
   }else if(targetType === 'ai'){
     for(var i=0;i<aiUnits.length;i++){
       var u = aiUnits[i];
       if(u && u.id === targetId){
-        return new T.Vector3(u.x, 2.05, u.z);
+        return new T.Vector3(u.x, 2.15, u.z);
       }
     }
   }
@@ -2579,12 +2603,14 @@ function spawnDamagePopup(targetId, targetType, damage, team){
   var screen = worldToScreen(worldPos);
   if(!Number.isFinite(screen.x) || !Number.isFinite(screen.y) || screen.z > 1) return;
   var el = document.createElement('div');
-  var isSelf = !!(socket && targetId === socket.id);
-  var isEnemy = String(team||TEAM_BLUE) !== String((player && player.team) || TEAM_BLUE);
-  el.className = 'damagePopup ' + (isEnemy ? 'enemy' : 'friendly');
+  el.className = 'damagePopup ' + (String(team||TEAM_BLUE) === String((player && player.team) || TEAM_BLUE) ? 'friendly' : 'enemy');
   el.textContent = '-' + Math.max(1, Math.round(Number(damage) || 0));
-  var offsetX = isSelf ? 0 : 38;
-  var offsetY = isSelf ? -34 : -42;
+  var offsetX = 36;
+  var offsetY = -42;
+  if(socket && targetId === socket.id){
+    offsetX = 28;
+    offsetY = -46;
+  }
   el.style.left = (screen.x + offsetX) + 'px';
   el.style.top = (screen.y + offsetY) + 'px';
   document.body.appendChild(el);
@@ -3046,24 +3072,11 @@ function makeAIUnit(team,index){
     fireCooldown: nowSec + 0.5 + rng()*1.0,
     lastShotAt:0,
     stuckTimer:0,lastCheckPos:{x:spawn.x,z:spawn.z},unstuckDir:null,unstuckUntil:0};
-  avatar.position.set(unit.x,AI_FOOT_LIFT,unit.z); avatar.rotation.y=unit.yaw; avatar.visible=true;
+  avatar.position.set(unit.x,0,unit.z); avatar.rotation.y=unit.yaw; avatar.visible=true;
   updateAvatarHPBar(avatar,unit.hp); return unit;
-}
-function getRealHumanCountInRoom(){
-  var count = 0;
-  Object.keys(roomPlayers||{}).forEach(function(id){
-    if(socket && id===socket.id) { if(player.alive!==false) count++; return; }
-    var p = roomPlayers[id];
-    if(p && p.alive!==false) count++;
-  });
-  return count;
-}
-function canRandomBattleCombat(){
-  return !isRandomMatch || getRealHumanCountInRoom() >= RANDOM_BATTLE_MIN_REAL_PLAYERS;
 }
 function getCombatTargetsFor(team){
   var targets=[];
-  if(isRandomMatch && !canRandomBattleCombat()) return targets;
   Object.keys(roomPlayers||{}).forEach(function(id){
     var p=remoteStates[id]||roomPlayers[id];
     if(!p||p.alive===false)return;
@@ -3087,10 +3100,11 @@ function getNearestTarget(unit){
 function aiCanSee(unit,targetPos){
   var from=new T.Vector3(unit.x,PLAYER_HEIGHT,unit.z),to=new T.Vector3(targetPos.x,PLAYER_HEIGHT,targetPos.z);
   if(from.distanceTo(to)>44)return false;
-  for(var i=0;i<colliders.length;i++){if(raySegmentHitsBox(from,to,getWallHitBox(colliders[i])))return false;}
+  for(var i=0;i<colliders.length;i++){if(raySegmentHitsBox(from,to,expandColliderForRay(colliders[i], WALL_RAY_PAD)))return false;}
   return true;
 }
 function damageEntityFromAI(unit,target,dist,nowSec){
+  if(!isRandomCombatReady()) return;
   if(nowSec<unit.lastShotAt+0.45)return;
   unit.lastShotAt=nowSec; unit.fireCooldown=nowSec+0.7+unit.rng()*1.1;
   var ayaw = getAIVisualYaw(unit);
@@ -3188,7 +3202,7 @@ function updateAIUnit(unit,dt,nowSec){
     unit.stuckTimer=0;
   }
   unit.x=resolved.x; unit.z=resolved.z;
-  unit.avatar.position.set(unit.x,AI_FOOT_LIFT,unit.z);
+  unit.avatar.position.set(unit.x,0,unit.z);
   unit.avatar.rotation.y=getAIVisualYaw(unit);
   unit.avatar.visible=true;
   updateAvatarHPBar(unit.avatar,unit.hp);
@@ -3200,6 +3214,7 @@ function updateAIUnit(unit,dt,nowSec){
 function updateAI(dt){
   if(gameMode!==GAME_MODE.BATTLE&&gameMode!==GAME_MODE.SPECTATE)return;
   if(!aiUnits.length)return;
+  if(!isRandomCombatReady()) return;
   var nowSec = performance.now()/1000;
   for(var i=0;i<aiUnits.length;i++) updateAIUnit(aiUnits[i],dt,nowSec);
   for(var mi=0;mi<aiUnits.length;mi++){
@@ -3408,7 +3423,7 @@ function checkLocalShotHit(origin,dir){
   var nearest=null,nearestDist=Infinity;
 
   for(var i=0;i<colliders.length;i++){
-    var d=rayIntersectAABBDistance(origin,dir,getWallHitBox(colliders[i]));
+    var d=rayIntersectAABBDistance(origin,dir,expandColliderForRay(colliders[i], WALL_RAY_PAD));
     if(d!==null&&d>=0&&d<=MAX_RANGE&&d<nearestDist){nearestDist=d;nearest={type:'obstacle',point:origin.clone().addScaledVector(dir,d)};}
   }
   Object.keys(roomPlayers||{}).forEach(function(id){
@@ -3419,13 +3434,11 @@ function checkLocalShotHit(origin,dir){
     var hit=bulletHitsAvatar(origin,checkEnd,av.position.clone());
     if(hit){var hd=hit.distanceTo(origin);if(hd<nearestDist){nearestDist=hd;nearest={type:'human',id:id,point:hit,team:p.team||TEAM_RED};}}
   });
-  if(!isRandomMatch || canRandomBattleCombat()){
-    for(var j=0;j<aiUnits.length;j++){
-      var u=aiUnits[j]; if(!u||!u.alive) continue; if(u.team===player.team) continue;
-      var checkEnd2=nearestDist<MAX_RANGE?origin.clone().addScaledVector(dir,nearestDist):end;
-      var ahit=bulletHitsAIAvatar(origin,checkEnd2,u.x,u.z);
-      if(ahit){var ad=ahit.distanceTo(origin);if(ad<nearestDist){nearestDist=ad;nearest={type:'ai',unitId:u.id,point:ahit,unit:u};}}
-    }
+  for(var j=0;j<aiUnits.length;j++){
+    var u=aiUnits[j]; if(!u||!u.alive) continue; if(u.team===player.team) continue;
+    var checkEnd2=nearestDist<MAX_RANGE?origin.clone().addScaledVector(dir,nearestDist):end;
+    var ahit=bulletHitsAIAvatar(origin,checkEnd2,u.x,u.z);
+    if(ahit){var ad=ahit.distanceTo(origin);if(ad<nearestDist){nearestDist=ad;nearest={type:'ai',unitId:u.id,point:ahit,unit:u};}}
   }
   return nearest;
 }
@@ -3435,6 +3448,7 @@ function applyLocalShotHit(hitInfo,point){
 }
 function fireOnce(){
   if(gameMode!==GAME_MODE.BATTLE||matchOver||!player.alive)return;
+  if(!isRandomCombatReady()) return;
   if(bombModeActive){
     if(bombPoints<=0){updateBombUI();return;}
     throwBomb();
@@ -3456,7 +3470,6 @@ function fireOnce(){
     if(hitInfo.type==='human'){
       if(socket&&socket.connected){
         socket.emit('playerShoot',{room:currentRoom,ox:rayOrigin.x,oy:rayOrigin.y,oz:rayOrigin.z,dx:dir.x,dy:dir.y,dz:dir.z,targetId:hitInfo.id,team:player.team||TEAM_BLUE,shotSeq:(lastShotTime||0),shotAt:Date.now()});
-        flashKillFx(hitInfo.point);
       }
       return;
     }
@@ -3486,7 +3499,7 @@ function updateBullets(dt){
       for(var c=0;c<colliders.length && !hit;c++){
         if(segDist<1e-6){if(hitPointInBox(b.pos,colliders[c])){hit=true;break;}continue;}
         var segDir2=b.pos.clone().sub(b.prev).normalize();
-        var hitDist=rayIntersectAABBDistance(b.prev,segDir2,getWallHitBox(colliders[c]));
+        var hitDist=rayIntersectAABBDistance(b.prev,segDir2,colliders[c]);
         if(hitDist!==null&&hitDist<=segDist){hit=true;break;}
       }
       if(hit||Math.abs(b.pos.x)>MAP_BORDER+2||Math.abs(b.pos.z)>MAP_BORDER+2){flashKillFx(b.pos);b.dead=true;if(b.mesh&&b.mesh.parent)b.mesh.parent.remove(b.mesh);b.mesh=null;bullets.splice(i,1);continue;}
@@ -3591,6 +3604,7 @@ function beginBattle(data){
 }
 function startRound(data){
   roundResolved=false;matchOver=false;resultShown=false;
+  refreshBattleCrosshair();
   if(Number.isFinite(data.blue))blueScore=data.blue;
   if(Number.isFinite(data.red))redScore=data.red;
   if(Number.isFinite(data.round))roundIndex=data.round;
@@ -3979,7 +3993,6 @@ var tacticalSkill = {
   viewFov: 68,
   saved: null,
   closeTimer: null,
-  skillEndsAt: 0,
   smokes: []
 };
 var smokeTexture = null;

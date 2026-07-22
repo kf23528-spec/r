@@ -372,6 +372,10 @@ var MAX_PLAYERS = 8;
 var MAP_BORDER = 39.0;
 var PLAYER_RADIUS = 0.42;
 var PLAYER_HEIGHT = 1.6;
+var WALL_COLLISION_PAD = 0.78;
+var WALL_HIT_PAD = 0.55;
+var RANDOM_BATTLE_MIN_REAL_PLAYERS = 2;
+var AI_FOOT_LIFT = 0.12;
 var BULLET_SPEED = 110;
 var BULLET_LIFE = 0.45;
 var RANDOM_MATCH_WAIT = 30;
@@ -855,14 +859,16 @@ function colliderLocalToWorld(lx,lz,c){
 }
 function pointHitsCollider(px,pz,c,r){
   var local = worldToColliderLocal(px,pz,c);
-  var hx = c.w / 2 + r;
-  var hz = c.d / 2 + r;
+  var pad = WALL_COLLISION_PAD;
+  var hx = c.w / 2 + r + pad;
+  var hz = c.d / 2 + r + pad;
   return Math.abs(local.x) < hx && Math.abs(local.z) < hz;
 }
 function pushPointOutOfCollider(px,pz,c,r){
   var local = worldToColliderLocal(px,pz,c);
-  var hx = c.w / 2 + r;
-  var hz = c.d / 2 + r;
+  var pad = WALL_COLLISION_PAD;
+  var hx = c.w / 2 + r + pad;
+  var hz = c.d / 2 + r + pad;
   var penX = hx - Math.abs(local.x);
   var penZ = hz - Math.abs(local.z);
   if(penX <= 0 || penZ <= 0) return {x:px,z:pz,hit:false};
@@ -2156,7 +2162,8 @@ function spawnSmokeScreen(x,z){
     dome: dome,
     ground: ground,
     age: 0,
-    life: tacticalSkill.smokeLife
+    life: tacticalSkill.smokeLife,
+    expireAt: Date.now() + tacticalSkill.smokeLife
   });
   return g;
 }
@@ -2168,6 +2175,7 @@ function updateSmokeScreens(dt){
     fx.age += dt*1000;
     fx.life -= dt*1000;
     var t = clamp01(fx.age / tacticalSkill.smokeLife);
+    var expired = (fx.expireAt && Date.now() >= fx.expireAt) || fx.life <= 0;
 
     // 立ち上がりは速く、終盤だけ少し落とす
     var alpha = 1.0;
@@ -2184,7 +2192,7 @@ function updateSmokeScreens(dt){
     // 画像っぽく少しだけ揺らす
     fx.group.rotation.y += dt * 0.08;
 
-    if(fx.life <= 0){
+    if(expired){
       if(fx.group.parent) fx.group.parent.remove(fx.group);
       tacticalSkill.smokes.splice(i,1);
     }
@@ -2204,6 +2212,7 @@ function enterSkillMode(){
     fov: camera.fov
   };
   tacticalSkill.active = true;
+  tacticalSkill.skillEndsAt = Date.now() + 10000;
   if(tacticalSkill.closeTimer){ clearTimeout(tacticalSkill.closeTimer); tacticalSkill.closeTimer = null; }
   tacticalSkill.closeTimer = setTimeout(function(){
     if(tacticalSkill.active) exitSkillMode();
@@ -2220,6 +2229,7 @@ function enterSkillMode(){
 function exitSkillMode(){
   if(!tacticalSkill.active) return;
   tacticalSkill.active = false;
+  tacticalSkill.skillEndsAt = 0;
   if(tacticalSkill.closeTimer){ clearTimeout(tacticalSkill.closeTimer); tacticalSkill.closeTimer = null; }
   playUiSfx('skillOff');
   if(skillButton) skillButton.classList.remove('skill-active');
@@ -2238,6 +2248,7 @@ function exitSkillMode(){
 }
 function updateSkillCamera(dt){
   if(gameMode!==GAME_MODE.BATTLE || !tacticalSkill.active) return;
+  if(tacticalSkill.skillEndsAt && Date.now() >= tacticalSkill.skillEndsAt){ exitSkillMode(); return; }
   camera.up.set(0,0,-1);
   camera.position.set(player.x, tacticalSkill.viewHeight, player.z);
   camera.lookAt(player.x,0,player.z);
@@ -2329,6 +2340,9 @@ function rayIntersectAABBDistance(origin,dir,box){
   }
   if(tmax<0) return null;
   return tmin>=0?tmin:tmax;
+}
+function getWallHitBox(c){
+  return {x:c.x,y:c.y,z:c.z,w:c.w + WALL_HIT_PAD*2,h:c.h,d:c.d + WALL_HIT_PAD*2};
 }
 function bulletHitsAvatar(prev,next,ap){return raySegmentHitsBox(prev,next,{x:ap.x,y:ap.y+0.95,z:ap.z,w:1.30,h:2.10,d:1.30});}
 function bulletHitsAIAvatar(prev,next,aiX,aiZ){
@@ -2565,14 +2579,12 @@ function spawnDamagePopup(targetId, targetType, damage, team){
   var screen = worldToScreen(worldPos);
   if(!Number.isFinite(screen.x) || !Number.isFinite(screen.y) || screen.z > 1) return;
   var el = document.createElement('div');
-  el.className = 'damagePopup ' + (String(team||TEAM_BLUE) === String((player && player.team) || TEAM_BLUE) ? 'friendly' : 'enemy');
+  var isSelf = !!(socket && targetId === socket.id);
+  var isEnemy = String(team||TEAM_BLUE) !== String((player && player.team) || TEAM_BLUE);
+  el.className = 'damagePopup ' + (isEnemy ? 'enemy' : 'friendly');
   el.textContent = '-' + Math.max(1, Math.round(Number(damage) || 0));
-  var offsetX = 28;
-  var offsetY = -22;
-  if(socket && targetId === socket.id){
-    offsetX = 0;
-    offsetY = -34;
-  }
+  var offsetX = isSelf ? 0 : 38;
+  var offsetY = isSelf ? -34 : -42;
   el.style.left = (screen.x + offsetX) + 'px';
   el.style.top = (screen.y + offsetY) + 'px';
   document.body.appendChild(el);
@@ -3034,11 +3046,24 @@ function makeAIUnit(team,index){
     fireCooldown: nowSec + 0.5 + rng()*1.0,
     lastShotAt:0,
     stuckTimer:0,lastCheckPos:{x:spawn.x,z:spawn.z},unstuckDir:null,unstuckUntil:0};
-  avatar.position.set(unit.x,0,unit.z); avatar.rotation.y=unit.yaw; avatar.visible=true;
+  avatar.position.set(unit.x,AI_FOOT_LIFT,unit.z); avatar.rotation.y=unit.yaw; avatar.visible=true;
   updateAvatarHPBar(avatar,unit.hp); return unit;
+}
+function getRealHumanCountInRoom(){
+  var count = 0;
+  Object.keys(roomPlayers||{}).forEach(function(id){
+    if(socket && id===socket.id) { if(player.alive!==false) count++; return; }
+    var p = roomPlayers[id];
+    if(p && p.alive!==false) count++;
+  });
+  return count;
+}
+function canRandomBattleCombat(){
+  return !isRandomMatch || getRealHumanCountInRoom() >= RANDOM_BATTLE_MIN_REAL_PLAYERS;
 }
 function getCombatTargetsFor(team){
   var targets=[];
+  if(isRandomMatch && !canRandomBattleCombat()) return targets;
   Object.keys(roomPlayers||{}).forEach(function(id){
     var p=remoteStates[id]||roomPlayers[id];
     if(!p||p.alive===false)return;
@@ -3062,7 +3087,7 @@ function getNearestTarget(unit){
 function aiCanSee(unit,targetPos){
   var from=new T.Vector3(unit.x,PLAYER_HEIGHT,unit.z),to=new T.Vector3(targetPos.x,PLAYER_HEIGHT,targetPos.z);
   if(from.distanceTo(to)>44)return false;
-  for(var i=0;i<colliders.length;i++){if(raySegmentHitsBox(from,to,colliders[i]))return false;}
+  for(var i=0;i<colliders.length;i++){if(raySegmentHitsBox(from,to,getWallHitBox(colliders[i])))return false;}
   return true;
 }
 function damageEntityFromAI(unit,target,dist,nowSec){
@@ -3163,7 +3188,7 @@ function updateAIUnit(unit,dt,nowSec){
     unit.stuckTimer=0;
   }
   unit.x=resolved.x; unit.z=resolved.z;
-  unit.avatar.position.set(unit.x,0,unit.z);
+  unit.avatar.position.set(unit.x,AI_FOOT_LIFT,unit.z);
   unit.avatar.rotation.y=getAIVisualYaw(unit);
   unit.avatar.visible=true;
   updateAvatarHPBar(unit.avatar,unit.hp);
@@ -3383,7 +3408,7 @@ function checkLocalShotHit(origin,dir){
   var nearest=null,nearestDist=Infinity;
 
   for(var i=0;i<colliders.length;i++){
-    var d=rayIntersectAABBDistance(origin,dir,colliders[i]);
+    var d=rayIntersectAABBDistance(origin,dir,getWallHitBox(colliders[i]));
     if(d!==null&&d>=0&&d<=MAX_RANGE&&d<nearestDist){nearestDist=d;nearest={type:'obstacle',point:origin.clone().addScaledVector(dir,d)};}
   }
   Object.keys(roomPlayers||{}).forEach(function(id){
@@ -3394,11 +3419,13 @@ function checkLocalShotHit(origin,dir){
     var hit=bulletHitsAvatar(origin,checkEnd,av.position.clone());
     if(hit){var hd=hit.distanceTo(origin);if(hd<nearestDist){nearestDist=hd;nearest={type:'human',id:id,point:hit,team:p.team||TEAM_RED};}}
   });
-  for(var j=0;j<aiUnits.length;j++){
-    var u=aiUnits[j]; if(!u||!u.alive) continue; if(u.team===player.team) continue;
-    var checkEnd2=nearestDist<MAX_RANGE?origin.clone().addScaledVector(dir,nearestDist):end;
-    var ahit=bulletHitsAIAvatar(origin,checkEnd2,u.x,u.z);
-    if(ahit){var ad=ahit.distanceTo(origin);if(ad<nearestDist){nearestDist=ad;nearest={type:'ai',unitId:u.id,point:ahit,unit:u};}}
+  if(!isRandomMatch || canRandomBattleCombat()){
+    for(var j=0;j<aiUnits.length;j++){
+      var u=aiUnits[j]; if(!u||!u.alive) continue; if(u.team===player.team) continue;
+      var checkEnd2=nearestDist<MAX_RANGE?origin.clone().addScaledVector(dir,nearestDist):end;
+      var ahit=bulletHitsAIAvatar(origin,checkEnd2,u.x,u.z);
+      if(ahit){var ad=ahit.distanceTo(origin);if(ad<nearestDist){nearestDist=ad;nearest={type:'ai',unitId:u.id,point:ahit,unit:u};}}
+    }
   }
   return nearest;
 }
@@ -3459,7 +3486,7 @@ function updateBullets(dt){
       for(var c=0;c<colliders.length && !hit;c++){
         if(segDist<1e-6){if(hitPointInBox(b.pos,colliders[c])){hit=true;break;}continue;}
         var segDir2=b.pos.clone().sub(b.prev).normalize();
-        var hitDist=rayIntersectAABBDistance(b.prev,segDir2,colliders[c]);
+        var hitDist=rayIntersectAABBDistance(b.prev,segDir2,getWallHitBox(colliders[c]));
         if(hitDist!==null&&hitDist<=segDist){hit=true;break;}
       }
       if(hit||Math.abs(b.pos.x)>MAP_BORDER+2||Math.abs(b.pos.z)>MAP_BORDER+2){flashKillFx(b.pos);b.dead=true;if(b.mesh&&b.mesh.parent)b.mesh.parent.remove(b.mesh);b.mesh=null;bullets.splice(i,1);continue;}
@@ -3952,6 +3979,7 @@ var tacticalSkill = {
   viewFov: 68,
   saved: null,
   closeTimer: null,
+  skillEndsAt: 0,
   smokes: []
 };
 var smokeTexture = null;

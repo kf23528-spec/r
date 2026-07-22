@@ -42,6 +42,10 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 #crosshair::before{width:24px;height:2px}
 #crosshair::after{width:2px;height:24px}
 #crosshairDot{position:absolute;left:50%;top:50%;width:6px;height:6px;border-radius:50%;background:#fff;transform:translate(-50%,-50%);box-shadow:0 0 4px rgba(0,0,0,1),0 0 10px rgba(255,255,255,0.35);z-index:21;pointer-events:none}
+.damagePopup{position:fixed;left:0;top:0;transform:translate(-50%,-50%) scale(0.94);min-width:48px;padding:0 8px;border-radius:999px;font-size:28px;font-weight:1000;letter-spacing:0.02em;line-height:1.15;color:#fff;text-shadow:0 2px 0 rgba(0,0,0,0.88),0 0 12px rgba(0,0,0,0.8),0 0 18px rgba(0,0,0,0.55);opacity:0;pointer-events:none;z-index:86;will-change:transform,opacity}
+.damagePopup.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
+.damagePopup.friendly{color:#bfe8ff}
+.damagePopup.enemy{color:#ff7f8a}
 #announce{position:absolute;left:50%;top:38%;transform:translate(-50%,-50%) scale(0.6);opacity:0;color:#ff3b3b;font-size:clamp(38px,9vw,88px);font-weight:900;letter-spacing:0.10em;text-shadow:0 0 22px rgba(255,60,60,0.9),0 0 8px rgba(255,255,255,0.5),0 4px 14px rgba(0,0,0,0.8);z-index:80;pointer-events:none;white-space:nowrap}
 #announce.show{animation:pop 0.60s ease-out forwards}
 @keyframes pop{0%{opacity:0;transform:translate(-50%,-50%) scale(0.40)}18%{opacity:1;transform:translate(-50%,-50%) scale(1.14)}55%{opacity:1;transform:translate(-50%,-50%) scale(1.00)}100%{opacity:0;transform:translate(-50%,-50%) scale(0.90)}}
@@ -523,6 +527,7 @@ var lobbyNetValue = document.getElementById('lobbyNetValue');
 var lobbyRoomValue = document.getElementById('lobbyRoomValue');
 var killFeedEl = document.getElementById('killFeed');
 var hitIndicator = document.getElementById('hitIndicator');
+var damagePopupSeq = 0;
 var roomInput = document.getElementById('roomInput');
 var roomGenBtn = document.getElementById('roomGenBtn');
 var waitingOverlay = document.getElementById('waitingOverlay');
@@ -2118,11 +2123,11 @@ function spawnSmokeScreen(x,z){
   var domeMat = new T.MeshBasicMaterial({
     map: ensureSmokeTexture(),
     color: 0x181818,
-    transparent: true,
-    opacity: 0.00,
-    depthWrite: false,
+    transparent: false,
+    opacity: 1.0,
+    depthWrite: true,
     depthTest: true,
-    side: T.BackSide
+    side: T.DoubleSide
   });
   var dome = new T.Mesh(domeGeo, domeMat);
   dome.position.set(0, 0.12, 0);
@@ -2134,9 +2139,9 @@ function spawnSmokeScreen(x,z){
     new T.MeshBasicMaterial({
       map: ensureSmokeTexture(),
       color: 0x141414,
-      transparent: true,
-      opacity: 0.00,
-      depthWrite: false,
+      transparent: false,
+      opacity: 1.0,
+      depthWrite: true,
       depthTest: true,
       side: T.DoubleSide
     })
@@ -2273,6 +2278,7 @@ function placeSkillSmokeAt(clientX, clientY){
     }
   }
   spawnSmokeScreen(hit.x, hit.z);
+  emitBattleFx({fxType:'skill-smoke', x:hit.x, z:hit.z});
   tacticalSkill.readyAt = Date.now() + tacticalSkill.cooldownMs;
   if(skillButton) skillButton.disabled = true;
   exitSkillMode();
@@ -2531,6 +2537,60 @@ function worldToScreen(vec){
     z: v.z
   };
 }
+function shouldShowNameTag(team){
+  return String(team || TEAM_BLUE) === String((player && player.team) || TEAM_BLUE);
+}
+function getDamageWorldPos(targetId, targetType){
+  if(targetType === 'human'){
+    if(socket && targetId === socket.id){
+      return camera.position.clone().add(getForwardVectorFromCamera().multiplyScalar(1.8)).add(new T.Vector3(0.55, 0.85, 0));
+    }
+    var av = remoteAvatars.get(targetId);
+    if(av) return av.position.clone().add(new T.Vector3(0.55, 2.15, 0));
+    var rp = roomPlayers && roomPlayers[targetId];
+    if(rp) return new T.Vector3(Number(rp.x)||0, (Number(rp.y)||PLAYER_HEIGHT) + 2.0, Number(rp.z)||0);
+  }else if(targetType === 'ai'){
+    for(var i=0;i<aiUnits.length;i++){
+      var u = aiUnits[i];
+      if(u && u.id === targetId){
+        return new T.Vector3(u.x, 2.05, u.z);
+      }
+    }
+  }
+  return camera.position.clone().add(getForwardVectorFromCamera().multiplyScalar(2.0));
+}
+function spawnDamagePopup(targetId, targetType, damage, team){
+  var worldPos = getDamageWorldPos(targetId, targetType);
+  if(!worldPos) return;
+  var screen = worldToScreen(worldPos);
+  if(!Number.isFinite(screen.x) || !Number.isFinite(screen.y) || screen.z > 1) return;
+  var el = document.createElement('div');
+  el.className = 'damagePopup ' + (String(team||TEAM_BLUE) === String((player && player.team) || TEAM_BLUE) ? 'friendly' : 'enemy');
+  el.textContent = '-' + Math.max(1, Math.round(Number(damage) || 0));
+  var offsetX = 28;
+  var offsetY = -22;
+  if(socket && targetId === socket.id){
+    offsetX = 0;
+    offsetY = -34;
+  }
+  el.style.left = (screen.x + offsetX) + 'px';
+  el.style.top = (screen.y + offsetY) + 'px';
+  document.body.appendChild(el);
+  requestAnimationFrame(function(){ el.classList.add('show'); });
+  setTimeout(function(){ el.style.opacity = '0'; el.style.transform = 'translate(-50%,-50%) translateY(-14px) scale(1.04)'; }, 520);
+  setTimeout(function(){ if(el && el.parentNode) el.parentNode.removeChild(el); }, 860);
+}
+function emitBattleFx(payload){
+  if(socket && socket.connected){
+    socket.emit('playerShotFX', Object.assign({
+      room: currentRoom,
+      sourceId: socket.id || 'local',
+      id: socket.id || 'local',
+      playerId: socket.id || 'local',
+      team: player.team || TEAM_BLUE
+    }, payload || {}));
+  }
+}
 function updateBombTrajectoryUI(){
   if(!bombTrajectory || !bombTrajectoryLine || !bombTrajectoryTip || !bombTrajectoryText) return;
   var canBomb = gameMode===GAME_MODE.BATTLE && player.alive && !matchOver && bombPoints>0;
@@ -2673,8 +2733,6 @@ function applyExplosionDamage(center, ownerId, team){
           player.alive = false;
           addKillFeed('💥 BOMB KO');
           if(gameMode===GAME_MODE.BATTLE) enterSpectate();
-        } else {
-          flashHitIndicator();
         }
       } else {
         remoteStates[id] = remoteStates[id] || {};
@@ -2727,6 +2785,7 @@ function throwBomb(){
   var start = camera.position.clone().add(dir.clone().multiplyScalar(0.8));
   start.y = camera.position.y - 0.15;
   addBombProjectile(start, dir, socket&&socket.id ? socket.id : 'local', player.team || TEAM_BLUE, speed);
+  emitBattleFx({fxType:'bomb-throw', x:start.x, y:start.y, z:start.z, dx:dir.x, dy:dir.y, dz:dir.z, speed:speed, ownerId:socket&&socket.id ? socket.id : 'local'});
   bombPoints = Math.max(0, (Number(bombPoints) || 0) - 1);
   syncBombPointUI();
   bombModeActive = false;
@@ -2889,10 +2948,15 @@ function makeNameTagTexture(name, team){
   var tex=new T.CanvasTexture(cv); tex.needsUpdate=true;
   return {canvas:cv,texture:tex};
 }
-function ensureNameTag(av,name,team){
+function ensureNameTag(av,name,team,show){
   if(!av)return null;
+  var visible = arguments.length >= 4 ? !!show : shouldShowNameTag(team);
   var label=String(name||'AI').trim()||'AI';
   var tag=av.userData&&av.userData.nameTag;
+  if(!visible){
+    if(tag) tag.visible = false;
+    return null;
+  }
   if(!tag){
     var data=makeNameTagTexture(label,team||TEAM_BLUE);
     var mat=new T.SpriteMaterial({map:data.texture,transparent:true,depthTest:false,depthWrite:false});
@@ -2914,6 +2978,7 @@ function ensureNameTag(av,name,team){
     ctx2.fillText(label,av.userData.nameTagCanvas.width/2,av.userData.nameTagCanvas.height/2+1);
     av.userData.nameTagTexture.needsUpdate=true; av.userData.nameTagText=label; av.userData.nameTagTeam=team||TEAM_BLUE;
   }
+  if(tag) tag.visible = true;
   return tag;
 }
 function updateAvatarBillboard(av){
@@ -3012,7 +3077,7 @@ function damageEntityFromAI(unit,target,dist,nowSec){
   var acc=clamp01(1-(dist/34))*0.85+0.10; if(unit.rng()>acc&&dist>10)return;
   var myId=socket&&socket.id?socket.id:'__local__';
   if(target.type==='human'){
-    if(target.id===myId){ flashHitIndicator(); showKillAnnouncement('HIT!'); }
+    if(target.id===myId){}
     if(socket&&socket.connected){
       socket.emit('ai-attack',{room:currentRoom,aiId:unit.id,targetId:target.id,aiX:unit.x,aiZ:unit.z,targetX:target.pos.x,targetZ:target.pos.z});
     }
@@ -3339,7 +3404,7 @@ function checkLocalShotHit(origin,dir){
 }
 function applyLocalShotHit(hitInfo,point){
   var u=hitInfo.unit; if(!u||!u.alive)return;
-  flashKillFx(point); addKillFeed('💥 AI HIT!'); showKillAnnouncement('HIT!');
+  flashKillFx(point);
 }
 function fireOnce(){
   if(gameMode!==GAME_MODE.BATTLE||matchOver||!player.alive)return;
@@ -3364,7 +3429,7 @@ function fireOnce(){
     if(hitInfo.type==='human'){
       if(socket&&socket.connected){
         socket.emit('playerShoot',{room:currentRoom,ox:rayOrigin.x,oy:rayOrigin.y,oz:rayOrigin.z,dx:dir.x,dy:dir.y,dz:dir.z,targetId:hitInfo.id,team:player.team||TEAM_BLUE,shotSeq:(lastShotTime||0),shotAt:Date.now()});
-        flashHitIndicator(); flashKillFx(hitInfo.point); addKillFeed('💥 HIT!'); showKillAnnouncement('HIT!');
+        flashKillFx(hitInfo.point);
       }
       return;
     }
@@ -3620,6 +3685,24 @@ function initSocket(){
     if(!d)return;
     var id=d.id||d.playerId||d.sourceId;
     if(socket&&id===socket.id)return;
+
+    if(d.fxType==='skill-smoke'){
+      if(Number.isFinite(d.x) && Number.isFinite(d.z)){
+        spawnSmokeScreen(Number(d.x)||0, Number(d.z)||0);
+      }
+      return;
+    }
+    if(d.fxType==='bomb-throw'){
+      if(Number.isFinite(d.x) && Number.isFinite(d.y) && Number.isFinite(d.z)){
+        var start = new T.Vector3(Number(d.x)||0, Number(d.y)||1.6, Number(d.z)||0);
+        var dir = new T.Vector3(Number(d.dx)||0, Number(d.dy)||0, Number(d.dz)||-1);
+        if(dir.lengthSq() < 1e-8) dir.set(0,0,-1);
+        dir.normalize();
+        addBombProjectile(start, dir, d.ownerId || id || 'remote', d.team || TEAM_BLUE, Number(d.speed)||BOMB_THROW_SPEED);
+      }
+      return;
+    }
+
     if(id){
       remoteShotMarks[id] = performance.now();
       if(Number.isFinite(d.shotSeq)) remoteShotSeq[id] = Math.max(remoteShotSeq[id]||0, d.shotSeq);
@@ -3642,11 +3725,12 @@ function initSocket(){
           if(player.alive){addKillFeed('💀 YOU DIED');}
           player.alive=false; player.hp=0; updatePlayerHPUI();
           if(gameMode===GAME_MODE.BATTLE) enterSpectate();
-        }else{ flashHitIndicator(); }
+        }
       }else{
         applyRemoteState(tid,roomPlayers[tid]);
         if(d.alive===false){flashKillFx(remoteAvatars.has(tid)?remoteAvatars.get(tid).position.clone():new T.Vector3());}
       }
+      spawnDamagePopup(tid, 'human', Number(d.damage)||0, d.team || (roomPlayers[tid] && roomPlayers[tid].team) || TEAM_BLUE);
     }else if(d.targetType==='ai'){
       for(var i=0;i<aiUnits.length;i++){
         var u=aiUnits[i]; if(!u||u.id!==d.targetId)continue;
@@ -3654,6 +3738,7 @@ function initSocket(){
         if(u.avatar){updateAvatarHPBar(u.avatar,u.hp);if(!u.alive)u.avatar.visible=false;}
         break;
       }
+      spawnDamagePopup(d.targetId, 'ai', Number(d.damage)||0, d.team || TEAM_RED);
     }
     if(d && d.killed && d.sourceId && socket && d.sourceId===socket.id){ awardBombPoint(1); }
     if(inWaiting)updateWaitingUI();

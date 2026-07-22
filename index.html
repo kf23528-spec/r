@@ -37,11 +37,11 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 #reloadBarFill{height:100%;width:0%;background:linear-gradient(90deg,#ffd84d,#ffb51e);border-radius:2px}
 #hitIndicator{position:absolute;inset:0;pointer-events:none;z-index:45;background:radial-gradient(circle,transparent 55%,rgba(255,30,30,0) 100%);opacity:0;transition:opacity 0.05s}
 #hitIndicator.active{opacity:1;background:radial-gradient(circle,transparent 40%,rgba(255,20,20,0.45) 100%)}
-#crosshair{position:absolute;left:50%;top:50%;width:24px;height:24px;transform:translate(-50%,-50%);z-index:20;pointer-events:none;transition:all 0.08s}
+#crosshair{position:absolute;left:50%;top:50%;width:30px;height:30px;transform:translate(-50%,-50%);z-index:20;pointer-events:none;transition:all 0.08s;filter:drop-shadow(0 0 4px rgba(0,0,0,0.45))}
 #crosshair::before,#crosshair::after{content:"";position:absolute;left:50%;top:50%;background:#fff;box-shadow:0 0 6px rgba(255,255,255,0.6),0 0 2px rgba(0,0,0,1);transform:translate(-50%,-50%);border-radius:2px}
-#crosshair::before{width:20px;height:2px}
-#crosshair::after{width:2px;height:20px}
-#crosshairDot{position:absolute;left:50%;top:50%;width:4px;height:4px;border-radius:50%;background:#fff;transform:translate(-50%,-50%);box-shadow:0 0 4px rgba(0,0,0,1);z-index:21;pointer-events:none}
+#crosshair::before{width:24px;height:2px}
+#crosshair::after{width:2px;height:24px}
+#crosshairDot{position:absolute;left:50%;top:50%;width:6px;height:6px;border-radius:50%;background:#fff;transform:translate(-50%,-50%);box-shadow:0 0 4px rgba(0,0,0,1),0 0 10px rgba(255,255,255,0.35);z-index:21;pointer-events:none}
 #announce{position:absolute;left:50%;top:38%;transform:translate(-50%,-50%) scale(0.6);opacity:0;color:#ff3b3b;font-size:clamp(38px,9vw,88px);font-weight:900;letter-spacing:0.10em;text-shadow:0 0 22px rgba(255,60,60,0.9),0 0 8px rgba(255,255,255,0.5),0 4px 14px rgba(0,0,0,0.8);z-index:80;pointer-events:none;white-space:nowrap}
 #announce.show{animation:pop 0.60s ease-out forwards}
 @keyframes pop{0%{opacity:0;transform:translate(-50%,-50%) scale(0.40)}18%{opacity:1;transform:translate(-50%,-50%) scale(1.14)}55%{opacity:1;transform:translate(-50%,-50%) scale(1.00)}100%{opacity:0;transform:translate(-50%,-50%) scale(0.90)}}
@@ -71,6 +71,7 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 #bombButton.bomb-active{border-color:rgba(255,214,126,0.95);box-shadow:0 0 18px rgba(255,176,84,0.48),inset 0 0 12px rgba(255,176,84,0.18)}
 #bombButton:disabled{opacity:0.42;filter:grayscale(0.35);cursor:not-allowed}
 #bombButton::before{content:"💣";font-size:20px;color:rgba(255,214,126,0.96);text-shadow:0 0 8px rgba(255,176,84,0.55)}
+#bombButton::after{content:attr(data-points);position:absolute;right:6px;top:6px;min-width:18px;height:18px;padding:0 4px;border-radius:999px;background:rgba(10,10,10,0.86);border:1px solid rgba(255,214,126,0.88);color:#fff4d0;font-size:11px;font-weight:1000;line-height:18px;text-align:center;box-shadow:0 0 8px rgba(255,176,84,0.4);pointer-events:none}
 #bombSettingsPanel{display:none !important}
 #bombSettingsPanel.show{display:none !important}
 #bombSettingsTitle{display:none}
@@ -448,6 +449,7 @@ var canvas = document.getElementById('c');
 var shootButton = document.getElementById('shootButton');
 var reloadButton = document.getElementById('reloadButton');
 var bombButton = document.getElementById('bombButton');
+if(bombButton){ bombButton.dataset.points = '1'; }
 var bombSettingsPanel = document.getElementById('bombSettingsPanel');
 var bombAngleSlider = document.getElementById('bombAngleSlider');
 var bombPowerSlider = document.getElementById('bombPowerSlider');
@@ -660,7 +662,7 @@ var blueScore = 0, redScore = 0, roundIndex = 1;
 var matchOver = false, roundResolved = false, resultShown = false;
 var portraitMode = false;
 var ammo = MAG_SIZE, reloading = false, reloadTimer = 0;
-var bombModeActive = false, bombCharges = 1;
+var bombModeActive = false, bombPoints = 1, bombPointsMax = 99;
 var bombs = [];
 var bombSeq = 0;
 var firingHeld = false, fireLoopTimer = null;
@@ -2026,11 +2028,11 @@ function makeSmokeTexture(){
 
   // Soft outer silhouette
   var g=ctx.createRadialGradient(128,120,18,128,128,126);
-  g.addColorStop(0.00,'rgba(235,235,235,0.16)');
-  g.addColorStop(0.20,'rgba(150,150,150,0.28)');
-  g.addColorStop(0.52,'rgba(70,70,70,0.54)');
-  g.addColorStop(0.78,'rgba(20,20,20,0.82)');
-  g.addColorStop(1.00,'rgba(5,5,5,0)');
+  g.addColorStop(0.00,'rgba(235,235,235,1)');
+  g.addColorStop(0.20,'rgba(150,150,150,1)');
+  g.addColorStop(0.52,'rgba(70,70,70,1)');
+  g.addColorStop(0.78,'rgba(20,20,20,1)');
+  g.addColorStop(1.00,'rgba(5,5,5,1)');
   ctx.fillStyle=g;
   ctx.fillRect(0,0,256,256);
 
@@ -2042,10 +2044,10 @@ function makeSmokeTexture(){
     var r1=70 + i*10;
     var r2=122 + i*6;
     var rim=ctx.createRadialGradient(0,0,r1,0,0,r2);
-    rim.addColorStop(0.00,'rgba(0,0,0,0)');
-    rim.addColorStop(0.62,'rgba(0,0,0,0.04)');
-    rim.addColorStop(0.82,'rgba(0,0,0,0.33)');
-    rim.addColorStop(1.00,'rgba(0,0,0,0.92)');
+    rim.addColorStop(0.00,'rgba(0,0,0,1)');
+    rim.addColorStop(0.62,'rgba(0,0,0,1)');
+    rim.addColorStop(0.82,'rgba(0,0,0,1)');
+    rim.addColorStop(1.00,'rgba(0,0,0,1)');
     ctx.fillStyle=rim;
     ctx.beginPath();
     ctx.arc(0,0,124 - i*2,0,Math.PI*2);
@@ -2059,9 +2061,9 @@ function makeSmokeTexture(){
     ctx.globalAlpha=a;
     ctx.filter='blur(14px)';
     var cg=ctx.createRadialGradient(x,y,2,x,y,Math.max(rx,ry));
-    cg.addColorStop(0,'rgba(255,255,255,0.24)');
-    cg.addColorStop(0.35,'rgba(190,190,190,0.18)');
-    cg.addColorStop(1,'rgba(20,20,20,0)');
+    cg.addColorStop(0,'rgba(255,255,255,1)');
+    cg.addColorStop(0.35,'rgba(190,190,190,1)');
+    cg.addColorStop(1,'rgba(20,20,20,1)');
     ctx.fillStyle=cg;
     ctx.beginPath();
     ctx.ellipse(x,y,rx,ry,0,0,Math.PI*2);
@@ -2076,9 +2078,9 @@ function makeSmokeTexture(){
 
   // Slightly brighter cap on top to read as a dome from above
   var cap=ctx.createRadialGradient(128,92,8,128,92,92);
-  cap.addColorStop(0,'rgba(255,255,255,0.28)');
-  cap.addColorStop(0.3,'rgba(255,255,255,0.12)');
-  cap.addColorStop(1,'rgba(255,255,255,0)');
+  cap.addColorStop(0,'rgba(255,255,255,1)');
+  cap.addColorStop(0.3,'rgba(255,255,255,1)');
+  cap.addColorStop(1,'rgba(255,255,255,1)');
   ctx.fillStyle=cap;
   ctx.beginPath();
   ctx.arc(128,96,78,0,Math.PI*2);
@@ -2163,13 +2165,11 @@ function updateSmokeScreens(dt){
     var t = clamp01(fx.age / tacticalSkill.smokeLife);
 
     // 立ち上がりは速く、終盤だけ少し落とす
-    var fadeIn = clamp01(t / 0.08);
-    var fadeOut = clamp01((1 - t) / 0.14);
-    var alpha = Math.min(fadeIn, fadeOut);
+    var alpha = 1.0;
 
-    // 半透明っぽさを減らして、色をしっかり出す
+    // 完全に不透明にする
     fx.dome.material.opacity = 1.00 * alpha;
-    fx.ground.material.opacity = 0.90 * alpha;
+    fx.ground.material.opacity = 1.00 * alpha;
 
     // 少しずつ広がる
     var domeScale = 7.8 + t * 3.8;
@@ -2533,7 +2533,7 @@ function worldToScreen(vec){
 }
 function updateBombTrajectoryUI(){
   if(!bombTrajectory || !bombTrajectoryLine || !bombTrajectoryTip || !bombTrajectoryText) return;
-  var canBomb = gameMode===GAME_MODE.BATTLE && player.alive && !matchOver && bombCharges>0;
+  var canBomb = gameMode===GAME_MODE.BATTLE && player.alive && !matchOver && bombPoints>0;
   var show = !!(bombModeActive && canBomb);
   bombTrajectory.classList.toggle('show', show);
   if(!show) return;
@@ -2567,7 +2567,8 @@ function updateBombTrajectoryUI(){
 }
 function updateBombUI(){
   if(!bombButton||!shootButton)return;
-  var canBomb = gameMode===GAME_MODE.BATTLE && player.alive && !matchOver && bombCharges>0;
+  syncBombPointUI();
+  var canBomb = gameMode===GAME_MODE.BATTLE && player.alive && !matchOver && bombPoints>0;
   bombButton.disabled = !canBomb;
   bombButton.classList.toggle('bomb-active', bombModeActive && canBomb);
   shootButton.textContent = bombModeActive && canBomb ? 'THROW' : 'FIRE';
@@ -2584,8 +2585,19 @@ function updateBombUI(){
   if(bombSettingsPanel) bombSettingsPanel.classList.remove('show');
 }
 syncBombSettingValues();
+function syncBombPointUI(){
+  if(!bombButton) return;
+  var n = Math.max(0, Math.min(bombPointsMax, Math.round(Number(bombPoints) || 0)));
+  bombButton.dataset.points = n > 9 ? '9+' : String(n);
+}
+function awardBombPoint(amount){
+  var add = Math.round(Number(amount) || 0);
+  if(add <= 0) return;
+  bombPoints = Math.max(0, Math.min(bombPointsMax, Math.round((Number(bombPoints) || 0) + add)));
+  syncBombPointUI();
+}
 function setBombMode(on){
-  var next = !!on && bombCharges > 0 && gameMode===GAME_MODE.BATTLE && player.alive && !matchOver;
+  var next = !!on && bombPoints > 0 && gameMode===GAME_MODE.BATTLE && player.alive && !matchOver;
   var changed = next !== bombModeActive;
   bombModeActive = next;
   if(bombSettingsPanel) bombSettingsPanel.classList.remove('show');
@@ -2595,16 +2607,17 @@ function setBombMode(on){
   updateBombTrajectoryUI();
 }
 function toggleBombMode(){
-  if(bombCharges<=0 || gameMode!==GAME_MODE.BATTLE || !player.alive || matchOver) return;
+  if(bombPoints<=0 || gameMode!==GAME_MODE.BATTLE || !player.alive || matchOver) return;
   setBombMode(!bombModeActive);
 }
 function resetBombState(){
-  bombCharges = 1;
+  bombPoints = 1;
   bombModeActive = false;
   bombs.length = 0;
   stopBombHold('angle');
   stopBombHold('power');
   syncBombSettingValues();
+  syncBombPointUI();
   updateBombUI();
   updateBombTrajectoryUI();
 }
@@ -2632,6 +2645,7 @@ function addBombProjectile(startPos, dir, ownerId, team, throwSpeed){
 function applyExplosionDamage(center, ownerId, team){
   var radius = BOMB_RADIUS;
   var affected = [];
+  var isLocalOwner = ownerId === (socket&&socket.id ? socket.id : 'local');
   function pushDamage(targetType, id, pos, applyFn){
     if(!pos) return;
     var dist = center.distanceTo(pos);
@@ -2682,6 +2696,7 @@ function applyExplosionDamage(center, ownerId, team){
       u.alive = u.hp > 0;
       if(u.avatar){ updateAvatarHPBar(u.avatar,u.hp); if(!u.alive) u.avatar.visible=false; }
       if(!u.alive) flashKillFx(new T.Vector3(u.x,1.0,u.z));
+      if(!u.alive && isLocalOwner){ awardBombPoint(1); }
       if(socket && socket.connected){
         socket.emit('damage-result', {room: currentRoom, targetType:'ai', targetId:u.id, hp:u.hp, alive:u.alive, team:u.team || TEAM_BLUE, damage:dmg, sourceType:'bomb', sourceId:ownerId});
       }
@@ -2705,14 +2720,15 @@ function explodeBomb(bomb){
   applyExplosionDamage(pos, bomb.ownerId, bomb.team);
 }
 function throwBomb(){
-  if(gameMode!==GAME_MODE.BATTLE || matchOver || !player.alive || bombCharges<=0) return;
+  if(gameMode!==GAME_MODE.BATTLE || matchOver || !player.alive || bombPoints<=0) return;
   playUiSfx('throw');
   var dir = getBombThrowVector();
   var speed = getBombThrowSpeed();
   var start = camera.position.clone().add(dir.clone().multiplyScalar(0.8));
   start.y = camera.position.y - 0.15;
   addBombProjectile(start, dir, socket&&socket.id ? socket.id : 'local', player.team || TEAM_BLUE, speed);
-  bombCharges = 0;
+  bombPoints = Math.max(0, (Number(bombPoints) || 0) - 1);
+  syncBombPointUI();
   bombModeActive = false;
   firingHeld = false;
   if(fireLoopTimer){ clearInterval(fireLoopTimer); fireLoopTimer = null; }
@@ -2761,7 +2777,7 @@ function showKillAnnouncement(text){announceEl.textContent=text||'HIT!';announce
 function resetRoundState(){
   roundResolved=false;matchOver=false;player.alive=true;player.spectating=false;spectateTargetId='';
   player.hp=player.maxHp=100;ammo=MAG_SIZE;reloading=false;reloadTimer=0;
-  bombCharges=1;bombModeActive=false;bombs.length=0;
+  resetBombState();
   gunState.reloadAnim=false;gunState.reloadAnimT=0;gunState.recoil=0;moveVel.set(0,0);
   resetTouchAndInputState();
   reviveHumansForNewRound();
@@ -3328,7 +3344,7 @@ function applyLocalShotHit(hitInfo,point){
 function fireOnce(){
   if(gameMode!==GAME_MODE.BATTLE||matchOver||!player.alive)return;
   if(bombModeActive){
-    if(bombCharges<=0){updateBombUI();return;}
+    if(bombPoints<=0){updateBombUI();return;}
     throwBomb();
     return;
   }
@@ -3456,14 +3472,14 @@ function enterRoom(){
   if(netOnline&&socket&&socket.connected){socket.emit('join-room',Object.assign({},buildLocalPlayerStateForJoin(),{matchMode:matchMode}));socket.emit('request-room-players',{room:currentRoom});setTimeout(function(){if(socket&&socket.connected)socket.emit('request-room-players',{room:currentRoom});},800);}
 }
 function enterRandomRoom(){
-  unlockAudio(); currentRoom='R0001'; currentMatchId=''; roomPlayers={}; inWaiting=true; roomStarted=false; isRandomMatch=true; battleBeginLock=false;bombModeActive=false;bombCharges=1;bombs.length=0;updateBombUI();updateBombTrajectoryUI();
+  unlockAudio(); currentRoom='R0001'; currentMatchId=''; roomPlayers={}; inWaiting=true; roomStarted=false; isRandomMatch=true; battleBeginLock=false;bombModeActive=false;bombPoints=1;bombs.length=0;updateBombUI();updateBombTrajectoryUI();
   gameMode=GAME_MODE.WAITING; waitingRoomNum.textContent='RANDOM QUEUE #0001';
   if(socket&&socket.id)roomPlayers[socket.id]={name:PLAYER_NAME,team:TEAM_BLUE,alive:true,hp:player.hp,room:currentRoom,x:camera.position.x,y:camera.position.y,z:camera.position.z,ry:yaw};
   setModeUI();updateWaitingUI();startRandomCountdown();
   if(netOnline&&socket&&socket.connected){socket.emit('join-room',Object.assign({},buildLocalPlayerStateForJoin(),{room:currentRoom,matchMode:'casual',isRandom:true}));socket.emit('request-room-players',{room:currentRoom});}
 }
 function leaveWaiting(){
-  stopRandomCountdown(); inWaiting=false;roomStarted=false;isRandomMatch=false;currentMatchId='';roomPlayers={};battleBeginLock=false;bombModeActive=false;bombCharges=1;bombs.length=0;updateBombUI();updateBombTrajectoryUI();
+  stopRandomCountdown(); inWaiting=false;roomStarted=false;isRandomMatch=false;currentMatchId='';roomPlayers={};battleBeginLock=false;bombModeActive=false;bombPoints=1;bombs.length=0;updateBombUI();updateBombTrajectoryUI();
   if(socket&&socket.connected&&currentRoom)socket.emit('leave-room',{room:currentRoom,name:PLAYER_NAME});
   currentRoom='';gameMode=GAME_MODE.LOBBY;setModeUI();setRoomInputValid();
 }
@@ -3639,6 +3655,7 @@ function initSocket(){
         break;
       }
     }
+    if(d && d.killed && d.sourceId && socket && d.sourceId===socket.id){ awardBombPoint(1); }
     if(inWaiting)updateWaitingUI();
   });
   socket.on('player-died',function(d){
@@ -3708,6 +3725,7 @@ function initSocket(){
     if(!aiUnits.length) initAIForMatch(data||{});
     resetAIForRound();
     reviveHumansForNewRound();
+    resetBombState();
     restoreBattleViewAfterRespawn();
     gameMode=GAME_MODE.BATTLE; setModeUI();
     loadingOverlay.style.display='none'; resultOverlay.style.display='none'; spectateOverlay.style.display='none';

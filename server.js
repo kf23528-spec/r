@@ -31,6 +31,15 @@ const AI_DAMAGE_PER_HIT = 4;
 // 明らかな異常連打(30ms未満の連続弾)だけを引き続き弾ける。
 const SHOT_MIN_INTERVAL_MS = 70;
 
+// ===== Random battle (matchmaking) tuning =====
+// ランダムバトルは「部屋番号固定の1試合」ではなく、キュー配下に
+// 複数の match インスタンス (roomId は "R0001-1", "R0001-2", ...) を
+// サーバー側で自動生成して振り分ける。HTML 側は今まで通り
+// currentRoom = 'R0001' で join-room してくるが、サーバーが実際の
+// roomId / matchId を決めて room-state 等で送り返す。
+const RANDOM_QUEUE_MAX_PLAYERS = MAX_PLAYERS; // 1試合の上限 = 8人
+const RANDOM_AI_FILL_DELAY_MS = 30000; // 30秒経過でAI補充して開始（既存仕様維持）
+
 const OUTER_WALLS = [
   { x: 0, z: -35.4, w: 72, d: 1.2 },
   { x: 0, z: 35.4, w: 72, d: 1.2 },
@@ -163,6 +172,13 @@ app.get('/', (_req, res) => {
 const players = Object.create(null);   // socket.id -> player
 const roomMeta = Object.create(null);   // roomId -> meta
 
+// ===== Random queue bookkeeping =====
+// queueId (= 元々 HTML が送ってくる room, 例 'R0001') -> {
+//   matchSeq: number,               // 次に発行する match 連番
+//   matches: [roomId, roomId, ...]  // このキューに属する実際の roomId 一覧（生成順）
+// }
+const randomQueues = Object.create(null);
+
 function normalizeRoom(room) {
   const s = String(room ?? '')
     .trim()
@@ -177,6 +193,68 @@ function safeNum(value, fallback) {
 
 function pickRandomMapId() {
   return MAP_IDS[Math.floor(Math.random() * MAP_IDS.length)] || 'arena';
+}
+
+// ---- Random queue helpers ----
+
+function ensureRandomQueue(queueId) {
+  if (!queueId) return null;
+  if (!randomQueues[queueId]) {
+    randomQueues[queueId] = {
+      matchSeq: 0,
+      matches: []
+    };
+  }
+  return randomQueues[queueId];
+}
+
+// そのキューに属する match のうち、まだ参加を受け付けられる（=試合開始
+// していない、かつ定員に空きがある）ものを探す。無ければ新規作成する。
+function findOrCreateOpenRandomMatch(queueId) {
+  const q = ensureRandomQueue(queueId);
+  if (!q) return null;
+
+  for (let i = 0; i < q.matches.length; i++) {
+    const roomId = q.matches[i];
+    const meta = roomMeta[roomId];
+    if (!meta) continue; // 空になって掃除された枠はスキップ
+    const count = getRoomCount(roomId);
+    // starting/matchStarted になっている試合には新規参加させない。
+    // lobby 状態で、かつ定員未満のものだけを対象にする。
+    if (meta.phase === 'lobby' && !meta.starting && !meta.matchStarted && count < RANDOM_QUEUE_MAX_PLAYERS) {
+      return roomId;
+    }
+  }
+
+  // 空いている match が無いので新規作成
+  q.matchSeq += 1;
+  const roomId = `${queueId}-${q.matchSeq}`;
+  q.matches.push(roomId);
+  const meta = ensureRoomMeta(roomId);
+  meta.isRandom = true;
+  meta.queueId = queueId;
+  meta.matchId = roomId;
+  return roomId;
+}
+
+// 途中参加を許すかどうかの判定。ロビー(未開始)なら常に許可。
+// 進行中の試合には新規参加させない（要件4）。
+function canJoinRandomMatch(roomId) {
+  const meta = roomMeta[roomId];
+  if (!meta) return true;
+  if (meta.phase === 'playing' || meta.phase === 'finished') return false;
+  const count = getRoomCount(roomId);
+  return count < RANDOM_QUEUE_MAX_PLAYERS;
+}
+
+function cleanupRandomQueueIfEmpty(queueId) {
+  const q = randomQueues[queueId];
+  if (!q) return;
+  // まだ roomMeta が残っている(=プレイヤーがいる) match が1つでもあれば維持
+  const stillActive = q.matches.some(roomId => !!roomMeta[roomId]);
+  if (!stillActive) {
+    delete randomQueues[queueId];
+  }
 }
 
 function ensureRoomMeta(room) {
@@ -200,7 +278,12 @@ function ensureRoomMeta(room) {
       redScore: 0,
       roundResolved: false,
       aiUnits: [],
-      mapId: 'arena'
+      mapId: 'arena',
+      // random battle specific
+      isRandom: false,
+      queueId: '',
+      matchId: '',
+      randomAiTimerId: null
     };
   }
   return roomMeta[roomId];
@@ -217,6 +300,10 @@ function clearRoomTimers(roomId) {
     clearTimeout(meta.roundResetTimerId);
     meta.roundResetTimerId = null;
   }
+  if (meta.randomAiTimerId) {
+    clearTimeout(meta.randomAiTimerId);
+    meta.randomAiTimerId = null;
+  }
 }
 
 function getRoomCount(room) {
@@ -228,8 +315,11 @@ function cleanupRoomMetaIfEmpty(room) {
   const roomId = normalizeRoom(room);
   if (!roomId) return;
   if (getRoomCount(roomId) === 0) {
+    const meta = roomMeta[roomId];
+    const queueId = meta && meta.queueId;
     clearRoomTimers(roomId);
     delete roomMeta[roomId];
+    if (queueId) cleanupRandomQueueIfEmpty(queueId);
   }
 }
 
@@ -442,13 +532,19 @@ function emitRoomState(room) {
   if (!meta) return;
 
   const count = getRoomCount(roomId);
-  if (count < START_MIN_PLAYERS) meta.starting = false;
+  const minPlayers = meta.isRandom ? RANDOM_START_MIN_PLAYERS : START_MIN_PLAYERS;
+  if (count < minPlayers) meta.starting = false;
 
   io.to(roomId).emit('room-state', {
     room: roomId,
+    // Random battle 用の識別子。HTML 側が今後これを見て currentRoom を
+    // 実際の match room に追従させられるようにする。
+    matchId: meta.matchId || roomId,
+    queueId: meta.queueId || '',
+    isRandom: !!meta.isRandom,
     count,
     maxPlayers: MAX_PLAYERS,
-    canStart: count >= START_MIN_PLAYERS && count <= MAX_PLAYERS && !meta.starting,
+    canStart: count >= minPlayers && count <= MAX_PLAYERS && !meta.starting,
     starting: meta.starting,
     matchStarted: meta.matchStarted,
     phase: meta.phase,
@@ -488,6 +584,9 @@ function broadcastRoomSnapshot(room) {
 
   const payload = {
     room: roomId,
+    matchId: meta.matchId || roomId,
+    queueId: meta.queueId || '',
+    isRandom: !!meta.isRandom,
     players: getRoomPlayers(roomId),
     phase: meta.phase,
     matchStarted: meta.matchStarted,
@@ -526,6 +625,9 @@ function resetPlayersForNextRound(roomId) {
 
   const payload = {
     room: roomId,
+    matchId: meta.matchId || roomId,
+    queueId: meta.queueId || '',
+    isRandom: !!meta.isRandom,
     roundIndex: meta.roundIndex,
     startedAt: meta.startedAt,
     roundEndsAt: meta.roundEndsAt,
@@ -541,6 +643,9 @@ function resetPlayersForNextRound(roomId) {
   io.to(roomId).emit('round-started', payload);
   io.to(roomId).emit('match-started', {
     room: roomId,
+    matchId: meta.matchId || roomId,
+    queueId: meta.queueId || '',
+    isRandom: !!meta.isRandom,
     teams: {
       blue: getRoomPlayerEntries(roomId).filter(([, p]) => p.team === 'blue').map(([id]) => id),
       red: getRoomPlayerEntries(roomId).filter(([, p]) => p.team === 'red').map(([id]) => id)
@@ -580,6 +685,9 @@ function resolveRound(roomId, winner, reason) {
 
   const summary = {
     room: roomId,
+    matchId: meta.matchId || roomId,
+    queueId: meta.queueId || '',
+    isRandom: !!meta.isRandom,
     reason: reason || 'round-end',
     winner: finalWinner,
     blue: meta.blueScore,
@@ -595,6 +703,8 @@ function resolveRound(roomId, winner, reason) {
 
   io.to(roomId).emit('scoreUpdate', {
     room: roomId,
+    matchId: meta.matchId || roomId,
+    queueId: meta.queueId || '',
     blue: meta.blueScore,
     red: meta.redScore,
     round: meta.roundIndex
@@ -612,6 +722,10 @@ function resolveRound(roomId, winner, reason) {
       resetPlayersForNextRound(roomId);
       currentMeta.roundResetTimerId = null;
     }, ROUND_RESET_DELAY_MS);
+  } else if (meta.isRandom && meta.queueId) {
+    // ランダム戦の match が終了したら、この roomId はキューの「再利用可能な枠」
+    // からは自然に外れる（phase !== 'lobby' になるため findOrCreateOpenRandomMatch
+    // が拾わなくなる）。全員退室したら cleanupRoomMetaIfEmpty で掃除される。
   }
 }
 
@@ -644,6 +758,8 @@ function startRoundTimer(roomId) {
 
     io.to(roomId).emit('round-timer', {
       room: roomId,
+      matchId: currentMeta.matchId || roomId,
+      queueId: currentMeta.queueId || '',
       roundIndex: currentMeta.roundIndex,
       remainingMs,
       remainingSec: Math.ceil(remainingMs / 1000),
@@ -659,6 +775,8 @@ function startRoundTimer(roomId) {
   }, 500);
 }
 
+// 通常（ランキング/カジュアル、部屋番号固定）の試合開始。
+// これは元の実装をそのまま維持する。
 function startMatchInRoom(room, starterId, isRandomMatch) {
   const roomId = normalizeRoom(room);
   if (!roomId) return { ok: false, message: 'Invalid room' };
@@ -688,6 +806,8 @@ function startMatchInRoom(room, starterId, isRandomMatch) {
 
   io.to(roomId).emit('match-starting', {
     room: roomId,
+    matchId: meta.matchId || roomId,
+    queueId: meta.queueId || '',
     startedBy: starterId || '',
     count
   });
@@ -705,6 +825,8 @@ function startMatchInRoom(room, starterId, isRandomMatch) {
       currentMeta.phase = 'lobby';
       io.to(roomId).emit('match-start-cancelled', {
         room: roomId,
+        matchId: currentMeta.matchId || roomId,
+        queueId: currentMeta.queueId || '',
         message: 'Players left before start'
       });
       emitRoomState(roomId);
@@ -726,6 +848,9 @@ function startMatchInRoom(room, starterId, isRandomMatch) {
 
     const payload = {
       room: roomId,
+      matchId: currentMeta.matchId || roomId,
+      queueId: currentMeta.queueId || '',
+      isRandom: !!currentMeta.isRandom,
       teams: {
         blue: getRoomPlayerEntries(roomId).filter(([, p]) => p.team === 'blue').map(([id]) => id),
         red: getRoomPlayerEntries(roomId).filter(([, p]) => p.team === 'red').map(([id]) => id)
@@ -751,6 +876,42 @@ function startMatchInRoom(room, starterId, isRandomMatch) {
   }, START_DELAY_MS);
 
   return { ok: true };
+}
+
+// ===== Random battle match start (queue-aware) =====
+// 通常の startMatchInRoom と処理は近いが、
+//  - 開始条件判定に isRandom 用の最小人数を使う
+//  - 開始トリガーは「このキューで最初に見つかった開始可能な match」に対して
+//    一元的にかける (誰か1人が要求すればよい)
+//  - 30秒経過後もプレイヤーが揃わない場合はAIを補充して開始する既存仕様を維持
+function tryStartRandomMatch(roomId, starterId) {
+  const meta = roomMeta[roomId];
+  if (!meta || !meta.isRandom) return { ok: false, message: 'Not a random match room' };
+  if (meta.starting || meta.matchStarted) return { ok: false, message: 'Match already starting' };
+
+  const count = getRoomCount(roomId);
+  if (count < RANDOM_START_MIN_PLAYERS) return { ok: false, message: 'Not enough players' };
+
+  return startMatchInRoom(roomId, starterId, true);
+}
+
+// 参加者がランダム待機部屋(match)に入って RANDOM_AI_FILL_DELAY_MS 経っても
+// 開始していなければ、AI を補充して開始する（既存のクライアント側30秒仕様を
+// サーバー権威で肩代わりする）。
+function scheduleRandomAiFill(roomId) {
+  const meta = roomMeta[roomId];
+  if (!meta || !meta.isRandom) return;
+  if (meta.randomAiTimerId) return; // 既にスケジュール済み
+
+  meta.randomAiTimerId = setTimeout(() => {
+    const currentMeta = roomMeta[roomId];
+    if (!currentMeta) return;
+    currentMeta.randomAiTimerId = null;
+    if (currentMeta.starting || currentMeta.matchStarted) return;
+    const count = getRoomCount(roomId);
+    if (count < RANDOM_START_MIN_PLAYERS) return; // 誰もいなければ何もしない
+    tryStartRandomMatch(roomId, '');
+  }, RANDOM_AI_FILL_DELAY_MS);
 }
 
 function leaveRoom(socket) {
@@ -792,14 +953,110 @@ io.on('connection', socket => {
   };
 
   socket.on('join-room', (data = {}) => {
-    const roomId = normalizeRoom(data.room);
+    const requestedRoomId = normalizeRoom(data.room);
     const name = String(data.name || socket.id).slice(0, 20);
     const matchMode = data.matchMode || 'ranked';
+    const wantsRandom = !!data.isRandom;
 
-    if (!roomId) {
+    if (!requestedRoomId) {
       socket.emit('join-room-error', { message: 'Invalid room number' });
       return;
     }
+
+    // ===== Random battle branch =====
+    // HTML 側は currentRoom = 'R0001'（固定文字列）で join してくる。
+    // これを「キューID」として扱い、実際にプレイヤーを入れる roomId は
+    // サーバーが findOrCreateOpenRandomMatch で決定する。
+    if (wantsRandom) {
+      const queueId = requestedRoomId; // 例: 'R0001'
+      const targetRoomId = findOrCreateOpenRandomMatch(queueId);
+
+      if (!targetRoomId || !canJoinRandomMatch(targetRoomId)) {
+        socket.emit('join-room-error', { message: 'Random match is full, please retry' });
+        return;
+      }
+
+      const prev = players[socket.id];
+      const prevRoom = prev ? normalizeRoom(prev.room) : '';
+
+      if (prevRoom && prevRoom !== targetRoomId) {
+        socket.leave(prevRoom);
+        socket.to(prevRoom).emit('playerDisconnected', socket.id);
+        broadcastRoomPlayers(prevRoom);
+        emitRoomState(prevRoom);
+        checkRoundEndCondition(prevRoom, 'player-switched-room');
+        cleanupRoomMetaIfEmpty(prevRoom);
+      }
+
+      const meta = ensureRoomMeta(targetRoomId);
+      meta.isRandom = true;
+      meta.queueId = queueId;
+      meta.matchId = targetRoomId;
+
+      players[socket.id] = {
+        id: socket.id,
+        name,
+        team: 'blue',
+        room: targetRoomId,
+        x: Number.isFinite(data.x) ? data.x : 0,
+        y: Number.isFinite(data.y) ? data.y : 1.6,
+        z: Number.isFinite(data.z) ? data.z : 5,
+        ry: Number.isFinite(data.ry) ? data.ry : 0,
+        alive: data.alive !== false,
+        hp: Number.isFinite(data.hp) ? data.hp : 100,
+        matchMode,
+        lastShotAt: 0,
+        lastSeenAt: Date.now(),
+        matchKills: 0,
+        matchDeaths: 0
+      };
+
+      socket.join(targetRoomId);
+      console.log(`📦 join-room(random): ${socket.id} -> queue ${queueId} -> match ${targetRoomId} (${name})`);
+
+      emitCurrentPlayers(socket, targetRoomId);
+
+      const fp = flatPlayer(socket.id, players[socket.id]);
+      socket.to(targetRoomId).emit('newPlayer', fp);
+
+      broadcastRoomPlayers(targetRoomId);
+      emitRoomState(targetRoomId);
+
+      socket.emit('room-snapshot', {
+        room: targetRoomId,
+        matchId: targetRoomId,
+        queueId,
+        isRandom: true,
+        players: getRoomPlayers(targetRoomId),
+        phase: meta.phase,
+        matchStarted: meta.matchStarted,
+        roundIndex: meta.roundIndex,
+        roundEndsAt: meta.roundEndsAt,
+        roundDurationMs: ROUND_DURATION_MS,
+        blue: meta.blueScore,
+        red: meta.redScore,
+        aiUnits: meta.aiUnits,
+        mapId: meta.mapId
+      });
+
+      // クライアントへ「本当の room / matchId」を明示的に伝える専用イベント。
+      // 既存の room-state / room-snapshot にも matchId は入っているが、
+      // HTML 側の adoptRandomServerRoom() が拾いやすいよう別途も送る。
+      socket.emit('random-match-assigned', {
+        queueId,
+        room: targetRoomId,
+        matchId: targetRoomId,
+        assignedRoom: targetRoomId,
+        count: getRoomCount(targetRoomId)
+      });
+
+      scheduleRandomAiFill(targetRoomId);
+      return;
+    }
+
+    // ===== Normal (ranked/casual, fixed room number) branch =====
+    // 既存仕様のまま。ランダム戦の分岐には一切影響しない。
+    const roomId = requestedRoomId;
 
     const prev = players[socket.id];
     const prevRoom = prev ? normalizeRoom(prev.room) : '';
@@ -852,6 +1109,9 @@ io.on('connection', socket => {
 
     socket.emit('room-snapshot', {
       room: roomId,
+      matchId: meta.matchId || roomId,
+      queueId: meta.queueId || '',
+      isRandom: false,
       players: getRoomPlayers(roomId),
       phase: meta.phase,
       matchStarted: meta.matchStarted,
@@ -888,11 +1148,15 @@ io.on('connection', socket => {
     if (!roomId) return;
 
     const meta = ensureRoomMeta(roomId);
+    const minPlayers = meta.isRandom ? RANDOM_START_MIN_PLAYERS : START_MIN_PLAYERS;
     socket.emit('room-state', {
       room: roomId,
+      matchId: meta.matchId || roomId,
+      queueId: meta.queueId || '',
+      isRandom: !!meta.isRandom,
       count: getRoomCount(roomId),
       maxPlayers: MAX_PLAYERS,
-      canStart: getRoomCount(roomId) >= START_MIN_PLAYERS && !meta.starting,
+      canStart: getRoomCount(roomId) >= minPlayers && !meta.starting,
       starting: meta.starting,
       matchStarted: meta.matchStarted,
       phase: meta.phase,
@@ -908,22 +1172,44 @@ io.on('connection', socket => {
   });
 
   socket.on('request-start-match', (data = {}) => {
+    const p = players[socket.id];
     const roomId = normalizeRoom(
-      data.room || (players[socket.id] && players[socket.id].room)
+      data.room || (p && p.room)
     );
     if (!roomId) return;
-    const result = startMatchInRoom(roomId, socket.id, !!data.isRandom);
+
+    const meta = roomMeta[roomId];
+    const wantsRandom = !!data.isRandom || (meta && meta.isRandom);
+
+    let result;
+    if (wantsRandom && meta && meta.isRandom) {
+      result = tryStartRandomMatch(roomId, socket.id);
+    } else {
+      result = startMatchInRoom(roomId, socket.id, !!data.isRandom);
+    }
+
     if (!result.ok) {
       socket.emit('start-match-error', { room: roomId, message: result.message });
     }
   });
 
   socket.on('start-match', (data = {}) => {
+    const p = players[socket.id];
     const roomId = normalizeRoom(
-      data.room || (players[socket.id] && players[socket.id].room)
+      data.room || (p && p.room)
     );
     if (!roomId) return;
-    const result = startMatchInRoom(roomId, socket.id, !!data.isRandom);
+
+    const meta = roomMeta[roomId];
+    const wantsRandom = !!data.isRandom || (meta && meta.isRandom);
+
+    let result;
+    if (wantsRandom && meta && meta.isRandom) {
+      result = tryStartRandomMatch(roomId, socket.id);
+    } else {
+      result = startMatchInRoom(roomId, socket.id, !!data.isRandom);
+    }
+
     if (!result.ok) {
       socket.emit('start-match-error', { room: roomId, message: result.message });
     }

@@ -4,7 +4,6 @@
     "three": "https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.module.js",
     "three/examples/jsm/loaders/FBXLoader.js": "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/loaders/FBXLoader.js",
     "three/examples/jsm/loaders/GLTFLoader.js": "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/loaders/GLTFLoader.js",
-    "three/examples/jsm/loaders/DRACOLoader.js": "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/loaders/DRACOLoader.js",
     "three/examples/jsm/libs/fflate.module.min.js": "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/libs/fflate.module.min.js",
     "three/examples/jsm/utils/SkeletonUtils.js": "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/utils/SkeletonUtils.js"
   }
@@ -204,7 +203,7 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 @keyframes spin{to{transform:rotate(360deg)}}
 #loadingText{font-size:clamp(28px,6vw,46px);font-weight:1000;letter-spacing:0.14em}
 #loadingSub{margin-top:10px;font-size:clamp(14px,3vw,18px);opacity:0.84}
-#loadingBar{margin:18px auto 0;width:min(100%,360px);height:8px;border-radius:999px;overflow:hidden;background:rgba(255,255,255,0.10);border:1px solid rgba(255,255,255,0.12)}#loadingTrace{margin:14px auto 0;width:min(100%,420px);max-height:34vh;overflow:auto;padding:12px 12px;border-radius:14px;background:rgba(0,0,0,0.42);border:1px solid rgba(255,255,255,0.12);text-align:left;white-space:pre-wrap;word-break:break-word;font-size:11px;line-height:1.5;color:rgba(255,255,255,0.9);box-shadow:inset 0 0 16px rgba(0,0,0,0.18)}#loadingTrace .t-ok{color:#72ff9d}#loadingTrace .t-warn{color:#ffd96a}#loadingTrace .t-err{color:#ff8f97}#loadingTrace .t-info{color:#92d7ff}
+#loadingBar{margin:18px auto 0;width:min(100%,360px);height:8px;border-radius:999px;overflow:hidden;background:rgba(255,255,255,0.10);border:1px solid rgba(255,255,255,0.12)}
 #loadingFill{width:35%;height:100%;border-radius:inherit;background:linear-gradient(90deg,#62e0ff,#6d7bff,#d06dff);animation:loadingFlow 1.2s ease-in-out infinite}
 @keyframes loadingFlow{0%{transform:translateX(-70%)}50%{transform:translateX(90%)}100%{transform:translateX(-70%)}}
 #spectateOverlay{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);z-index:90;display:none;padding:10px 16px;border-radius:999px;background:rgba(0,0,0,0.55);border:1px solid rgba(255,255,255,0.12);color:#fff;font-size:12px;font-weight:800;letter-spacing:0.08em;pointer-events:none;backdrop-filter:blur(6px)}
@@ -296,7 +295,7 @@ input,button{-webkit-appearance:none;appearance:none}
 #cacheClearBtn{background:linear-gradient(135deg,#ff8c00,#ff4500 72%,#ff1493);color:#fff;box-shadow:0 14px 28px rgba(255,80,0,0.24),inset 0 0 18px rgba(255,255,255,0.10)}
 #nameSaveBtn:active,#cacheClearBtn:active{transform:scale(0.98);filter:brightness(1.08)}
 
-</style></head><body><div id="bootOverlay" style="position:fixed;inset:0;z-index:999999;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at center,rgba(8,14,24,0.95),rgba(0,0,0,0.98));color:#fff;font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;text-align:center;padding:20px;box-sizing:border-box"><div style="width:min(92vw,720px);padding:22px 18px;border-radius:22px;background:linear-gradient(180deg,rgba(255,255,255,0.10),rgba(255,255,255,0.05));border:1px solid rgba(255,255,255,0.16);box-shadow:0 24px 60px rgba(0,0,0,0.45),inset 0 0 24px rgba(255,255,255,0.03)"><div style="font-size:clamp(26px,5vw,40px);font-weight:1000;letter-spacing:0.16em;margin-bottom:10px">NEON ARENA</div><div id="bootMsg" style="font-size:clamp(14px,3vw,18px);opacity:0.9;line-height:1.7">BOOT: waiting for script...</div><div id="bootMsg2" style="margin-top:10px;font-size:12px;opacity:0.7;line-height:1.6">If this screen stays, the page script stopped before starting the asset loader.</div></div></div><div id="game"><canvas id="c"></canvas><div id="hud"><div id="touchLookArea"></div><div id="hpBlock"><div id="hpLabel"><span>💚 HP</span><span id="hpText">100 / 100</span></div><div id="hpBarOuter"><div id="hpBarInner"></div></div></div><div class="connecting" id="netBadge">🟡 接続中...</div><div id="onlineCount">👥 同室: 1人</div><div id="status"><div id="scoreBoard">BLUE <span id="blueScore">0</span> / RED <span id="redScore">0</span></div><div id="roundState">ROUND: <span id="roundText">1</span> | <span id="phaseText">FIGHT</span> | 先に5点で勝利</div><span id="ammo">AMMO: <span id="ammoCount">30</span> / ∞</span><span id="points">PTS: <span id="pointCount">0</span></span><span id="reloadIndicator">⟳ RELOADING...</span><div id="reloadBar"><div id="reloadBarFill"></div></div></div><div id="hitIndicator"></div><div id="crosshair"></div><div id="crosshairDot"></div><div id="announce"></div><div id="killFeed"></div><div id="joystickContainer"><div class="base"></div><div class="knob" id="knob"></div></div><button id="shootButton">FIRE</button><button aria-label="リロード" id="reloadButton"></button><button aria-label="爆弾" id="bombButton"></button><div id="bombSettingsPanel"><div id="bombSettingsTitle">BOMB CONTROL</div><div class="bombSettingRow"><div class="bombSettingLabel"><span>ANGLE</span><span class="bombSettingValue" id="bombAngleValue">35°</span></div><input class="bombSlider" id="bombAngleSlider" type="range" min="10" max="70" step="1" value="35"/></div><div class="bombSettingRow"><div class="bombSettingLabel"><span>DISTANCE</span><span class="bombSettingValue" id="bombPowerValue">100%</span></div><input class="bombSlider" id="bombPowerSlider" type="range" min="70" max="160" step="1" value="100"/></div><div id="bombHint">爆弾モード中に投擲角度と飛距離を調整できます</div></div><button aria-label="ADS" id="adsButton"></button><button aria-label="スキル" id="skillButton" title="スキル"></button><button id="shopButton" type="button">SHOP</button>
+</style></head><body><div id="game"><canvas id="c"></canvas><div id="hud"><div id="touchLookArea"></div><div id="hpBlock"><div id="hpLabel"><span>💚 HP</span><span id="hpText">100 / 100</span></div><div id="hpBarOuter"><div id="hpBarInner"></div></div></div><div class="connecting" id="netBadge">🟡 接続中...</div><div id="onlineCount">👥 同室: 1人</div><div id="status"><div id="scoreBoard">BLUE <span id="blueScore">0</span> / RED <span id="redScore">0</span></div><div id="roundState">ROUND: <span id="roundText">1</span> | <span id="phaseText">FIGHT</span> | 先に5点で勝利</div><span id="ammo">AMMO: <span id="ammoCount">30</span> / ∞</span><span id="points">PTS: <span id="pointCount">0</span></span><span id="reloadIndicator">⟳ RELOADING...</span><div id="reloadBar"><div id="reloadBarFill"></div></div></div><div id="hitIndicator"></div><div id="crosshair"></div><div id="crosshairDot"></div><div id="announce"></div><div id="killFeed"></div><div id="joystickContainer"><div class="base"></div><div class="knob" id="knob"></div></div><button id="shootButton">FIRE</button><button aria-label="リロード" id="reloadButton"></button><button aria-label="爆弾" id="bombButton"></button><div id="bombSettingsPanel"><div id="bombSettingsTitle">BOMB CONTROL</div><div class="bombSettingRow"><div class="bombSettingLabel"><span>ANGLE</span><span class="bombSettingValue" id="bombAngleValue">35°</span></div><input class="bombSlider" id="bombAngleSlider" type="range" min="10" max="70" step="1" value="35"/></div><div class="bombSettingRow"><div class="bombSettingLabel"><span>DISTANCE</span><span class="bombSettingValue" id="bombPowerValue">100%</span></div><input class="bombSlider" id="bombPowerSlider" type="range" min="70" max="160" step="1" value="100"/></div><div id="bombHint">爆弾モード中に投擲角度と飛距離を調整できます</div></div><button aria-label="ADS" id="adsButton"></button><button aria-label="スキル" id="skillButton" title="スキル"></button><button id="shopButton" type="button">SHOP</button>
 <div id="bombTrajectory"><div id="bombTrajectoryLine"></div><div id="bombTrajectoryTip"></div><div id="bombTrajectoryText"></div></div>
 <div id="bombQuickControls"><div class="bombQuickGroup"><div class="bombQuickReadout"><span>ANGLE</span><span class="val" id="bombAngleButtonValue">35°</span></div><button class="bombQuickButton" id="bombAngleButton" type="button" aria-label="角度調整"></button></div><div class="bombQuickGroup"><div class="bombQuickReadout"><span>DIST</span><span class="val" id="bombDistanceButtonValue">100%</span></div><button class="bombQuickButton" id="bombDistanceButton" type="button" aria-label="距離調整"></button></div></div>
 <div id="shopOverlay"><div id="shopPanel"><div id="shopHeader"><div><div id="shopBadge">VALORANT STYLE SHOP</div><div id="shopTitle">BUY PHASE</div><div id="shopSub">30秒の準備時間だけ開くショップ</div></div><button id="shopCloseBtn" type="button" aria-label="閉じる">✕</button></div><div id="shopPointsRow"><span>PTS</span><strong id="shopPointCount">0</strong></div><button id="shopBuyBombBtn" type="button"><span class="shopItemTop"><span class="shopItemName">BOMB +1</span><span class="shopItemCost">250</span></span><span class="shopItemDesc">1個購入すると爆弾が1つ増える</span></button></div></div><div id="lobbyOverlay"><div id="lobbyShell"><div id="lobbyCard"><div id="lobbyBadge">NEON // ONLINE ARENA</div><div id="lobbyTitle">NEON ARENA<br/>ONLINE</div><div id="lobbySub">部屋番号を入力して、同じ番号のプレイヤーとマッチング。</div><div id="roomPanel"><div id="roomPanelLabel">ROOM NUMBER（4桁）</div><div id="roomInputRow"><input autocomplete="off" autocorrect="off" id="roomInput" inputmode="numeric" maxlength="4" pattern="[0-9]*" placeholder="0000" spellcheck="false" type="tel"/><button id="roomGenBtn" title="ランダム生成">🎲</button></div><div id="roomHint">同じ番号の相手が入室するとマッチング開始</div></div><div id="rankPanel"><div id="rankRow"><span id="rankName">ブロンズ I</span><span id="rankPct">0%</span></div><div id="rankBar"><div id="rankFill"></div></div><div id="rankHint">RANK SAVED TO LOCAL STORAGE</div></div><button id="randomBattleBtn">⚡ RANDOM BATTLE</button><button id="settingsOpenBtn" type="button">⚙ 設定</button><button disabled="" id="lobbyStartBtn">部屋に入る →</button></div><div id="lobbySide"><div id="lobbyStats"><div class="statCard"><div class="statLabel">MODE</div><div class="statValue" id="lobbyModeValue">RANKED</div><div class="statSub">CASUAL / RANKED</div></div><div class="statCard"><div class="statLabel">GOAL</div><div class="statValue">5</div><div class="statSub">FIRST TO FIVE</div></div><div class="statCard"><div class="statLabel">NET</div><div class="statValue" id="lobbyNetValue">--</div><div class="statSub">SOCKET.IO STATUS</div></div><div class="statCard"><div class="statLabel">ROOM</div><div class="statValue" id="lobbyRoomValue">----</div><div class="statSub">4-DIGIT NUMBER</div></div></div><div id="modePanel"><div id="modeLabelLine">MATCH TYPE</div><div id="modeButtons"><button class="modeBtn" id="casualModeBtn" type="button">CASUAL</button><button class="modeBtn active" id="rankedModeBtn" type="button">RANKED</button><button class="modeBtn" id="randomModeBtn" type="button">⚡ RANDOM</button></div><div id="modeDesc">ランク戦はXP獲得。先に5点で勝利。</div></div></div></div></div>
@@ -333,77 +332,13 @@ input,button{-webkit-appearance:none;appearance:none}
     </div>
   </div>
 </div>
-<div id="waitingOverlay"><div id="waitingCard"><div id="waitingRoomNum">ROOM NUMBER</div><div id="waitingTitle">WAITING FOR PLAYERS</div><div id="waitingSubtitle">同じ部屋の本物のプレイヤーを待っています</div><div id="randomCountdownWrap"><div id="randomCountdownLabel">RANDOM MATCH STARTING IN</div><div id="randomCountdownNum">30</div><div id="randomCountdownBar"><div id="randomCountdownFill"></div></div></div><div id="playerCountBadge">🟢 <span id="waitingCountText">あなたのみ</span></div><div id="playerListWrap"><div id="playerListLabel">IN THIS ROOM</div><div id="playerList"></div></div><div id="waitingProgress"><div id="waitingProgressFill"></div></div><div id="waitingHint">2人以上で出撃ボタンが表示されます</div><button id="battleLaunchBtn">出撃</button><button id="waitingCancelBtn">← 戻る</button></div></div><div id="loadingOverlay"><div id="loadingCard"><div id="loadingSpinner"></div><div id="loadingText">DEPLOYING</div><div id="loadingSub">戦場を同期しています...</div><div id="loadingBar"><div id="loadingFill"></div></div><div id="loadingTrace" aria-live="polite"></div></div></div><div id="resultOverlay"><div class="resultBackdrop"></div><div class="resultScanlines"></div><div class="resultGlow resultGlowA"></div><div class="resultGlow resultGlowB"></div><div class="resultGlow resultGlowC"></div><div class="resultCard"><div id="resultMedal">VICTORY</div><div id="resultText">YOUR TEAM WON</div><div id="resultSub">LOADING BACK TO THE HUB...</div><div aria-hidden="true" id="resultPromo"></div><div id="resultStatsPanel"><div id="resultStatsGrid"><div class="resultStatCard"><div class="resultStatLabel">KILLS</div><div class="resultStatValue" id="resultKills">0</div></div><div class="resultStatCard"><div class="resultStatLabel">DEATHS</div><div class="resultStatValue" id="resultDeaths">0</div></div><div class="resultStatCard"><div class="resultStatLabel">K/D RATIO</div><div class="resultStatValue" id="resultKdr">0.00</div></div><div class="resultStatCard"><div class="resultStatLabel">FINAL SCORE</div><div class="resultStatValue" id="resultFinalScore">0 - 0</div></div></div><div id="resultRankRow"><span id="resultRankName">ブロンズ I</span><span id="resultRankDelta">+0 XP</span></div></div></div></div><div id="spectateOverlay"><div id="spectateOverlay">SPECTATING</div><div id="rotateOverlay">📱 画面を横向きにしてください</div></div></div><script>
-(function(){
-  var bootMsg = document.getElementById('bootMsg');
-  var bootMsg2 = document.getElementById('bootMsg2');
-  var last = [];
-  function push(msg){
-    last.push(msg);
-    if(last.length > 4) last.shift();
-    if(bootMsg) bootMsg.innerHTML = last.join('<br>');
-  }
-  push('BOOT: DOM ready');
-  window.addEventListener('error', function(e){
-    push('ERROR: ' + (e && e.message ? e.message : 'unknown'));
-    if(bootMsg2) bootMsg2.textContent = 'Check the first error above.';
-  });
-  window.addEventListener('unhandledrejection', function(e){
-    var r = e && e.reason;
-    push('PROMISE: ' + (r && r.message ? r.message : String(r)));
-    if(bootMsg2) bootMsg2.textContent = 'Promise rejected before loader finished.';
-  });
-  window.__bootTrace = function(msg){
-    push(msg);
-  };
-})();
-</script>
-<script type="module">import * as THREE_NS from 'three';
+<div id="waitingOverlay"><div id="waitingCard"><div id="waitingRoomNum">ROOM NUMBER</div><div id="waitingTitle">WAITING FOR PLAYERS</div><div id="waitingSubtitle">同じ部屋の本物のプレイヤーを待っています</div><div id="randomCountdownWrap"><div id="randomCountdownLabel">RANDOM MATCH STARTING IN</div><div id="randomCountdownNum">30</div><div id="randomCountdownBar"><div id="randomCountdownFill"></div></div></div><div id="playerCountBadge">🟢 <span id="waitingCountText">あなたのみ</span></div><div id="playerListWrap"><div id="playerListLabel">IN THIS ROOM</div><div id="playerList"></div></div><div id="waitingProgress"><div id="waitingProgressFill"></div></div><div id="waitingHint">2人以上で出撃ボタンが表示されます</div><button id="battleLaunchBtn">出撃</button><button id="waitingCancelBtn">← 戻る</button></div></div><div id="loadingOverlay"><div id="loadingCard"><div id="loadingSpinner"></div><div id="loadingText">DEPLOYING</div><div id="loadingSub">戦場を同期しています...</div><div id="loadingBar"><div id="loadingFill"></div></div></div></div><div id="resultOverlay"><div class="resultBackdrop"></div><div class="resultScanlines"></div><div class="resultGlow resultGlowA"></div><div class="resultGlow resultGlowB"></div><div class="resultGlow resultGlowC"></div><div class="resultCard"><div id="resultMedal">VICTORY</div><div id="resultText">YOUR TEAM WON</div><div id="resultSub">LOADING BACK TO THE HUB...</div><div aria-hidden="true" id="resultPromo"></div><div id="resultStatsPanel"><div id="resultStatsGrid"><div class="resultStatCard"><div class="resultStatLabel">KILLS</div><div class="resultStatValue" id="resultKills">0</div></div><div class="resultStatCard"><div class="resultStatLabel">DEATHS</div><div class="resultStatValue" id="resultDeaths">0</div></div><div class="resultStatCard"><div class="resultStatLabel">K/D RATIO</div><div class="resultStatValue" id="resultKdr">0.00</div></div><div class="resultStatCard"><div class="resultStatLabel">FINAL SCORE</div><div class="resultStatValue" id="resultFinalScore">0 - 0</div></div></div><div id="resultRankRow"><span id="resultRankName">ブロンズ I</span><span id="resultRankDelta">+0 XP</span></div></div></div></div><div id="spectateOverlay"><div id="spectateOverlay">SPECTATING</div><div id="rotateOverlay">📱 画面を横向きにしてください</div></div></div><script type="module">import * as THREE_NS from 'three';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 import { SkeletonUtils } from 'three/examples/jsm/utils/SkeletonUtils.js';
 (function(){
 'use strict';
 var RENDER_SERVER_URL = 'https://r-cjyh.onrender.com';
-var sharedDracoLoader = null;
-function createGltfLoader(){
-  var loader = new GLTFLoader();
-  if(!sharedDracoLoader){
-    sharedDracoLoader = new DRACOLoader();
-    sharedDracoLoader.setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/libs/draco/');
-    try{ sharedDracoLoader.preload(); }catch(e){}
-  }
-  loader.setDRACOLoader(sharedDracoLoader);
-  return loader;
-}
-
-function resetLoadingTrace(title){
-  if(loadingTraceEl){
-    loadingTraceEl.innerHTML = '';
-  }
-  appendLoadingTrace('info', title || 'loading...');
-}
-function appendLoadingTrace(kind, text){
-  var lineText = '[' + new Date().toLocaleTimeString() + '] ' + text;
-  if(loadingTraceEl){
-    var line = document.createElement('div');
-    line.className = 't-' + (kind || 'info');
-    line.textContent = lineText;
-    loadingTraceEl.appendChild(line);
-    loadingTraceEl.scrollTop = loadingTraceEl.scrollHeight;
-  }
-  try{
-    if(window.__bootTrace){ window.__bootTrace(text); }
-    console.log('[ASSET]', lineText);
-  }catch(e){}
-}
-function safeErrText(err){
-  if(!err) return 'unknown error';
-  if(typeof err === 'string') return err;
-  if(err.message) return err.message;
-  try{ return JSON.stringify(err); }catch(e){ return String(err); }
-}
 var NAME_KEY = 'arena_name_v1';
 var SENS_KEY = 'arena_sensitivity_v1';
 var URL_PLAYER_NAME = new URLSearchParams(location.search).get('name') || '';
@@ -612,7 +547,6 @@ var rankPctEl = document.getElementById('rankPct');
 var rankFillEl = document.getElementById('rankFill');
 var loadingTextEl = document.getElementById('loadingText');
 var loadingSubEl = document.getElementById('loadingSub');
-var loadingTraceEl = document.getElementById('loadingTrace');
 var resultTextEl = document.getElementById('resultText');
 var resultSubEl = document.getElementById('resultSub');
 var resultKillsEl = document.getElementById('resultKills');
@@ -1385,14 +1319,12 @@ function onPoloReady(fn){
   poloFbxWaiters.push(fn);
 }
 function loadGunGlbForAvatars(){
-  var loader = createGltfLoader();
-  appendLoadingTrace('info', 'HAND: ju.glb 読み込み開始');
+  var loader = new GLTFLoader();
   loader.load(
     'ju.glb',
     function(gltf){
       var sceneObj = gltf && gltf.scene ? gltf.scene : (gltf && gltf.scenes && gltf.scenes[0] ? gltf.scenes[0] : null);
       if(!sceneObj){
-        appendLoadingTrace('err', 'HAND: ju.glb は読めたが scene が空');
         throw new Error('ju.glb loaded but scene was empty');
       }
       sceneObj.updateMatrixWorld(true);
@@ -1405,22 +1337,12 @@ function loadGunGlbForAvatars(){
         var freshGun = cloneGunForAvatar();
         attachGunToCamera(freshGun);
       }catch(e){
-        appendLoadingTrace('warn', 'HAND: カメラ接続後の再attach失敗 -> ' + safeErrText(e));
         console.warn('[GUN] attach after load failed:', e);
       }
-      appendLoadingTrace('ok', 'HAND: ju.glb 読み込み成功');
       console.log('[GUN] ju.glb loaded');
     },
-    function(xhr){
-      if(xhr && xhr.total){
-        var pct = Math.round((xhr.loaded / xhr.total) * 100);
-        appendLoadingTrace('info', 'HAND: 進行 ' + pct + '%');
-      }else{
-        appendLoadingTrace('info', 'HAND: ダウンロード中...');
-      }
-    },
+    undefined,
     function(err){
-      appendLoadingTrace('err', 'HAND: 読み込み失敗 -> ' + safeErrText(err));
       console.warn('[GUN] ju.glb load failed, using procedural fallback:', err);
       gunGlbTemplate = buildProceduralGun();
       prepareGunTemplate(gunGlbTemplate);
@@ -3970,7 +3892,7 @@ function beginBattle(data){
   if(data) adoptRandomServerRoom(data);
   if(battleBeginLock)return; battleBeginLock=true; stopRandomCountdown();
   roomStarted=true;inWaiting=false;gameMode=GAME_MODE.LOADING;endRoundPrep();setModeUI();
-  loadingTextEl.textContent='DEPLOYING';loadingSubEl.textContent='戦場を同期しています...';loadingOverlay.style.display='flex';resetLoadingTrace('BATTLE: 読み込み開始');
+  loadingTextEl.textContent='DEPLOYING';loadingSubEl.textContent='戦場を同期しています...';loadingOverlay.style.display='flex';
   if(data&&data.mapId) rebuildMapIfNeeded(data.mapId);
   if(data&&data.teams&&socket&&socket.id&&data.teams.blue&&data.teams.red){
     if(data.teams.blue.indexOf(socket.id)!==-1)player.team=TEAM_BLUE;
@@ -4229,7 +4151,7 @@ function initSocket(){
     if(Number.isFinite(pl.roundIndex))roundIndex=pl.roundIndex;
     updateScoreUI();
     if(inWaiting)updateWaitingUI();updateWaitingLaunchBtn();updateRemotePlayersFromState();
-    if(pl.starting&&inWaiting){gameMode=GAME_MODE.LOADING;setModeUI();loadingOverlay.style.display='flex';loadingTextEl.textContent='DEPLOYING';loadingSubEl.textContent='試合開始中...';resetLoadingTrace('BATTLE: 試合開始の同期中');}
+    if(pl.starting&&inWaiting){gameMode=GAME_MODE.LOADING;setModeUI();loadingOverlay.style.display='flex';loadingTextEl.textContent='DEPLOYING';loadingSubEl.textContent='試合開始中...';}
   });
   socket.on('round-timer',function(data){
     if(!acceptServerPayload(data))return; adoptRandomServerRoom(data);
@@ -4476,34 +4398,15 @@ function clearLoadedMapModel(){
 
 function loadGltfScene(url){
   return new Promise(function(resolve, reject){
-    var loader = createGltfLoader();
-    appendLoadingTrace('info', 'LOAD: ' + url + ' 開始');
+    var loader = new GLTFLoader();
     loader.load(
       encodeURI(url),
       function(gltf){
         var root = gltf && gltf.scene ? gltf.scene : (gltf && gltf.scenes && gltf.scenes[0]) ? gltf.scenes[0] : null;
-        if(!root){
-          appendLoadingTrace('warn', 'LOAD: ' + url + ' scene が空');
-        }else{
-          var childCount = 0;
-          try{
-            root.updateMatrixWorld(true);
-            childCount = root.children ? root.children.length : 0;
-          }catch(e){}
-          appendLoadingTrace('ok', 'LOAD: ' + url + ' 成功 (children=' + childCount + ')');
-        }
         resolve(root);
       },
-      function(xhr){
-        if(xhr && xhr.total){
-          var pct = Math.round((xhr.loaded / xhr.total) * 100);
-          appendLoadingTrace('info', 'LOAD: ' + url + ' ' + pct + '%');
-        }else{
-          appendLoadingTrace('info', 'LOAD: ' + url + ' ダウンロード中...');
-        }
-      },
+      undefined,
       function(err){
-        appendLoadingTrace('err', 'LOAD: ' + url + ' 失敗 -> ' + safeErrText(err));
         reject(err);
       }
     );
@@ -4935,7 +4838,6 @@ function buildProceduralArena(){
   var assetNames = [
     'theappxr_Floor_2_NODRACO_standard (1).glb',
     'sci-fi_wall.glb',
-    'gd50_varun_wall_and_corner.glb',
     'interior_-_wooden_crate__minecraft.glb',
     'shipping_container.glb',
     'broken_pillar_concrete_damaged.glb',
@@ -4944,20 +4846,9 @@ function buildProceduralArena(){
     'car.glb'
   ];
 
-  resetLoadingTrace('MAP: 読み込み開始 (' + assetNames.length + ' 個)');
-  assetNames.reduce(function(chain, name, idx){
-    return chain.then(function(models){
-      appendLoadingTrace('info', 'MAP: [' + (idx + 1) + '/' + assetNames.length + '] ' + name + ' を読み込み');
-      return loadGltfScene('./' + name).then(function(root){
-        if(!root){
-          appendLoadingTrace('warn', 'MAP: ' + name + ' は root が空');
-        }
-        models.push(root);
-        return models;
-      });
-    });
-  }, Promise.resolve([])).then(function(models){
-    appendLoadingTrace('info', 'MAP: 全アセット読込完了、テンプレート整形中');
+  Promise.all(assetNames.map(function(name){
+    return loadGltfScene('./' + name);
+  })).then(function(models){
     if(token !== mapLoadToken) return;
     var loaded = {
       floor: prepareTemplateRoot(models[0]),
@@ -4975,10 +4866,8 @@ function buildProceduralArena(){
       if(!loaded[k]) throw new Error('Missing template: ' + k);
     }
     assembleModularArena(loaded, token);
-    appendLoadingTrace('ok', 'MAP: アリーナ組み立て完了');
   }).catch(function(err){
     if(token !== mapLoadToken) return;
-    appendLoadingTrace('err', 'MAP: 読み込み全体が失敗 -> ' + safeErrText(err));
     console.error('Map GLB load failed:', err);
     var fallbackRoot = new T.Group();
     fallbackRoot.userData.isMapDecor = true;
@@ -5039,7 +4928,6 @@ function animate(){
   renderer.render(scene,camera);
 }
 function init(){
-  appendLoadingTrace('info', 'BOOT: init() 開始');
   loadRank();setMatchMode('ranked',false);updateRankUI();updateScoreUI();updatePointUI();updateAmmoUI();updateBombUI();updateBombTrajectoryUI();updatePlayerHPUI();updateOrientationUI();updateRoundPhaseUI();updateShopUI();syncSettingsUI();
   // loadBuildingAssets();
   buildMap('arena');gameMode=GAME_MODE.LOBBY;camera.position.set(0,16,33);camera.lookAt(0,0,0);

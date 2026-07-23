@@ -70,8 +70,8 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 #skillButton.skill-cooling{opacity:0.40;filter:grayscale(0.45)}
 #skillButton::before{content:"";position:absolute;width:42%;height:42%;border-radius:50%;border:2px solid rgba(170,255,230,0.95);box-shadow:0 0 10px rgba(140,255,210,0.55)}
 #skillButton::after{content:"";position:absolute;width:9px;height:9px;border-radius:50%;background:rgba(210,255,245,0.98);box-shadow:0 0 10px rgba(140,255,210,0.8)}
-#shopButton{position:absolute;left:50%;top:14px;transform:translateX(-50%);min-width:84px;height:42px;padding:0 14px;border:none;border-radius:12px;background:linear-gradient(160deg,#1a1114,#351118);border:1.5px solid rgba(255,110,90,0.70);box-shadow:0 8px 24px rgba(0,0,0,0.48),inset 0 0 12px rgba(255,110,90,0.08);pointer-events:auto;z-index:140;touch-action:none;-webkit-tap-highlight-color:transparent;cursor:pointer;color:#fff2ef;font-size:13px;font-weight:1000;letter-spacing:0.18em;display:none}
-#shopButton:active{transform:translateX(-50%) scale(0.97);filter:brightness(1.08)}
+#shopButton{position:absolute;right:18px;top:18px;min-width:84px;height:42px;padding:0 14px;border:none;border-radius:12px;background:linear-gradient(160deg,#1a1114,#351118);border:1.5px solid rgba(255,110,90,0.70);box-shadow:0 8px 24px rgba(0,0,0,0.48),inset 0 0 12px rgba(255,110,90,0.08);pointer-events:auto;z-index:140;touch-action:none;-webkit-tap-highlight-color:transparent;cursor:pointer;color:#fff2ef;font-size:13px;font-weight:1000;letter-spacing:0.18em;display:none}
+#shopButton:active{transform:scale(0.97);filter:brightness(1.08)}
 #shopButton.shop-ready{display:block;background:linear-gradient(160deg,#271316,#4b151c);border-color:rgba(255,116,94,0.95);box-shadow:0 0 18px rgba(255,100,80,0.25),0 8px 24px rgba(0,0,0,0.48),inset 0 0 12px rgba(255,110,90,0.14)}
 #shopButton:disabled{opacity:0.35;cursor:not-allowed;filter:grayscale(0.4)}
 #bombButton{position:absolute;right:calc(8px + min(17vw,100px) + 12px - 2px);bottom:calc(24px + min(14vw,84px) + 10px + min(14vw,84px) + 10px);width:min(14vw,84px);height:min(14vw,84px);max-width:84px;max-height:84px;min-width:64px;min-height:64px;border:none;border-radius:50%;background:linear-gradient(160deg,#5a3710,#2b1605);border:2px solid rgba(255,176,84,0.65);box-shadow:0 6px 20px rgba(0,0,0,0.50),inset 0 0 12px rgba(255,176,84,0.08);pointer-events:auto;z-index:100;touch-action:none;-webkit-tap-highlight-color:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center}
@@ -394,7 +394,7 @@ var PLAYER_SPEED = 5.5;
 var CAM_FOV_NORMAL = 70;
 var CAM_FOV_ADS = 56;
 var RANK_KEY = 'arena_rank_v9';
-var SEND_HZ = 66;
+var SEND_HZ = 50;
 var MATCH_PLAYER_MIN = 2;
 var MAX_PLAYERS = 8;
 var MAP_BORDER = 39.0;
@@ -414,9 +414,6 @@ var poloFbxWaiters  = [];
 var gunGlbTemplate  = null;
 var gunGlbReady     = false;
 var gunGlbWaiters   = [];
-var handGlbTemplate = null;
-var handGlbReady    = false;
-var handGlbWaiters  = [];
 var POLO_FBX_SCALE = 0.01;
 var POLO_TARGET_HEIGHT = 1.78;
 var POLO_ROT_Y = Math.PI;
@@ -1792,99 +1789,9 @@ function buildProceduralHands(){
   });
   return root;
 }
-function prepareHandTemplate(root){
-  if(!root) return root;
-  try{
-    root.updateMatrixWorld(true);
-    var box = new T.Box3().setFromObject(root);
-    if(!box.isEmpty()){
-      var size = new T.Vector3();
-      var center = new T.Vector3();
-      box.getSize(size);
-      box.getCenter(center);
-      root.position.sub(center);
-      var maxDim = Math.max(size.x, size.y, size.z) || 1;
-      var s = 0.58 / maxDim;
-      root.scale.multiplyScalar(s);
-      root.updateMatrixWorld(true);
-    }
-  }catch(e){}
-  root.traverse(function(c){
-    if(!c.isMesh) return;
-    c.castShadow = false;
-    c.receiveShadow = false;
-    c.frustumCulled = true;
-    var mats = Array.isArray(c.material) ? c.material : [c.material];
-    mats.forEach(function(m){
-      if(!m) return;
-      try{ m.side = T.DoubleSide; m.needsUpdate = true; }catch(e){}
-    });
-  });
-  return root;
-}
-function cloneHandTemplateForCamera(mirror){
-  if(!handGlbTemplate) return null;
-  var clone = SkeletonUtils.clone(handGlbTemplate);
-  clone.traverse(function(c){
-    if(!c.isMesh) return;
-    c.castShadow = false;
-    c.receiveShadow = false;
-    c.frustumCulled = true;
-    var mats = Array.isArray(c.material) ? c.material : [c.material];
-    mats.forEach(function(m){
-      if(!m) return;
-      try{ m.side = T.DoubleSide; m.needsUpdate = true; }catch(e){}
-    });
-  });
-  clone.rotation.set(0, mirror ? Math.PI : 0, 0);
-  clone.scale.setScalar(1.02);
-  return clone;
-}
-function loadHandGlbForPlayer(){
-  var loader = new GLTFLoader();
-  loader.load(
-    'hand(1).glb',
-    function(gltf){
-      var sceneObj = gltf && gltf.scene ? gltf.scene : (gltf && gltf.scenes && gltf.scenes[0] ? gltf.scenes[0] : null);
-      if(!sceneObj){
-        throw new Error('hand(1).glb loaded but scene was empty');
-      }
-      sceneObj.updateMatrixWorld(true);
-      prepareHandTemplate(sceneObj);
-      handGlbTemplate = sceneObj;
-      handGlbReady = true;
-      handGlbWaiters.forEach(function(fn){ try{ fn(handGlbTemplate); }catch(e){} });
-      handGlbWaiters = [];
-      attachHandsToCamera();
-      console.log('[HAND] hand(1).glb loaded');
-    },
-    undefined,
-    function(err){
-      console.warn('[HAND] hand(1).glb load failed, using procedural fallback:', err);
-      handGlbTemplate = null;
-      handGlbReady = true;
-      handGlbWaiters.forEach(function(fn){ try{ fn(null); }catch(e){} });
-      handGlbWaiters = [];
-      attachHandsToCamera();
-    }
-  );
-}
 function attachHandsToCamera(){
   if(handRoot && handRoot.parent) handRoot.parent.remove(handRoot);
-  handRoot = new T.Group();
-  var leftHand = cloneHandTemplateForCamera(true);
-  var rightHand = cloneHandTemplateForCamera(false);
-  if(!leftHand || !rightHand){
-    handRoot = buildProceduralHands();
-  }else{
-    leftHand.position.set(-0.12, -0.12, -0.07);
-    leftHand.rotation.set(-0.42, 0.04, 0.82);
-    handRoot.add(leftHand);
-
-    rightHand.position.set(0.11, -0.15, -0.01);
-    rightHand.rotation.set(-0.18, -0.08, -0.35);
-    handRoot.add(rightHand);
-  }
+  handRoot = buildProceduralHands();
   if(gunRoot) gunRoot.add(handRoot);
   handRoot.position.set(0,0,0);
   handRoot.rotation.set(0,0,0);
@@ -5001,13 +4908,13 @@ function animate(){
       updateSkillCamera(dt);
       updateBullets(dt);updateBombs(dt);updateAI(dt);updateSendLoop(dt);
       remoteSyncTimer += dt;
-      if(remoteSyncTimer >= 0.08){ remoteSyncTimer = 0; updateRemotePlayersFromState(); }
+      if(remoteSyncTimer >= 0.05){ remoteSyncTimer = 0; updateRemotePlayersFromState(); }
       updateRoundTimer(dt);updateRoundIfEnded();
     }else{
       syncCameraRotation();movePlayer(dt);updateGun(dt);updateMuzzleFlashes(dt);updateBullets(dt);updateBombs(dt);updateBombTrajectoryUI();
       updateAI(dt);updateReload(dt);updatePlayerHPUI();updateSendLoop(dt);
       remoteSyncTimer += dt;
-      if(remoteSyncTimer >= 0.08){ remoteSyncTimer = 0; updateRemotePlayersFromState(); }
+      if(remoteSyncTimer >= 0.05){ remoteSyncTimer = 0; updateRemotePlayersFromState(); }
       updateRoundTimer(dt);updateRoundIfEnded();
     }
   }else if(gameMode===GAME_MODE.SPECTATE){
@@ -5015,7 +4922,7 @@ function animate(){
     updateSpectateCamera(dt);updateGun(dt);updateMuzzleFlashes(dt);updateBullets(dt);updateBombs(dt);updateBombTrajectoryUI();
     updateAI(dt);updateSendLoop(dt);
     remoteSyncTimer += dt;
-    if(remoteSyncTimer >= 0.08){ remoteSyncTimer = 0; updateRemotePlayersFromState(); }
+    if(remoteSyncTimer >= 0.05){ remoteSyncTimer = 0; updateRemotePlayersFromState(); }
     updateRoundTimer(dt);updateRoundIfEnded();
   }else if(gameMode===GAME_MODE.RESULT){updateSendLoop(0);}
   if(gunRoot&&gameMode===GAME_MODE.BATTLE)gunPosTarget.copy(adsActive?gunPosAds:gunPosNormal);
@@ -5029,7 +4936,6 @@ function init(){
   setTimeout(maybeOpenFirstNamePrompt, 0);
   loadPoloFbx();
   loadGunGlbForAvatars();
-  loadHandGlbForPlayer();
     initSocket();animate();
 }
 init();

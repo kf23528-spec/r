@@ -204,7 +204,7 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 @keyframes spin{to{transform:rotate(360deg)}}
 #loadingText{font-size:clamp(28px,6vw,46px);font-weight:1000;letter-spacing:0.14em}
 #loadingSub{margin-top:10px;font-size:clamp(14px,3vw,18px);opacity:0.84}
-#loadingBar{margin:18px auto 0;width:min(100%,360px);height:8px;border-radius:999px;overflow:hidden;background:rgba(255,255,255,0.10);border:1px solid rgba(255,255,255,0.12)}
+#loadingBar{margin:18px auto 0;width:min(100%,360px);height:8px;border-radius:999px;overflow:hidden;background:rgba(255,255,255,0.10);border:1px solid rgba(255,255,255,0.12)}#loadingTrace{margin:14px auto 0;width:min(100%,420px);max-height:34vh;overflow:auto;padding:12px 12px;border-radius:14px;background:rgba(0,0,0,0.42);border:1px solid rgba(255,255,255,0.12);text-align:left;white-space:pre-wrap;word-break:break-word;font-size:11px;line-height:1.5;color:rgba(255,255,255,0.9);box-shadow:inset 0 0 16px rgba(0,0,0,0.18)}#loadingTrace .t-ok{color:#72ff9d}#loadingTrace .t-warn{color:#ffd96a}#loadingTrace .t-err{color:#ff8f97}#loadingTrace .t-info{color:#92d7ff}
 #loadingFill{width:35%;height:100%;border-radius:inherit;background:linear-gradient(90deg,#62e0ff,#6d7bff,#d06dff);animation:loadingFlow 1.2s ease-in-out infinite}
 @keyframes loadingFlow{0%{transform:translateX(-70%)}50%{transform:translateX(90%)}100%{transform:translateX(-70%)}}
 #spectateOverlay{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);z-index:90;display:none;padding:10px 16px;border-radius:999px;background:rgba(0,0,0,0.55);border:1px solid rgba(255,255,255,0.12);color:#fff;font-size:12px;font-weight:800;letter-spacing:0.08em;pointer-events:none;backdrop-filter:blur(6px)}
@@ -333,7 +333,7 @@ input,button{-webkit-appearance:none;appearance:none}
     </div>
   </div>
 </div>
-<div id="waitingOverlay"><div id="waitingCard"><div id="waitingRoomNum">ROOM NUMBER</div><div id="waitingTitle">WAITING FOR PLAYERS</div><div id="waitingSubtitle">同じ部屋の本物のプレイヤーを待っています</div><div id="randomCountdownWrap"><div id="randomCountdownLabel">RANDOM MATCH STARTING IN</div><div id="randomCountdownNum">30</div><div id="randomCountdownBar"><div id="randomCountdownFill"></div></div></div><div id="playerCountBadge">🟢 <span id="waitingCountText">あなたのみ</span></div><div id="playerListWrap"><div id="playerListLabel">IN THIS ROOM</div><div id="playerList"></div></div><div id="waitingProgress"><div id="waitingProgressFill"></div></div><div id="waitingHint">2人以上で出撃ボタンが表示されます</div><button id="battleLaunchBtn">出撃</button><button id="waitingCancelBtn">← 戻る</button></div></div><div id="loadingOverlay"><div id="loadingCard"><div id="loadingSpinner"></div><div id="loadingText">DEPLOYING</div><div id="loadingSub">戦場を同期しています...</div><div id="loadingBar"><div id="loadingFill"></div></div></div></div><div id="resultOverlay"><div class="resultBackdrop"></div><div class="resultScanlines"></div><div class="resultGlow resultGlowA"></div><div class="resultGlow resultGlowB"></div><div class="resultGlow resultGlowC"></div><div class="resultCard"><div id="resultMedal">VICTORY</div><div id="resultText">YOUR TEAM WON</div><div id="resultSub">LOADING BACK TO THE HUB...</div><div aria-hidden="true" id="resultPromo"></div><div id="resultStatsPanel"><div id="resultStatsGrid"><div class="resultStatCard"><div class="resultStatLabel">KILLS</div><div class="resultStatValue" id="resultKills">0</div></div><div class="resultStatCard"><div class="resultStatLabel">DEATHS</div><div class="resultStatValue" id="resultDeaths">0</div></div><div class="resultStatCard"><div class="resultStatLabel">K/D RATIO</div><div class="resultStatValue" id="resultKdr">0.00</div></div><div class="resultStatCard"><div class="resultStatLabel">FINAL SCORE</div><div class="resultStatValue" id="resultFinalScore">0 - 0</div></div></div><div id="resultRankRow"><span id="resultRankName">ブロンズ I</span><span id="resultRankDelta">+0 XP</span></div></div></div></div><div id="spectateOverlay"><div id="spectateOverlay">SPECTATING</div><div id="rotateOverlay">📱 画面を横向きにしてください</div></div></div><script type="module">import * as THREE_NS from 'three';
+<div id="waitingOverlay"><div id="waitingCard"><div id="waitingRoomNum">ROOM NUMBER</div><div id="waitingTitle">WAITING FOR PLAYERS</div><div id="waitingSubtitle">同じ部屋の本物のプレイヤーを待っています</div><div id="randomCountdownWrap"><div id="randomCountdownLabel">RANDOM MATCH STARTING IN</div><div id="randomCountdownNum">30</div><div id="randomCountdownBar"><div id="randomCountdownFill"></div></div></div><div id="playerCountBadge">🟢 <span id="waitingCountText">あなたのみ</span></div><div id="playerListWrap"><div id="playerListLabel">IN THIS ROOM</div><div id="playerList"></div></div><div id="waitingProgress"><div id="waitingProgressFill"></div></div><div id="waitingHint">2人以上で出撃ボタンが表示されます</div><button id="battleLaunchBtn">出撃</button><button id="waitingCancelBtn">← 戻る</button></div></div><div id="loadingOverlay"><div id="loadingCard"><div id="loadingSpinner"></div><div id="loadingText">DEPLOYING</div><div id="loadingSub">戦場を同期しています...</div><div id="loadingBar"><div id="loadingFill"></div></div><div id="loadingTrace" aria-live="polite"></div></div></div><div id="resultOverlay"><div class="resultBackdrop"></div><div class="resultScanlines"></div><div class="resultGlow resultGlowA"></div><div class="resultGlow resultGlowB"></div><div class="resultGlow resultGlowC"></div><div class="resultCard"><div id="resultMedal">VICTORY</div><div id="resultText">YOUR TEAM WON</div><div id="resultSub">LOADING BACK TO THE HUB...</div><div aria-hidden="true" id="resultPromo"></div><div id="resultStatsPanel"><div id="resultStatsGrid"><div class="resultStatCard"><div class="resultStatLabel">KILLS</div><div class="resultStatValue" id="resultKills">0</div></div><div class="resultStatCard"><div class="resultStatLabel">DEATHS</div><div class="resultStatValue" id="resultDeaths">0</div></div><div class="resultStatCard"><div class="resultStatLabel">K/D RATIO</div><div class="resultStatValue" id="resultKdr">0.00</div></div><div class="resultStatCard"><div class="resultStatLabel">FINAL SCORE</div><div class="resultStatValue" id="resultFinalScore">0 - 0</div></div></div><div id="resultRankRow"><span id="resultRankName">ブロンズ I</span><span id="resultRankDelta">+0 XP</span></div></div></div></div><div id="spectateOverlay"><div id="spectateOverlay">SPECTATING</div><div id="rotateOverlay">📱 画面を横向きにしてください</div></div></div><script type="module">import * as THREE_NS from 'three';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
@@ -351,6 +351,30 @@ function createGltfLoader(){
   }
   loader.setDRACOLoader(sharedDracoLoader);
   return loader;
+}
+
+function resetLoadingTrace(title){
+  if(loadingTraceEl){
+    loadingTraceEl.innerHTML = '';
+  }
+  appendLoadingTrace('info', title || 'loading...');
+}
+function appendLoadingTrace(kind, text){
+  var lineText = '[' + new Date().toLocaleTimeString() + '] ' + text;
+  if(loadingTraceEl){
+    var line = document.createElement('div');
+    line.className = 't-' + (kind || 'info');
+    line.textContent = lineText;
+    loadingTraceEl.appendChild(line);
+    loadingTraceEl.scrollTop = loadingTraceEl.scrollHeight;
+  }
+  try{ console.log('[ASSET]', lineText); }catch(e){}
+}
+function safeErrText(err){
+  if(!err) return 'unknown error';
+  if(typeof err === 'string') return err;
+  if(err.message) return err.message;
+  try{ return JSON.stringify(err); }catch(e){ return String(err); }
 }
 var NAME_KEY = 'arena_name_v1';
 var SENS_KEY = 'arena_sensitivity_v1';
@@ -560,6 +584,7 @@ var rankPctEl = document.getElementById('rankPct');
 var rankFillEl = document.getElementById('rankFill');
 var loadingTextEl = document.getElementById('loadingText');
 var loadingSubEl = document.getElementById('loadingSub');
+var loadingTraceEl = document.getElementById('loadingTrace');
 var resultTextEl = document.getElementById('resultText');
 var resultSubEl = document.getElementById('resultSub');
 var resultKillsEl = document.getElementById('resultKills');
@@ -1333,11 +1358,13 @@ function onPoloReady(fn){
 }
 function loadGunGlbForAvatars(){
   var loader = createGltfLoader();
+  appendLoadingTrace('info', 'HAND: ju.glb 読み込み開始');
   loader.load(
     'ju.glb',
     function(gltf){
       var sceneObj = gltf && gltf.scene ? gltf.scene : (gltf && gltf.scenes && gltf.scenes[0] ? gltf.scenes[0] : null);
       if(!sceneObj){
+        appendLoadingTrace('err', 'HAND: ju.glb は読めたが scene が空');
         throw new Error('ju.glb loaded but scene was empty');
       }
       sceneObj.updateMatrixWorld(true);
@@ -1350,12 +1377,22 @@ function loadGunGlbForAvatars(){
         var freshGun = cloneGunForAvatar();
         attachGunToCamera(freshGun);
       }catch(e){
+        appendLoadingTrace('warn', 'HAND: カメラ接続後の再attach失敗 -> ' + safeErrText(e));
         console.warn('[GUN] attach after load failed:', e);
       }
+      appendLoadingTrace('ok', 'HAND: ju.glb 読み込み成功');
       console.log('[GUN] ju.glb loaded');
     },
-    undefined,
+    function(xhr){
+      if(xhr && xhr.total){
+        var pct = Math.round((xhr.loaded / xhr.total) * 100);
+        appendLoadingTrace('info', 'HAND: 進行 ' + pct + '%');
+      }else{
+        appendLoadingTrace('info', 'HAND: ダウンロード中...');
+      }
+    },
     function(err){
+      appendLoadingTrace('err', 'HAND: 読み込み失敗 -> ' + safeErrText(err));
       console.warn('[GUN] ju.glb load failed, using procedural fallback:', err);
       gunGlbTemplate = buildProceduralGun();
       prepareGunTemplate(gunGlbTemplate);
@@ -3905,7 +3942,7 @@ function beginBattle(data){
   if(data) adoptRandomServerRoom(data);
   if(battleBeginLock)return; battleBeginLock=true; stopRandomCountdown();
   roomStarted=true;inWaiting=false;gameMode=GAME_MODE.LOADING;endRoundPrep();setModeUI();
-  loadingTextEl.textContent='DEPLOYING';loadingSubEl.textContent='戦場を同期しています...';loadingOverlay.style.display='flex';
+  loadingTextEl.textContent='DEPLOYING';loadingSubEl.textContent='戦場を同期しています...';loadingOverlay.style.display='flex';resetLoadingTrace('BATTLE: 読み込み開始');
   if(data&&data.mapId) rebuildMapIfNeeded(data.mapId);
   if(data&&data.teams&&socket&&socket.id&&data.teams.blue&&data.teams.red){
     if(data.teams.blue.indexOf(socket.id)!==-1)player.team=TEAM_BLUE;
@@ -4164,7 +4201,7 @@ function initSocket(){
     if(Number.isFinite(pl.roundIndex))roundIndex=pl.roundIndex;
     updateScoreUI();
     if(inWaiting)updateWaitingUI();updateWaitingLaunchBtn();updateRemotePlayersFromState();
-    if(pl.starting&&inWaiting){gameMode=GAME_MODE.LOADING;setModeUI();loadingOverlay.style.display='flex';loadingTextEl.textContent='DEPLOYING';loadingSubEl.textContent='試合開始中...';}
+    if(pl.starting&&inWaiting){gameMode=GAME_MODE.LOADING;setModeUI();loadingOverlay.style.display='flex';loadingTextEl.textContent='DEPLOYING';loadingSubEl.textContent='試合開始中...';resetLoadingTrace('BATTLE: 試合開始の同期中');}
   });
   socket.on('round-timer',function(data){
     if(!acceptServerPayload(data))return; adoptRandomServerRoom(data);
@@ -4412,14 +4449,33 @@ function clearLoadedMapModel(){
 function loadGltfScene(url){
   return new Promise(function(resolve, reject){
     var loader = createGltfLoader();
+    appendLoadingTrace('info', 'LOAD: ' + url + ' 開始');
     loader.load(
       encodeURI(url),
       function(gltf){
         var root = gltf && gltf.scene ? gltf.scene : (gltf && gltf.scenes && gltf.scenes[0]) ? gltf.scenes[0] : null;
+        if(!root){
+          appendLoadingTrace('warn', 'LOAD: ' + url + ' scene が空');
+        }else{
+          var childCount = 0;
+          try{
+            root.updateMatrixWorld(true);
+            childCount = root.children ? root.children.length : 0;
+          }catch(e){}
+          appendLoadingTrace('ok', 'LOAD: ' + url + ' 成功 (children=' + childCount + ')');
+        }
         resolve(root);
       },
-      undefined,
+      function(xhr){
+        if(xhr && xhr.total){
+          var pct = Math.round((xhr.loaded / xhr.total) * 100);
+          appendLoadingTrace('info', 'LOAD: ' + url + ' ' + pct + '%');
+        }else{
+          appendLoadingTrace('info', 'LOAD: ' + url + ' ダウンロード中...');
+        }
+      },
       function(err){
+        appendLoadingTrace('err', 'LOAD: ' + url + ' 失敗 -> ' + safeErrText(err));
         reject(err);
       }
     );
@@ -4860,14 +4916,20 @@ function buildProceduralArena(){
     'car.glb'
   ];
 
-  assetNames.reduce(function(chain, name){
+  resetLoadingTrace('MAP: 読み込み開始 (' + assetNames.length + ' 個)');
+  assetNames.reduce(function(chain, name, idx){
     return chain.then(function(models){
+      appendLoadingTrace('info', 'MAP: [' + (idx + 1) + '/' + assetNames.length + '] ' + name + ' を読み込み');
       return loadGltfScene('./' + name).then(function(root){
+        if(!root){
+          appendLoadingTrace('warn', 'MAP: ' + name + ' は root が空');
+        }
         models.push(root);
         return models;
       });
     });
   }, Promise.resolve([])).then(function(models){
+    appendLoadingTrace('info', 'MAP: 全アセット読込完了、テンプレート整形中');
     if(token !== mapLoadToken) return;
     var loaded = {
       floor: prepareTemplateRoot(models[0]),
@@ -4885,8 +4947,10 @@ function buildProceduralArena(){
       if(!loaded[k]) throw new Error('Missing template: ' + k);
     }
     assembleModularArena(loaded, token);
+    appendLoadingTrace('ok', 'MAP: アリーナ組み立て完了');
   }).catch(function(err){
     if(token !== mapLoadToken) return;
+    appendLoadingTrace('err', 'MAP: 読み込み全体が失敗 -> ' + safeErrText(err));
     console.error('Map GLB load failed:', err);
     var fallbackRoot = new T.Group();
     fallbackRoot.userData.isMapDecor = true;

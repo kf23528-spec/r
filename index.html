@@ -70,7 +70,7 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 #skillButton.skill-cooling{opacity:0.40;filter:grayscale(0.45)}
 #skillButton::before{content:"";position:absolute;width:42%;height:42%;border-radius:50%;border:2px solid rgba(170,255,230,0.95);box-shadow:0 0 10px rgba(140,255,210,0.55)}
 #skillButton::after{content:"";position:absolute;width:9px;height:9px;border-radius:50%;background:rgba(210,255,245,0.98);box-shadow:0 0 10px rgba(140,255,210,0.8)}
-#shopButton{position:absolute;left:50%;right:auto;top:14px;transform:translateX(-50%);min-width:84px;height:42px;padding:0 14px;border:none;border-radius:12px;background:linear-gradient(160deg,#1a1114,#351118);border:1.5px solid rgba(255,110,90,0.70);box-shadow:0 8px 24px rgba(0,0,0,0.48),inset 0 0 12px rgba(255,110,90,0.08);pointer-events:auto;z-index:140;touch-action:none;-webkit-tap-highlight-color:transparent;cursor:pointer;color:#fff2ef;font-size:13px;font-weight:1000;letter-spacing:0.18em;display:none}
+#shopButton{position:absolute;left:50%;top:14px;transform:translateX(-50%);min-width:84px;height:42px;padding:0 14px;border:none;border-radius:12px;background:linear-gradient(160deg,#1a1114,#351118);border:1.5px solid rgba(255,110,90,0.70);box-shadow:0 8px 24px rgba(0,0,0,0.48),inset 0 0 12px rgba(255,110,90,0.08);pointer-events:auto;z-index:140;touch-action:none;-webkit-tap-highlight-color:transparent;cursor:pointer;color:#fff2ef;font-size:13px;font-weight:1000;letter-spacing:0.18em;display:none}
 #shopButton:active{transform:translateX(-50%) scale(0.97);filter:brightness(1.08)}
 #shopButton.shop-ready{display:block;background:linear-gradient(160deg,#271316,#4b151c);border-color:rgba(255,116,94,0.95);box-shadow:0 0 18px rgba(255,100,80,0.25),0 8px 24px rgba(0,0,0,0.48),inset 0 0 12px rgba(255,110,90,0.14)}
 #shopButton:disabled{opacity:0.35;cursor:not-allowed;filter:grayscale(0.4)}
@@ -394,7 +394,7 @@ var PLAYER_SPEED = 5.5;
 var CAM_FOV_NORMAL = 70;
 var CAM_FOV_ADS = 56;
 var RANK_KEY = 'arena_rank_v9';
-var SEND_HZ = 40;
+var SEND_HZ = 66;
 var MATCH_PLAYER_MIN = 2;
 var MAX_PLAYERS = 8;
 var MAP_BORDER = 39.0;
@@ -416,8 +416,7 @@ var gunGlbReady     = false;
 var gunGlbWaiters   = [];
 var handGlbTemplate = null;
 var handGlbReady    = false;
-var handGlbWaiters   = [];
-var HAND_GLB_URL    = 'hand.glb';
+var handGlbWaiters  = [];
 var POLO_FBX_SCALE = 0.01;
 var POLO_TARGET_HEIGHT = 1.78;
 var POLO_ROT_Y = Math.PI;
@@ -586,7 +585,7 @@ var randomCountdownFill = document.getElementById('randomCountdownFill');
 var waitingHint = document.getElementById('waitingHint');
 var T = THREE_NS;
 var renderer = new T.WebGLRenderer({canvas:canvas,antialias:false,alpha:false,powerPreference:'high-performance'});
-renderer.setPixelRatio(0.9);
+renderer.setPixelRatio(1);
 renderer.setSize(window.innerWidth,window.innerHeight,false);
 renderer.shadowMap.enabled = false;
 renderer.shadowMap.type = T.PCFSoftShadowMap;
@@ -1776,13 +1775,13 @@ function buildProceduralHands(){
   }
 
   var left = makeHand(-1);
-  left.position.set(-0.12, -0.12, -0.07);
-  left.rotation.set(-0.42, 0.04, 0.82);
+  left.position.set(-0.09, -0.08, -0.03);
+  left.rotation.set(-0.32, 0.06, 0.58);
   root.add(left);
 
   var right = makeHand(1);
-  right.position.set(0.11, -0.15, -0.01);
-  right.rotation.set(-0.18, -0.08, -0.35);
+  right.position.set(0.06, -0.10, 0.02);
+  right.rotation.set(-0.12, -0.03, -0.22);
   root.add(right);
 
   root.traverse(function(c){
@@ -1793,56 +1792,62 @@ function buildProceduralHands(){
   });
   return root;
 }
-
 function prepareHandTemplate(root){
   if(!root) return root;
   try{
     root.updateMatrixWorld(true);
     var box = new T.Box3().setFromObject(root);
     if(!box.isEmpty()){
-      var size = box.getSize(new T.Vector3());
-      var maxAxis = Math.max(size.x, size.y, size.z) || 1;
-      var scale = 0.12 * (6.6 / maxAxis);
-      root.scale.setScalar(scale);
+      var size = new T.Vector3();
+      var center = new T.Vector3();
+      box.getSize(size);
+      box.getCenter(center);
+      root.position.sub(center);
+      var maxDim = Math.max(size.x, size.y, size.z) || 1;
+      var s = 0.58 / maxDim;
+      root.scale.multiplyScalar(s);
       root.updateMatrixWorld(true);
-      box = new T.Box3().setFromObject(root);
-      if(!box.isEmpty()){
-        var center = box.getCenter(new T.Vector3());
-        root.position.sub(center);
-        root.updateMatrixWorld(true);
-      }
     }
-    root.traverse(function(c){
-      if(!c.isMesh) return;
-      c.castShadow = false;
-      c.receiveShadow = false;
-      c.frustumCulled = true;
-      var mats = Array.isArray(c.material) ? c.material : [c.material];
-      mats.forEach(function(m){
-        if(!m) return;
-        try{
-          m.needsUpdate = true;
-          if(m.roughness !== undefined) m.roughness = Math.min(1, Math.max(m.roughness, 0.72));
-          if(m.metalness !== undefined) m.metalness = Math.min(m.metalness, 0.08);
-          if(m.side !== T.DoubleSide) m.side = T.DoubleSide;
-        }catch(e){}
-      });
+  }catch(e){}
+  root.traverse(function(c){
+    if(!c.isMesh) return;
+    c.castShadow = false;
+    c.receiveShadow = false;
+    c.frustumCulled = true;
+    var mats = Array.isArray(c.material) ? c.material : [c.material];
+    mats.forEach(function(m){
+      if(!m) return;
+      try{ m.side = T.DoubleSide; m.needsUpdate = true; }catch(e){}
     });
-  }catch(e){
-    console.warn('[HAND] prepareHandTemplate failed:', e);
-  }
+  });
   return root;
 }
-
-function loadHandGlbForCamera(){
-  if(handGlbReady || handGlbWaiters.length > 0) return;
+function cloneHandTemplateForCamera(mirror){
+  if(!handGlbTemplate) return null;
+  var clone = SkeletonUtils.clone(handGlbTemplate);
+  clone.traverse(function(c){
+    if(!c.isMesh) return;
+    c.castShadow = false;
+    c.receiveShadow = false;
+    c.frustumCulled = true;
+    var mats = Array.isArray(c.material) ? c.material : [c.material];
+    mats.forEach(function(m){
+      if(!m) return;
+      try{ m.side = T.DoubleSide; m.needsUpdate = true; }catch(e){}
+    });
+  });
+  clone.rotation.set(0, mirror ? Math.PI : 0, 0);
+  clone.scale.setScalar(1.02);
+  return clone;
+}
+function loadHandGlbForPlayer(){
   var loader = new GLTFLoader();
   loader.load(
-    HAND_GLB_URL,
+    'hand(1).glb',
     function(gltf){
       var sceneObj = gltf && gltf.scene ? gltf.scene : (gltf && gltf.scenes && gltf.scenes[0] ? gltf.scenes[0] : null);
       if(!sceneObj){
-        throw new Error('hand.glb loaded but scene was empty');
+        throw new Error('hand(1).glb loaded but scene was empty');
       }
       sceneObj.updateMatrixWorld(true);
       prepareHandTemplate(sceneObj);
@@ -1850,71 +1855,36 @@ function loadHandGlbForCamera(){
       handGlbReady = true;
       handGlbWaiters.forEach(function(fn){ try{ fn(handGlbTemplate); }catch(e){} });
       handGlbWaiters = [];
-      try{
-        attachHandsToCamera();
-      }catch(e){}
-      console.log('[HAND] hand.glb loaded');
+      attachHandsToCamera();
+      console.log('[HAND] hand(1).glb loaded');
     },
     undefined,
     function(err){
-      console.warn('[HAND] hand.glb load failed, using procedural fallback:', err);
+      console.warn('[HAND] hand(1).glb load failed, using procedural fallback:', err);
       handGlbTemplate = null;
-      handGlbReady = false;
+      handGlbReady = true;
+      handGlbWaiters.forEach(function(fn){ try{ fn(null); }catch(e){} });
       handGlbWaiters = [];
-      try{
-        attachHandsToCamera();
-      }catch(e){}
+      attachHandsToCamera();
     }
   );
 }
-
-function buildHandRigFromTemplate(){
-  var root = new T.Group();
-  if(!handGlbTemplate) return buildProceduralHands();
-
-  function makeHand(side){
-    var clone;
-    try{
-      clone = (typeof SkeletonUtils !== 'undefined' && SkeletonUtils.clone) ? SkeletonUtils.clone(handGlbTemplate) : handGlbTemplate.clone(true);
-    }catch(e){
-      clone = handGlbTemplate.clone(true);
-    }
-    var isLeft = side < 0;
-    clone.scale.setScalar(0.12);
-    if(isLeft) clone.scale.x *= -1;
-    clone.rotation.set(isLeft ? -0.10 : -0.02, isLeft ? Math.PI * 0.5 : -Math.PI * 0.5, isLeft ? 0.42 : -0.22);
-    clone.position.set(isLeft ? -0.34 : 0.22, isLeft ? -0.42 : -0.36, -0.20);
-    clone.traverse(function(c){
-      if(!c.isMesh) return;
-      c.castShadow = false;
-      c.receiveShadow = false;
-      c.frustumCulled = true;
-      var mats = Array.isArray(c.material) ? c.material : [c.material];
-      mats.forEach(function(m){
-        if(!m) return;
-        try{
-          m.needsUpdate = true;
-          if(m.side !== T.DoubleSide) m.side = T.DoubleSide;
-        }catch(e){}
-      });
-    });
-    return clone;
-  }
-
-  root.add(makeHand(-1));
-  root.add(makeHand(1));
-  root.traverse(function(c){
-    if(!c.isMesh) return;
-    c.castShadow = false;
-    c.receiveShadow = false;
-    c.frustumCulled = true;
-  });
-  return root;
-}
-
 function attachHandsToCamera(){
   if(handRoot && handRoot.parent) handRoot.parent.remove(handRoot);
-  handRoot = handGlbReady ? buildHandRigFromTemplate() : buildProceduralHands();
+  handRoot = new T.Group();
+  var leftHand = cloneHandTemplateForCamera(true);
+  var rightHand = cloneHandTemplateForCamera(false);
+  if(!leftHand || !rightHand){
+    handRoot = buildProceduralHands();
+  }else{
+    leftHand.position.set(-0.09, -0.08, -0.03);
+    leftHand.rotation.set(-0.32, 0.06, 0.58);
+    handRoot.add(leftHand);
+
+    rightHand.position.set(0.06, -0.10, 0.02);
+    rightHand.rotation.set(-0.12, -0.03, -0.22);
+    handRoot.add(rightHand);
+  }
   if(gunRoot) gunRoot.add(handRoot);
   handRoot.position.set(0,0,0);
   handRoot.rotation.set(0,0,0);
@@ -4429,9 +4399,9 @@ function updateGun(dt){
   gunRoot.position.set(gunPosCurrent.x+bx+r*0.006,gunPosCurrent.y+by+r*0.018+ry,gunPosCurrent.z+r*0.045);
   gunRoot.rotation.set(0,0,-r*0.07);
   if(handRoot){
-    var sway = Math.sin(gunBobT * 0.6) * 0.010 * gunBobAmt;
-    handRoot.position.set(0.00 + sway, -0.06 + by * 0.18, -0.03 + r * 0.010);
-    handRoot.rotation.set(-0.04 + r * 0.02, 0.01, -0.015 - sway * 0.25);
+    var sway = Math.sin(gunBobT * 0.6) * 0.015 * gunBobAmt;
+    handRoot.position.set(0.02 + sway, -0.01 + by * 0.35, 0.03 + r * 0.012);
+    handRoot.rotation.set(0.02 + r * 0.02, 0, -0.03 - sway * 0.5);
     handRoot.visible = (gameMode===GAME_MODE.BATTLE);
   }
 }
@@ -5031,13 +5001,13 @@ function animate(){
       updateSkillCamera(dt);
       updateBullets(dt);updateBombs(dt);updateAI(dt);updateSendLoop(dt);
       remoteSyncTimer += dt;
-      if(remoteSyncTimer >= 0.10){ remoteSyncTimer = 0; updateRemotePlayersFromState(); }
+      if(remoteSyncTimer >= 0.08){ remoteSyncTimer = 0; updateRemotePlayersFromState(); }
       updateRoundTimer(dt);updateRoundIfEnded();
     }else{
       syncCameraRotation();movePlayer(dt);updateGun(dt);updateMuzzleFlashes(dt);updateBullets(dt);updateBombs(dt);updateBombTrajectoryUI();
       updateAI(dt);updateReload(dt);updatePlayerHPUI();updateSendLoop(dt);
       remoteSyncTimer += dt;
-      if(remoteSyncTimer >= 0.10){ remoteSyncTimer = 0; updateRemotePlayersFromState(); }
+      if(remoteSyncTimer >= 0.08){ remoteSyncTimer = 0; updateRemotePlayersFromState(); }
       updateRoundTimer(dt);updateRoundIfEnded();
     }
   }else if(gameMode===GAME_MODE.SPECTATE){
@@ -5045,7 +5015,7 @@ function animate(){
     updateSpectateCamera(dt);updateGun(dt);updateMuzzleFlashes(dt);updateBullets(dt);updateBombs(dt);updateBombTrajectoryUI();
     updateAI(dt);updateSendLoop(dt);
     remoteSyncTimer += dt;
-    if(remoteSyncTimer >= 0.10){ remoteSyncTimer = 0; updateRemotePlayersFromState(); }
+    if(remoteSyncTimer >= 0.08){ remoteSyncTimer = 0; updateRemotePlayersFromState(); }
     updateRoundTimer(dt);updateRoundIfEnded();
   }else if(gameMode===GAME_MODE.RESULT){updateSendLoop(0);}
   if(gunRoot&&gameMode===GAME_MODE.BATTLE)gunPosTarget.copy(adsActive?gunPosAds:gunPosNormal);
@@ -5059,7 +5029,7 @@ function init(){
   setTimeout(maybeOpenFirstNamePrompt, 0);
   loadPoloFbx();
   loadGunGlbForAvatars();
-  loadHandGlbForCamera();
+  loadHandGlbForPlayer();
     initSocket();animate();
 }
 init();

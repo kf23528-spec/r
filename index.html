@@ -1775,13 +1775,13 @@ function buildProceduralHands(){
   }
 
   var left = makeHand(-1);
-  left.position.set(-0.09, -0.08, -0.03);
-  left.rotation.set(-0.32, 0.06, 0.58);
+  left.position.set(-0.08, -0.08, -0.05);
+  left.rotation.set(-0.42, 0.04, 0.82);
   root.add(left);
 
   var right = makeHand(1);
-  right.position.set(0.06, -0.10, 0.02);
-  right.rotation.set(-0.12, -0.03, -0.22);
+  right.position.set(0.08, -0.09, -0.03);
+  right.rotation.set(-0.18, -0.08, -0.35);
   root.add(right);
 
   root.traverse(function(c){
@@ -1877,12 +1877,12 @@ function attachHandsToCamera(){
   if(!leftHand || !rightHand){
     handRoot = buildProceduralHands();
   }else{
-    leftHand.position.set(-0.09, -0.08, -0.03);
-    leftHand.rotation.set(-0.32, 0.06, 0.58);
+    leftHand.position.set(-0.08, -0.08, -0.05);
+    leftHand.rotation.set(-0.42, 0.04, 0.82);
     handRoot.add(leftHand);
 
-    rightHand.position.set(0.06, -0.10, 0.02);
-    rightHand.rotation.set(-0.12, -0.03, -0.22);
+    rightHand.position.set(0.08, -0.09, -0.03);
+    rightHand.rotation.set(-0.18, -0.08, -0.35);
     handRoot.add(rightHand);
   }
   if(gunRoot) gunRoot.add(handRoot);

@@ -1775,12 +1775,12 @@ function buildProceduralHands(){
   }
 
   var left = makeHand(-1);
-  left.position.set(-0.13, -0.16, -0.04);
+  left.position.set(-0.12, -0.12, -0.07);
   left.rotation.set(-0.42, 0.04, 0.82);
   root.add(left);
 
   var right = makeHand(1);
-  right.position.set(0.13, -0.16, -0.04);
+  right.position.set(0.11, -0.15, -0.01);
   right.rotation.set(-0.18, -0.08, -0.35);
   root.add(right);
 
@@ -1841,50 +1841,16 @@ function cloneHandTemplateForCamera(mirror){
   return clone;
 }
 function loadHandGlbForPlayer(){
-  var loader = new GLTFLoader();
-  loader.load(
-    'hand(1).glb',
-    function(gltf){
-      var sceneObj = gltf && gltf.scene ? gltf.scene : (gltf && gltf.scenes && gltf.scenes[0] ? gltf.scenes[0] : null);
-      if(!sceneObj){
-        throw new Error('hand(1).glb loaded but scene was empty');
-      }
-      sceneObj.updateMatrixWorld(true);
-      prepareHandTemplate(sceneObj);
-      handGlbTemplate = sceneObj;
-      handGlbReady = true;
-      handGlbWaiters.forEach(function(fn){ try{ fn(handGlbTemplate); }catch(e){} });
-      handGlbWaiters = [];
-      attachHandsToCamera();
-      console.log('[HAND] hand(1).glb loaded');
-    },
-    undefined,
-    function(err){
-      console.warn('[HAND] hand(1).glb load failed, using procedural fallback:', err);
-      handGlbTemplate = null;
-      handGlbReady = true;
-      handGlbWaiters.forEach(function(fn){ try{ fn(null); }catch(e){} });
-      handGlbWaiters = [];
-      attachHandsToCamera();
-    }
-  );
+  handGlbTemplate = null;
+  handGlbReady = true;
+  handGlbWaiters.forEach(function(fn){ try{ fn(null); }catch(e){} });
+  handGlbWaiters = [];
+  attachHandsToCamera();
+  console.log('[HAND] procedural hands only (GLB loading disabled)');
 }
 function attachHandsToCamera(){
   if(handRoot && handRoot.parent) handRoot.parent.remove(handRoot);
-  handRoot = new T.Group();
-  var leftHand = cloneHandTemplateForCamera(true);
-  var rightHand = cloneHandTemplateForCamera(false);
-  if(!leftHand || !rightHand){
-    handRoot = buildProceduralHands();
-  }else{
-    leftHand.position.set(-0.13, -0.16, -0.04);
-    leftHand.rotation.set(-0.42, 0.04, 0.82);
-    handRoot.add(leftHand);
-
-    rightHand.position.set(0.13, -0.16, -0.04);
-    rightHand.rotation.set(-0.18, -0.08, -0.35);
-    handRoot.add(rightHand);
-  }
+  handRoot = buildProceduralHands();
   if(gunRoot) gunRoot.add(handRoot);
   handRoot.position.set(0,0,0);
   handRoot.rotation.set(0,0,0);
@@ -4272,6 +4238,7 @@ function initSocket(){
     resetBombState();
     restoreBattleViewAfterRespawn();
     gameMode=GAME_MODE.BATTLE; setModeUI();
+    beginRoundPrep();
     loadingOverlay.style.display='none'; resultOverlay.style.display='none'; spectateOverlay.style.display='none';
     if(socket&&socket.connected){socket.emit('playerState',{room:currentRoom,x:camera.position.x,y:camera.position.y,z:camera.position.z,ry:yaw});}
   }

@@ -121,6 +121,18 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 #shopBuyBombBtn .shopItemName{font-size:17px;font-weight:1000;letter-spacing:0.12em;text-transform:uppercase}
 #shopBuyBombBtn .shopItemCost{font-size:15px;font-weight:1000;color:#ffb6a8;letter-spacing:0.12em}
 #shopBuyBombBtn .shopItemDesc{display:block;margin-top:8px;font-size:12px;opacity:0.75;letter-spacing:0.06em;line-height:1.5}
+#shopItemList{display:flex;flex-direction:column;gap:10px}
+.shopWeaponBtn{width:100%;padding:16px 16px 14px;border-radius:18px;border:none;color:#fff;cursor:pointer;pointer-events:auto;text-align:left;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.04)}
+.shopWeaponBtn:disabled{opacity:0.42;filter:grayscale(0.5);cursor:not-allowed}
+.shopWeaponBtn:active{transform:scale(0.99);filter:brightness(1.08)}
+.shopWeaponBtn .shopItemTop{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.shopWeaponBtn .shopItemName{font-size:17px;font-weight:1000;letter-spacing:0.12em;text-transform:uppercase}
+.shopWeaponBtn .shopItemCost{font-size:15px;font-weight:1000;letter-spacing:0.12em}
+.shopWeaponBtn .shopItemDesc{display:block;margin-top:8px;font-size:12px;opacity:0.75;letter-spacing:0.06em;line-height:1.5}
+#shopBuyPistolBtn{background:linear-gradient(135deg,rgba(73,155,255,0.28),rgba(17,27,49,0.94));border:1px solid rgba(98,178,255,0.46)}
+#shopBuyPistolBtn .shopItemCost{color:#a9dcff}
+#shopBuyShotgunBtn{background:linear-gradient(135deg,rgba(255,170,62,0.26),rgba(47,24,10,0.94));border:1px solid rgba(255,176,84,0.46)}
+#shopBuyShotgunBtn .shopItemCost{color:#ffd0a1}
 
 #lobbyOverlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 18% 18%,rgba(54,126,255,0.28),transparent 24%),radial-gradient(circle at 82% 24%,rgba(168,92,255,0.20),transparent 22%),radial-gradient(circle at center,rgba(10,16,28,0.54),rgba(3,6,12,0.96));z-index:120;pointer-events:auto;color:#fff;overflow-x:hidden;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
 #lobbyOverlay::before,#lobbyOverlay::after{content:"";position:absolute;inset:-20%;background:linear-gradient(115deg,transparent 0 44%,rgba(255,255,255,0.07) 50%,transparent 56% 100%);transform:rotate(-8deg);pointer-events:none}
@@ -295,10 +307,10 @@ input,button{-webkit-appearance:none;appearance:none}
 #cacheClearBtn{background:linear-gradient(135deg,#ff8c00,#ff4500 72%,#ff1493);color:#fff;box-shadow:0 14px 28px rgba(255,80,0,0.24),inset 0 0 18px rgba(255,255,255,0.10)}
 #nameSaveBtn:active,#cacheClearBtn:active{transform:scale(0.98);filter:brightness(1.08)}
 
-</style></head><body><div id="game"><canvas id="c"></canvas><div id="hud"><div id="touchLookArea"></div><div id="hpBlock"><div id="hpLabel"><span>💚 HP</span><span id="hpText">100 / 100</span></div><div id="hpBarOuter"><div id="hpBarInner"></div></div></div><div class="connecting" id="netBadge">🟡 接続中...</div><div id="onlineCount">👥 同室: 1人</div><div id="status"><div id="scoreBoard">BLUE <span id="blueScore">0</span> / RED <span id="redScore">0</span></div><div id="roundState">ROUND: <span id="roundText">1</span> | <span id="phaseText">FIGHT</span> | 先に5点で勝利</div><span id="ammo">AMMO: <span id="ammoCount">30</span> / ∞</span><span id="points">PTS: <span id="pointCount">0</span></span><span id="reloadIndicator">⟳ RELOADING...</span><div id="reloadBar"><div id="reloadBarFill"></div></div></div><div id="hitIndicator"></div><div id="crosshair"></div><div id="crosshairDot"></div><div id="announce"></div><div id="killFeed"></div><div id="joystickContainer"><div class="base"></div><div class="knob" id="knob"></div></div><button id="shootButton">FIRE</button><button aria-label="リロード" id="reloadButton"></button><button aria-label="爆弾" id="bombButton"></button><div id="bombSettingsPanel"><div id="bombSettingsTitle">BOMB CONTROL</div><div class="bombSettingRow"><div class="bombSettingLabel"><span>ANGLE</span><span class="bombSettingValue" id="bombAngleValue">35°</span></div><input class="bombSlider" id="bombAngleSlider" type="range" min="10" max="70" step="1" value="35"/></div><div class="bombSettingRow"><div class="bombSettingLabel"><span>DISTANCE</span><span class="bombSettingValue" id="bombPowerValue">100%</span></div><input class="bombSlider" id="bombPowerSlider" type="range" min="70" max="160" step="1" value="100"/></div><div id="bombHint">爆弾モード中に投擲角度と飛距離を調整できます</div></div><button aria-label="ADS" id="adsButton"></button><button aria-label="スキル" id="skillButton" title="スキル"></button><button id="shopButton" type="button">SHOP</button>
+</style></head><body><div id="game"><canvas id="c"></canvas><div id="hud"><div id="touchLookArea"></div><div id="hpBlock"><div id="hpLabel"><span>💚 HP</span><span id="hpText">100 / 100</span></div><div id="hpBarOuter"><div id="hpBarInner"></div></div></div><div class="connecting" id="netBadge">🟡 接続中...</div><div id="onlineCount">👥 同室: 1人</div><div id="status"><div id="scoreBoard">BLUE <span id="blueScore">0</span> / RED <span id="redScore">0</span></div><div id="roundState">ROUND: <span id="roundText">1</span> | <span id="phaseText">FIGHT</span> | 先に5点で勝利</div><span id="ammo">AMMO: <span id="ammoCount">30</span> / <span id="ammoMaxCount">30</span></span><span id="points">PTS: <span id="pointCount">0</span></span><span id="reloadIndicator">⟳ RELOADING...</span><div id="reloadBar"><div id="reloadBarFill"></div></div></div><div id="hitIndicator"></div><div id="crosshair"></div><div id="crosshairDot"></div><div id="announce"></div><div id="killFeed"></div><div id="joystickContainer"><div class="base"></div><div class="knob" id="knob"></div></div><button id="shootButton">FIRE</button><button aria-label="リロード" id="reloadButton"></button><button aria-label="爆弾" id="bombButton"></button><div id="bombSettingsPanel"><div id="bombSettingsTitle">BOMB CONTROL</div><div class="bombSettingRow"><div class="bombSettingLabel"><span>ANGLE</span><span class="bombSettingValue" id="bombAngleValue">35°</span></div><input class="bombSlider" id="bombAngleSlider" type="range" min="10" max="70" step="1" value="35"/></div><div class="bombSettingRow"><div class="bombSettingLabel"><span>DISTANCE</span><span class="bombSettingValue" id="bombPowerValue">100%</span></div><input class="bombSlider" id="bombPowerSlider" type="range" min="70" max="160" step="1" value="100"/></div><div id="bombHint">爆弾モード中に投擲角度と飛距離を調整できます</div></div><button aria-label="ADS" id="adsButton"></button><button aria-label="スキル" id="skillButton" title="スキル"></button><button id="shopButton" type="button">SHOP</button>
 <div id="bombTrajectory"><div id="bombTrajectoryLine"></div><div id="bombTrajectoryTip"></div><div id="bombTrajectoryText"></div></div>
 <div id="bombQuickControls"><div class="bombQuickGroup"><div class="bombQuickReadout"><span>ANGLE</span><span class="val" id="bombAngleButtonValue">35°</span></div><button class="bombQuickButton" id="bombAngleButton" type="button" aria-label="角度調整"></button></div><div class="bombQuickGroup"><div class="bombQuickReadout"><span>DIST</span><span class="val" id="bombDistanceButtonValue">100%</span></div><button class="bombQuickButton" id="bombDistanceButton" type="button" aria-label="距離調整"></button></div></div>
-<div id="shopOverlay"><div id="shopPanel"><div id="shopHeader"><div><div id="shopBadge">VALORANT STYLE SHOP</div><div id="shopTitle">BUY PHASE</div><div id="shopSub">30秒の準備時間だけ開くショップ</div></div><button id="shopCloseBtn" type="button" aria-label="閉じる">✕</button></div><div id="shopPointsRow"><span>PTS</span><strong id="shopPointCount">0</strong></div><button id="shopBuyBombBtn" type="button"><span class="shopItemTop"><span class="shopItemName">BOMB +1</span><span class="shopItemCost">250</span></span><span class="shopItemDesc">1個購入すると爆弾が1つ増える</span></button></div></div><div id="lobbyOverlay"><div id="lobbyShell"><div id="lobbyCard"><div id="lobbyBadge">NEON // ONLINE ARENA</div><div id="lobbyTitle">NEON ARENA<br/>ONLINE</div><div id="lobbySub">部屋番号を入力して、同じ番号のプレイヤーとマッチング。</div><div id="roomPanel"><div id="roomPanelLabel">ROOM NUMBER（4桁）</div><div id="roomInputRow"><input autocomplete="off" autocorrect="off" id="roomInput" inputmode="numeric" maxlength="4" pattern="[0-9]*" placeholder="0000" spellcheck="false" type="tel"/><button id="roomGenBtn" title="ランダム生成">🎲</button></div><div id="roomHint">同じ番号の相手が入室するとマッチング開始</div></div><div id="rankPanel"><div id="rankRow"><span id="rankName">ブロンズ I</span><span id="rankPct">0%</span></div><div id="rankBar"><div id="rankFill"></div></div><div id="rankHint">RANK SAVED TO LOCAL STORAGE</div></div><button id="randomBattleBtn">⚡ RANDOM BATTLE</button><button id="settingsOpenBtn" type="button">⚙ 設定</button><button disabled="" id="lobbyStartBtn">部屋に入る →</button></div><div id="lobbySide"><div id="lobbyStats"><div class="statCard"><div class="statLabel">MODE</div><div class="statValue" id="lobbyModeValue">RANKED</div><div class="statSub">CASUAL / RANKED</div></div><div class="statCard"><div class="statLabel">GOAL</div><div class="statValue">5</div><div class="statSub">FIRST TO FIVE</div></div><div class="statCard"><div class="statLabel">NET</div><div class="statValue" id="lobbyNetValue">--</div><div class="statSub">SOCKET.IO STATUS</div></div><div class="statCard"><div class="statLabel">ROOM</div><div class="statValue" id="lobbyRoomValue">----</div><div class="statSub">4-DIGIT NUMBER</div></div></div><div id="modePanel"><div id="modeLabelLine">MATCH TYPE</div><div id="modeButtons"><button class="modeBtn" id="casualModeBtn" type="button">CASUAL</button><button class="modeBtn active" id="rankedModeBtn" type="button">RANKED</button><button class="modeBtn" id="randomModeBtn" type="button">⚡ RANDOM</button></div><div id="modeDesc">ランク戦はXP獲得。先に5点で勝利。</div></div></div></div></div>
+<div id="shopOverlay"><div id="shopPanel"><div id="shopHeader"><div><div id="shopBadge">VALORANT STYLE SHOP</div><div id="shopTitle">BUY PHASE</div><div id="shopSub">30秒の準備時間で武器と装備を購入</div></div><button id="shopCloseBtn" type="button" aria-label="閉じる">✕</button></div><div id="shopPointsRow"><span>PTS</span><strong id="shopPointCount">0</strong></div><div id="shopItemList"><button id="shopBuyPistolBtn" type="button" class="shopWeaponBtn"><span class="shopItemTop"><span class="shopItemName">PISTOL</span><span class="shopItemCost">300</span></span><span class="shopItemDesc">10発 / 1発10ダメ / 連射不可</span></button><button id="shopBuyShotgunBtn" type="button" class="shopWeaponBtn"><span class="shopItemTop"><span class="shopItemName">SHOTGUN</span><span class="shopItemCost">500</span></span><span class="shopItemDesc">80発 / 10発同時 / 1発8ダメ / 拡散</span></button><button id="shopBuyBombBtn" type="button"><span class="shopItemTop"><span class="shopItemName">BOMB +1</span><span class="shopItemCost">250</span></span><span class="shopItemDesc">1個購入すると爆弾が1つ増える</span></button></div></div></div><div id="lobbyOverlay"><div id="lobbyShell"><div id="lobbyCard"><div id="lobbyBadge">NEON // ONLINE ARENA</div><div id="lobbyTitle">NEON ARENA<br/>ONLINE</div><div id="lobbySub">部屋番号を入力して、同じ番号のプレイヤーとマッチング。</div><div id="roomPanel"><div id="roomPanelLabel">ROOM NUMBER（4桁）</div><div id="roomInputRow"><input autocomplete="off" autocorrect="off" id="roomInput" inputmode="numeric" maxlength="4" pattern="[0-9]*" placeholder="0000" spellcheck="false" type="tel"/><button id="roomGenBtn" title="ランダム生成">🎲</button></div><div id="roomHint">同じ番号の相手が入室するとマッチング開始</div></div><div id="rankPanel"><div id="rankRow"><span id="rankName">ブロンズ I</span><span id="rankPct">0%</span></div><div id="rankBar"><div id="rankFill"></div></div><div id="rankHint">RANK SAVED TO LOCAL STORAGE</div></div><button id="randomBattleBtn">⚡ RANDOM BATTLE</button><button id="settingsOpenBtn" type="button">⚙ 設定</button><button disabled="" id="lobbyStartBtn">部屋に入る →</button></div><div id="lobbySide"><div id="lobbyStats"><div class="statCard"><div class="statLabel">MODE</div><div class="statValue" id="lobbyModeValue">RANKED</div><div class="statSub">CASUAL / RANKED</div></div><div class="statCard"><div class="statLabel">GOAL</div><div class="statValue">5</div><div class="statSub">FIRST TO FIVE</div></div><div class="statCard"><div class="statLabel">NET</div><div class="statValue" id="lobbyNetValue">--</div><div class="statSub">SOCKET.IO STATUS</div></div><div class="statCard"><div class="statLabel">ROOM</div><div class="statValue" id="lobbyRoomValue">----</div><div class="statSub">4-DIGIT NUMBER</div></div></div><div id="modePanel"><div id="modeLabelLine">MATCH TYPE</div><div id="modeButtons"><button class="modeBtn" id="casualModeBtn" type="button">CASUAL</button><button class="modeBtn active" id="rankedModeBtn" type="button">RANKED</button><button class="modeBtn" id="randomModeBtn" type="button">⚡ RANDOM</button></div><div id="modeDesc">ランク戦はXP獲得。先に5点で勝利。</div></div></div></div></div>
 <div id="settingsOverlay" aria-hidden="true">
   <div id="settingsPanel">
     <div id="settingsHeader">
@@ -417,6 +429,15 @@ var gunGlbWaiters   = [];
 var handGlbTemplate = null;
 var handGlbReady    = false;
 var handGlbWaiters  = [];
+var pistolGlbTemplate = null;
+var shotgunGlbTemplate = null;
+var weaponTemplateMap = { rifle: null, pistol: null, shotgun: null };
+var currentWeaponId = 'rifle';
+var WEAPON_DEFS = {
+  rifle:   { id:'rifle',   label:'RIFLE',   cost:0,   magSize:30, ammoPerShot:1, pellets:1, damage:0,  autoFire:true,  spread:0.00, asset:'ju.glb',        scale:1.00 },
+  pistol:  { id:'pistol',  label:'PISTOL',  cost:300, magSize:10, ammoPerShot:1, pellets:1, damage:10, autoFire:false, spread:0.00, asset:'9mm_pistol.glb', scale:0.88 },
+  shotgun: { id:'shotgun', label:'SHOTGUN', cost:500, magSize:80, ammoPerShot:10, pellets:10, damage:8, autoFire:false, spread:0.085, asset:'shotgun.glb',    scale:0.78 }
+};
 var POLO_FBX_SCALE = 0.01;
 var POLO_TARGET_HEIGHT = 1.78;
 var POLO_ROT_Y = Math.PI;
@@ -497,6 +518,8 @@ var shopOverlayEl = document.getElementById('shopOverlay');
 var shopPanelEl = document.getElementById('shopPanel');
 var shopCloseBtn = document.getElementById('shopCloseBtn');
 var shopPointCountEl = document.getElementById('shopPointCount');
+var shopBuyPistolBtn = document.getElementById('shopBuyPistolBtn');
+var shopBuyShotgunBtn = document.getElementById('shopBuyShotgunBtn');
 var shopBuyBombBtn = document.getElementById('shopBuyBombBtn');
 var phaseTextEl = document.getElementById('phaseText');
 var pointCountEl = document.getElementById('pointCount');
@@ -515,6 +538,7 @@ var blueScoreEl = document.getElementById('blueScore');
 var redScoreEl = document.getElementById('redScore');
 var roundTextEl = document.getElementById('roundText');
 var ammoCountEl = document.getElementById('ammoCount');
+var ammoMaxCountEl = document.getElementById('ammoMaxCount');
 var hpTextEl = document.getElementById('hpText');
 var hpBarInner = document.getElementById('hpBarInner');
 var joystickContainer = document.getElementById('joystickContainer');
@@ -1359,12 +1383,15 @@ function loadGunGlbForAvatars(){
       sceneObj.updateMatrixWorld(true);
       prepareGunTemplate(sceneObj);
       gunGlbTemplate = sceneObj;
+      weaponTemplateMap.rifle = sceneObj;
       gunGlbReady = true;
       gunGlbWaiters.forEach(function(fn){ try{ fn(gunGlbTemplate); }catch(e){} });
       gunGlbWaiters = [];
       try{
-        var freshGun = cloneGunForAvatar();
-        attachGunToCamera(freshGun);
+        if(currentWeaponId === 'rifle'){
+          var freshGun = cloneGunForAvatar();
+          attachGunToCamera(freshGun);
+        }
       }catch(e){
         console.warn('[GUN] attach after load failed:', e);
       }
@@ -1374,6 +1401,7 @@ function loadGunGlbForAvatars(){
     function(err){
       console.warn('[GUN] ju.glb load failed, using procedural fallback:', err);
       gunGlbTemplate = buildProceduralGun();
+      weaponTemplateMap.rifle = gunGlbTemplate;
       prepareGunTemplate(gunGlbTemplate);
       gunGlbReady = true;
       gunGlbWaiters.forEach(function(fn){ try{ fn(gunGlbTemplate); }catch(e){} });
@@ -1895,8 +1923,8 @@ function attachGunToCamera(obj){
     mats.forEach(function(m){ if(!m) return; try{ m.needsUpdate=true; }catch(e){} });
   });
   attachHandsToCamera();
-  gunRoot.visible=(gameMode===GAME_MODE.BATTLE);
-  if(handRoot) handRoot.visible=(gameMode===GAME_MODE.BATTLE);
+  gunRoot.visible=(gameMode===GAME_MODE.BATTLE && !bombModeActive);
+  if(handRoot) handRoot.visible=(gameMode===GAME_MODE.BATTLE && !bombModeActive);
   gunLoaded=true;
 }
 attachGunToCamera(buildProceduralGun());
@@ -2084,6 +2112,121 @@ function openShop(){
 function closeShop(){
   if(shopOverlayEl) shopOverlayEl.classList.remove('show');
 }
+function getWeaponDef(weaponId){
+  return WEAPON_DEFS[weaponId] || WEAPON_DEFS.rifle;
+}
+function getWeaponTemplate(weaponId){
+  if(weaponId === 'pistol') return pistolGlbTemplate || weaponTemplateMap.pistol || null;
+  if(weaponId === 'shotgun') return shotgunGlbTemplate || weaponTemplateMap.shotgun || null;
+  return gunGlbTemplate || weaponTemplateMap.rifle || null;
+}
+function applyWeaponVisualTransform(root, weaponId){
+  if(!root) return root;
+  var def = getWeaponDef(weaponId);
+  var scale = def && Number.isFinite(def.scale) ? def.scale : 1;
+  try{
+    root.position.set(0, 0, 0);
+    root.rotation.set(0, 0, 0);
+    root.scale.setScalar(scale);
+  }catch(e){}
+  return root;
+}
+function cloneWeaponForCamera(weaponId){
+  var id = weaponId || currentWeaponId || 'rifle';
+  var tpl = getWeaponTemplate(id);
+  if(!tpl){
+    tpl = buildProceduralGun();
+    prepareGunTemplate(tpl);
+  }
+  var clone = tpl.clone(true);
+  clone.traverse(function(c){
+    if(!c.isMesh) return;
+    c.castShadow = false;
+    c.receiveShadow = false;
+    c.frustumCulled = true;
+    if(c.material){
+      if(Array.isArray(c.material)){
+        c.material = c.material.map(cloneGunMaterial);
+      }else{
+        c.material = cloneGunMaterial(c.material);
+      }
+    }
+  });
+  applyWeaponVisualTransform(clone, id);
+  return clone;
+}
+function refreshCurrentWeaponVisual(){
+  if(gameMode !== GAME_MODE.BATTLE) return;
+  if(!camera) return;
+  try{
+    var fresh = cloneWeaponForCamera(currentWeaponId);
+    attachGunToCamera(fresh);
+  }catch(e){
+    console.warn('[WEAPON] refresh visual failed:', e);
+  }
+}
+function equipWeapon(weaponId, options){
+  var id = WEAPON_DEFS[weaponId] ? weaponId : 'rifle';
+  var def = getWeaponDef(id);
+  currentWeaponId = id;
+  ammo = def.magSize;
+  reloading = false;
+  reloadTimer = 0;
+  firingHeld = false;
+  if(fireLoopTimer){ clearInterval(fireLoopTimer); fireLoopTimer = null; }
+  gunState.reloadAnim = false;
+  gunState.reloadAnimT = 0;
+  if(!options || options.refreshVisual !== false){
+    refreshCurrentWeaponVisual();
+  }
+  updateAmmoUI();
+  updateShopUI();
+  return true;
+}
+function loadWeaponGlbForLocal(weaponId, assetPath){
+  var loader = new GLTFLoader();
+  loader.load(
+    assetPath,
+    function(gltf){
+      var sceneObj = gltf && gltf.scene ? gltf.scene : (gltf && gltf.scenes && gltf.scenes[0] ? gltf.scenes[0] : null);
+      if(!sceneObj){
+        throw new Error(assetPath + ' loaded but scene was empty');
+      }
+      sceneObj.updateMatrixWorld(true);
+      prepareGunTemplate(sceneObj);
+      if(weaponId === 'pistol'){
+        pistolGlbTemplate = sceneObj;
+        weaponTemplateMap.pistol = sceneObj;
+      }else if(weaponId === 'shotgun'){
+        shotgunGlbTemplate = sceneObj;
+        weaponTemplateMap.shotgun = sceneObj;
+      }else{
+        weaponTemplateMap.rifle = sceneObj;
+        gunGlbTemplate = sceneObj;
+      }
+      if(currentWeaponId === weaponId && gameMode === GAME_MODE.BATTLE){
+        refreshCurrentWeaponVisual();
+      }
+      console.log('[WEAPON] ' + assetPath + ' loaded');
+    },
+    undefined,
+    function(err){
+      console.warn('[WEAPON] ' + assetPath + ' load failed, using procedural fallback:', err);
+      var fallback = buildProceduralGun();
+      prepareGunTemplate(fallback);
+      if(weaponId === 'pistol'){
+        pistolGlbTemplate = fallback;
+        weaponTemplateMap.pistol = fallback;
+      }else if(weaponId === 'shotgun'){
+        shotgunGlbTemplate = fallback;
+        weaponTemplateMap.shotgun = fallback;
+      }else{
+        gunGlbTemplate = fallback;
+        weaponTemplateMap.rifle = fallback;
+      }
+    }
+  );
+}
 function buyBombFromShop(){
   if(!(gameMode===GAME_MODE.BATTLE && roundPrepActive && player.alive && !matchOver)) return;
   if((Number(arenaPoints) || 0) < SHOP_BOMB_COST || bombPoints >= bombPointsMax) return;
@@ -2094,6 +2237,15 @@ function buyBombFromShop(){
   addKillFeed('SHOP: BOMB +1');
   closeShop();
 }
+function buyWeaponFromShop(weaponId){
+  var def = getWeaponDef(weaponId);
+  if(!(gameMode===GAME_MODE.BATTLE && roundPrepActive && player.alive && !matchOver)) return;
+  if((Number(arenaPoints) || 0) < def.cost) return;
+  if(!spendArenaPoints(def.cost)) return;
+  equipWeapon(weaponId);
+  addKillFeed('SHOP: ' + def.label);
+  closeShop();
+}
 function updateShopUI(){
   if(!shopButton) return;
   var canShop = gameMode===GAME_MODE.BATTLE && roundPrepActive && player.alive && !matchOver;
@@ -2101,26 +2253,15 @@ function updateShopUI(){
   shopButton.disabled = !canShop;
   shopButton.classList.toggle('shop-ready', canShop);
   if(!canShop) closeShop();
-  if(shopPointCountEl) shopPointCountEl.textContent = String(Math.max(0, Math.round(Number(arenaPoints) || 0)));
-  if(shopBuyBombBtn) shopBuyBombBtn.disabled = !canShop || (Number(arenaPoints) || 0) < SHOP_BOMB_COST || bombPoints >= bombPointsMax;
+  var pts = Math.max(0, Math.round(Number(arenaPoints) || 0));
+  if(shopPointCountEl) shopPointCountEl.textContent = String(pts);
+  if(shopBuyPistolBtn) shopBuyPistolBtn.disabled = !canShop || pts < WEAPON_DEFS.pistol.cost;
+  if(shopBuyShotgunBtn) shopBuyShotgunBtn.disabled = !canShop || pts < WEAPON_DEFS.shotgun.cost;
+  if(shopBuyBombBtn) shopBuyBombBtn.disabled = !canShop || pts < SHOP_BOMB_COST || bombPoints >= bombPointsMax;
 }
 
 var prepBarrierGroup = null;
 var prepBarrierColliders = [];
-function clearPrepSpawnBarriers(){
-  if(prepBarrierGroup){
-    if(prepBarrierGroup.parent) prepBarrierGroup.parent.remove(prepBarrierGroup);
-    prepBarrierGroup.traverse(function(n){
-      if(n && n.isMesh && n.material && n.material.dispose) try{ n.material.dispose(); }catch(e){}
-      if(n && n.geometry && n.geometry.dispose) try{ n.geometry.dispose(); }catch(e){}
-    });
-  }
-  prepBarrierGroup = null;
-  if(prepBarrierColliders.length){
-    colliders = colliders.filter(function(c){ return !c || !c.prepBarrier; });
-    prepBarrierColliders.length = 0;
-  }
-}
 function buildPrepBarrierMaterial(team){
   return new T.MeshStandardMaterial({
     color: team === TEAM_RED ? 0xff5877 : 0x5edcff,
@@ -2218,7 +2359,8 @@ function syncRoundStateToRoom(extra){
   if(!socket || !socket.connected || !currentRoom) return;
   var payload = Object.assign({
     room: currentRoom, name: PLAYER_NAME, team: player.team || TEAM_BLUE,
-    x: camera.position.x, y: camera.position.y, z: camera.position.z, ry: yaw
+    x: camera.position.x, y: camera.position.y, z: camera.position.z, ry: yaw,
+    weapon: currentWeaponId
   }, extra || {});
   socket.emit('playerState', payload);
   socket.emit('playerMovement', payload);
@@ -2239,7 +2381,9 @@ function restoreBattleViewAfterRespawn(){
   updatePlayerHPUI(); updateAmmoUI(); updateBombUI();
 }
 function updateAmmoUI(){
-  ammoCountEl.textContent=String(ammo);
+  var def = getWeaponDef(currentWeaponId);
+  if(ammoCountEl) ammoCountEl.textContent=String(Math.max(0, Math.round(Number(ammo) || 0)));
+  if(ammoMaxCountEl) ammoMaxCountEl.textContent=String(def.magSize || MAG_SIZE);
   if(reloading){reloadIndicator.style.display='block';reloadBarEl.style.display='block';reloadBarFill.style.width=(Math.max(0,Math.min(1,1-reloadTimer/RELOAD_TIME))*100)+'%';}
   else{reloadIndicator.style.display='none';reloadBarEl.style.display='none';reloadBarFill.style.width='0%';}
   updateBombUI();
@@ -2427,8 +2571,8 @@ function movePlayer(dt){
   camera.position.copy(resolved);
   player.x=camera.position.x; player.y=camera.position.y; player.z=camera.position.z;
 }
-function startReload(){if(reloading||ammo>=MAG_SIZE||!player.alive||matchOver||gameMode!==GAME_MODE.BATTLE)return;reloading=true;reloadTimer=0;gunState.reloadAnim=true;gunState.reloadAnimT=0;playUiSfx('reload');updateAmmoUI();}
-function updateReload(dt){if(!reloading)return;reloadTimer+=dt;updateAmmoUI();if(reloadTimer>=RELOAD_TIME){ammo=MAG_SIZE;reloading=false;reloadTimer=0;gunState.reloadAnim=false;updateAmmoUI();}}
+function startReload(){var magSize=getWeaponDef(currentWeaponId).magSize||MAG_SIZE;if(reloading||ammo>=magSize||!player.alive||matchOver||gameMode!==GAME_MODE.BATTLE)return;reloading=true;reloadTimer=0;gunState.reloadAnim=true;gunState.reloadAnimT=0;playUiSfx('reload');updateAmmoUI();}
+function updateReload(dt){if(!reloading)return;reloadTimer+=dt;updateAmmoUI();var magSize=getWeaponDef(currentWeaponId).magSize||MAG_SIZE;if(reloadTimer>=RELOAD_TIME){ammo=magSize;reloading=false;reloadTimer=0;gunState.reloadAnim=false;updateAmmoUI();}}
 function setADS(on){adsActive=!!on;adsButton.classList.toggle('ads-active',adsActive);gunPosTarget.copy(adsActive?gunPosAds:gunPosNormal);playUiSfx(adsActive?'adsOn':'adsOff');}
 
 function makeSmokeTexture(){
@@ -3301,7 +3445,8 @@ function flashHitIndicator(){hitIndicator.classList.add('active');setTimeout(fun
 function showKillAnnouncement(text){announceEl.textContent=text||'HIT!';announceEl.classList.remove('show');void announceEl.offsetWidth;announceEl.classList.add('show');}
 function resetRoundState(){
   roundResolved=false;matchOver=false;player.alive=true;player.spectating=false;spectateTargetId='';
-  player.hp=player.maxHp=100;ammo=MAG_SIZE;reloading=false;reloadTimer=0;
+  currentWeaponId='rifle';
+  ammo=getWeaponDef(currentWeaponId).magSize||MAG_SIZE;reloading=false;reloadTimer=0;
   resetBombState();
   gunState.reloadAnim=false;gunState.reloadAnimT=0;gunState.recoil=0;moveVel.set(0,0);
   resetTouchAndInputState();
@@ -3317,8 +3462,8 @@ function resetRoundState(){
   }
   exitSkillMode();
   endRoundPrep();
-  resetAIForRound();updatePlayerHPUI();updateAmmoUI();if(gunRoot)gunRoot.visible=true;spectateOverlay.style.display='none';
-  syncRoundStateToRoom({alive:true,hp:100,phase:GAME_MODE.BATTLE});
+  resetAIForRound();updatePlayerHPUI();updateAmmoUI();if(gunRoot)refreshCurrentWeaponVisual();if(gunRoot)gunRoot.visible=true;spectateOverlay.style.display='none';
+  syncRoundStateToRoom({alive:true,hp:100,phase:GAME_MODE.BATTLE,weapon:currentWeaponId});
 }
 function clearResultOverlayState(){
   resultOverlay.classList.remove('win','lose','promo');
@@ -3876,9 +4021,54 @@ function checkLocalShotHit(origin,dir){
   }
   return nearest;
 }
-function applyLocalShotHit(hitInfo,point){
-  var u=hitInfo.unit; if(!u||!u.alive)return;
+function applyLocalShotHit(hitInfo,point,weaponId){
+  var u=hitInfo&&hitInfo.unit;
+  if(!u||!u.alive)return;
+  var def = getWeaponDef(weaponId || currentWeaponId);
+  var rawDamage = Number(def.damage) || 0;
+  if(rawDamage <= 0){
+    flashKillFx(point);
+    return;
+  }
+  var dmg = Math.max(1, Math.round(rawDamage));
+  u.hp = Math.max(0, Math.round((Number(u.hp)||100) - dmg));
+  u.alive = u.hp > 0;
+  if(u.avatar){
+    updateAvatarHPBar(u.avatar,u.hp);
+    if(!u.alive) u.avatar.visible=false;
+  }
   flashKillFx(point);
+  if(socket&&socket.connected){
+    socket.emit('damage-result',{
+      room: currentRoom,
+      targetType:'ai',
+      targetId:u.id,
+      hp:u.hp,
+      alive:u.alive,
+      team:u.team || TEAM_RED,
+      damage:dmg,
+      sourceType:'weapon',
+      sourceId:socket.id || 'local',
+      weapon:def.id,
+      pellets:Number(def.pellets)||1,
+      hitX:point.x,
+      hitY:point.y,
+      hitZ:point.z,
+      killed:!u.alive
+    });
+  }
+}
+function makeShotgunSpreadDirection(baseDir, spread){
+  var dir = baseDir.clone().normalize();
+  var amount = Math.max(0, Number(spread) || 0);
+  if(amount <= 0) return dir;
+  var helper = Math.abs(dir.y) < 0.92 ? new T.Vector3(0,1,0) : new T.Vector3(1,0,0);
+  var right = new T.Vector3().crossVectors(dir, helper).normalize();
+  if(right.lengthSq() < 1e-8) right.set(1,0,0);
+  var up = new T.Vector3().crossVectors(right, dir).normalize();
+  var rx = (Math.random() * 2 - 1) * amount;
+  var ry = (Math.random() * 2 - 1) * amount;
+  return dir.add(right.multiplyScalar(rx)).add(up.multiplyScalar(ry)).normalize();
 }
 function fireOnce(){
   if(gameMode!==GAME_MODE.BATTLE||matchOver||!player.alive||roundPrepActive)return;
@@ -3887,13 +4077,78 @@ function fireOnce(){
     throwBomb();
     return;
   }
+  var weapon = getWeaponDef(currentWeaponId);
+  var magSize = weapon.magSize || MAG_SIZE;
   if(reloading||ammo<=0)return;
+  if(ammo < (weapon.ammoPerShot || 1)) return;
   if(performance.now()-lastShotTime<FIRE_INTERVAL*900)return;
-  lastShotTime=performance.now(); ammo--;updateAmmoUI();
+  lastShotTime=performance.now();
+  ammo=Math.max(0, ammo - (weapon.ammoPerShot || 1));
+  updateAmmoUI();
   playGunSound(false);triggerRecoil();createMuzzleFlash();
   var dir=getForwardVectorFromCamera();
   var rayOrigin=camera.position.clone();
   var muzzleOrigin=camera.position.clone().add(dir.clone().multiplyScalar(0.6)); muzzleOrigin.y=camera.position.y-0.05;
+
+  if(currentWeaponId === 'pistol' || currentWeaponId === 'shotgun'){
+    var pelletCount = Math.max(1, weapon.pellets || 1);
+    var pelletDamage = Math.max(1, Math.round(Number(weapon.damage) || 1));
+    var spread = Number(weapon.spread) || 0;
+    var humanHit = null;
+    for(var p=0;p<pelletCount;p++){
+      var shotDir = (currentWeaponId === 'shotgun') ? makeShotgunSpreadDirection(dir, spread) : dir.clone();
+      var hitInfo = checkLocalShotHit(rayOrigin, shotDir);
+      var bullet = addBullet(muzzleOrigin, shotDir, socket&&socket.id?socket.id:'local', player.team||TEAM_BLUE,false);
+      makeBulletFxLine(muzzleOrigin,shotDir,0xffffff,70);
+      if(hitInfo){
+        if(bullet){
+          bullet.pos.copy(hitInfo.point); bullet.prev.copy(hitInfo.point);
+          if(bullet.mesh) bullet.mesh.position.copy(hitInfo.point);
+          bullet.life=0.08;
+        }
+        if(hitInfo.type==='obstacle'){
+          flashKillFx(hitInfo.point);
+          continue;
+        }
+        if(hitInfo.type==='human'){
+          humanHit = hitInfo;
+          if(socket&&socket.connected){
+            socket.emit('playerShoot',{
+              room:currentRoom,ox:rayOrigin.x,oy:rayOrigin.y,oz:rayOrigin.z,
+              dx:shotDir.x,dy:shotDir.y,dz:shotDir.z,
+              targetId:hitInfo.id,team:player.team||TEAM_BLUE,
+              damage:pelletDamage,weapon:weapon.id,pellets:pelletCount,
+              shotSeq:(lastShotTime||0),shotAt:Date.now()
+            });
+          }
+          flashKillFx(hitInfo.point);
+          continue;
+        }
+        if(hitInfo.type==='ai'){
+          applyLocalShotHit(hitInfo,hitInfo.point,weapon.id);
+          if(socket&&socket.connected&&hitInfo.unit&&hitInfo.unit.id){
+            socket.emit('playerShoot',{
+              room:currentRoom,ox:rayOrigin.x,oy:rayOrigin.y,oz:rayOrigin.z,
+              dx:shotDir.x,dy:shotDir.y,dz:shotDir.z,
+              targetId:hitInfo.unit.id,team:player.team||TEAM_BLUE,
+              damage:pelletDamage,weapon:weapon.id,pellets:pelletCount,
+              shotSeq:(lastShotTime||0),shotAt:Date.now()
+            });
+          }
+          continue;
+        }
+      }else if(socket&&socket.connected){
+        socket.emit('playerShot',{
+          room:currentRoom,ox:rayOrigin.x,oy:rayOrigin.y,oz:rayOrigin.z,
+          dx:shotDir.x,dy:shotDir.y,dz:shotDir.z,
+          team:player.team||TEAM_BLUE,weapon:weapon.id,pellets:pelletCount,
+          shotSeq:(lastShotTime||0),shotAt:Date.now()
+        });
+      }
+    }
+    return;
+  }
+
   var hitInfo=checkLocalShotHit(rayOrigin,dir);
   var shotBullet=addBullet(muzzleOrigin,dir,socket&&socket.id?socket.id:'local',player.team||TEAM_BLUE,false);
   makeBulletFxLine(muzzleOrigin,dir,0xffffff,70);
@@ -3908,14 +4163,14 @@ function fireOnce(){
       return;
     }
     if(hitInfo.type==='ai'){
-      applyLocalShotHit(hitInfo,hitInfo.point);
+      applyLocalShotHit(hitInfo,hitInfo.point,currentWeaponId);
       if(socket&&socket.connected&&hitInfo.unit&&hitInfo.unit.id){
-        socket.emit('playerShoot',{room:currentRoom,ox:rayOrigin.x,oy:rayOrigin.y,oz:rayOrigin.z,dx:dir.x,dy:dir.y,dz:dir.z,targetId:hitInfo.unit.id,team:player.team||TEAM_BLUE,shotSeq:(lastShotTime||0),shotAt:Date.now()});
+        socket.emit('playerShoot',{room:currentRoom,ox:rayOrigin.x,oy:rayOrigin.y,oz:rayOrigin.z,dx:dir.x,dy:dir.y,dz:dir.z,targetId:hitInfo.unit.id,team:player.team||TEAM_BLUE,weapon:currentWeaponId,shotSeq:(lastShotTime||0),shotAt:Date.now()});
       }
       return;
     }
   }else if(socket&&socket.connected){
-    socket.emit('playerShot',{room:currentRoom,ox:rayOrigin.x,oy:rayOrigin.y,oz:rayOrigin.z,dx:dir.x,dy:dir.y,dz:dir.z,team:player.team||TEAM_BLUE,shotSeq:(lastShotTime||0),shotAt:Date.now()});
+    socket.emit('playerShot',{room:currentRoom,ox:rayOrigin.x,oy:rayOrigin.y,oz:rayOrigin.z,dx:dir.x,dy:dir.y,dz:dir.z,team:player.team||TEAM_BLUE,weapon:currentWeaponId,shotSeq:(lastShotTime||0),shotAt:Date.now()});
   }
 }
 function updateBullets(dt){
@@ -4004,7 +4259,7 @@ function spawnRemoteShotFX(data){
 }
 function handleRoomPlayers(data){if(!data||!data.room||data.room!==currentRoom)return;roomPlayers=data.players||{};Object.keys(roomPlayers).forEach(function(id){applyRemoteState(id,roomPlayers[id]);});if(inWaiting&&gameMode===GAME_MODE.WAITING)updateWaitingUI();updateWaitingLaunchBtn();}
 function setServerScore(data){if(!data)return;if(Number.isFinite(data.blue))blueScore=data.blue;if(Number.isFinite(data.red))redScore=data.red;if(Number.isFinite(data.round))roundIndex=data.round;updateScoreUI();}
-function buildLocalPlayerStateForJoin(){return{room:currentRoom,name:PLAYER_NAME,team:player.team||TEAM_BLUE,x:camera.position.x,y:camera.position.y,z:camera.position.z,ry:yaw,alive:player.alive,hp:player.hp,maxHp:player.maxHp};}
+function buildLocalPlayerStateForJoin(){return{room:currentRoom,name:PLAYER_NAME,team:player.team||TEAM_BLUE,x:camera.position.x,y:camera.position.y,z:camera.position.z,ry:yaw,alive:player.alive,hp:player.hp,maxHp:player.maxHp,weapon:currentWeaponId};}
 function startRandomCountdown(){
   randomCountdownSec=RANDOM_MATCH_WAIT; randomCountdownWrap.style.display='block';
   randomCountdownNum.textContent=String(randomCountdownSec); randomCountdownFill.style.width='100%';
@@ -4365,7 +4620,7 @@ canvas.addEventListener('click',function(){if(gameMode===GAME_MODE.BATTLE&&!port
 document.addEventListener('pointerlockchange',function(){mouseLocked=(document.pointerLockElement===canvas);});
 document.addEventListener('mousemove',function(e){if(!mouseLocked||gameMode!==GAME_MODE.BATTLE||tacticalSkill.active)return;var mouseScale = 0.0028 * LOOK_SENSITIVITY; yaw-=e.movementX*mouseScale; pitch-=e.movementY*mouseScale;pitch=clamp(pitch,-(Math.PI/2-0.04),Math.PI/2-0.04);});
 var keys=window.__keys={};
-document.addEventListener('keydown',function(e){keys[e.code]=true;if(e.code==='Escape'&&settingsModalOpen){closeSettings();return;}if(e.code==='KeyR'&&gameMode===GAME_MODE.BATTLE&&!reloading&&ammo<MAG_SIZE)startReload();if(e.code==='Space'&&gameMode===GAME_MODE.BATTLE&&!adsActive)setADS(true);});
+document.addEventListener('keydown',function(e){keys[e.code]=true;if(e.code==='Escape'&&settingsModalOpen){closeSettings();return;}if(e.code==='KeyR'&&gameMode===GAME_MODE.BATTLE&&!reloading&&ammo<getWeaponDef(currentWeaponId).magSize)startReload();if(e.code==='Space'&&gameMode===GAME_MODE.BATTLE&&!adsActive)setADS(true);});
 document.addEventListener('keyup',function(e){keys[e.code]=false;if(e.code==='Space')setADS(false);});
 document.addEventListener('pointerdown',function(e){if(isInteractiveTarget(e.target))return;if(gameMode!==GAME_MODE.BATTLE||tacticalSkill.active)return;if(e.target&&e.target.closest&&e.target.closest('#touchLookArea'))lookTouchId=e.pointerId;});
 document.addEventListener('pointermove',function(e){if(gameMode!==GAME_MODE.BATTLE||tacticalSkill.active||lookTouchId!==e.pointerId||isInteractiveTarget(e.target))return;var touchScale=(portraitMode?0.0020:0.0028)*LOOK_SENSITIVITY; yaw-=e.movementX*touchScale; pitch-=e.movementY*touchScale;pitch=clamp(pitch,-(Math.PI/2-0.04),Math.PI/2-0.04);});
@@ -4377,7 +4632,7 @@ joystickContainer.addEventListener('pointercancel',function(e){if(joyTouchId!==e
 function updateJoystickVisual(){var rect=joystickContainer.getBoundingClientRect();var max=rect.width*0.32;knobEl.style.left=(50+joy.x*50*(max/(rect.width/2)))+'%';knobEl.style.top=(50+joy.y*50*(max/(rect.height/2)))+'%';}
 function updateKeyboardInput(){if(gameMode!==GAME_MODE.BATTLE||tacticalSkill.active)return;var jx=0,jy=0;if(keys['KeyW']||keys['ArrowUp'])jy=-1;if(keys['KeyS']||keys['ArrowDown'])jy=1;if(keys['KeyA']||keys['ArrowLeft'])jx=-1;if(keys['KeyD']||keys['ArrowRight'])jx=1;if((jx||jy)&&joyTouchId===null){joy.x=jx;joy.y=jy;}else if(joyTouchId===null){joy.x=0;joy.y=0;}}
 var lastShootTouchAt=0;
-function handleShootDown(e){e.preventDefault();e.stopPropagation();unlockAudio();if(gameMode!==GAME_MODE.BATTLE||tacticalSkill.active)return;if(bombModeActive){fireOnce();return;}firingHeld=true;fireOnce();if(!fireLoopTimer)fireLoopTimer=setInterval(function(){if(!firingHeld){clearInterval(fireLoopTimer);fireLoopTimer=null;return;}fireOnce();},Math.max(30,FIRE_INTERVAL*1000));}
+function handleShootDown(e){e.preventDefault();e.stopPropagation();unlockAudio();if(gameMode!==GAME_MODE.BATTLE||tacticalSkill.active)return;if(bombModeActive){fireOnce();return;}var weapon=getWeaponDef(currentWeaponId);firingHeld=!!weapon.autoFire;fireOnce();if(weapon.autoFire&&!fireLoopTimer)fireLoopTimer=setInterval(function(){if(!firingHeld){clearInterval(fireLoopTimer);fireLoopTimer=null;return;}fireOnce();},Math.max(30,FIRE_INTERVAL*1000));}
 shootButton.addEventListener('pointerdown',function(e){if(e.pointerType==='touch'&&(Date.now()-lastShootTouchAt)<140)return;handleShootDown(e);});
 shootButton.addEventListener('pointerup',function(e){e.preventDefault();e.stopPropagation();firingHeld=false;if(fireLoopTimer){clearInterval(fireLoopTimer);fireLoopTimer=null;}});
 shootButton.addEventListener('pointercancel',function(){firingHeld=false;if(fireLoopTimer){clearInterval(fireLoopTimer);fireLoopTimer=null;}});
@@ -4394,6 +4649,12 @@ if(shopButton){
 }
 if(shopCloseBtn){
   shopCloseBtn.addEventListener('pointerdown',function(e){e.preventDefault();e.stopPropagation();closeShop();});
+}
+if(shopBuyPistolBtn){
+  shopBuyPistolBtn.addEventListener('pointerdown',function(e){e.preventDefault();e.stopPropagation();buyWeaponFromShop('pistol');});
+}
+if(shopBuyShotgunBtn){
+  shopBuyShotgunBtn.addEventListener('pointerdown',function(e){e.preventDefault();e.stopPropagation();buyWeaponFromShop('shotgun');});
 }
 if(shopBuyBombBtn){
   shopBuyBombBtn.addEventListener('pointerdown',function(e){e.preventDefault();e.stopPropagation();buyBombFromShop();});
@@ -5096,6 +5357,8 @@ function init(){
   setTimeout(maybeOpenFirstNamePrompt, 0);
   loadPoloFbx();
   loadGunGlbForAvatars();
+  loadWeaponGlbForLocal('pistol','9mm_pistol.glb');
+  loadWeaponGlbForLocal('shotgun','shotgun.glb');
   loadHandGlbForPlayer();
     initSocket();animate();
 }

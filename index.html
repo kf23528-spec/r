@@ -726,6 +726,23 @@ var remoteShotMarks = Object.create(null);
 var remoteShotSeq = Object.create(null);
 var remoteShotAt = Object.create(null);
 var bullets = [];
+var BULLET_POOL_SIZE = 128;
+var bulletPool = [];
+var bulletPoolIdx = 0;
+var bulletPoolInitDone = false;
+function ensureBulletPool(){
+  if(bulletPoolInitDone) return;
+  bulletPoolInitDone = true;
+  for(var i=0;i<BULLET_POOL_SIZE;i++){
+    var m = new T.Mesh(BULLET_GEOMETRY, BULLET_MAT_LOCAL);
+    m.visible = false;
+    m.frustumCulled = false;
+    m.userData.inUse = false;
+    m.userData.ownerBullet = null;
+    scene.add(m);
+    bulletPool.push(m);
+  }
+}
 var aiUnits = [];
 var aiMatchSeed = 1;
 var gunRoot = null, handRoot = null, gunLoaded = false;
@@ -800,7 +817,16 @@ function makeBulletFxLine(origin, dir, color, lifeMs){
   line.visible = true;
   line.userData.inUse = true;
   line.userData.expireAt = performance.now() + (lifeMs||80);
-  setTimeout(function(){ line.visible=false; line.userData.inUse=false; }, lifeMs||80);
+}
+function updateBulletFxLines(){
+  var now = performance.now();
+  for(var i=0;i<fxLinePool.length;i++){
+    var line = fxLinePool[i];
+    if(line.userData.inUse && now >= (line.userData.expireAt || 0)){
+      line.visible = false;
+      line.userData.inUse = false;
+    }
+  }
 }
 var audioUnlocked = false;
 var myShootSound   = new Audio('ju.mp3');
@@ -2677,10 +2703,60 @@ function placeSkillSmokeFromEvent(e){
   return placeSkillSmokeAt(cx, cy);
 }
 function getForwardVectorFromCamera(){var d=new T.Vector3();camera.getWorldDirection(d);if(d.lengthSq()<1e-8)d.set(0,0,-1);return d.normalize();}
+function acquireBulletMesh(isRemote){
+  ensureBulletPool();
+  var mesh = null;
+  for(var i=0;i<BULLET_POOL_SIZE;i++){
+    var idx = (bulletPoolIdx + i) % BULLET_POOL_SIZE;
+    if(!bulletPool[idx].userData.inUse){
+      mesh = bulletPool[idx];
+      bulletPoolIdx = (idx + 1) % BULLET_POOL_SIZE;
+      break;
+    }
+  }
+  if(!mesh){
+    var oldest = bulletPool[0];
+    for(var j=1;j<BULLET_POOL_SIZE;j++){
+      if((bulletPool[j].userData.expireAt || 0) < (oldest.userData.expireAt || 0)) oldest = bulletPool[j];
+    }
+    if(oldest.userData.ownerBullet){
+      oldest.userData.ownerBullet.mesh = null;
+      oldest.userData.ownerBullet.dead = true;
+      oldest.userData.ownerBullet = null;
+    }
+    mesh = oldest;
+  }
+  mesh.visible = true;
+  mesh.userData.inUse = true;
+  mesh.userData.expireAt = performance.now() + BULLET_LIFE * 1000;
+  mesh.userData.isRemote = !!isRemote;
+  mesh.material = isRemote ? BULLET_MAT_REMOTE : BULLET_MAT_LOCAL;
+  return mesh;
+}
+function releaseBulletMesh(mesh){
+  if(!mesh) return;
+  mesh.visible = false;
+  mesh.userData.inUse = false;
+  mesh.userData.ownerBullet = null;
+  mesh.userData.expireAt = 0;
+}
 function makeBullet(origin,dir,ownerId,ownerTeam,isRemote){
-  var mat=isRemote?BULLET_MAT_REMOTE:BULLET_MAT_LOCAL;
-  var m=new T.Mesh(BULLET_GEOMETRY,mat); m.position.copy(origin); scene.add(m);
-  return{mesh:m,pos:origin.clone(),prev:origin.clone(),dir:dir.clone().normalize(),speed:BULLET_SPEED,life:BULLET_LIFE,ownerId:ownerId||'',ownerTeam:ownerTeam||TEAM_BLUE,isRemote:!!isRemote,dead:false};
+  var m = acquireBulletMesh(isRemote);
+  m.position.copy(origin);
+  var b = {
+    mesh:m,
+    pos:origin.clone(),
+    prev:origin.clone(),
+    dir:dir.clone().normalize(),
+    speed:BULLET_SPEED,
+    life:BULLET_LIFE,
+    ownerId:ownerId||'',
+    ownerTeam:ownerTeam||TEAM_BLUE,
+    isRemote:!!isRemote,
+    dead:false
+  };
+  m.userData.ownerBullet = b;
+  return b;
 }
 function addBullet(origin,dir,ownerId,ownerTeam,isRemote){var b=makeBullet(origin,dir,ownerId,ownerTeam,isRemote);bullets.push(b);return b;}
 function hitPointInBox(p,b){return Math.abs(p.x-b.x)<=b.w/2&&Math.abs(p.y-b.y)<=b.h/2&&Math.abs(p.z-b.z)<=b.d/2;}
@@ -3843,12 +3919,24 @@ function fireOnce(){
   }
 }
 function updateBullets(dt){
+  updateBulletFxLines();
   var myId=socket&&socket.id?socket.id:'local';
   for(var i=bullets.length-1;i>=0;i--){
     var b=bullets[i];
-    if(!b||b.dead){if(b&&b.mesh&&b.mesh.parent)b.mesh.parent.remove(b.mesh);if(b)b.mesh=null;bullets.splice(i,1);continue;}
+    if(!b||b.dead){
+      if(b&&b.mesh) releaseBulletMesh(b.mesh);
+      if(b) b.mesh = null;
+      bullets.splice(i,1);
+      continue;
+    }
     b.life-=dt;
-    if(b.life<=0){b.dead=true;if(b.mesh&&b.mesh.parent)b.mesh.parent.remove(b.mesh);b.mesh=null;bullets.splice(i,1);continue;}
+    if(b.life<=0){
+      b.dead=true;
+      if(b.mesh) releaseBulletMesh(b.mesh);
+      b.mesh=null;
+      bullets.splice(i,1);
+      continue;
+    }
     b.prev.copy(b.pos); b.pos.addScaledVector(b.dir,b.speed*dt); if(b.mesh)b.mesh.position.copy(b.pos);
     var isLocal=b.ownerId===myId||b.ownerId==='local';
     if(!isLocal){
@@ -3860,8 +3948,20 @@ function updateBullets(dt){
         var hitDist=rayIntersectAABBDistance(b.prev,segDir2,colliders[c]);
         if(hitDist!==null&&hitDist<=segDist){hit=true;break;}
       }
-      if(hit||Math.abs(b.pos.x)>MAP_BORDER+2||Math.abs(b.pos.z)>MAP_BORDER+2){flashKillFx(b.pos);b.dead=true;if(b.mesh&&b.mesh.parent)b.mesh.parent.remove(b.mesh);b.mesh=null;bullets.splice(i,1);continue;}
-    }else if(Math.abs(b.pos.x)>MAP_BORDER+2||Math.abs(b.pos.z)>MAP_BORDER+2){b.dead=true;if(b.mesh&&b.mesh.parent)b.mesh.parent.remove(b.mesh);b.mesh=null;bullets.splice(i,1);}
+      if(hit||Math.abs(b.pos.x)>MAP_BORDER+2||Math.abs(b.pos.z)>MAP_BORDER+2){
+        flashKillFx(b.pos);
+        b.dead=true;
+        if(b.mesh) releaseBulletMesh(b.mesh);
+        b.mesh=null;
+        bullets.splice(i,1);
+        continue;
+      }
+    }else if(Math.abs(b.pos.x)>MAP_BORDER+2||Math.abs(b.pos.z)>MAP_BORDER+2){
+      b.dead=true;
+      if(b.mesh) releaseBulletMesh(b.mesh);
+      b.mesh=null;
+      bullets.splice(i,1);
+    }
   }
 }
 function enterSpectate(){exitSkillMode();player.spectating=true;gameMode=GAME_MODE.SPECTATE;setModeUI();spectateTargetId='';spectateOverlay.style.display='block';if(gunRoot)gunRoot.visible=false;}

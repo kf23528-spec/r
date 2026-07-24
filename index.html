@@ -435,7 +435,7 @@ var weaponTemplateMap = { rifle: null, pistol: null, shotgun: null };
 var currentWeaponId = 'rifle';
 var WEAPON_DEFS = {
   rifle:   { id:'rifle',   label:'RIFLE',   cost:0,   magSize:30, ammoPerShot:1, pellets:1, damage:0,  autoFire:true,  spread:0.00, asset:'ju.glb',        scale:1.00 },
-  pistol:  { id:'pistol',  label:'PISTOL',  cost:300, magSize:10, ammoPerShot:1, pellets:1, damage:10, autoFire:false, spread:0.00, asset:'9mm_pistol.glb', scale:0.88 },
+  pistol:  { id:'pistol',  label:'PISTOL',  cost:300, magSize:10, ammoPerShot:1, pellets:1, damage:10, autoFire:false, spread:0.00, asset:'9mm_pistol.glb', scale:0.16 },
   shotgun: { id:'shotgun', label:'SHOTGUN', cost:500, magSize:80, ammoPerShot:10, pellets:10, damage:8, autoFire:false, spread:0.085, asset:'shotgun.glb',    scale:0.78 }
 };
 var POLO_FBX_SCALE = 0.01;
@@ -2127,6 +2127,10 @@ function applyWeaponVisualTransform(root, weaponId){
   try{
     root.position.set(0, 0, 0);
     root.rotation.set(0, 0, 0);
+    if(weaponId === 'pistol'){
+      root.rotation.set(0, Math.PI / 2, 0);
+      scale = 0.16;
+    }
     root.scale.setScalar(scale);
   }catch(e){}
   return root;
@@ -5149,7 +5153,6 @@ function assembleModularArena(models, token){
   var containerTemplate = models.container;
   var pillarTemplate = models.pillar;
   var gateTemplate = models.gate;
-  var barrierTemplate = models.barrier;
   var carTemplate = models.car;
 
   // Wider floor grid so the arena matches the intended scale better.
@@ -5174,7 +5177,6 @@ function assembleModularArena(models, token){
   var crateScale = 0.11;
   var containerScale = 0.048;
   var pillarScale = 13.5;
-  var barrierScale = 1.85;
   var carScale = 0.56;
   var wallLiftY = 0.18;
   var carLiftY = 0.18;
@@ -5218,10 +5220,6 @@ function assembleModularArena(models, token){
     addTemplateProp(root, crateTemplate, {x:cp[0], y:cp[1], z:cp[2], ry:cp[3], scale:crateScale, collider:[1.8,1.8,1.8]});
   }
 
-  addTemplateProp(root, barrierTemplate, {x:-10.5, y:0, z:2.5, ry:Math.PI/2, scale:barrierScale, collider:[3.6,1.6,1.4]});
-  addTemplateProp(root, barrierTemplate, {x:10.5, y:0, z:-2.5, ry:Math.PI/2, scale:barrierScale, collider:[3.6,1.6,1.4]});
-  addTemplateProp(root, barrierTemplate, {x:0, y:0, z:8.5, ry:0, scale:barrierScale, collider:[3.6,1.6,1.4]});
-  addTemplateProp(root, barrierTemplate, {x:0, y:0, z:-8.5, ry:0, scale:barrierScale, collider:[3.6,1.6,1.4]});
 
   addTemplateProp(root, containerTemplate, {x:-22.5, y:0, z:20.0, ry:0, scale:containerScale, collider:[5.8,2.5,6.0]});
   addTemplateProp(root, containerTemplate, {x:22.5, y:0, z:-20.0, ry:Math.PI/2, scale:containerScale, collider:[5.8,2.5,6.0]});
@@ -5264,7 +5262,6 @@ function buildProceduralArena(){
     'shipping_container.glb',
     'broken_pillar_concrete_damaged.glb',
     'sci-fi_gate.glb',
-    'jersey_barrier.glb',
     'car.glb'
   ];
 
@@ -5280,8 +5277,7 @@ function buildProceduralArena(){
       container: prepareTemplateRoot(models[4]),
       pillar: prepareTemplateRoot(models[5]),
       gate: prepareTemplateRoot(models[6]),
-      barrier: prepareTemplateRoot(models[7]),
-      car: prepareTemplateRoot(models[8])
+      car: prepareTemplateRoot(models[7])
     };
 
     for(var k in loaded){

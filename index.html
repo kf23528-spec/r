@@ -1775,12 +1775,12 @@ function buildProceduralHands(){
   }
 
   var left = makeHand(-1);
-  left.position.set(-0.12, -0.12, -0.07);
+  left.position.set(-0.13, -0.16, -0.04);
   left.rotation.set(-0.42, 0.04, 0.82);
   root.add(left);
 
   var right = makeHand(1);
-  right.position.set(0.11, -0.15, -0.01);
+  right.position.set(0.13, -0.16, -0.04);
   right.rotation.set(-0.18, -0.08, -0.35);
   root.add(right);
 
@@ -1877,11 +1877,11 @@ function attachHandsToCamera(){
   if(!leftHand || !rightHand){
     handRoot = buildProceduralHands();
   }else{
-    leftHand.position.set(-0.12, -0.12, -0.07);
+    leftHand.position.set(-0.13, -0.16, -0.04);
     leftHand.rotation.set(-0.42, 0.04, 0.82);
     handRoot.add(leftHand);
 
-    rightHand.position.set(0.11, -0.15, -0.01);
+    rightHand.position.set(0.13, -0.16, -0.04);
     rightHand.rotation.set(-0.18, -0.08, -0.35);
     handRoot.add(rightHand);
   }

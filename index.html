@@ -427,7 +427,7 @@ var WEAPON_DEFS = {
     damage: 10,
     recoil: 0.92,
     autoFire: false,
-    modelUrl: '9mm_pistol.glb'
+    modelUrl: 'pistol.glb'
   },
   shotgun: {
     key: 'shotgun',
@@ -442,7 +442,7 @@ var WEAPON_DEFS = {
     damage: 8,
     recoil: 1.55,
     autoFire: false,
-    modelUrl: 'shotgun.glb'
+    modelUrl: 'remington_870_shotgun.glb'
   }
 };
 function getWeaponDef(key){ return WEAPON_DEFS[key] || WEAPON_DEFS[DEFAULT_WEAPON_KEY]; }
@@ -1499,8 +1499,8 @@ function loadWeaponTemplate(key, url, fallbackBuilder){
 }
 function loadGunGlbForAvatars(){
   loadWeaponTemplate('default', 'ju.glb', buildProceduralGun);
-  loadWeaponTemplate('pistol', '9mm_pistol.glb', buildProceduralGun);
-  loadWeaponTemplate('shotgun', 'shotgun.glb', buildProceduralGun);
+  loadWeaponTemplate('pistol', 'pistol.glb', buildProceduralGun);
+  loadWeaponTemplate('shotgun', 'remington_870_shotgun.glb', buildProceduralGun);
 }
 function cloneGunMaterial(mat){
 

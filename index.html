@@ -412,7 +412,8 @@ var WEAPON_DEFS = {
     damage: 12,
     recoil: 1.00,
     autoFire: true,
-    modelUrl: 'ju.glb'
+    modelUrl: 'ju.glb',
+    modelRotation: {x: 0, y: Math.PI, z: 0}
   },
   pistol: {
     key: 'pistol',
@@ -427,7 +428,8 @@ var WEAPON_DEFS = {
     damage: 10,
     recoil: 0.92,
     autoFire: false,
-    modelUrl: 'pistol.glb'
+    modelUrl: 'pistol.glb',
+    modelRotation: {x: 0, y: Math.PI, z: 0}
   },
   shotgun: {
     key: 'shotgun',
@@ -442,7 +444,8 @@ var WEAPON_DEFS = {
     damage: 8,
     recoil: 1.55,
     autoFire: false,
-    modelUrl: 'remington_870_shotgun.glb'
+    modelUrl: 'remington_870_shotgun.glb',
+    modelRotation: {x: 0, y: Math.PI / 2, z: 0}
   }
 };
 function getWeaponDef(key){ return WEAPON_DEFS[key] || WEAPON_DEFS[DEFAULT_WEAPON_KEY]; }
@@ -1429,11 +1432,11 @@ function applyWeaponTemplateToView(key){
   gunGlbReady = true;
   try{
     var freshGun = cloneGunForAvatar();
-    attachGunToCamera(freshGun);
+    attachGunToCamera(freshGun, key);
   }catch(e){
     console.warn('[GUN] attach weapon failed:', e);
     try{
-      attachGunToCamera(buildProceduralGun());
+      attachGunToCamera(buildProceduralGun(), DEFAULT_WEAPON_KEY);
     }catch(e2){}
   }
   syncWeaponStats();
@@ -2004,12 +2007,21 @@ function attachHandsToCamera(){
   handRoot.rotation.set(0,0,0);
   handRoot.visible = (gameMode===GAME_MODE.BATTLE);
 }
-function attachGunToCamera(obj){
+function applyWeaponPoseToGun(key){
+  if(!gunRoot) return;
+  var def = getWeaponDef(key);
+  var rot = def && def.modelRotation ? def.modelRotation : null;
+  if(rot){
+    gunRoot.rotation.set(rot.x || 0, rot.y || 0, rot.z || 0);
+  }
+}
+function attachGunToCamera(obj, weaponKey){
   if(gunRoot&&gunRoot.parent) gunRoot.parent.remove(gunRoot);
   gunRoot=obj; camera.add(gunRoot);
   gunRoot.position.set(0.60,-0.52,-0.82);
   gunRoot.rotation.set(-0.06,-0.32,-0.18);
   gunRoot.scale.set(1.02,1.02,1.02);
+  applyWeaponPoseToGun(weaponKey || currentWeaponKey);
   gunRoot.traverse(function(c){
     if(!c.isMesh) return;
     c.castShadow=false; c.receiveShadow=false; c.frustumCulled=true;
@@ -2021,7 +2033,7 @@ function attachGunToCamera(obj){
   if(handRoot) handRoot.visible=(gameMode===GAME_MODE.BATTLE);
   gunLoaded=true;
 }
-attachGunToCamera(buildProceduralGun());
+attachGunToCamera(buildProceduralGun(), DEFAULT_WEAPON_KEY);
 function createMuzzleFlash(){
   if(!gunRoot) return;
   var fg=new T.Group();
@@ -2187,6 +2199,8 @@ function beginRoundPrep(){
   roundPrepMs = ROUND_PREP_TIME_MS;
   arenaPointCarry = 0;
   createPrepSpawnBarriers();
+  setTimeout(function(){ if(roundPrepActive) createPrepSpawnBarriers(); }, 0);
+  setTimeout(function(){ if(roundPrepActive) createPrepSpawnBarriers(); }, 120);
   updateRoundPhaseUI();
   updateShopUI();
 }
@@ -2273,11 +2287,12 @@ function buildPrepBarrierMaterial(team){
   return new T.MeshStandardMaterial({
     color: team === TEAM_RED ? 0xff5877 : 0x5edcff,
     emissive: team === TEAM_RED ? 0x56101e : 0x0d3a4f,
-    emissiveIntensity: 0.55,
+    emissiveIntensity: 0.72,
     transparent: true,
-    opacity: 0.22,
+    opacity: 0.34,
     roughness: 0.12,
-    metalness: 0.05
+    metalness: 0.05,
+    depthWrite: false
   });
 }
 function createPrepSpawnBarriers(){
@@ -2285,11 +2300,13 @@ function createPrepSpawnBarriers(){
   if(!(gameMode===GAME_MODE.BATTLE && roundPrepActive)) return;
   var barrierRoot = new T.Group();
   barrierRoot.userData.isPrepBarrier = true;
+  barrierRoot.renderOrder = 999;
+  barrierRoot.visible = true;
   prepBarrierGroup = barrierRoot;
   scene.add(barrierRoot);
 
   var teams = [TEAM_BLUE, TEAM_RED];
-  var wallW = 4.6, wallD = 4.6, wallH = 2.25, wallT = 0.18;
+  var wallW = 6.0, wallD = 6.0, wallH = 2.55, wallT = 0.26;
   var half = wallW * 0.5;
   teams.forEach(function(team){
     var spawns = getSpawnPointsForMap(currentMapId, team) || [];
@@ -2311,29 +2328,34 @@ function createPrepSpawnBarriers(){
 
       var wall1 = new T.Mesh(wallGeoX, mat.clone());
       wall1.position.set(0, wallH * 0.5, half);
+      wall1.renderOrder = 999;
       ring.add(wall1);
 
       var wall2 = new T.Mesh(wallGeoX, mat.clone());
       wall2.position.set(0, wallH * 0.5, -half);
+      wall2.renderOrder = 999;
       ring.add(wall2);
 
       var wall3 = new T.Mesh(wallGeoZ, mat.clone());
       wall3.position.set(half, wallH * 0.5, 0);
+      wall3.renderOrder = 999;
       ring.add(wall3);
 
       var wall4 = new T.Mesh(wallGeoZ, mat.clone());
       wall4.position.set(-half, wallH * 0.5, 0);
+      wall4.renderOrder = 999;
       ring.add(wall4);
 
       var glow = new T.Mesh(glowGeo, new T.MeshStandardMaterial({
         color: team === TEAM_RED ? 0xff8aa0 : 0x8fe8ff,
         emissive: team === TEAM_RED ? 0xff3358 : 0x5ddfff,
-        emissiveIntensity: 0.95,
+        emissiveIntensity: 1.15,
         transparent: true,
-        opacity: 0.08,
+        opacity: 0.16,
         roughness: 0.0,
         metalness: 0.0,
-        side: T.DoubleSide
+        side: T.DoubleSide,
+        depthWrite: false
       }));
       glow.rotation.y = Math.PI / 2;
       glow.position.y = wallH * 0.5;
@@ -2347,7 +2369,7 @@ function createPrepSpawnBarriers(){
       ];
       for(var i=0;i<collData.length;i++){
         var cd = collData[i];
-        var c = {x: cd.x, y: cd.y, z: cd.z, w: cd.w, h: cd.h, d: cd.d, ry: cd.ry || 0, mesh: null, prepBarrier: true};
+        var c = {x: cd.x, y: cd.y, z: cd.z, w: cd.w, h: cd.h, d: cd.d, ry: cd.ry || 0, mesh: null, prepBarrier: true, visible: true};
         colliders.push(c);
         prepBarrierColliders.push(c);
       }

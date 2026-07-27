@@ -429,7 +429,6 @@ var WEAPON_DEFS = {
     recoil: 0.92,
     autoFire: false,
     modelUrl: 'pistol.glb',
-    adsScale: 0.72,
     modelRotation: {x: 0, y: Math.PI, z: 0}
   },
   shotgun: {
@@ -2016,10 +2015,6 @@ function applyWeaponPoseToGun(key){
   if(rot){
     gunVisualRoot.rotation.set(rot.x || 0, rot.y || 0, rot.z || 0);
   }
-  var scale = 1;
-  if(def && Number.isFinite(def.viewScale)) scale = def.viewScale;
-  if(adsActive && def && Number.isFinite(def.adsScale)) scale *= def.adsScale;
-  gunVisualRoot.scale.setScalar(scale);
 }
 function attachGunToCamera(obj, weaponKey){
   if(gunRoot&&gunRoot.parent) gunRoot.parent.remove(gunRoot);
@@ -2211,8 +2206,10 @@ function beginRoundPrep(){
   roundPrepMs = ROUND_PREP_TIME_MS;
   arenaPointCarry = 0;
   createPrepSpawnBarriers();
+  requestAnimationFrame(function(){ if(roundPrepActive) createPrepSpawnBarriers(); });
   setTimeout(function(){ if(roundPrepActive) createPrepSpawnBarriers(); }, 0);
   setTimeout(function(){ if(roundPrepActive) createPrepSpawnBarriers(); }, 120);
+  setTimeout(function(){ if(roundPrepActive) createPrepSpawnBarriers(); }, 360);
   updateRoundPhaseUI();
   updateShopUI();
 }
@@ -2309,7 +2306,7 @@ function buildPrepBarrierMaterial(team){
 }
 function createPrepSpawnBarriers(){
   clearPrepSpawnBarriers();
-  if(!(gameMode===GAME_MODE.BATTLE && roundPrepActive)) return;
+  if(!roundPrepActive || gameMode!==GAME_MODE.BATTLE) return;
   var barrierRoot = new T.Group();
   barrierRoot.userData.isPrepBarrier = true;
   barrierRoot.renderOrder = 9999;
@@ -4415,9 +4412,6 @@ function updateRoundIfEnded(){}
 function updateRoundTimer(dt){
   if(gameMode===GAME_MODE.BATTLE){
     if(roundPrepActive){
-      if(!prepBarrierGroup || !prepBarrierGroup.parent || !prepBarrierGroup.children || prepBarrierGroup.children.length===0){
-        createPrepSpawnBarriers();
-      }
       roundPrepMs = Math.max(0, roundPrepMs - dt * 1000);
       updateRoundPhaseUI();
       updateShopUI();
@@ -4775,10 +4769,7 @@ function updateGun(dt){
     var pose = def && def.modelRotation ? def.modelRotation : {x:0,y:0,z:0};
     gunVisualRoot.position.set(0,0,0);
     gunVisualRoot.rotation.set((pose.x||0), (pose.y||0), (pose.z||0) - r*0.07);
-    var scale = 1;
-    if(def && Number.isFinite(def.viewScale)) scale = def.viewScale;
-    if(adsActive && def && Number.isFinite(def.adsScale)) scale *= def.adsScale;
-    gunVisualRoot.scale.setScalar(scale);
+    gunVisualRoot.scale.setScalar(adsActive && currentWeaponKey === 'pistol' ? 0.80 : 1.0);
   }
   if(handRoot){
     var sway = Math.sin(gunBobT * 0.6) * 0.015 * gunBobAmt;

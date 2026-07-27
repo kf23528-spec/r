@@ -413,7 +413,7 @@ var WEAPON_DEFS = {
     recoil: 1.00,
     autoFire: true,
     modelUrl: 'ju.glb',
-    modelRotation: {x: 0, y: Math.PI, z: 0}
+    modelRotation: {x: 0, y: 0, z: 0}
   },
   pistol: {
     key: 'pistol',
@@ -4410,6 +4410,7 @@ function updateRoundIfEnded(){}
 function updateRoundTimer(dt){
   if(gameMode===GAME_MODE.BATTLE){
     if(roundPrepActive){
+      if(!prepBarrierGroup || !prepBarrierGroup.parent || !prepBarrierColliders.length) createPrepSpawnBarriers();
       roundPrepMs = Math.max(0, roundPrepMs - dt * 1000);
       updateRoundPhaseUI();
       updateShopUI();
@@ -4767,6 +4768,7 @@ function updateGun(dt){
     var pose = def && def.modelRotation ? def.modelRotation : {x:0,y:0,z:0};
     gunVisualRoot.position.set(0,0,0);
     gunVisualRoot.rotation.set((pose.x||0), (pose.y||0), (pose.z||0) - r*0.07);
+    gunVisualRoot.scale.setScalar(currentWeaponKey==='pistol' && adsActive ? 0.70 : 1.0);
   }
   if(handRoot){
     var sway = Math.sin(gunBobT * 0.6) * 0.015 * gunBobAmt;

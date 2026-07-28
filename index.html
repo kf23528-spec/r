@@ -779,6 +779,102 @@ function playGunSound(isBot){
   }catch(e){}
 }
 var uiSfxCtx = null;
+var motionFx = {
+  shakeX: 0,
+  shakeY: 0,
+  pulse: 0,
+  heat: 0,
+  danger: 0,
+  clock: 0,
+  mode: 0,
+  lastAmmo: null,
+  lastHp: null
+};
+function kickMotion(kind, power){
+  power = Math.max(0, Number(power) || 0);
+  if(!power) return;
+  if(kind === 'shot'){
+    motionFx.shakeX += power * 0.75;
+    motionFx.shakeY += power * 0.55;
+    motionFx.pulse = Math.max(motionFx.pulse, 0.22 + power * 0.34);
+    motionFx.heat = Math.min(1, motionFx.heat + 0.08 + power * 0.08);
+  }else if(kind === 'hit'){
+    motionFx.shakeX += power * 1.20;
+    motionFx.shakeY += power * 1.10;
+    motionFx.pulse = Math.max(motionFx.pulse, 0.40 + power * 0.42);
+    motionFx.danger = Math.min(1, motionFx.danger + 0.24 + power * 0.18);
+  }else if(kind === 'reload'){
+    motionFx.pulse = Math.max(motionFx.pulse, 0.15 + power * 0.22);
+    motionFx.heat = Math.max(motionFx.heat, 0.12);
+  }else if(kind === 'throw'){
+    motionFx.shakeX += power * 0.52;
+    motionFx.shakeY += power * 0.85;
+    motionFx.pulse = Math.max(motionFx.pulse, 0.18 + power * 0.20);
+  }else if(kind === 'kill'){
+    motionFx.pulse = Math.max(motionFx.pulse, 0.28 + power * 0.36);
+    motionFx.heat = Math.min(1, motionFx.heat + 0.04 + power * 0.05);
+  }else{
+    motionFx.pulse = Math.max(motionFx.pulse, 0.14 + power * 0.18);
+  }
+}
+function updateMotionFx(dt){
+  motionFx.clock += dt;
+  motionFx.shakeX *= Math.exp(-10.5 * dt);
+  motionFx.shakeY *= Math.exp(-10.5 * dt);
+  motionFx.pulse  *= Math.exp(-4.8 * dt);
+  motionFx.heat   *= Math.exp(-2.4 * dt);
+  motionFx.danger *= Math.exp(-1.2 * dt);
+
+  var ambient = 0.25 + 0.15 * Math.sin(motionFx.clock * 0.9) + 0.10 * Math.sin(motionFx.clock * 0.37 + 1.7);
+  var jitterX = Math.sin(motionFx.clock * 26.0 + 1.1) * motionFx.shakeX + Math.sin(motionFx.clock * 9.0) * motionFx.heat * 0.35;
+  var jitterY = Math.cos(motionFx.clock * 23.0 + 0.4) * motionFx.shakeY + Math.cos(motionFx.clock * 11.0) * motionFx.heat * 0.28;
+  var sway = Math.sin(motionFx.clock * 1.8) * ambient * 1.6 + jitterX * 0.15;
+  var lift = Math.cos(motionFx.clock * 1.1) * ambient * 1.1 + jitterY * 0.12;
+  var hud = document.getElementById('hud');
+  var game = document.getElementById('game');
+  var crosshair = document.getElementById('crosshair');
+  var crosshairDot = document.getElementById('crosshairDot');
+  var hpBlock = document.getElementById('hpBlock');
+  var status = document.getElementById('status');
+  var buttons = ['shootButton','reloadButton','adsButton','skillButton','bombButton','shopButton']
+    .map(function(id){ return document.getElementById(id); })
+    .filter(Boolean);
+
+  if(game){
+    game.style.setProperty('--motion-x', jitterX.toFixed(3) + 'px');
+    game.style.setProperty('--motion-y', jitterY.toFixed(3) + 'px');
+    game.style.setProperty('--motion-tilt', (jitterX * 0.08).toFixed(3) + 'deg');
+  }
+  if(hud){
+    hud.style.transform = 'translate3d(' + (jitterX * 0.42).toFixed(3) + 'px,' + (jitterY * 0.34).toFixed(3) + 'px,0)';
+    hud.style.filter = 'saturate(' + (1 + motionFx.heat * 0.12).toFixed(3) + ') brightness(' + (1 + motionFx.pulse * 0.10).toFixed(3) + ')';
+    hud.style.opacity = String(0.98 + motionFx.pulse * 0.02);
+  }
+  if(crosshair){
+    var crossScale = 1 + motionFx.pulse * 0.24 + motionFx.heat * 0.10;
+    crosshair.style.transform = 'translate(-50%,-50%) translate3d(' + (jitterX * 0.65).toFixed(3) + 'px,' + (jitterY * 0.65).toFixed(3) + 'px,0) scale(' + crossScale.toFixed(3) + ') rotate(' + (jitterX * 0.15).toFixed(3) + 'deg)';
+    crosshair.style.filter = 'drop-shadow(0 0 ' + (4 + motionFx.pulse * 8).toFixed(1) + 'px rgba(0,0,0,0.45)) drop-shadow(0 0 ' + (10 + motionFx.heat * 14).toFixed(1) + 'px rgba(255,255,255,' + (0.12 + motionFx.heat * 0.12).toFixed(3) + '))';
+  }
+  if(crosshairDot){
+    crosshairDot.style.transform = 'translate(-50%,-50%) scale(' + (1 + motionFx.pulse * 0.18).toFixed(3) + ')';
+    crosshairDot.style.opacity = String(0.92 + motionFx.heat * 0.08);
+  }
+  if(hpBlock){
+    var hpWobble = motionFx.danger * 0.85 + motionFx.pulse * 0.12;
+    hpBlock.style.transform = 'translate3d(' + (jitterX * 0.12).toFixed(3) + 'px,' + (jitterY * 0.10).toFixed(3) + 'px,0) rotate(' + (jitterX * 0.02).toFixed(3) + 'deg)';
+    hpBlock.style.filter = 'drop-shadow(0 0 ' + (6 + hpWobble * 12).toFixed(1) + 'px rgba(255,90,90,' + (0.08 + hpWobble * 0.15).toFixed(3) + '))';
+  }
+  if(status){
+    status.style.transform = 'translate3d(' + (jitterX * 0.10).toFixed(3) + 'px,' + (jitterY * 0.08).toFixed(3) + 'px,0)';
+  }
+  buttons.forEach(function(btn, i){
+    var wobble = 1 + motionFx.pulse * 0.08 + motionFx.heat * 0.03;
+    var step = Math.sin(motionFx.clock * (1.5 + i * 0.15) + i) * (0.5 + motionFx.pulse * 0.8);
+    btn.style.transform = 'translate3d(' + (jitterX * 0.06).toFixed(3) + 'px,' + (jitterY * 0.06).toFixed(3) + 'px,0) scale(' + wobble.toFixed(3) + ') rotate(' + step.toFixed(3) + 'deg)';
+    btn.style.boxShadow = btn.style.boxShadow;
+  });
+}
+window.__arenaMotion = { kick: kickMotion, tick: updateMotionFx };
 function getUiSfxCtx(){
   try{
     var Ctor = window.AudioContext || window.webkitAudioContext;
@@ -2295,6 +2391,9 @@ function updatePlayerHPUI(){
   hpBarInner.style.width=(pct*100)+'%';
   hpTextEl.textContent=Math.max(0,Math.round(player.hp))+' / '+player.maxHp;
   hpBarInner.style.background=pct>0.6?'linear-gradient(90deg,#3cff7d,#29d65e)':pct>0.3?'linear-gradient(90deg,#ffd84d,#ffb51e)':'linear-gradient(90deg,#ff6a6a,#d90c0c)';
+  var hpBlock = document.getElementById('hpBlock');
+  if(hpBlock) hpBlock.classList.toggle('hp-danger', pct <= 0.33);
+  if(pct <= 0.33) motionFx.danger = Math.max(motionFx.danger, 0.40 + (0.33 - pct) * 1.8);
 }
 function setModeUI(){
   lobbyOverlay.style.display=gameMode===GAME_MODE.LOBBY?'flex':'none';
@@ -3292,6 +3391,7 @@ function explodeBomb(bomb){
 function throwBomb(){
   if(gameMode!==GAME_MODE.BATTLE || matchOver || !player.alive || bombPoints<=0) return;
   playUiSfx('throw');
+  kickMotion('throw', 1.1);
   var dir = getBombThrowVector();
   var speed = getBombThrowSpeed();
   var start = camera.position.clone().add(dir.clone().multiplyScalar(0.8));
@@ -3343,8 +3443,8 @@ function updateBombs(dt){
   }
 }
 function addKillFeed(text){var d=document.createElement('div');d.className='kfItem';d.textContent=text;killFeedEl.appendChild(d);setTimeout(function(){if(d.parentNode)d.parentNode.removeChild(d);},2600);}
-function flashHitIndicator(){hitIndicator.classList.add('active');setTimeout(function(){hitIndicator.classList.remove('active');},120);}
-function showKillAnnouncement(text){announceEl.textContent=text||'HIT!';announceEl.classList.remove('show');void announceEl.offsetWidth;announceEl.classList.add('show');}
+function flashHitIndicator(){hitIndicator.classList.add('active');kickMotion('hit', 1.0);setTimeout(function(){hitIndicator.classList.remove('active');},120);}
+function showKillAnnouncement(text){announceEl.textContent=text||'HIT!';announceEl.classList.remove('show');void announceEl.offsetWidth;announceEl.classList.add('show');kickMotion('kill', 0.8);}
 function resetRoundState(){
   roundResolved=false;matchOver=false;player.alive=true;player.spectating=false;spectateTargetId='';
   player.hp=player.maxHp=100;ammo=MAG_SIZE;reloading=false;reloadTimer=0;
@@ -3957,6 +4057,7 @@ function fireOnce(){
   if(reloading || ammo < ammoPerShot) return;
   if(now - lastShotTime < FIRE_INTERVAL * 900) return;
   lastShotTime = now;
+  kickMotion('shot', 0.7 + pellets * 0.06);
   ammo -= ammoPerShot;
   if(ammo < 0) ammo = 0;
   updateAmmoUI();
@@ -4602,20 +4703,20 @@ window.addEventListener('gesturestart',function(e){if(gameMode===GAME_MODE.BATTL
 window.addEventListener('gesturechange',function(e){if(gameMode===GAME_MODE.BATTLE)e.preventDefault();},{passive:false});
 function updateGun(dt){
   if(!gunRoot)return;
-  gunState.recoil=T.MathUtils.lerp(gunState.recoil,0,1-Math.exp(-(adsActive?22:16)*dt));
+  gunState.recoil=T.MathUtils.lerp(gunState.recoil,0,1-Math.exp(-(adsActive?26:18)*dt));
   var tFov=adsActive?CAM_FOV_ADS:CAM_FOV_NORMAL;
   gunFovCurrent=T.MathUtils.lerp(gunFovCurrent,tFov,1-Math.exp(-14*dt));
   if(Math.abs(gunFovCurrent-camera.fov)>0.05){camera.fov=gunFovCurrent;camera.updateProjectionMatrix();}
   gunPosCurrent.lerp(gunPosTarget,1-Math.exp(-16*dt));
   var ms=Math.hypot(moveVel.x,moveVel.y);
-  if(ms>0.2&&gameMode===GAME_MODE.BATTLE&&!adsActive){gunBobT+=dt*8.0;gunBobAmt=T.MathUtils.lerp(gunBobAmt,Math.min(ms/PLAYER_SPEED,1.0),0.1);}
-  else{gunBobAmt=T.MathUtils.lerp(gunBobAmt,0,0.12);gunBobT+=dt*3.0;}
-  var bx=Math.sin(gunBobT*0.5)*0.006*gunBobAmt,by=Math.abs(Math.sin(gunBobT))*0.008*gunBobAmt;
+  if(ms>0.15&&gameMode===GAME_MODE.BATTLE&&!adsActive){gunBobT+=dt*10.8;gunBobAmt=T.MathUtils.lerp(gunBobAmt,Math.min(ms/PLAYER_SPEED,1.15),0.16);} else {gunBobT+=dt*3.8; gunBobAmt=T.MathUtils.lerp(gunBobAmt,0.06,0.06);}
+  
+  var bx=Math.sin(gunBobT*0.65)*0.010*gunBobAmt,by=Math.abs(Math.sin(gunBobT*1.15))*0.014*gunBobAmt;var sway=Math.sin(gunBobT*0.38)*0.010*gunBobAmt;var roll=Math.sin(gunBobT*0.85)*0.025*gunBobAmt;
   var ry=0;
   if(gunState.reloadAnim){gunState.reloadAnimT=Math.min(gunState.reloadAnimT+dt,gunState.reloadAnimDur);var p=gunState.reloadAnimT/gunState.reloadAnimDur;ry=p<0.5?-0.24*Math.pow(p/0.5,2):-0.24*(1-Math.pow(1-2*(p-0.5),2));}
   var r=gunState.recoil;
-  gunRoot.position.set(gunPosCurrent.x+bx+r*0.006,gunPosCurrent.y+by+r*0.018+ry,gunPosCurrent.z+r*0.045);
-  gunRoot.rotation.set(0,0,0);
+  gunRoot.position.set(gunPosCurrent.x+bx+sway+r*0.010,gunPosCurrent.y+by+r*0.026+ry,gunPosCurrent.z+r*0.056);
+  gunRoot.rotation.set(0,0,roll + r*0.02);
   if(gunVisualRoot){
     var def = getWeaponDef(currentWeaponKey);
     var pose = def && def.modelRotation ? def.modelRotation : {x:0,y:0,z:0};
@@ -4625,15 +4726,16 @@ function updateGun(dt){
   }
   if(handRoot){
     var sway = Math.sin(gunBobT * 0.6) * 0.015 * gunBobAmt;
-    handRoot.position.set(0.02 + sway, -0.01 + by * 0.35, 0.03 + r * 0.012);
-    handRoot.rotation.set(0.02 + r * 0.02, 0, -0.03 - sway * 0.5);
+    handRoot.position.set(0.02 + sway * 1.2, -0.01 + by * 0.52, 0.03 + r * 0.016);
+    handRoot.rotation.set(0.02 + r * 0.035, sway * 0.22, -0.05 - sway * 0.7 + roll * 0.3);
     handRoot.visible = (gameMode===GAME_MODE.BATTLE);
   }
 }
 function triggerRecoil(){
   var def = getWeaponDef(currentWeaponKey);
   var recoilMul = def && Number.isFinite(def.recoil) ? def.recoil : 1;
-  gunState.recoil = Math.min(1.0, gunState.recoil + (adsActive ? 0.035 : 0.10) * recoilMul);
+  gunState.recoil = Math.min(1.25, gunState.recoil + (adsActive ? 0.055 : 0.14) * recoilMul);
+  kickMotion('shot', 0.9 + recoilMul * 0.45);
 }
 
 
@@ -5222,6 +5324,7 @@ function animate(){
   requestAnimationFrame(animate);
   var dt=Math.min(clock.getDelta(),0.034);
   updateOrientationUI();updateKeyboardInput();updateSkillUI();
+  updateMotionFx(dt);
   if(gameMode===GAME_MODE.LOBBY||gameMode===GAME_MODE.WAITING||gameMode===GAME_MODE.LOADING){
     updateLobbyCamera(dt);
   }else if(gameMode===GAME_MODE.BATTLE){
@@ -5265,49 +5368,217 @@ init();
 })();</script></div>
 <script>
 (() => {
+  const game = document.getElementById('game');
   const hud = document.getElementById('hud');
   const crosshair = document.getElementById('crosshair');
+  const crosshairDot = document.getElementById('crosshairDot');
   const hitIndicator = document.getElementById('hitIndicator');
+  const announce = document.getElementById('announce');
+  const hpBlock = document.getElementById('hpBlock');
+  const hpBar = document.getElementById('hpBarInner');
+  const ammoCount = document.getElementById('ammoCount');
+  const hpText = document.getElementById('hpText');
+  const status = document.getElementById('status');
   const pulseTargets = ['shootButton', 'reloadButton', 'adsButton', 'skillButton', 'bombButton', 'shopButton']
     .map((id) => document.getElementById(id))
     .filter(Boolean);
 
-  let shotTimer = 0;
-  function flashShot() {
-    if (!hud) return;
-    hud.classList.add('hud-shot');
-    clearTimeout(shotTimer);
-    shotTimer = setTimeout(() => hud && hud.classList.remove('hud-shot'), 140);
+  const style = document.createElement('style');
+  style.textContent = `
+    #game{overflow:hidden;}
+    #hud, #crosshair, #crosshairDot, #hpBlock, #status, #shootButton, #reloadButton, #adsButton, #skillButton, #bombButton, #shopButton, #hpBarInner, #reloadBarFill, #announce, #hitIndicator{will-change:transform,opacity,filter;}
+    #game::before{
+      content:"";position:absolute;inset:-18%;pointer-events:none;z-index:1;
+      background:
+        radial-gradient(circle at 50% 50%, rgba(90,170,255,0.10), transparent 28%),
+        radial-gradient(circle at 18% 22%, rgba(255,90,120,0.10), transparent 22%),
+        radial-gradient(circle at 82% 18%, rgba(140,92,255,0.10), transparent 20%),
+        linear-gradient(115deg, transparent 0 46%, rgba(255,255,255,0.035) 50%, transparent 54% 100%);
+      background-size: 100% 100%, 100% 100%, 100% 100%, 220% 220%;
+      animation: arenaSweep 9.5s linear infinite;
+      mix-blend-mode: screen;
+      opacity: 0.88;
+    }
+    #game::after{
+      content:"";position:absolute;inset:0;pointer-events:none;z-index:2;
+      background:repeating-linear-gradient(to bottom, rgba(255,255,255,0.028) 0 1px, transparent 1px 7px);
+      opacity:0.10;animation:scanDrift 1.2s linear infinite;
+      mix-blend-mode: screen;
+    }
+    @keyframes arenaSweep{0%{transform:translate3d(-1.5%, -1%, 0) rotate(-6deg)}50%{transform:translate3d(1.2%, 1%, 0) rotate(-6deg)}100%{transform:translate3d(-1.5%, -1%, 0) rotate(-6deg)}}
+    @keyframes scanDrift{0%{transform:translateY(-8px)}100%{transform:translateY(8px)}}
+    #hud.hud-shot{filter:saturate(1.15) brightness(1.10);}
+    #hud.hud-hit{filter:saturate(1.22) brightness(1.04) hue-rotate(-6deg);}
+    #crosshair{transition:transform 90ms linear, filter 120ms linear, opacity 120ms linear;}
+    #crosshair::before, #crosshair::after{transition:transform 90ms linear, opacity 120ms linear, width 90ms linear, height 90ms linear;}
+    #crosshairDot{transition:transform 90ms linear, opacity 120ms linear;}
+    #hpBlock.hp-danger #hpBarInner{animation:hpAlarm 0.72s ease-in-out infinite alternate;}
+    @keyframes hpAlarm{from{filter:brightness(1.0) saturate(1.0)}to{filter:brightness(1.28) saturate(1.35)}}
+    #announce.show{animation:pop 0.60s ease-out forwards, announceFloat 0.90s ease-out forwards;}
+    @keyframes announceFloat{0%{letter-spacing:0.06em;transform:translate(-50%,-50%) scale(0.72)}40%{letter-spacing:0.14em;transform:translate(-50%,-53%) scale(1.08)}100%{letter-spacing:0.10em;transform:translate(-50%,-58%) scale(0.95)}}
+    .motionPulse{
+      position:fixed;inset:-20%;pointer-events:none;z-index:1;mix-blend-mode:screen;
+      background:radial-gradient(circle at center, rgba(80,170,255,0.12), transparent 34%),
+                 radial-gradient(circle at center, rgba(255,80,120,0.06), transparent 52%);
+      opacity:0;transform:scale(0.98);
+    }
+    .motionPulse.on{animation:motionPulse 240ms ease-out forwards;}
+    .motionPulse.hurt{background:radial-gradient(circle at center, rgba(255,70,70,0.20), transparent 32%), radial-gradient(circle at center, rgba(255,20,20,0.10), transparent 58%);}
+    @keyframes motionPulse{0%{opacity:0;transform:scale(0.96)}15%{opacity:1;transform:scale(1.01)}100%{opacity:0;transform:scale(1.08)}}
+  `;
+  document.head.appendChild(style);
+
+  const pulse = document.createElement('div');
+  pulse.className = 'motionPulse';
+  (game || document.body).appendChild(pulse);
+
+  const motion = {
+    shakeX: 0,
+    shakeY: 0,
+    pulse: 0,
+    heat: 0,
+    danger: 0,
+    clock: 0,
+    lastAmmo: ammoCount ? Number(ammoCount.textContent) : null,
+    lastHp: hpText ? Number(String(hpText.textContent).split(' / ')[0]) : null,
+    lastAnnounce: ''
+  };
+
+  function burst(type, power) {
+    power = Math.max(0, Number(power) || 0);
+    if (!power) return;
+    if (type === 'shot') {
+      motion.shakeX += power * 1.0;
+      motion.shakeY += power * 0.75;
+      motion.pulse = Math.max(motion.pulse, 0.26 + power * 0.38);
+      motion.heat = Math.min(1, motion.heat + 0.08 + power * 0.10);
+      if (hud) hud.classList.add('hud-shot');
+    } else if (type === 'hit') {
+      motion.shakeX += power * 1.6;
+      motion.shakeY += power * 1.3;
+      motion.pulse = Math.max(motion.pulse, 0.42 + power * 0.46);
+      motion.danger = Math.min(1, motion.danger + 0.30 + power * 0.20);
+      if (hud) hud.classList.add('hud-hit');
+      if (pulse) { pulse.classList.add('hurt'); pulse.classList.add('on'); }
+    } else if (type === 'reload') {
+      motion.pulse = Math.max(motion.pulse, 0.18 + power * 0.22);
+      motion.heat = Math.max(motion.heat, 0.12);
+    } else if (type === 'kill') {
+      motion.pulse = Math.max(motion.pulse, 0.30 + power * 0.36);
+      if (pulse) pulse.classList.add('on');
+    } else if (type === 'throw') {
+      motion.shakeX += power * 0.6;
+      motion.shakeY += power * 0.95;
+      motion.pulse = Math.max(motion.pulse, 0.20 + power * 0.18);
+    }
+    if (pulse) {
+      pulse.classList.remove('on');
+      pulse.style.animation = 'none';
+      void pulse.offsetWidth;
+      pulse.style.animation = '';
+      pulse.classList.add('on');
+      if (type === 'hit') pulse.classList.add('hurt'); else pulse.classList.remove('hurt');
+      setTimeout(() => { if (pulse) { pulse.classList.remove('on'); pulse.classList.remove('hurt'); } }, 240);
+    }
+    pulseTargets.forEach((el, idx) => {
+      const scale = 1 + power * (type === 'hit' ? 0.06 : 0.035);
+      el.style.transform = `translate3d(0,0,0) scale(${scale.toFixed(3)}) rotate(${((idx % 2 === 0 ? 1 : -1) * power * 2.0).toFixed(2)}deg)`;
+      setTimeout(() => { el.style.transform = ''; }, 160);
+    });
   }
 
-  pulseTargets.forEach((el) => {
-    el.addEventListener('pointerdown', flashShot, { passive: true });
-  });
+  function frame(now) {
+    motion.clock = now / 1000;
+    motion.shakeX *= 0.88;
+    motion.shakeY *= 0.88;
+    motion.pulse *= 0.92;
+    motion.heat *= 0.985;
+    motion.danger *= 0.976;
 
-  if (crosshair) {
-    crosshair.addEventListener('animationiteration', () => {
-      crosshair.style.filter = 'drop-shadow(0 0 6px rgba(0,0,0,0.45))';
-      setTimeout(() => {
-        if (crosshair) crosshair.style.filter = '';
-      }, 180);
+    const driftX = motion.shakeX * Math.sin(motion.clock * 28.0) + motion.heat * Math.sin(motion.clock * 9.0) * 0.40;
+    const driftY = motion.shakeY * Math.cos(motion.clock * 24.0) + motion.heat * Math.cos(motion.clock * 11.0) * 0.32;
+    const hudX = driftX * 0.22;
+    const hudY = driftY * 0.18;
+
+    if (hud) {
+      hud.style.transform = `translate3d(${hudX.toFixed(3)}px, ${hudY.toFixed(3)}px, 0)`;
+      hud.style.filter = `saturate(${(1 + motion.heat * 0.12).toFixed(3)}) brightness(${(1 + motion.pulse * 0.08).toFixed(3)})`;
+      if (motion.danger > 0.08) hud.classList.add('hud-hit'); else hud.classList.remove('hud-hit');
+      if (motion.pulse < 0.10) hud.classList.remove('hud-shot');
+    }
+
+    if (crosshair) {
+      const scale = 1 + motion.pulse * 0.28 + motion.heat * 0.08;
+      crosshair.style.transform = `translate(-50%, -50%) translate3d(${(driftX * 0.62).toFixed(3)}px, ${(driftY * 0.62).toFixed(3)}px, 0) scale(${scale.toFixed(3)})`;
+      crosshair.style.filter = `drop-shadow(0 0 ${(4 + motion.pulse * 10).toFixed(1)}px rgba(0,0,0,0.45)) drop-shadow(0 0 ${(10 + motion.heat * 16).toFixed(1)}px rgba(255,255,255,${(0.16 + motion.heat * 0.12).toFixed(3)}))`;
+    }
+    if (crosshairDot) {
+      crosshairDot.style.transform = `translate(-50%, -50%) scale(${(1 + motion.pulse * 0.20).toFixed(3)})`;
+      crosshairDot.style.opacity = String(0.88 + motion.heat * 0.08);
+    }
+
+    if (hpBlock) {
+      const danger = Math.min(1, motion.danger + motion.pulse * 0.2);
+      hpBlock.style.transform = `translate3d(${(hudX * 0.12).toFixed(3)}px, ${(hudY * 0.12).toFixed(3)}px, 0) rotate(${(hudX * 0.02).toFixed(3)}deg)`;
+      hpBlock.style.filter = `drop-shadow(0 0 ${(6 + danger * 14).toFixed(1)}px rgba(255,80,80,${(0.08 + danger * 0.18).toFixed(3)}))`;
+      hpBlock.classList.toggle('hp-danger', danger > 0.18);
+    }
+
+    if (status) {
+      status.style.transform = `translate3d(${(hudX * 0.08).toFixed(3)}px, ${(hudY * 0.08).toFixed(3)}px, 0)`;
+    }
+
+    if (hitIndicator && hitIndicator.classList.contains('active')) {
+      burst('hit', 0.2);
+    }
+
+    requestAnimationFrame(frame);
+  }
+
+  if (ammoCount) {
+    const obs = new MutationObserver(() => {
+      const cur = Number(ammoCount.textContent);
+      if (Number.isFinite(cur) && motion.lastAmmo != null && cur < motion.lastAmmo) {
+        burst('shot', Math.min(1.2, (motion.lastAmmo - cur) * 0.14 + 0.45));
+      }
+      motion.lastAmmo = Number.isFinite(cur) ? cur : motion.lastAmmo;
     });
+    obs.observe(ammoCount, { childList: true, characterData: true, subtree: true });
+  }
+
+  if (hpText) {
+    const obs = new MutationObserver(() => {
+      const cur = Number(String(hpText.textContent).split(' / ')[0]);
+      if (Number.isFinite(cur) && motion.lastHp != null && cur < motion.lastHp) {
+        burst('hit', Math.min(1.35, (motion.lastHp - cur) * 0.03 + 0.45));
+      }
+      motion.lastHp = Number.isFinite(cur) ? cur : motion.lastHp;
+    });
+    obs.observe(hpText, { childList: true, characterData: true, subtree: true });
+  }
+
+  if (announce) {
+    const obs = new MutationObserver(() => {
+      const cur = announce.textContent || '';
+      if (cur && cur !== motion.lastAnnounce) burst('kill', 0.85);
+      motion.lastAnnounce = cur;
+    });
+    obs.observe(announce, { childList: true, characterData: true, subtree: true });
   }
 
   if (hitIndicator) {
-    let lastClass = hitIndicator.className;
     const obs = new MutationObserver(() => {
-      const now = hitIndicator.className;
-      if (now !== lastClass) {
-        lastClass = now;
-        if (hitIndicator.classList.contains('active') && hud) {
-          hud.classList.add('hud-hit');
-          setTimeout(() => hud && hud.classList.remove('hud-hit'), 180);
-        }
-      }
+      if (hitIndicator.classList.contains('active')) burst('hit', 0.95);
     });
     obs.observe(hitIndicator, { attributes: true, attributeFilter: ['class'] });
   }
+
+  pulseTargets.forEach((el) => {
+    el.addEventListener('pointerdown', () => burst('shot', 0.28), { passive: true });
+    el.addEventListener('pointerup', () => { el.style.transform = ''; }, { passive: true });
+  });
+
+  requestAnimationFrame(frame);
 })();
 </script>
-
 </body></html>

@@ -190,7 +190,7 @@
   #bombButton{right:calc(var(--safe-right) + 10px + clamp(70px, 17vw, 92px) + var(--ui-gap))}
 }
 </style>
-</head><body><div id="game"><canvas id="c"></canvas><div id="hud"><div id="touchLookArea"></div><div id="hpBlock"><div id="hpLabel"><span>💚 HP</span><span id="hpText">100 / 100</span></div><div id="hpBarOuter"><div id="hpBarInner"></div></div></div><div class="connecting" id="netBadge">🟡 接続中...</div><div id="onlineCount">👥 同室: 1人</div><div id="status"><div id="scoreBoard">BLUE <span id="blueScore">0</span> / RED <span id="redScore">0</span></div><div id="roundState">ROUND: <span id="roundText">1</span> | <span id="phaseText">FIGHT</span> | 先に5点で勝利</div><span id="ammo">AMMO: <span id="ammoCount">30</span> / <span id="ammoMaxCount">30</span></span><span id="points">PTS: <span id="pointCount">0</span></span><span id="reloadIndicator">⟳ RELOADING...</span><div id="reloadBar"><div id="reloadBarFill"></div></div></div><div id="hitIndicator"></div><div id="crosshair"></div><div id="crosshairDot"></div><div id="announce"></div><div id="killFeed"></div><div id="joystickContainer"><div class="base"></div><div class="knob" id="knob"></div></div><button id="shootButton">FIRE</button><button aria-label="リロード" id="reloadButton"></button><button aria-label="爆弾" id="bombButton"></button><div id="bombSettingsPanel"><div id="bombSettingsTitle">BOMB CONTROL</div><div class="bombSettingRow"><div class="bombSettingLabel"><span>ANGLE</span><span class="bombSettingValue" id="bombAngleValue">35°</span></div><input class="bombSlider" id="bombAngleSlider" type="range" min="10" max="70" step="1" value="35"/></div><div class="bombSettingRow"><div class="bombSettingLabel"><span>DISTANCE</span><span class="bombSettingValue" id="bombPowerValue">100%</span></div><input class="bombSlider" id="bombPowerSlider" type="range" min="70" max="160" step="1" value="100"/></div><div id="bombHint">爆弾モード中に投擲角度と飛距離を調整できます</div></div><button aria-label="ADS" id="adsButton"></button><button aria-label="スキル" id="skillButton" title="スキル"></button><button id="shopButton" type="button">SHOP</button><div id="bombTrajectory"><div id="bombTrajectoryLine"></div><div id="bombTrajectoryTip"></div><div id="bombTrajectoryText"></div></div><div id="bombQuickControls"><div class="bombQuickGroup"><div class="bombQuickReadout"><span>ANGLE</span><span class="val" id="bombAngleButtonValue">35°</span></div><button class="bombQuickButton" id="bombAngleButton" type="button" aria-label="角度調整"></button></div><div class="bombQuickGroup"><div class="bombQuickReadout"><span>DIST</span><span class="val" id="bombDistanceButtonValue">100%</span></div><button class="bombQuickButton" id="bombDistanceButton" type="button" aria-label="距離調整"></button></div></div><div id="shopOverlay"><div id="shopPanel"><div id="shopHeader"><div><div id="shopBadge">WEAPON SHOP</div><div id="shopTitle">BUY PHASE</div><div id="shopSub">30秒の準備時間だけ開くショップ</div></div><button id="shopCloseBtn" type="button" aria-label="閉じる">✕</button></div><div id="shopPointsRow"><span>PTS</span><strong id="shopPointCount">0</strong></div><button id="shopBuyPistolBtn" type="button" class="shopItemBtn shopPistol"><span class="shopItemTop"><span class="shopItemName">PISTOL</span><span class="shopItemCost">200</span></span><span class="shopItemDesc">10発 / 1発10ダメ / 連射不可</span></button><button id="shopBuyShotgunBtn" type="button" class="shopItemBtn shopShotgun"><span class="shopItemTop"><span class="shopItemName">SHOTGUN</span><span class="shopItemCost">300</span></span><span class="shopItemDesc">80発 / 10発同時発射 / 1発18ダメ / 拡散</span></button><button id="shopBuyBombBtn" type="button" class="shopItemBtn shopBomb"><span class="shopItemTop"><span class="shopItemName">BOMB +1</span><span class="shopItemCost">100</span></span><span class="shopItemDesc">1個購入すると爆弾が1つ増える</span></button></div></div><div id="lobbyOverlay"><div id="lobbyShell"><div id="lobbyCard"><div id="lobbyBadge">NEON // ONLINE ARENA</div><div id="lobbyTitle">NEON ARENA<br/>ONLINE</div><div id="lobbySub">部屋番号を入力して、同じ番号のプレイヤーとマッチング。</div><div id="roomPanel"><div id="roomPanelLabel">ROOM NUMBER（4桁）</div><div id="roomInputRow"><input autocomplete="off" autocorrect="off" id="roomInput" inputmode="numeric" maxlength="4" pattern="[0-9]*" placeholder="0000" spellcheck="false" type="tel"/><button id="roomGenBtn" title="ランダム生成">🎲</button></div><div id="roomHint">同じ番号の相手が入室するとマッチング開始</div></div><div id="rankPanel"><div id="rankRow"><span id="rankName">ブロンズ I</span><span id="rankPct">0%</span></div><div id="rankBar"><div id="rankFill"></div></div><div id="rankHint">RANK SAVED TO LOCAL STORAGE</div></div><button id="randomBattleBtn">⚡ RANDOM BATTLE</button><button id="settingsOpenBtn" type="button">⚙ 設定</button><button disabled="" id="lobbyStartBtn">部屋に入る →</button></div><div id="lobbySide"><div id="lobbyStats"><div class="statCard"><div class="statLabel">MODE</div><div class="statValue" id="lobbyModeValue">RANKED</div><div class="statSub">CASUAL / RANKED</div></div><div class="statCard"><div class="statLabel">GOAL</div><div class="statValue">5</div><div class="statSub">FIRST TO FIVE</div></div><div class="statCard"><div class="statLabel">NET</div><div class="statValue" id="lobbyNetValue">--</div><div class="statSub">SOCKET.IO STATUS</div></div><div class="statCard"><div class="statLabel">ROOM</div><div class="statValue" id="lobbyRoomValue">----</div><div class="statSub">4-DIGIT NUMBER</div></div></div><div id="modePanel"><div id="modeLabelLine">MATCH TYPE</div><div id="modeButtons"><button class="modeBtn" id="casualModeBtn" type="button">CASUAL</button><button class="modeBtn active" id="rankedModeBtn" type="button">RANKED</button><button class="modeBtn" id="randomModeBtn" type="button">⚡ RANDOM</button></div><div id="modeDesc">ランク戦はXP獲得。先に5点で勝利。</div></div></div></div></div><div id="settingsOverlay" aria-hidden="true"><div id="settingsPanel"><div id="settingsHeader"><div><div id="settingsTitle">SETTINGS</div><div id="settingsSubtitle">感度 / アカウント / キャッシュ</div></div><button id="settingsCloseBtn" type="button" aria-label="閉じる">✕</button></div><div class="settingsSection"><div class="settingsSectionTitle">感度</div><div class="settingsRow"><div class="settingsRowTop"><span>視点感度</span><span id="sensitivityValue">標準</span></div><input id="sensitivitySlider" type="range" min="0.5" max="2.0" step="0.05" value="1.0" /><div class="settingsHint">左で遅く、右で速く</div></div></div><div class="settingsSection"><div class="settingsSectionTitle">アカウント</div><input id="nameInput" type="text" maxlength="20" placeholder="名前を入力" autocomplete="off" spellcheck="false" /><button id="nameSaveBtn" type="button">名前を保存</button><div class="settingsHint">初回入室時もここで設定できます</div></div><div class="settingsSection"><div class="settingsSectionTitle">キャッシュ</div><div class="settingsHint">不要な一時データだけ削除し、名前とランクは残します</div><button id="cacheClearBtn" type="button">キャッシュを削除</button></div></div></div><div id="waitingOverlay"><div id="waitingCard"><div id="waitingRoomNum">ROOM NUMBER</div><div id="waitingTitle">WAITING FOR PLAYERS</div><div id="waitingSubtitle">同じ部屋の本物のプレイヤーを待っています</div><div id="randomCountdownWrap"><div id="randomCountdownLabel">RANDOM MATCH STARTING IN</div><div id="randomCountdownNum">30</div><div id="randomCountdownBar"><div id="randomCountdownFill"></div></div></div><div id="playerCountBadge">🟢 <span id="waitingCountText">あなたのみ</span></div><div id="playerListWrap"><div id="playerListLabel">IN THIS ROOM</div><div id="playerList"></div></div><div id="waitingProgress"><div id="waitingProgressFill"></div></div><div id="waitingHint">2人以上で出撃ボタンが表示されます</div><button id="battleLaunchBtn">出撃</button><button id="waitingCancelBtn">← 戻る</button></div></div><div id="loadingOverlay"><div id="loadingCard"><div id="loadingSpinner"></div><div id="loadingText">DEPLOYING</div><div id="loadingSub">戦場を同期しています...</div><div id="loadingBar"><div id="loadingFill"></div></div></div></div><div id="resultOverlay"><div class="resultBackdrop"></div><div class="resultScanlines"></div><div class="resultGlow resultGlowA"></div><div class="resultGlow resultGlowB"></div><div class="resultGlow resultGlowC"></div><div class="resultCard"><div id="resultMedal">VICTORY</div><div id="resultText">YOUR TEAM WON</div><div id="resultSub">LOADING BACK TO THE HUB...</div><div aria-hidden="true" id="resultPromo"></div><div id="resultStatsPanel"><div id="resultStatsGrid"><div class="resultStatCard"><div class="resultStatLabel">KILLS</div><div class="resultStatValue" id="resultKills">0</div></div><div class="resultStatCard"><div class="resultStatLabel">DEATHS</div><div class="resultStatValue" id="resultDeaths">0</div></div><div class="resultStatCard"><div class="resultStatLabel">K/D RATIO</div><div class="resultStatValue" id="resultKdr">0.00</div></div><div class="resultStatCard"><div class="resultStatLabel">FINAL SCORE</div><div class="resultStatValue" id="resultFinalScore">0 - 0</div></div></div><div id="resultRankRow"><span id="resultRankName">ブロンズ I</span><span id="resultRankDelta">+0 XP</span></div></div></div></div><div id="spectateOverlay"><div id="spectateOverlay">SPECTATING</div><div id="rotateOverlay">📱 画面を横向きにしてください</div></div></div><script type="module">import * as THREE_NS from 'three';
+</head><body><div id="game"><canvas id="c"></canvas><div id="hud"><div id="touchLookArea"></div><div id="hpBlock"><div id="hpLabel"><span>💚 HP</span><span id="hpText">100 / 100</span></div><div id="hpBarOuter"><div id="hpBarInner"></div></div></div><div class="connecting" id="netBadge">🟡 接続中...</div><div id="onlineCount">👥 同室: 1人</div><div id="status"><div id="scoreBoard">BLUE <span id="blueScore">0</span> / RED <span id="redScore">0</span></div><div id="roundState">ROUND: <span id="roundText">1</span> | <span id="phaseText">FIGHT</span> | 先に5点で勝利</div><span id="ammo">AMMO: <span id="ammoCount">30</span> / <span id="ammoMaxCount">30</span></span><span id="points">PTS: <span id="pointCount">0</span></span><span id="reloadIndicator">⟳ RELOADING...</span><div id="reloadBar"><div id="reloadBarFill"></div></div></div><div id="hitIndicator"></div><div id="crosshair"></div><div id="crosshairDot"></div><div id="announce"></div><div id="killFeed"></div><div id="joystickContainer"><div class="base"></div><div class="knob" id="knob"></div></div><button id="shootButton">FIRE</button><button aria-label="リロード" id="reloadButton"></button><button aria-label="爆弾" id="bombButton"></button><div id="bombSettingsPanel"><div id="bombSettingsTitle">BOMB CONTROL</div><div class="bombSettingRow"><div class="bombSettingLabel"><span>ANGLE</span><span class="bombSettingValue" id="bombAngleValue">35°</span></div><input class="bombSlider" id="bombAngleSlider" type="range" min="10" max="70" step="1" value="35"/></div><div class="bombSettingRow"><div class="bombSettingLabel"><span>DISTANCE</span><span class="bombSettingValue" id="bombPowerValue">100%</span></div><input class="bombSlider" id="bombPowerSlider" type="range" min="70" max="160" step="1" value="100"/></div><div id="bombHint">爆弾モード中に投擲角度と飛距離を調整できます</div></div><button aria-label="ADS" id="adsButton"></button><button aria-label="スキル" id="skillButton" title="スキル"></button><button id="shopButton" type="button">SHOP</button><div id="bombTrajectory"><div id="bombTrajectoryLine"></div><div id="bombTrajectoryTip"></div><div id="bombTrajectoryText"></div></div><div id="bombQuickControls"><div class="bombQuickGroup"><div class="bombQuickReadout"><span>ANGLE</span><span class="val" id="bombAngleButtonValue">35°</span></div><button class="bombQuickButton" id="bombAngleButton" type="button" aria-label="角度調整"></button></div><div class="bombQuickGroup"><div class="bombQuickReadout"><span>DIST</span><span class="val" id="bombDistanceButtonValue">100%</span></div><button class="bombQuickButton" id="bombDistanceButton" type="button" aria-label="距離調整"></button></div></div><div id="shopOverlay"><div id="shopPanel"><div id="shopHeader"><div><div id="shopBadge">WEAPON SHOP</div><div id="shopTitle">BUY PHASE</div><div id="shopSub">30秒の準備時間だけ開くショップ</div></div><button id="shopCloseBtn" type="button" aria-label="閉じる">✕</button></div><div id="shopPointsRow"><span>PTS</span><strong id="shopPointCount">0</strong></div><button id="shopBuyPistolBtn" type="button" class="shopItemBtn shopPistol"><span class="shopItemTop"><span class="shopItemName">PISTOL</span><span class="shopItemCost">200</span></span><span class="shopItemDesc">10発 / 1発10ダメ / 連射不可</span></button><button id="shopBuyShotgunBtn" type="button" class="shopItemBtn shopShotgun"><span class="shopItemTop"><span class="shopItemName">SHOTGUN</span><span class="shopItemCost">300</span></span><span class="shopItemDesc">80発 / 10発同時発射 / 1発60ダメ / 拡散</span></button><button id="shopBuyBombBtn" type="button" class="shopItemBtn shopBomb"><span class="shopItemTop"><span class="shopItemName">BOMB +1</span><span class="shopItemCost">100</span></span><span class="shopItemDesc">1個購入すると爆弾が1つ増える</span></button></div></div><div id="lobbyOverlay"><div id="lobbyShell"><div id="lobbyCard"><div id="lobbyBadge">NEON // ONLINE ARENA</div><div id="lobbyTitle">NEON ARENA<br/>ONLINE</div><div id="lobbySub">部屋番号を入力して、同じ番号のプレイヤーとマッチング。</div><div id="roomPanel"><div id="roomPanelLabel">ROOM NUMBER（4桁）</div><div id="roomInputRow"><input autocomplete="off" autocorrect="off" id="roomInput" inputmode="numeric" maxlength="4" pattern="[0-9]*" placeholder="0000" spellcheck="false" type="tel"/><button id="roomGenBtn" title="ランダム生成">🎲</button></div><div id="roomHint">同じ番号の相手が入室するとマッチング開始</div></div><div id="rankPanel"><div id="rankRow"><span id="rankName">ブロンズ I</span><span id="rankPct">0%</span></div><div id="rankBar"><div id="rankFill"></div></div><div id="rankHint">RANK SAVED TO LOCAL STORAGE</div></div><button id="randomBattleBtn">⚡ RANDOM BATTLE</button><button id="settingsOpenBtn" type="button">⚙ 設定</button><button disabled="" id="lobbyStartBtn">部屋に入る →</button></div><div id="lobbySide"><div id="lobbyStats"><div class="statCard"><div class="statLabel">MODE</div><div class="statValue" id="lobbyModeValue">RANKED</div><div class="statSub">CASUAL / RANKED</div></div><div class="statCard"><div class="statLabel">GOAL</div><div class="statValue">5</div><div class="statSub">FIRST TO FIVE</div></div><div class="statCard"><div class="statLabel">NET</div><div class="statValue" id="lobbyNetValue">--</div><div class="statSub">SOCKET.IO STATUS</div></div><div class="statCard"><div class="statLabel">ROOM</div><div class="statValue" id="lobbyRoomValue">----</div><div class="statSub">4-DIGIT NUMBER</div></div></div><div id="modePanel"><div id="modeLabelLine">MATCH TYPE</div><div id="modeButtons"><button class="modeBtn" id="casualModeBtn" type="button">CASUAL</button><button class="modeBtn active" id="rankedModeBtn" type="button">RANKED</button><button class="modeBtn" id="randomModeBtn" type="button">⚡ RANDOM</button></div><div id="modeDesc">ランク戦はXP獲得。先に5点で勝利。</div></div></div></div></div><div id="settingsOverlay" aria-hidden="true"><div id="settingsPanel"><div id="settingsHeader"><div><div id="settingsTitle">SETTINGS</div><div id="settingsSubtitle">感度 / アカウント / キャッシュ</div></div><button id="settingsCloseBtn" type="button" aria-label="閉じる">✕</button></div><div class="settingsSection"><div class="settingsSectionTitle">感度</div><div class="settingsRow"><div class="settingsRowTop"><span>視点感度</span><span id="sensitivityValue">標準</span></div><input id="sensitivitySlider" type="range" min="0.5" max="2.0" step="0.05" value="1.0" /><div class="settingsHint">左で遅く、右で速く</div></div></div><div class="settingsSection"><div class="settingsSectionTitle">アカウント</div><input id="nameInput" type="text" maxlength="20" placeholder="名前を入力" autocomplete="off" spellcheck="false" /><button id="nameSaveBtn" type="button">名前を保存</button><div class="settingsHint">初回入室時もここで設定できます</div></div><div class="settingsSection"><div class="settingsSectionTitle">キャッシュ</div><div class="settingsHint">不要な一時データだけ削除し、名前とランクは残します</div><button id="cacheClearBtn" type="button">キャッシュを削除</button></div></div></div><div id="waitingOverlay"><div id="waitingCard"><div id="waitingRoomNum">ROOM NUMBER</div><div id="waitingTitle">WAITING FOR PLAYERS</div><div id="waitingSubtitle">同じ部屋の本物のプレイヤーを待っています</div><div id="randomCountdownWrap"><div id="randomCountdownLabel">RANDOM MATCH STARTING IN</div><div id="randomCountdownNum">30</div><div id="randomCountdownBar"><div id="randomCountdownFill"></div></div></div><div id="playerCountBadge">🟢 <span id="waitingCountText">あなたのみ</span></div><div id="playerListWrap"><div id="playerListLabel">IN THIS ROOM</div><div id="playerList"></div></div><div id="waitingProgress"><div id="waitingProgressFill"></div></div><div id="waitingHint">2人以上で出撃ボタンが表示されます</div><button id="battleLaunchBtn">出撃</button><button id="waitingCancelBtn">← 戻る</button></div></div><div id="loadingOverlay"><div id="loadingCard"><div id="loadingSpinner"></div><div id="loadingText">DEPLOYING</div><div id="loadingSub">戦場を同期しています...</div><div id="loadingBar"><div id="loadingFill"></div></div></div></div><div id="resultOverlay"><div class="resultBackdrop"></div><div class="resultScanlines"></div><div class="resultGlow resultGlowA"></div><div class="resultGlow resultGlowB"></div><div class="resultGlow resultGlowC"></div><div class="resultCard"><div id="resultMedal">VICTORY</div><div id="resultText">YOUR TEAM WON</div><div id="resultSub">LOADING BACK TO THE HUB...</div><div aria-hidden="true" id="resultPromo"></div><div id="resultStatsPanel"><div id="resultStatsGrid"><div class="resultStatCard"><div class="resultStatLabel">KILLS</div><div class="resultStatValue" id="resultKills">0</div></div><div class="resultStatCard"><div class="resultStatLabel">DEATHS</div><div class="resultStatValue" id="resultDeaths">0</div></div><div class="resultStatCard"><div class="resultStatLabel">K/D RATIO</div><div class="resultStatValue" id="resultKdr">0.00</div></div><div class="resultStatCard"><div class="resultStatLabel">FINAL SCORE</div><div class="resultStatValue" id="resultFinalScore">0 - 0</div></div></div><div id="resultRankRow"><span id="resultRankName">ブロンズ I</span><span id="resultRankDelta">+0 XP</span></div></div></div></div><div id="spectateOverlay"><div id="spectateOverlay">SPECTATING</div><div id="rotateOverlay">📱 画面を横向きにしてください</div></div></div><script type="module">import * as THREE_NS from 'three';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { SkeletonUtils } from 'three/examples/jsm/utils/SkeletonUtils.js';
@@ -230,7 +230,7 @@ var MAG_SIZE = 30;
 var FIRE_INTERVAL = 0.10;
 var RELOAD_TIME = 1.4;
 var BOMB_FUSE_TIME = 5.0;
-var BOMB_DAMAGE = 34;
+var BOMB_DAMAGE = 38;
 var BOMB_RADIUS = 4.6;
 var BOMB_THROW_SPEED = 16.0;
 var BOMB_THROW_UP = 6.4;
@@ -247,7 +247,7 @@ var BOMB_HOLD_DELAY_MS = 220;
 var BOMB_HOLD_REPEAT_MS = 65;
 var BOMB_TRAJECTORY_GROUND_Y = 0.34;
 var BOMB_TRAJECTORY_MAX_DISTANCE = 42;
-var HEADSHOT_MULTIPLIER = 5.0;
+var HEADSHOT_MULTIPLIER = 2.0;
 
 var DEFAULT_WEAPON_KEY = 'default';
 var currentWeaponKey = DEFAULT_WEAPON_KEY;
@@ -294,7 +294,7 @@ var WEAPON_DEFS = {
     ammoPerShot: 10,
     pellets: 10,
     spread: 0.065,
-    damage: 18,
+    damage: 60,
     recoil: 1.55,
     autoFire: false,
     modelUrl: 'remington_870_shotgun.glb',
@@ -698,6 +698,84 @@ var REMOTE_GUN_SOCKET_SCALE = 0.86;
 var REMOTE_GUN_MODEL_SCALE = 0.72;
 var AI_MODEL_YAW_OFFSET = Math.PI;
 function getAIVisualYaw(unit){ return (Number(unit && unit.yaw) || 0) + AI_MODEL_YAW_OFFSET; }
+function getAliveHumanCount(){
+  var seen = Object.create(null);
+  var count = 0;
+  Object.keys(roomPlayers||{}).forEach(function(id){
+    if(seen[id]) return;
+    var p = roomPlayers[id];
+    if(!p || p.alive===false) return;
+    var av = remoteAvatars.get(id);
+    if(av && av.userData && av.userData.isAI) return;
+    seen[id] = true;
+    count++;
+  });
+  if(player && player.alive){
+    var myId = socket&&socket.id ? socket.id : '__local__';
+    if(!seen[myId]) count++;
+  }
+  return count;
+}
+function getSoloRandomHumanTarget(unit){
+  if(!isRandomMatch || !player || !player.alive) return null;
+  if(getAliveHumanCount() > 1) return null;
+  return {
+    type: 'human',
+    id: socket&&socket.id ? socket.id : '__local__',
+    team: player.team || TEAM_BLUE,
+    pos: {x: camera.position.x, y: camera.position.y, z: camera.position.z},
+    solo: true
+  };
+}
+function buildAIRoute(unit, index){
+  var team = unit && unit.team === TEAM_RED ? TEAM_RED : TEAM_BLUE;
+  var spawn = unit && unit.spawn ? unit.spawn : new T.Vector3(0,0,0);
+  var laneSlots = [-12, 0, 12];
+  var lane = laneSlots[(index || 0) % 3];
+  var laneX = lane * 0.36;
+  var dir = team === TEAM_RED ? 1 : -1;
+  var midZ = dir * 10.5;
+  var centerZ = dir * 2.5;
+  var farZ = dir * Math.max(10, (MAP_BORDER || 38) - 8);
+  return [
+    {x: spawn.x, z: spawn.z},
+    {x: laneX, z: spawn.z + dir * 7.5},
+    {x: lane * 0.20, z: midZ},
+    {x: laneX, z: centerZ},
+    {x: laneX, z: farZ}
+  ];
+}
+function resetAIRouteState(unit){
+  if(!unit) return;
+  unit.route = buildAIRoute(unit, unit.routeIndex || 0);
+  unit.routeNode = 1;
+  unit.routeDir = 1;
+}
+function getAIRoutePoint(unit){
+  if(!unit) return null;
+  if(!unit.route || !unit.route.length) resetAIRouteState(unit);
+  var route = unit.route || [];
+  if(!route.length) return null;
+  var idx = Number.isFinite(unit.routeNode) ? unit.routeNode : 0;
+  if(idx < 0) idx = 0;
+  if(idx >= route.length) idx = route.length - 1;
+  var point = route[idx];
+  if(!point) return null;
+  var dx = point.x - unit.x;
+  var dz = point.z - unit.z;
+  var dist = Math.hypot(dx, dz);
+  if(dist < 1.65){
+    var next = idx + (unit.routeDir || 1);
+    if(next >= route.length){ unit.routeDir = -1; next = route.length - 2; }
+    if(next < 0){ unit.routeDir = 1; next = 1; }
+    unit.routeNode = next;
+    point = route[unit.routeNode] || point;
+    dx = point.x - unit.x;
+    dz = point.z - unit.z;
+    dist = Math.hypot(dx, dz);
+  }
+  return {point: point, dx: dx, dz: dz, dist: dist};
+}
 var BULLET_GEOMETRY   = new T.SphereGeometry(0.045,8,8);
 var BULLET_MAT_LOCAL  = new T.MeshStandardMaterial({color:0xffffff,emissive:0x88e8ff,emissiveIntensity:2.0,transparent:true,opacity:0.92});
 var BULLET_MAT_REMOTE = new T.MeshStandardMaterial({color:0xffa5a5,emissive:0xff5555,emissiveIntensity:2.5,transparent:true,opacity:0.92});
@@ -3798,7 +3876,9 @@ function makeAIUnit(team,index){
     moveSpeed:2.2+rng()*0.7,strafe:rng()>0.5?1:-1,
     fireCooldown: nowSec + 0.5 + rng()*1.0,
     lastShotAt:0,
-    stuckTimer:0,lastCheckPos:{x:spawn.x,z:spawn.z},unstuckDir:null,unstuckUntil:0};
+    stuckTimer:0,lastCheckPos:{x:spawn.x,z:spawn.z},unstuckDir:null,unstuckUntil:0,
+    routeIndex:index%3,routeNode:1,routeDir:1};
+  resetAIRouteState(unit);
   avatar.position.set(unit.x,0,unit.z); avatar.rotation.y=unit.yaw; avatar.visible=true;
   updateAvatarHPBar(avatar,unit.hp); return unit;
 }
@@ -3825,9 +3905,19 @@ function getCombatTargetsFor(team){
   return targets;
 }
 function getNearestTarget(unit){
+  if(isRandomMatch && player && player.alive && getAliveHumanCount() <= 1){
+    var solo = getSoloRandomHumanTarget(unit);
+    if(solo){
+      var soloDist = new T.Vector3(unit.x,PLAYER_HEIGHT,unit.z).distanceTo(new T.Vector3(solo.pos.x,PLAYER_HEIGHT,solo.pos.z));
+      return {target:solo,dist:soloDist};
+    }
+  }
   var targets=getCombatTargetsFor(unit.team),best=null,bestD=1e9;
   var self=new T.Vector3(unit.x,PLAYER_HEIGHT,unit.z);
-  for(var i=0;i<targets.length;i++){var d=self.distanceTo(new T.Vector3(targets[i].pos.x,PLAYER_HEIGHT,targets[i].pos.z));if(d<bestD){bestD=d;best=targets[i];}}
+  for(var i=0;i<targets.length;i++){
+    var d=self.distanceTo(new T.Vector3(targets[i].pos.x,PLAYER_HEIGHT,targets[i].pos.z));
+    if(d<bestD){bestD=d;best=targets[i];}
+  }
   return best?{target:best,dist:bestD}:null;
 }
 function aiCanSee(unit,targetPos){
@@ -3861,46 +3951,67 @@ function damageEntityFromAI(unit,target,dist,nowSec){
 }
 function updateAIUnit(unit,dt,nowSec){
   if(!unit||!unit.alive) return;
+  if(!unit.route || !unit.route.length) resetAIRouteState(unit);
   var nearest=getNearestTarget(unit);
   var move=new T.Vector2(0,0);
+  var routeGoal = null;
+  var routePlan = getAIRoutePoint(unit);
   if(nearest){
     var t=nearest.target,tp=t.pos;
     var dx=tp.x-unit.x,dz=tp.z-unit.z;
     var dist=Math.hypot(dx,dz); if(dist<0.01)dist=0.01;
     var canSee=aiCanSee(unit,tp);
-    if((canSee||dist<12)&&dist<18){
+    var soloFight = !!t.solo;
+    var attackRange = soloFight ? 44 : 18;
+    var engageRange = soloFight ? 52 : 28;
+    var shootRange = soloFight ? 46 : 32;
+    if((canSee||dist<attackRange)&&dist<engageRange){
       unit.state='attack';
       var toT_x=dx/dist,toT_z=dz/dist;
       var perp_x=-toT_z*unit.strafe,perp_z=toT_x*unit.strafe;
       if(dist<4.8){move.x=perp_x*0.95-toT_x*0.35;move.y=perp_z*0.95-toT_z*0.35;}
       else{move.x=perp_x*0.85+toT_x*0.18;move.y=perp_z*0.85+toT_z*0.18;}
-      if(nowSec>=unit.fireCooldown&&dist<32) damageEntityFromAI(unit,t,dist,nowSec);
-    }else if(canSee||dist<28){
+      if(nowSec>=unit.fireCooldown&&(canSee||dist<shootRange)) damageEntityFromAI(unit,t,dist,nowSec);
+    }else if(canSee||dist<30){
       unit.state='chase'; move.x=dx/dist; move.y=dz/dist;
     }else{
       unit.state='patrol';
-      var wt=nowSec*0.5+(unit.seed%1000)*0.01;
-      var px=unit.spawn.x+Math.cos(wt)*7.0+Math.sin(wt*0.73)*3.0;
-      var pz=unit.spawn.z+Math.sin(wt)*7.0+Math.cos(wt*0.71)*3.0;
-      var wx=px-unit.x,wz2=pz-unit.z; var wd=Math.hypot(wx,wz2)||1;
-      move.x=wx/wd; move.y=wz2/wd;
+      if(routePlan){
+        routeGoal = routePlan.point;
+        move.x=routePlan.dx/Math.max(0.0001,routePlan.dist);
+        move.y=routePlan.dz/Math.max(0.0001,routePlan.dist);
+      }else{
+        var wt=nowSec*0.5+(unit.seed%1000)*0.01;
+        var px=unit.spawn.x+Math.cos(wt)*7.0+Math.sin(wt*0.73)*3.0;
+        var pz=unit.spawn.z+Math.sin(wt)*7.0+Math.cos(wt*0.71)*3.0;
+        var wx=px-unit.x,wz2=pz-unit.z; var wd=Math.hypot(wx,wz2)||1;
+        move.x=wx/wd; move.y=wz2/wd;
+      }
     }
     var desiredYaw = Math.hypot(move.x, move.y) > 0.04 ? Math.atan2(move.x, move.y) : Math.atan2(dx, dz);
     var yawDelta = Math.atan2(Math.sin(desiredYaw - unit.yaw), Math.cos(desiredYaw - unit.yaw));
     unit.yaw += yawDelta * (1 - Math.exp(-10 * dt));
   }else{
     unit.state='patrol';
-    var wt2=nowSec*0.45+(unit.seed%1000)*0.01;
-    var px2=unit.spawn.x+Math.cos(wt2)*6.0+Math.sin(wt2*0.73)*2.4;
-    var pz2=unit.spawn.z+Math.sin(wt2)*6.0+Math.cos(wt2*0.71)*2.4;
-    var wx2=px2-unit.x,wz3=pz2-unit.z; var wd2=Math.hypot(wx2,wz3)||1;
-    move.x=wx2/wd2; move.y=wz3/wd2;
-    var desiredYaw2 = Math.hypot(move.x, move.y) > 0.04 ? Math.atan2(move.x, move.y) : unit.yaw;
-    var yawDelta2 = Math.atan2(Math.sin(desiredYaw2 - unit.yaw), Math.cos(desiredYaw2 - unit.yaw));
-    unit.yaw += yawDelta2 * (1 - Math.exp(-10 * dt));
-    if(nowSec>=unit.fireCooldown) unit.fireCooldown=nowSec+1.2+unit.rng()*1.2;
+    if(routePlan){
+      move.x=routePlan.dx/Math.max(0.0001,routePlan.dist);
+      move.y=routePlan.dz/Math.max(0.0001,routePlan.dist);
+      var desiredYaw0 = Math.atan2(move.x, move.y);
+      var yawDelta0 = Math.atan2(Math.sin(desiredYaw0 - unit.yaw), Math.cos(desiredYaw0 - unit.yaw));
+      unit.yaw += yawDelta0 * (1 - Math.exp(-10 * dt));
+    }else{
+      var wt2=nowSec*0.45+(unit.seed%1000)*0.01;
+      var px2=unit.spawn.x+Math.cos(wt2)*6.0+Math.sin(wt2*0.73)*2.4;
+      var pz2=unit.spawn.z+Math.sin(wt2)*6.0+Math.cos(wt2*0.71)*2.4;
+      var wx2=px2-unit.x,wz3=pz2-unit.z; var wd2=Math.hypot(wx2,wz3)||1;
+      move.x=wx2/wd2; move.y=wz3/wd2;
+      var desiredYaw2 = Math.hypot(move.x, move.y) > 0.04 ? Math.atan2(move.x, move.y) : unit.yaw;
+      var yawDelta2 = Math.atan2(Math.sin(desiredYaw2 - unit.yaw), Math.cos(desiredYaw2 - unit.yaw));
+      unit.yaw += yawDelta2 * (1 - Math.exp(-10 * dt));
+    }
+    if(nowSec>=unit.fireCooldown) unit.fireCooldown=nowSec+1.0+unit.rng()*1.2;
   }
-  var speed=unit.state==='attack'?2.0:(unit.state==='chase'?2.8:1.5);
+  var speed=unit.state==='attack'?2.15:(unit.state==='chase'?3.0:1.7);
   var mag2=Math.hypot(move.x,move.y);
   if(mag2>0.01){move.x/=mag2;move.y/=mag2;}
   if(unit.unstuckUntil&&nowSec<unit.unstuckUntil&&unit.unstuckDir){
@@ -3992,6 +4103,7 @@ function resetAIForRound(){
     u.fireCooldown=nowSec+0.5+u.rng()*0.8;
     u.lastShotAt=0;
     u.stuckTimer=0;u.lastCheckPos={x:u.x,z:u.z};u.unstuckDir=null;u.unstuckUntil=0;
+    resetAIRouteState(u);
     if(u.avatar){
       u.avatar.visible=true;u.avatar.position.set(u.x,0,u.z);
       u.avatar.rotation.y=getAIVisualYaw(u);ensureNameTag(u.avatar,'AI',u.team);

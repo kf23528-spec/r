@@ -249,6 +249,17 @@ var BOMB_TRAJECTORY_GROUND_Y = 0.34;
 var BOMB_TRAJECTORY_MAX_DISTANCE = 42;
 var HEADSHOT_MULTIPLIER = 2.0;
 
+var AI_ROUTE_VARIANTS = [
+  {lane:-16.0, offset:0.2, bend:2.4, sway:1},
+  {lane:-11.0, offset:-0.9, bend:3.6, sway:-1},
+  {lane:-6.5, offset:1.1, bend:4.2, sway:1},
+  {lane:-2.0, offset:-0.4, bend:2.8, sway:-1},
+  {lane:2.5, offset:0.8, bend:3.9, sway:1},
+  {lane:7.5, offset:-1.0, bend:2.1, sway:-1},
+  {lane:12.5, offset:0.5, bend:4.6, sway:1},
+  {lane:16.5, offset:-0.7, bend:3.2, sway:-1}
+];
+
 var DEFAULT_WEAPON_KEY = 'default';
 var currentWeaponKey = DEFAULT_WEAPON_KEY;
 var WEAPON_DEFS = {
@@ -294,7 +305,7 @@ var WEAPON_DEFS = {
     ammoPerShot: 10,
     pellets: 10,
     spread: 0.065,
-    damage: 60,
+    damage: 120,
     recoil: 1.55,
     autoFire: false,
     modelUrl: 'remington_870_shotgun.glb',
@@ -719,10 +730,13 @@ function getAliveHumanCount(){
 function getSoloRandomHumanTarget(unit){
   if(!isRandomMatch || !player || !player.alive) return null;
   if(getAliveHumanCount() > 1) return null;
+  var unitTeam = unit && unit.team ? unit.team : TEAM_BLUE;
+  var myTeam = player.team || TEAM_BLUE;
+  if(unitTeam === myTeam) return null;
   return {
     type: 'human',
     id: socket&&socket.id ? socket.id : '__local__',
-    team: player.team || TEAM_BLUE,
+    team: myTeam,
     pos: {x: camera.position.x, y: camera.position.y, z: camera.position.z},
     solo: true
   };
@@ -730,26 +744,29 @@ function getSoloRandomHumanTarget(unit){
 function buildAIRoute(unit, index){
   var team = unit && unit.team === TEAM_RED ? TEAM_RED : TEAM_BLUE;
   var spawn = unit && unit.spawn ? unit.spawn : new T.Vector3(0,0,0);
-  var laneSlots = [-12, 0, 12];
-  var lane = laneSlots[(index || 0) % 3];
-  var laneX = lane * 0.36;
+  var variantCount = AI_ROUTE_VARIANTS.length || 1;
+  var variantIndex = Number.isFinite(unit && unit.routeVariant) ? unit.routeVariant : (index || 0);
+  var variant = AI_ROUTE_VARIANTS[((variantIndex % variantCount) + variantCount) % variantCount] || AI_ROUTE_VARIANTS[0];
   var dir = team === TEAM_RED ? 1 : -1;
-  var midZ = dir * 10.5;
-  var centerZ = dir * 2.5;
+  var mirror = team === TEAM_RED ? 1 : -1;
+  var laneX = (variant.lane || 0) * 0.34;
+  var bend = Number(variant.bend) || 0;
+  var sway = Number(variant.sway) || 1;
+  var offset = Number(variant.offset) || 0;
   var farZ = dir * Math.max(10, (MAP_BORDER || 38) - 8);
   return [
     {x: spawn.x, z: spawn.z},
-    {x: laneX, z: spawn.z + dir * 7.5},
-    {x: lane * 0.20, z: midZ},
-    {x: laneX, z: centerZ},
-    {x: laneX, z: farZ}
+    {x: laneX + mirror * offset * 1.2, z: spawn.z + dir * (6.4 + bend * 0.6)},
+    {x: laneX - mirror * offset * 0.5 + sway * 0.9, z: dir * (8.8 + bend * 0.9)},
+    {x: laneX + mirror * offset * 0.3 - sway * 1.1, z: dir * (2.8 + bend * 0.25)},
+    {x: laneX + mirror * offset * 0.1, z: farZ}
   ];
 }
 function resetAIRouteState(unit){
   if(!unit) return;
-  unit.route = buildAIRoute(unit, unit.routeIndex || 0);
+  unit.route = buildAIRoute(unit, unit.routeVariant || unit.routeIndex || 0);
   unit.routeNode = 1;
-  unit.routeDir = 1;
+  unit.routeDir = (unit.routeVariant % 2 === 0) ? 1 : -1;
 }
 function getAIRoutePoint(unit){
   if(!unit) return null;
@@ -3877,7 +3894,7 @@ function makeAIUnit(team,index){
     fireCooldown: nowSec + 0.5 + rng()*1.0,
     lastShotAt:0,
     stuckTimer:0,lastCheckPos:{x:spawn.x,z:spawn.z},unstuckDir:null,unstuckUntil:0,
-    routeIndex:index%3,routeNode:1,routeDir:1};
+    routeIndex:index%3,routeVariant:Math.floor(rng()*AI_ROUTE_VARIANTS.length),routeNode:1,routeDir:(Math.floor(rng()*2)===0?1:-1)};
   resetAIRouteState(unit);
   avatar.position.set(unit.x,0,unit.z); avatar.rotation.y=unit.yaw; avatar.visible=true;
   updateAvatarHPBar(avatar,unit.hp); return unit;
@@ -3933,8 +3950,7 @@ function damageEntityFromAI(unit,target,dist,nowSec){
   var origin=new T.Vector3(unit.x,PLAYER_HEIGHT,unit.z).add(new T.Vector3(Math.sin(ayaw)*0.55,0.22,Math.cos(ayaw)*0.55));
   var tPos=new T.Vector3(target.pos.x,PLAYER_HEIGHT,target.pos.z);
   var dir=tPos.clone().sub(origin).normalize();
-  playGunSound(true); makeBulletFxLine(origin,dir,unit.team===TEAM_RED?0xffa0a0:0xa0cfff,90);
-  addBullet(origin,dir,unit.id,unit.team,true);
+  playGunSound(true); makeBulletFxLine(origin,dir,unit.team===TEAM_RED?0xffa0a0:0xa0cfff,55);
   var acc=clamp01(1-(dist/34))*0.85+0.10; if(unit.rng()>acc&&dist>10)return;
   var myId=socket&&socket.id?socket.id:'__local__';
   if(target.type==='human'){

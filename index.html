@@ -308,6 +308,14 @@ function syncWeaponStats(){
   RELOAD_TIME = def.reloadTime;
   if(gunState) gunState.reloadAnimDur = RELOAD_TIME;
 }
+var WEAPON_RELOAD_MOTIONS = {
+  default: {back:0.14, down:0.18, twist:0.18, hand:0.16, snap:0.14, chamber:0.78},
+  pistol: {back:0.20, down:0.16, twist:0.34, hand:0.20, snap:0.10, chamber:0.72},
+  shotgun: {back:0.24, down:0.26, twist:0.12, hand:0.28, snap:0.20, chamber:0.86}
+};
+function getReloadMotion(key){
+  return WEAPON_RELOAD_MOTIONS[key] || WEAPON_RELOAD_MOTIONS.default;
+}
 
 var PLAYER_SPEED = 5.5;
 var CAM_FOV_NORMAL = 70;
@@ -678,7 +686,7 @@ var gunPosCurrent = gunPosNormal.clone();
 var gunPosTarget  = gunPosNormal.clone();
 var gunFovCurrent = CAM_FOV_NORMAL;
 var adsActive = false, gunBobT = 0, gunBobAmt = 0;
-var gunState = {recoil:0,reloadAnim:false,reloadAnimT:0,reloadAnimDur:RELOAD_TIME};
+var gunState = {recoil:0,shotKick:0,reloadAnim:false,reloadAnimT:0,reloadAnimDur:RELOAD_TIME,reloadWeaponKey:DEFAULT_WEAPON_KEY};
 var muzzleFlashes = [];
 var roomStarted = false, spectateTargetId = '';
 var battleBeginLock = false;
@@ -1814,74 +1822,147 @@ function buildProceduralGun(){
 function buildProceduralHands(){
   var root = new T.Group();
   var skin = new T.MeshStandardMaterial({
-    color: 0xb88462,
-    roughness: 0.82,
-    metalness: 0.03,
-    emissive: new T.Color(0x120d0a),
-    emissiveIntensity: 0.05
+    color: 0xc78d6a,
+    roughness: 0.78,
+    metalness: 0.02,
+    emissive: new T.Color(0x160d08),
+    emissiveIntensity: 0.04
   });
-  var glove = new T.MeshStandardMaterial({
-    color: 0x222229,
-    roughness: 0.92,
-    metalness: 0.08,
-    emissive: new T.Color(0x070708),
+  var skinDark = new T.MeshStandardMaterial({
+    color: 0xa46e51,
+    roughness: 0.84,
+    metalness: 0.02,
+    emissive: new T.Color(0x100806),
     emissiveIntensity: 0.02
   });
-  function makeFinger(len, radius, mat){
-    var finger = new T.Mesh(new T.CylinderGeometry(radius * 0.95, radius, Math.max(0.02, len), 8), mat);
-    finger.rotation.z = Math.PI / 2;
-    return finger;
+  var glove = new T.MeshStandardMaterial({
+    color: 0x14141a,
+    roughness: 0.98,
+    metalness: 0.04,
+    emissive: new T.Color(0x050506),
+    emissiveIntensity: 0.02
+  });
+  var sleeve = new T.MeshStandardMaterial({
+    color: 0x232632,
+    roughness: 0.96,
+    metalness: 0.01,
+    emissive: new T.Color(0x05070a),
+    emissiveIntensity: 0.03
+  });
+
+  function makeFinger(side, len, radius, joint, tip, mat){
+    var f = new T.Group();
+    var base = new T.Mesh(new T.CylinderGeometry(radius * 1.00, radius * 1.08, len * 0.48, 10), mat);
+    base.rotation.z = Math.PI / 2;
+    base.position.x = len * 0.20;
+    f.add(base);
+    var mid = new T.Mesh(new T.CylinderGeometry(radius * 0.90, radius * 1.00, len * 0.42, 10), mat);
+    mid.rotation.z = Math.PI / 2;
+    mid.position.x = len * 0.66;
+    mid.rotation.y = side * 0.04;
+    f.add(mid);
+    var t = new T.Mesh(new T.CylinderGeometry(radius * 0.84, radius * 0.92, len * 0.24, 10), mat);
+    t.rotation.z = Math.PI / 2;
+    t.position.x = len * 1.05;
+    t.rotation.y = side * 0.08;
+    f.add(t);
+    if(joint){
+      var kn = new T.Mesh(new T.SphereGeometry(radius * 0.92, 8, 8), joint);
+      kn.position.x = len * 0.02;
+      f.add(kn);
+    }
+    if(tip){
+      var cap = new T.Mesh(new T.SphereGeometry(radius * 0.72, 8, 8), tip);
+      cap.position.x = len * 1.20;
+      f.add(cap);
+    }
+    return f;
   }
+
   function makeHand(side){
     var s = side < 0 ? -1 : 1;
     var hand = new T.Group();
 
-    var wrist = new T.Mesh(new T.CylinderGeometry(0.045, 0.052, 0.18, 10), glove);
-    wrist.rotation.z = Math.PI / 2 * 0.12;
+    var forearm = new T.Mesh(new T.CylinderGeometry(0.070, 0.092, 0.42, 12), sleeve);
+    forearm.rotation.z = Math.PI / 2;
+    forearm.position.set(s * 0.00, -0.02, -0.01);
+    hand.add(forearm);
+
+    var wrist = new T.Mesh(new T.CylinderGeometry(0.052, 0.060, 0.16, 10), glove);
+    wrist.rotation.z = Math.PI / 2 * 0.10;
     wrist.rotation.x = Math.PI / 2;
     wrist.position.set(s * 0.10, -0.03, 0.01);
     hand.add(wrist);
 
-    var palm = new T.Mesh(new T.BoxGeometry(0.16, 0.10, 0.22), skin);
-    palm.position.set(s * 0.20, -0.10, 0.01);
-    palm.rotation.z = s * 0.18;
+    var palm = new T.Mesh(new T.BoxGeometry(0.20, 0.12, 0.24), skin);
+    palm.position.set(s * 0.22, -0.10, 0.01);
+    palm.rotation.set(-0.06, 0.02 * s, s * 0.20);
     hand.add(palm);
 
-    var knuckle = new T.Mesh(new T.BoxGeometry(0.12, 0.045, 0.10), skin);
-    knuckle.position.set(s * 0.24, -0.05, 0.08);
-    knuckle.rotation.z = s * 0.14;
-    hand.add(knuckle);
+    var back = new T.Mesh(new T.BoxGeometry(0.14, 0.06, 0.12), skinDark);
+    back.position.set(s * 0.20, -0.05, 0.08);
+    back.rotation.z = s * 0.15;
+    hand.add(back);
 
-    for(var i = 0; i < 4; i++){
-      var finger = makeFinger(0.11 - i * 0.01, 0.018, skin);
-      finger.position.set(s * (0.25 + i * 0.018), -0.025 + (i % 2) * 0.004, 0.11 - i * 0.045);
-      finger.rotation.z = s * (0.08 - i * 0.03);
+    var knuckles = new T.Mesh(new T.BoxGeometry(0.16, 0.05, 0.10), skinDark);
+    knuckles.position.set(s * 0.29, -0.02, 0.09);
+    knuckles.rotation.z = s * 0.12;
+    hand.add(knuckles);
+
+    var fingerSpecs = [
+      [0.145, 0.018, 0.00, 0x0f0f12],
+      [0.136, 0.017, 0.02, 0x0f0f12],
+      [0.129, 0.016, 0.03, 0x0f0f12],
+      [0.120, 0.015, 0.05, 0x0f0f12]
+    ];
+    for(var i = 0; i < fingerSpecs.length; i++){
+      var fs = fingerSpecs[i];
+      var finger = makeFinger(s, fs[0], fs[1], skinDark, new T.MeshStandardMaterial({color:fs[3],roughness:0.95,metalness:0.0}), skin);
+      finger.position.set(s * (0.27 + i * 0.026), -0.02 + (i % 2) * 0.004, 0.12 - i * 0.046);
+      finger.rotation.set(0.04 + i * 0.02, 0, s * (0.12 - i * 0.03));
       hand.add(finger);
     }
 
-    var thumb = new T.Mesh(new T.CylinderGeometry(0.017, 0.02, 0.09, 8), skin);
-    thumb.rotation.z = Math.PI / 2;
-    thumb.position.set(s * 0.13, -0.14, -0.03);
-    thumb.rotation.set(0.20, 0.20 * s, -0.95 * s);
+    var thumb = new T.Group();
+    var thumbBase = new T.Mesh(new T.CylinderGeometry(0.018, 0.021, 0.10, 8), skin);
+    thumbBase.rotation.z = Math.PI / 2;
+    thumbBase.rotation.y = 0.18 * s;
+    thumbBase.position.set(s * 0.15, -0.13, -0.04);
+    thumb.add(thumbBase);
+    var thumbTip = new T.Mesh(new T.SphereGeometry(0.015, 8, 8), skin);
+    thumbTip.position.set(s * 0.20, -0.14, -0.07);
+    thumb.add(thumbTip);
+    thumb.rotation.set(0.12, 0.08 * s, -0.92 * s);
     hand.add(thumb);
 
-    var cuff = new T.Mesh(new T.CylinderGeometry(0.052, 0.058, 0.10, 10), glove);
+    var triggerFinger = new T.Mesh(new T.CylinderGeometry(0.014, 0.015, 0.12, 8), skin);
+    triggerFinger.rotation.z = Math.PI / 2;
+    triggerFinger.position.set(s * 0.21, -0.03, 0.02);
+    triggerFinger.rotation.set(0.08, 0.0, s * 0.06);
+    hand.add(triggerFinger);
+
+    var cuff = new T.Mesh(new T.CylinderGeometry(0.060, 0.072, 0.14, 10), glove);
     cuff.rotation.z = Math.PI / 2;
     cuff.position.set(s * 0.01, -0.01, -0.03);
     hand.add(cuff);
 
-    hand.scale.setScalar(1.02);
+    var strap = new T.Mesh(new T.BoxGeometry(0.12, 0.025, 0.10), skinDark);
+    strap.position.set(s * 0.12, -0.05, 0.08);
+    strap.rotation.z = s * 0.1;
+    hand.add(strap);
+
+    hand.scale.setScalar(1.04);
     return hand;
   }
 
   var left = makeHand(-1);
   left.position.set(-0.12, -0.12, -0.07);
-  left.rotation.set(-0.42, 0.04, 0.82);
+  left.rotation.set(-0.48, 0.08, 0.86);
   root.add(left);
 
   var right = makeHand(1);
   right.position.set(0.11, -0.15, -0.01);
-  right.rotation.set(-0.18, -0.08, -0.35);
+  right.rotation.set(-0.22, -0.10, -0.38);
   root.add(right);
 
   root.traverse(function(c){
@@ -1991,13 +2072,28 @@ function attachGunToCamera(obj, weaponKey){
 attachGunToCamera(buildProceduralGun(), DEFAULT_WEAPON_KEY);
 function createMuzzleFlash(){
   if(!gunRoot) return;
-  var fg=new T.Group();
-  var cm=new T.MeshStandardMaterial({color:0xffffff,emissive:0xffffff,emissiveIntensity:12,transparent:true,opacity:1.0,roughness:0});
-  fg.add(new T.Mesh(MUZZLE_FLASH_GEO,cm));
-  camera.add(fg);
-  fg.position.set(gunPosCurrent.x,gunPosCurrent.y,gunPosCurrent.z-0.30);
-  fg.userData.life=0.045; fg.userData.maxLife=0.045; fg.userData.flashMeshes=[fg.children[0]];
-  muzzleFlashes.push(fg);
+  var flashGroup = new T.Group();
+  var coreMat = new T.MeshStandardMaterial({color:0xffffff,emissive:0xffffff,emissiveIntensity:16,transparent:true,opacity:1.0,roughness:0.0});
+  var bloomMat = new T.MeshStandardMaterial({color:0xfff4c2,emissive:0xffb84d,emissiveIntensity:12,transparent:true,opacity:0.92,roughness:0.0});
+  var sparkMat = new T.MeshStandardMaterial({color:0xff8f4d,emissive:0xff6a1a,emissiveIntensity:8,transparent:true,opacity:0.82,roughness:0.0});
+  var core = new T.Mesh(new T.SphereGeometry(0.070, 10, 10), coreMat);
+  var bloom = new T.Mesh(new T.SphereGeometry(0.120, 10, 10), bloomMat);
+  var sparkA = new T.Mesh(new T.SphereGeometry(0.038, 8, 8), sparkMat);
+  var sparkB = new T.Mesh(new T.SphereGeometry(0.030, 8, 8), sparkMat);
+  bloom.scale.set(1.4, 0.72, 0.72);
+  sparkA.position.set(0.08, 0.01, -0.03);
+  sparkB.position.set(-0.05, -0.01, -0.02);
+  flashGroup.add(core);
+  flashGroup.add(bloom);
+  flashGroup.add(sparkA);
+  flashGroup.add(sparkB);
+  camera.add(flashGroup);
+  flashGroup.position.set(gunPosCurrent.x + 0.02, gunPosCurrent.y + 0.01, gunPosCurrent.z - 0.24);
+  flashGroup.rotation.set((Math.random()-0.5)*0.12, (Math.random()-0.5)*0.12, (Math.random()-0.5)*0.28);
+  flashGroup.userData.life = 0.065;
+  flashGroup.userData.maxLife = 0.065;
+  flashGroup.userData.flashMeshes = flashGroup.children.slice();
+  muzzleFlashes.push(flashGroup);
 }
 function updateMuzzleFlashes(dt){
   for(var i=muzzleFlashes.length-1;i>=0;i--){
@@ -2572,8 +2668,31 @@ function movePlayer(dt){
   camera.position.copy(resolved);
   player.x=camera.position.x; player.y=camera.position.y; player.z=camera.position.z;
 }
-function startReload(){if(reloading||ammo>=MAG_SIZE||!player.alive||matchOver||gameMode!==GAME_MODE.BATTLE)return;reloading=true;reloadTimer=0;gunState.reloadAnim=true;gunState.reloadAnimT=0;playUiSfx('reload');updateAmmoUI();}
-function updateReload(dt){if(!reloading)return;reloadTimer+=dt;updateAmmoUI();if(reloadTimer>=RELOAD_TIME){ammo=MAG_SIZE;reloading=false;reloadTimer=0;gunState.reloadAnim=false;updateAmmoUI();}}
+function startReload(){
+  if(reloading||ammo>=MAG_SIZE||!player.alive||matchOver||gameMode!==GAME_MODE.BATTLE)return;
+  reloading=true;
+  reloadTimer=0;
+  gunState.reloadAnim=true;
+  gunState.reloadAnimT=0;
+  gunState.reloadWeaponKey=currentWeaponKey;
+  playUiSfx('reload');
+  kickMotion('reload', 0.95);
+  updateAmmoUI();
+}
+function updateReload(dt){
+  if(!reloading)return;
+  reloadTimer+=dt;
+  updateAmmoUI();
+  if(reloadTimer>=RELOAD_TIME){
+    ammo=MAG_SIZE;
+    reloading=false;
+    reloadTimer=0;
+    gunState.reloadAnim=false;
+    gunState.reloadAnimT=0;
+    gunState.reloadWeaponKey=DEFAULT_WEAPON_KEY;
+    updateAmmoUI();
+  }
+}
 function setADS(on){adsActive=!!on;adsButton.classList.toggle('ads-active',adsActive);gunPosTarget.copy(adsActive?gunPosAds:gunPosNormal);playUiSfx(adsActive?'adsOn':'adsOff');}
 
 function makeSmokeTexture(){
@@ -3388,6 +3507,31 @@ function explodeBomb(bomb){
   flashBombFx(pos);
   applyExplosionDamage(pos, bomb.ownerId, bomb.team);
 }
+function bombHitsEnemyTarget(bomb){
+  if(!bomb || bomb.exploded) return false;
+  var team = bomb.team || TEAM_BLUE;
+  var ownerId = bomb.ownerId || '';
+  var pos = bomb.pos;
+  function enemyTeam(otherTeam){
+    return String(otherTeam || TEAM_BLUE) !== String(team);
+  }
+  for(var i=0;i<aiUnits.length;i++){
+    var u = aiUnits[i];
+    if(!u || !u.alive || !enemyTeam(u.team)) continue;
+    var box = {x:u.x,y:PLAYER_HEIGHT,z:u.z,w:0.95,h:1.95,d:0.95};
+    if(hitPointInBox(pos, box)) return true;
+  }
+  for(var id in roomPlayers){
+    if(!Object.prototype.hasOwnProperty.call(roomPlayers,id)) continue;
+    if(id === ownerId) continue;
+    var p = roomPlayers[id];
+    if(!p || p.alive===false || !enemyTeam(p.team)) continue;
+    var posY = (socket && id===socket.id) ? camera.position.y : (Number(p.y)||PLAYER_HEIGHT);
+    var box2 = {x:Number(p.x)||0,y:posY,z:Number(p.z)||0,w:1.05,h:2.05,d:1.05};
+    if(hitPointInBox(pos, box2)) return true;
+  }
+  return false;
+}
 function throwBomb(){
   if(gameMode!==GAME_MODE.BATTLE || matchOver || !player.alive || bombPoints<=0) return;
   playUiSfx('throw');
@@ -3430,6 +3574,13 @@ function updateBombs(dt){
           b.vel.multiplyScalar(0.08);
           break;
         }
+      }
+      if(bombHitsEnemyTarget(b)){
+        explodeBomb(b);
+        if(b.mesh && b.mesh.parent) b.mesh.parent.remove(b.mesh);
+        b.mesh = null;
+        bombs.splice(i,1);
+        continue;
       }
       if(b.mesh) b.mesh.position.copy(b.pos);
     }
@@ -4057,7 +4208,7 @@ function fireOnce(){
   if(reloading || ammo < ammoPerShot) return;
   if(now - lastShotTime < FIRE_INTERVAL * 900) return;
   lastShotTime = now;
-  kickMotion('shot', 0.7 + pellets * 0.06);
+  kickMotion('shot', 1.05 + pellets * 0.09);
   ammo -= ammoPerShot;
   if(ammo < 0) ammo = 0;
   updateAmmoUI();
@@ -4704,40 +4855,85 @@ window.addEventListener('gesturechange',function(e){if(gameMode===GAME_MODE.BATT
 function updateGun(dt){
   if(!gunRoot)return;
   gunState.recoil=T.MathUtils.lerp(gunState.recoil,0,1-Math.exp(-(adsActive?26:18)*dt));
+  gunState.shotKick=T.MathUtils.lerp(gunState.shotKick||0,0,1-Math.exp(-20*dt));
   var tFov=adsActive?CAM_FOV_ADS:CAM_FOV_NORMAL;
   gunFovCurrent=T.MathUtils.lerp(gunFovCurrent,tFov,1-Math.exp(-14*dt));
   if(Math.abs(gunFovCurrent-camera.fov)>0.05){camera.fov=gunFovCurrent;camera.updateProjectionMatrix();}
   gunPosCurrent.lerp(gunPosTarget,1-Math.exp(-16*dt));
   var ms=Math.hypot(moveVel.x,moveVel.y);
   if(ms>0.15&&gameMode===GAME_MODE.BATTLE&&!adsActive){gunBobT+=dt*10.8;gunBobAmt=T.MathUtils.lerp(gunBobAmt,Math.min(ms/PLAYER_SPEED,1.15),0.16);} else {gunBobT+=dt*3.8; gunBobAmt=T.MathUtils.lerp(gunBobAmt,0.06,0.06);}
-  
-  var bx=Math.sin(gunBobT*0.65)*0.010*gunBobAmt,by=Math.abs(Math.sin(gunBobT*1.15))*0.014*gunBobAmt;var sway=Math.sin(gunBobT*0.38)*0.010*gunBobAmt;var roll=Math.sin(gunBobT*0.85)*0.025*gunBobAmt;
-  var ry=0;
-  if(gunState.reloadAnim){gunState.reloadAnimT=Math.min(gunState.reloadAnimT+dt,gunState.reloadAnimDur);var p=gunState.reloadAnimT/gunState.reloadAnimDur;ry=p<0.5?-0.24*Math.pow(p/0.5,2):-0.24*(1-Math.pow(1-2*(p-0.5),2));}
+
+  var bx=Math.sin(gunBobT*0.65)*0.010*gunBobAmt;
+  var by=Math.abs(Math.sin(gunBobT*1.15))*0.014*gunBobAmt;
+  var sway=Math.sin(gunBobT*0.38)*0.010*gunBobAmt;
+  var roll=Math.sin(gunBobT*0.85)*0.025*gunBobAmt;
+  var kick = gunState.shotKick || 0;
+  var ry=0, rp=0, ra=0, handPulse=0;
+  var reloadKey = gunState.reloadWeaponKey || currentWeaponKey;
+  var reloadMotion = getReloadMotion(reloadKey);
+  if(gunState.reloadAnim){
+    gunState.reloadAnimT=Math.min(gunState.reloadAnimT+dt,gunState.reloadAnimDur);
+    var p=gunState.reloadAnimT/Math.max(0.001,gunState.reloadAnimDur);
+    var easeIn = Math.min(1, p / 0.22);
+    var settle = Math.min(1, Math.max(0, (p - 0.22) / 0.18));
+    var load = Math.min(1, Math.max(0, (p - 0.40) / 0.34));
+    var finish = Math.min(1, Math.max(0, (p - 0.76) / 0.24));
+    if(reloadKey === 'shotgun'){
+      var shellPulse = Math.sin(p * Math.PI * 9.0);
+      ry = -0.12 - reloadMotion.down * (0.75 * easeIn + 0.30 * settle) + 0.06 * shellPulse;
+      rp = -0.32 - 0.18 * settle + 0.08 * Math.sin(p * Math.PI * 6.0);
+      ra = -0.10 + 0.14 * shellPulse;
+      handPulse = 0.20 + 0.34 * Math.max(0, shellPulse);
+      kick = Math.max(kick, 0.18 + 0.14 * shellPulse);
+    }else if(reloadKey === 'pistol'){
+      ry = -0.10 - reloadMotion.down * (0.90 * easeIn + 0.55 * settle);
+      rp = -0.18 - 0.44 * load;
+      ra = -0.18 + 0.30 * easeIn + 0.10 * finish;
+      handPulse = 0.14 + 0.28 * load;
+      kick = Math.max(kick, 0.10 + 0.10 * load);
+    }else{
+      ry = -0.09 - reloadMotion.down * (0.86 * easeIn + 0.45 * settle);
+      rp = -0.14 - 0.34 * load;
+      ra = -0.12 + 0.16 * easeIn + 0.06 * finish;
+      handPulse = 0.12 + 0.22 * load;
+      kick = Math.max(kick, 0.12 + 0.12 * load);
+    }
+    if(gameMode===GAME_MODE.BATTLE){ motionFx.pulse = Math.max(motionFx.pulse, 0.08 + p * 0.18); }
+  }
   var r=gunState.recoil;
-  gunRoot.position.set(gunPosCurrent.x+bx+sway+r*0.010,gunPosCurrent.y+by+r*0.026+ry,gunPosCurrent.z+r*0.056);
-  gunRoot.rotation.set(0,0,roll + r*0.02);
+  var shotX = kick * 0.030;
+  var shotY = kick * 0.038;
+  var shotZ = -kick * 0.120;
+  gunRoot.position.set(
+    gunPosCurrent.x + bx + sway + r*0.010 + shotX,
+    gunPosCurrent.y + by + r*0.026 + ry + shotY,
+    gunPosCurrent.z + r*0.056 + shotZ
+  );
+  gunRoot.rotation.set(-kick * 0.035, kick * 0.018, roll + r*0.02 + kick * 0.055 + ra);
   if(gunVisualRoot){
     var def = getWeaponDef(currentWeaponKey);
     var pose = def && def.modelRotation ? def.modelRotation : {x:0,y:0,z:0};
     gunVisualRoot.position.set(0,0,0);
-    gunVisualRoot.rotation.set((pose.x||0), (pose.y||0), (pose.z||0) - r*0.07);
+    gunVisualRoot.rotation.set((pose.x||0), (pose.y||0), (pose.z||0) - r*0.07 - kick * 0.025);
     gunVisualRoot.scale.setScalar(adsActive && currentWeaponKey === 'pistol' ? 0.80 : 1.0);
   }
   if(handRoot){
-    var sway = Math.sin(gunBobT * 0.6) * 0.015 * gunBobAmt;
-    handRoot.position.set(0.02 + sway * 1.2, -0.01 + by * 0.52, 0.03 + r * 0.016);
-    handRoot.rotation.set(0.02 + r * 0.035, sway * 0.22, -0.05 - sway * 0.7 + roll * 0.3);
+    var handSway = Math.sin(gunBobT * 0.6) * 0.015 * gunBobAmt;
+    var reloadLift = gunState.reloadAnim ? (reloadKey === 'shotgun' ? -0.02 + handPulse * 0.06 : -0.01 + handPulse * 0.08) : 0;
+    var spread = gunState.reloadAnim ? (0.025 + handPulse * 0.10) : 0.015;
+    handRoot.position.set(0.02 + handSway * 1.2 + kick * 0.010, -0.01 + by * 0.52 + reloadLift, 0.03 + r * 0.016 - kick * 0.025);
+    handRoot.rotation.set(0.02 + r * 0.035 - kick * 0.040, handSway * 0.22 + spread, -0.05 - handSway * 0.7 + roll * 0.3 + kick * 0.050);
     handRoot.visible = (gameMode===GAME_MODE.BATTLE);
   }
 }
 function triggerRecoil(){
   var def = getWeaponDef(currentWeaponKey);
   var recoilMul = def && Number.isFinite(def.recoil) ? def.recoil : 1;
-  gunState.recoil = Math.min(1.25, gunState.recoil + (adsActive ? 0.055 : 0.14) * recoilMul);
-  kickMotion('shot', 0.9 + recoilMul * 0.45);
+  gunState.recoil = Math.min(1.55, gunState.recoil + (adsActive ? 0.06 : 0.18) * recoilMul);
+  gunState.shotKick = Math.min(1.4, (gunState.shotKick || 0) + 0.72 * recoilMul);
+  kickMotion('shot', 1.05 + recoilMul * 0.62);
+  motionFx.pulse = Math.max(motionFx.pulse, 0.22 + recoilMul * 0.16);
 }
-
 
 var currentMapId = 'arena';
 var MAP_TARGET_SIZE = 88;

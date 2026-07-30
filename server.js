@@ -1717,6 +1717,33 @@ io.on('connection', socket => {
     }
   });
 
+  // Backward-compatibility bridge for older HTML clients that still emit
+  // skill smoke via `playerShotFX` instead of the dedicated `skill-smoke` event.
+  // This keeps both screens in sync without requiring a client rollout first.
+  socket.on('playerShotFX', (data = {}) => {
+    const p = players[socket.id];
+    if (!p || !p.room) return;
+
+    if (data.fxType !== 'skill-smoke') return;
+
+    const roomId = p.room;
+    if (!Number.isFinite(data.x) || !Number.isFinite(data.z)) return;
+
+    const payload = {
+      room: roomId,
+      sourceId: socket.id,
+      team: p.team,
+      x: data.x,
+      z: data.z,
+      at: Date.now()
+    };
+
+    io.to(roomId).emit('skill-smoke', payload);
+    if (LEGACY_SHOT_EVENTS) {
+      io.to(roomId).emit('playerShotFX', Object.assign({}, payload, { fxType: 'skill-smoke' }));
+    }
+  });
+
   // ==========================================================================
   // FIX #11: bomb throw is now server-authoritative for broadcast (everyone
   // in the room, including the thrower's opponents, receives the throw and

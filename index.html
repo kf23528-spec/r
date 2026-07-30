@@ -5586,7 +5586,7 @@ function assembleModularArena(models, token){
   var carLiftY = 0.18;
 
   // Arena border.
-  var wallCollider = [9.6, 6.0, 1.125];
+  var wallCollider = [10.56, 6.0, 1.125];
   var borderXs = [-28, -21, -14, -7, 7, 14, 21, 28];
   var borderZs = [-28, -21, -14, -7, 7, 14, 21, 28];
   addRepeatedWalls(root, wallTemplate, borderXs.map(function(x){ return [x, wallLiftY, 31.6, 0]; }), wallScale, wallCollider);
@@ -5594,13 +5594,13 @@ function assembleModularArena(models, token){
   addRepeatedWalls(root, wallTemplate, borderZs.map(function(z){ return [31.6, wallLiftY, z, Math.PI/2]; }), wallScale, wallCollider);
   addRepeatedWalls(root, wallTemplate, borderZs.map(function(z){ return [-31.6, wallLiftY, z, Math.PI/2]; }), wallScale, wallCollider);
 
-  addTemplateProp(root, cornerTemplate, {x:-31.6, y:wallLiftY, z:31.6, ry:Math.PI, scale:cornerScale, collider:[8.7, 6.0, 4.8]});
-  addTemplateProp(root, cornerTemplate, {x:31.6, y:wallLiftY, z:31.6, ry:Math.PI/2, scale:cornerScale, collider:[8.7, 6.0, 4.8]});
-  addTemplateProp(root, cornerTemplate, {x:-31.6, y:wallLiftY, z:-31.6, ry:-Math.PI/2, scale:cornerScale, collider:[8.7, 6.0, 4.8]});
-  addTemplateProp(root, cornerTemplate, {x:31.6, y:wallLiftY, z:-31.6, ry:0, scale:cornerScale, collider:[8.7, 6.0, 4.8]});
+  addTemplateProp(root, cornerTemplate, {x:-31.6, y:wallLiftY, z:31.6, ry:Math.PI, scale:cornerScale, collider:[9.57, 6.0, 4.8]});
+  addTemplateProp(root, cornerTemplate, {x:31.6, y:wallLiftY, z:31.6, ry:Math.PI/2, scale:cornerScale, collider:[9.57, 6.0, 4.8]});
+  addTemplateProp(root, cornerTemplate, {x:-31.6, y:wallLiftY, z:-31.6, ry:-Math.PI/2, scale:cornerScale, collider:[9.57, 6.0, 4.8]});
+  addTemplateProp(root, cornerTemplate, {x:31.6, y:wallLiftY, z:-31.6, ry:0, scale:cornerScale, collider:[9.57, 6.0, 4.8]});
 
   // Long lanes / site walls.
-  var laneWallCollider = [9.0, 5.6, 1.05];
+  var laneWallCollider = [9.9, 5.6, 1.05];
   addRepeatedWalls(root, wallTemplate, [[-18,wallLiftY,14,0],[-10,wallLiftY,14,0],[10,wallLiftY,14,0],[18,wallLiftY,14,0]], wallScale, laneWallCollider);
   addRepeatedWalls(root, wallTemplate, [[-18,wallLiftY,-14,0],[-10,wallLiftY,-14,0],[10,wallLiftY,-14,0],[18,wallLiftY,-14,0]], wallScale, laneWallCollider);
   addRepeatedWalls(root, wallTemplate, [[-14,wallLiftY,-18,Math.PI/2],[-14,wallLiftY,-10,Math.PI/2],[-14,wallLiftY,10,Math.PI/2],[-14,wallLiftY,18,Math.PI/2]], wallScale, laneWallCollider);

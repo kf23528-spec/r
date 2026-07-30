@@ -917,31 +917,12 @@ function updateBulletFxLines(){
     }
   }
 }
-var audioUnlocked = false;
-var myShootSound   = new Audio('ju.mp3');
-var enemyShootSound= new Audio('ju.mp3');
-myShootSound.preload='auto'; enemyShootSound.preload='auto';
-myShootSound.volume=0.95; enemyShootSound.volume=0.7;
-try{ myShootSound.load(); }catch(e){}
-try{ enemyShootSound.load(); }catch(e){}
-function unlockAudio(){
-  if(audioUnlocked) return; audioUnlocked=true;
-  try{
-    var p1=myShootSound.play(); var p2=enemyShootSound.play();
-    if(p1&&p1.then) p1.then(function(){myShootSound.pause();myShootSound.currentTime=0;}).catch(function(){});
-    else{myShootSound.pause();myShootSound.currentTime=0;}
-    if(p2&&p2.then) p2.then(function(){enemyShootSound.pause();enemyShootSound.currentTime=0;}).catch(function(){});
-    else{enemyShootSound.pause();enemyShootSound.currentTime=0;}
-  }catch(e){}
-}
-function playGunSound(isBot){
-  try{
-    var a = isBot ? enemyShootSound : myShootSound;
-    a.pause(); a.currentTime=0; a.volume=isBot?0.7:0.95;
-    var p=a.play(); if(p&&p.catch) p.catch(function(){});
-  }catch(e){}
-}
+var audioUnlocked = true;
+function unlockAudio(){}
+function playGunSound(isBot){}
 var uiSfxCtx = null;
+function getUiSfxCtx(){ return null; }
+function playUiSfx(kind){}
 var motionFx = {
   shakeX: 0,
   shakeY: 0,
@@ -5593,19 +5574,19 @@ function assembleModularArena(models, token){
   }
 
   // Scales tuned from the actual GLB bounding boxes.
-  var wallScale = 0.92;
-  var cornerScale = 1.08;
+  var wallScale = 1.84;
+  var cornerScale = 2.16;
   var gateScale = 1.10;
   var crateScale = 0.11;
   var containerScale = 0.048;
   var pillarScale = 13.5;
   var barrierScale = 1.85;
   var carScale = 0.56;
-  var wallLiftY = 0.18;
+  var wallLiftY = 0.0;
   var carLiftY = 0.18;
 
   // Arena border.
-  var wallCollider = [6.4, 3.0, 0.75];
+  var wallCollider = [9.6, 6.0, 1.125];
   var borderXs = [-28, -21, -14, -7, 7, 14, 21, 28];
   var borderZs = [-28, -21, -14, -7, 7, 14, 21, 28];
   addRepeatedWalls(root, wallTemplate, borderXs.map(function(x){ return [x, wallLiftY, 31.6, 0]; }), wallScale, wallCollider);
@@ -5613,13 +5594,13 @@ function assembleModularArena(models, token){
   addRepeatedWalls(root, wallTemplate, borderZs.map(function(z){ return [31.6, wallLiftY, z, Math.PI/2]; }), wallScale, wallCollider);
   addRepeatedWalls(root, wallTemplate, borderZs.map(function(z){ return [-31.6, wallLiftY, z, Math.PI/2]; }), wallScale, wallCollider);
 
-  addTemplateProp(root, cornerTemplate, {x:-31.6, y:wallLiftY, z:31.6, ry:Math.PI, scale:cornerScale, collider:[5.8, 3.0, 3.2]});
-  addTemplateProp(root, cornerTemplate, {x:31.6, y:wallLiftY, z:31.6, ry:Math.PI/2, scale:cornerScale, collider:[5.8, 3.0, 3.2]});
-  addTemplateProp(root, cornerTemplate, {x:-31.6, y:wallLiftY, z:-31.6, ry:-Math.PI/2, scale:cornerScale, collider:[5.8, 3.0, 3.2]});
-  addTemplateProp(root, cornerTemplate, {x:31.6, y:wallLiftY, z:-31.6, ry:0, scale:cornerScale, collider:[5.8, 3.0, 3.2]});
+  addTemplateProp(root, cornerTemplate, {x:-31.6, y:wallLiftY, z:31.6, ry:Math.PI, scale:cornerScale, collider:[8.7, 6.0, 4.8]});
+  addTemplateProp(root, cornerTemplate, {x:31.6, y:wallLiftY, z:31.6, ry:Math.PI/2, scale:cornerScale, collider:[8.7, 6.0, 4.8]});
+  addTemplateProp(root, cornerTemplate, {x:-31.6, y:wallLiftY, z:-31.6, ry:-Math.PI/2, scale:cornerScale, collider:[8.7, 6.0, 4.8]});
+  addTemplateProp(root, cornerTemplate, {x:31.6, y:wallLiftY, z:-31.6, ry:0, scale:cornerScale, collider:[8.7, 6.0, 4.8]});
 
   // Long lanes / site walls.
-  var laneWallCollider = [6.0, 2.8, 0.7];
+  var laneWallCollider = [9.0, 5.6, 1.05];
   addRepeatedWalls(root, wallTemplate, [[-18,wallLiftY,14,0],[-10,wallLiftY,14,0],[10,wallLiftY,14,0],[18,wallLiftY,14,0]], wallScale, laneWallCollider);
   addRepeatedWalls(root, wallTemplate, [[-18,wallLiftY,-14,0],[-10,wallLiftY,-14,0],[10,wallLiftY,-14,0],[18,wallLiftY,-14,0]], wallScale, laneWallCollider);
   addRepeatedWalls(root, wallTemplate, [[-14,wallLiftY,-18,Math.PI/2],[-14,wallLiftY,-10,Math.PI/2],[-14,wallLiftY,10,Math.PI/2],[-14,wallLiftY,18,Math.PI/2]], wallScale, laneWallCollider);
@@ -5684,7 +5665,7 @@ function buildProceduralArena(){
   var assetNames = [
     'theappxr_Floor_2_NODRACO_standard (1).glb',
     'sci-fi_wall.glb',
-    'gd50_varun_wall_and_corner.glb',
+    'sci-fi_wall.glb',
     'interior_-_wooden_crate__minecraft.glb',
     'shipping_container.glb',
     'broken_pillar_concrete_damaged.glb',

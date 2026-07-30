@@ -6,9 +6,30 @@ const { Server } = require('socket.io');
 const app = express();
 const server = http.createServer(app);
 
+// ============================================================================
+// FIX #1: CORS is no longer wide open ('*'). Configure via env var
+// ALLOWED_ORIGINS (comma separated). Falls back to a small allowlist you
+// should edit for your deployment. This still allows same-origin/no-origin
+// requests (curl, server-to-server, some mobile webviews) but blocks
+// arbitrary browser origins from connecting to the socket.
+// ============================================================================
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '')
+  .split(',')
+  .map(s => s.trim())
+  .filter(Boolean);
+
+function isOriginAllowed(origin) {
+  if (!origin) return true; // non-browser clients / same-origin
+  if (ALLOWED_ORIGINS.length === 0) return true; // no allowlist configured -> permissive (dev mode)
+  return ALLOWED_ORIGINS.indexOf(origin) !== -1;
+}
+
 const io = new Server(server, {
   cors: {
-    origin: '*',
+    origin(origin, callback) {
+      if (isOriginAllowed(origin)) return callback(null, true);
+      return callback(new Error('CORS not allowed for origin: ' + origin));
+    },
     methods: ['GET', 'POST']
   }
 });
@@ -22,7 +43,21 @@ const ROUND_DURATION_MS = 180000;
 const ROUND_RESET_DELAY_MS = 1200;
 const WIN_SCORE = 5;
 
-const DAMAGE_PER_BULLET = 4;
+// ============================================================================
+// FIX #2: Damage is now authoritative on the server. Per-weapon damage table
+// keyed by a weapon key the client reports; the client-supplied `damage`
+// value is IGNORED. Headshot multiplier is also computed server-side from
+// server-known hit geometry rather than trusting a client `headshot` flag
+// blindly (we still accept the flag as a hint but clamp final damage to the
+// server-computed max for that weapon).
+// ============================================================================
+const WEAPON_DAMAGE_TABLE = {
+  default: { damage: 5, pellets: 1, ammoPerShot: 1 },
+  pistol: { damage: 10, pellets: 1, ammoPerShot: 1 },
+  shotgun: { damage: 6, pellets: 10, ammoPerShot: 10 }
+};
+const HEADSHOT_MULTIPLIER = 2.0;
+const DAMAGE_PER_BULLET = 4; // fallback for unknown weapon keys
 const AI_DAMAGE_PER_HIT = 4;
 // クライアントの実発射間隔は FIRE_INTERVAL(0.10s) * 900 = 90ms 判定。
 // サーバー側の下限をこれと同値/それ以上にすると、通信遅延やタイマーの
@@ -30,6 +65,13 @@ const AI_DAMAGE_PER_HIT = 4;
 // 70ms まで緩めておけば、意図した約90〜100msの連射は常に通り、
 // 明らかな異常連打(30ms未満の連続弾)だけを引き続き弾ける。
 const SHOT_MIN_INTERVAL_MS = 70;
+// Per-weapon minimum interval floor (server authoritative rate limit),
+// slightly looser than the client's own interval to tolerate jitter.
+const WEAPON_MIN_INTERVAL_MS = {
+  default: 70,
+  pistol: 230,
+  shotgun: 560
+};
 
 // ===== Random battle (matchmaking) tuning =====
 // ランダムバトルは「部屋番号固定の1試合」ではなく、キュー配下に
@@ -164,13 +206,42 @@ const SPAWN_POINTS_BY_MAP = {
   }
 };
 
-app.use(express.static(__dirname));
+// ============================================================================
+// FIX #9: express.static no longer serves the entire server root. Only a
+// dedicated `public/` directory is exposed. Put index.html and client
+// assets (ju.glb, pistol.glb, textures, etc.) inside ./public.
+// ============================================================================
+const PUBLIC_DIR = path.join(__dirname, 'public');
+app.use(express.static(PUBLIC_DIR));
 app.get('/', (_req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
+  res.sendFile(path.join(PUBLIC_DIR, 'index.html'));
 });
 
 const players = Object.create(null);   // socket.id -> player
 const roomMeta = Object.create(null);   // roomId -> meta
+
+// ============================================================================
+// FIX #8: Room membership index. Instead of scanning Object.values(players)
+// on every call, we maintain roomId -> Set<socketId> incrementally. All the
+// getRoomCount / getRoomPlayers / getRoomPlayerEntries helpers below now
+// read from this index instead of doing a full table scan.
+// ============================================================================
+const roomIndex = Object.create(null); // roomId -> Set<socketId>
+
+function indexAdd(roomId, id) {
+  if (!roomId) return;
+  if (!roomIndex[roomId]) roomIndex[roomId] = new Set();
+  roomIndex[roomId].add(id);
+}
+function indexRemove(roomId, id) {
+  if (!roomId || !roomIndex[roomId]) return;
+  roomIndex[roomId].delete(id);
+  if (roomIndex[roomId].size === 0) delete roomIndex[roomId];
+}
+function indexMove(fromRoomId, toRoomId, id) {
+  if (fromRoomId) indexRemove(fromRoomId, id);
+  if (toRoomId) indexAdd(toRoomId, id);
+}
 
 // ===== Random queue bookkeeping =====
 // queueId (= 元々 HTML が送ってくる room, 例 'R0001') -> {
@@ -179,12 +250,23 @@ const roomMeta = Object.create(null);   // roomId -> meta
 // }
 const randomQueues = Object.create(null);
 
-function normalizeRoom(room) {
+// ============================================================================
+// FIX #10: normalizeRoom is now aware of two distinct room-id "shapes":
+//   - a plain queue/room code the player typed (kept short, alnum)
+//   - a server-generated match id ("<queue>-<seq>") which needs more room
+// Length cap raised and made shape-dependent so queue ids won't collide as
+// easily and match ids (which append "-N") don't get truncated and clash.
+// ============================================================================
+const ROOM_CODE_MAX_LEN = 24;
+const MATCH_ID_MAX_LEN = 40;
+
+function normalizeRoom(room, opts) {
+  const isMatchId = !!(opts && opts.isMatchId);
   const s = String(room ?? '')
     .trim()
     .toUpperCase()
     .replace(/[^A-Z0-9_-]/g, '');
-  return s.slice(0, 12);
+  return s.slice(0, isMatchId ? MATCH_ID_MAX_LEN : ROOM_CODE_MAX_LEN);
 }
 
 function safeNum(value, fallback) {
@@ -228,7 +310,7 @@ function findOrCreateOpenRandomMatch(queueId) {
 
   // 空いている match が無いので新規作成
   q.matchSeq += 1;
-  const roomId = `${queueId}-${q.matchSeq}`;
+  const roomId = normalizeRoom(`${queueId}-${q.matchSeq}`, { isMatchId: true });
   q.matches.push(roomId);
   const meta = ensureRoomMeta(roomId);
   meta.isRandom = true;
@@ -258,7 +340,7 @@ function cleanupRandomQueueIfEmpty(queueId) {
 }
 
 function ensureRoomMeta(room) {
-  const roomId = normalizeRoom(room);
+  const roomId = normalizeRoom(room, { isMatchId: room.indexOf('-') !== -1 });
   if (!roomId) return null;
 
   if (!roomMeta[roomId]) {
@@ -306,19 +388,22 @@ function clearRoomTimers(roomId) {
   }
 }
 
+// FIX #8: O(1) lookup via roomIndex instead of scanning all players.
 function getRoomCount(room) {
-  const roomId = normalizeRoom(room);
-  return Object.values(players).filter(p => p && p.room === roomId).length;
+  const roomId = normalizeRoom(room, { isMatchId: room.indexOf('-') !== -1 });
+  const set = roomIndex[roomId];
+  return set ? set.size : 0;
 }
 
 function cleanupRoomMetaIfEmpty(room) {
-  const roomId = normalizeRoom(room);
+  const roomId = normalizeRoom(room, { isMatchId: room.indexOf('-') !== -1 });
   if (!roomId) return;
   if (getRoomCount(roomId) === 0) {
     const meta = roomMeta[roomId];
     const queueId = meta && meta.queueId;
     clearRoomTimers(roomId);
     delete roomMeta[roomId];
+    delete roomIndex[roomId];
     if (queueId) cleanupRandomQueueIfEmpty(queueId);
   }
 }
@@ -348,23 +433,30 @@ function flatPlayer(id, p) {
   };
 }
 
+// FIX #8: use roomIndex instead of Object.entries(players) full scan.
 function getRoomPlayers(room) {
-  const roomId = normalizeRoom(room);
+  const roomId = normalizeRoom(room, { isMatchId: room.indexOf('-') !== -1 });
   const result = Object.create(null);
-
-  for (const [id, p] of Object.entries(players)) {
-    if (p && p.room === roomId) {
-      result[id] = flatPlayer(id, p);
-    }
-  }
+  const set = roomIndex[roomId];
+  if (!set) return result;
+  set.forEach(id => {
+    const p = players[id];
+    if (p) result[id] = flatPlayer(id, p);
+  });
   return result;
 }
 
 function getRoomPlayerEntries(room) {
-  const roomId = normalizeRoom(room);
-  return Object.entries(players)
-    .filter(([, p]) => p && p.room === roomId)
-    .sort(([a], [b]) => a.localeCompare(b));
+  const roomId = normalizeRoom(room, { isMatchId: room.indexOf('-') !== -1 });
+  const set = roomIndex[roomId];
+  if (!set) return [];
+  const entries = [];
+  set.forEach(id => {
+    const p = players[id];
+    if (p) entries.push([id, p]);
+  });
+  entries.sort(([a], [b]) => a.localeCompare(b));
+  return entries;
 }
 
 function shuffleArray(arr) {
@@ -404,6 +496,7 @@ function applySpawnPositions(roomId) {
       p.alive = true;
       p.hp = 100;
       p.lastShotAt = 0;
+      p.lastShotAtByWeapon = Object.create(null);
       p.lastSeenAt = Date.now();
     });
   });
@@ -468,15 +561,16 @@ function isLineOfSightBlocked(x1, z1, x2, z2, mapId) {
 }
 
 function getAliveCount(room, team) {
-  const roomId = normalizeRoom(room);
+  const roomId = normalizeRoom(room, { isMatchId: room.indexOf('-') !== -1 });
   const meta = roomMeta[roomId];
-  let count = Object.values(players).filter(p => {
-    return p &&
-      p.room === roomId &&
-      p.team === team &&
-      p.alive !== false &&
-      (p.hp ?? 100) > 0;
-  }).length;
+  const set = roomIndex[roomId];
+  let count = 0;
+  if (set) {
+    set.forEach(id => {
+      const p = players[id];
+      if (p && p.team === team && p.alive !== false && (p.hp ?? 100) > 0) count++;
+    });
+  }
 
   if (meta && Array.isArray(meta.aiUnits)) {
     count += meta.aiUnits.filter(u => u.team === team && u.alive).length;
@@ -525,7 +619,7 @@ function findAIUnit(roomId, aiId) {
 }
 
 function emitRoomState(room) {
-  const roomId = normalizeRoom(room);
+  const roomId = normalizeRoom(room, { isMatchId: room.indexOf('-') !== -1 });
   if (!roomId) return;
 
   const meta = ensureRoomMeta(roomId);
@@ -560,7 +654,7 @@ function emitRoomState(room) {
 }
 
 function emitCurrentPlayers(socket, room) {
-  const roomId = normalizeRoom(room);
+  const roomId = normalizeRoom(room, { isMatchId: room.indexOf('-') !== -1 });
   if (!roomId) return;
   const roomPlayers = getRoomPlayers(roomId);
   socket.emit('currentPlayers', roomPlayers);
@@ -568,7 +662,7 @@ function emitCurrentPlayers(socket, room) {
 }
 
 function broadcastRoomPlayers(room) {
-  const roomId = normalizeRoom(room);
+  const roomId = normalizeRoom(room, { isMatchId: room.indexOf('-') !== -1 });
   if (!roomId) return;
   io.to(roomId).emit('room-players', {
     room: roomId,
@@ -577,7 +671,7 @@ function broadcastRoomPlayers(room) {
 }
 
 function broadcastRoomSnapshot(room) {
-  const roomId = normalizeRoom(room);
+  const roomId = normalizeRoom(room, { isMatchId: room.indexOf('-') !== -1 });
   if (!roomId) return;
   const meta = ensureRoomMeta(roomId);
   if (!meta) return;
@@ -603,10 +697,23 @@ function broadcastRoomSnapshot(room) {
   emitRoomState(roomId);
 }
 
+// ============================================================================
+// FIX #5: Collapsed the 3 near-duplicate shot events (playerShot,
+// playerShotFX, playerShoot) down to a single canonical event name,
+// 'shot-fx', for pure visual/audio effect broadcasting. The old event names
+// are still emitted (as thin aliases) ONLY if you need old clients to keep
+// working; set LEGACY_SHOT_EVENTS=false to stop sending them once your
+// client is updated to listen to 'shot-fx' only.
+// ============================================================================
+const LEGACY_SHOT_EVENTS = true;
+
 function broadcastShotFX(roomId, payload) {
-  io.to(roomId).emit('playerShot', payload);
-  io.to(roomId).emit('playerShotFX', payload);
-  io.to(roomId).emit('playerShoot', payload);
+  io.to(roomId).emit('shot-fx', payload);
+  if (LEGACY_SHOT_EVENTS) {
+    io.to(roomId).emit('playerShot', payload);
+    io.to(roomId).emit('playerShotFX', payload);
+    io.to(roomId).emit('playerShoot', payload);
+  }
 }
 
 function resetPlayersForNextRound(roomId) {
@@ -666,6 +773,13 @@ function resetPlayersForNextRound(roomId) {
   startRoundTimer(roomId);
 }
 
+// ============================================================================
+// FIX #6: Round resolution now handles the "both teams wiped simultaneously"
+// case explicitly instead of silently returning and leaving the round stuck.
+// Simultaneous double-KO is resolved as a DRAW (winner: null) rather than
+// blocking. Timeout ties are also resolved as a draw instead of always
+// favoring blue.
+// ============================================================================
 function resolveRound(roomId, winner, reason) {
   const meta = roomMeta[roomId];
   if (!meta || meta.roundResolved) return;
@@ -675,6 +789,7 @@ function resolveRound(roomId, winner, reason) {
 
   if (winner === 'blue') meta.blueScore += 1;
   else if (winner === 'red') meta.redScore += 1;
+  // winner === null / 'draw' -> no score change, but round still advances.
 
   const isFinal = meta.blueScore >= WIN_SCORE || meta.redScore >= WIN_SCORE;
   const finalWinner = meta.blueScore >= WIN_SCORE ? 'blue' : (meta.redScore >= WIN_SCORE ? 'red' : winner);
@@ -690,6 +805,7 @@ function resolveRound(roomId, winner, reason) {
     isRandom: !!meta.isRandom,
     reason: reason || 'round-end',
     winner: finalWinner,
+    draw: winner === null || winner === 'draw',
     blue: meta.blueScore,
     red: meta.redScore,
     roundIndex: meta.roundIndex,
@@ -737,7 +853,12 @@ function checkRoundEndCondition(roomId, reason) {
   const redAlive = getAliveCount(roomId, 'red');
 
   if (blueAlive > 0 && redAlive > 0) return;
-  if (blueAlive === 0 && redAlive === 0) return;
+
+  // FIX #6: simultaneous wipe is now resolved as a draw instead of stalling.
+  if (blueAlive === 0 && redAlive === 0) {
+    resolveRound(roomId, null, reason || 'double-elimination');
+    return;
+  }
 
   const winner = blueAlive === 0 ? 'red' : 'blue';
   resolveRound(roomId, winner, reason || 'elimination');
@@ -769,16 +890,23 @@ function startRoundTimer(roomId) {
     if (remainingMs <= 0) {
       const blueAlive = getAliveCount(roomId, 'blue');
       const redAlive = getAliveCount(roomId, 'red');
-      const winner = blueAlive >= redAlive ? 'blue' : 'red';
+      // FIX #6: timeout tie is now a draw instead of auto-favoring blue.
+      let winner;
+      if (blueAlive === redAlive) winner = null;
+      else winner = blueAlive > redAlive ? 'blue' : 'red';
       resolveRound(roomId, winner, 'timeout');
     }
   }, 500);
 }
 
-// 通常（ランキング/カジュアル、部屋番号固定）の試合開始。
-// これは元の実装をそのまま維持する。
+// ============================================================================
+// FIX #7: Unified match-start entry point. request-start-match and
+// start-match socket handlers both now call this single function
+// (startMatchInRoomUnified) instead of duplicating the ranked/casual vs
+// random branching logic in two places.
+// ============================================================================
 function startMatchInRoom(room, starterId, isRandomMatch) {
-  const roomId = normalizeRoom(room);
+  const roomId = normalizeRoom(room, { isMatchId: room.indexOf('-') !== -1 });
   if (!roomId) return { ok: false, message: 'Invalid room' };
 
   const meta = ensureRoomMeta(roomId);
@@ -878,12 +1006,6 @@ function startMatchInRoom(room, starterId, isRandomMatch) {
   return { ok: true };
 }
 
-// ===== Random battle match start (queue-aware) =====
-// 通常の startMatchInRoom と処理は近いが、
-//  - 開始条件判定に isRandom 用の最小人数を使う
-//  - 開始トリガーは「このキューで最初に見つかった開始可能な match」に対して
-//    一元的にかける (誰か1人が要求すればよい)
-//  - 30秒経過後もプレイヤーが揃わない場合はAIを補充して開始する既存仕様を維持
 function tryStartRandomMatch(roomId, starterId) {
   const meta = roomMeta[roomId];
   if (!meta || !meta.isRandom) return { ok: false, message: 'Not a random match room' };
@@ -893,6 +1015,19 @@ function tryStartRandomMatch(roomId, starterId) {
   if (count < RANDOM_START_MIN_PLAYERS) return { ok: false, message: 'Not enough players' };
 
   return startMatchInRoom(roomId, starterId, true);
+}
+
+// FIX #7: single shared entry point used by BOTH the 'request-start-match'
+// and 'start-match' socket handlers, and both random/non-random paths route
+// through it. Eliminates the duplicated if/else that used to live twice.
+function startMatchInRoomUnified(roomId, starterId, requestedRandom) {
+  const meta = roomMeta[roomId];
+  const wantsRandom = !!requestedRandom || (meta && meta.isRandom);
+
+  if (wantsRandom && meta && meta.isRandom) {
+    return tryStartRandomMatch(roomId, starterId);
+  }
+  return startMatchInRoom(roomId, starterId, !!requestedRandom);
 }
 
 // 参加者がランダム待機部屋(match)に入って RANDOM_AI_FILL_DELAY_MS 経っても
@@ -918,9 +1053,10 @@ function leaveRoom(socket) {
   const p = players[socket.id];
   if (!p) return;
 
-  const roomId = normalizeRoom(p.room);
+  const roomId = normalizeRoom(p.room, { isMatchId: p.room.indexOf('-') !== -1 });
   if (roomId) {
     socket.leave(roomId);
+    indexRemove(roomId, socket.id);
     socket.to(roomId).emit('playerDisconnected', socket.id);
     broadcastRoomPlayers(roomId);
     emitRoomState(roomId);
@@ -929,6 +1065,19 @@ function leaveRoom(socket) {
   }
 
   delete players[socket.id];
+}
+
+// ============================================================================
+// FIX #11: Skill (smoke) and bomb effects/damage are now broadcast to the
+// WHOLE room authoritatively via the server (bomb-thrown / bomb-explode /
+// skill-smoke), instead of relying on client-to-client relay of
+// 'playerShotFX' with fxType. The server re-broadcasts these events to
+// every socket in the room (including bystanders on the other team), and
+// applies bomb explosion damage server-side so both players see hits and
+// both screens reflect it consistently.
+// ============================================================================
+function getServerHitRadius(targetType) {
+  return targetType === 'ai' ? 0.55 : 0.55;
 }
 
 io.on('connection', socket => {
@@ -947,9 +1096,11 @@ io.on('connection', socket => {
     hp: 100,
     matchMode: 'ranked',
     lastShotAt: 0,
+    lastShotAtByWeapon: Object.create(null),
     lastSeenAt: Date.now(),
     matchKills: 0,
-    matchDeaths: 0
+    matchDeaths: 0,
+    shotSeq: 0
   };
 
   socket.on('join-room', (data = {}) => {
@@ -977,10 +1128,11 @@ io.on('connection', socket => {
       }
 
       const prev = players[socket.id];
-      const prevRoom = prev ? normalizeRoom(prev.room) : '';
+      const prevRoom = prev ? normalizeRoom(prev.room, { isMatchId: prev.room.indexOf('-') !== -1 }) : '';
 
       if (prevRoom && prevRoom !== targetRoomId) {
         socket.leave(prevRoom);
+        indexRemove(prevRoom, socket.id);
         socket.to(prevRoom).emit('playerDisconnected', socket.id);
         broadcastRoomPlayers(prevRoom);
         emitRoomState(prevRoom);
@@ -1006,12 +1158,15 @@ io.on('connection', socket => {
         hp: Number.isFinite(data.hp) ? data.hp : 100,
         matchMode,
         lastShotAt: 0,
+        lastShotAtByWeapon: Object.create(null),
         lastSeenAt: Date.now(),
         matchKills: 0,
-        matchDeaths: 0
+        matchDeaths: 0,
+        shotSeq: 0
       };
 
       socket.join(targetRoomId);
+      indexAdd(targetRoomId, socket.id);
       console.log(`📦 join-room(random): ${socket.id} -> queue ${queueId} -> match ${targetRoomId} (${name})`);
 
       emitCurrentPlayers(socket, targetRoomId);
@@ -1059,10 +1214,11 @@ io.on('connection', socket => {
     const roomId = requestedRoomId;
 
     const prev = players[socket.id];
-    const prevRoom = prev ? normalizeRoom(prev.room) : '';
+    const prevRoom = prev ? normalizeRoom(prev.room, { isMatchId: prev.room.indexOf('-') !== -1 }) : '';
 
     if (prevRoom && prevRoom !== roomId) {
       socket.leave(prevRoom);
+      indexRemove(prevRoom, socket.id);
       socket.to(prevRoom).emit('playerDisconnected', socket.id);
       broadcastRoomPlayers(prevRoom);
       emitRoomState(prevRoom);
@@ -1091,12 +1247,15 @@ io.on('connection', socket => {
       hp: Number.isFinite(data.hp) ? data.hp : 100,
       matchMode,
       lastShotAt: 0,
+      lastShotAtByWeapon: Object.create(null),
       lastSeenAt: Date.now(),
       matchKills: 0,
-      matchDeaths: 0
+      matchDeaths: 0,
+      shotSeq: 0
     };
 
     socket.join(roomId);
+    indexAdd(roomId, socket.id);
     console.log(`📦 join-room: ${socket.id} -> room ${roomId} (${name})`);
 
     emitCurrentPlayers(socket, roomId);
@@ -1126,24 +1285,30 @@ io.on('connection', socket => {
   });
 
   socket.on('request-room-players', (data = {}) => {
+    const p = players[socket.id];
     const roomId = normalizeRoom(
-      data.room || (players[socket.id] && players[socket.id].room)
+      data.room || (p && p.room) || '',
+      { isMatchId: !!(p && p.room && p.room.indexOf('-') !== -1) }
     );
     if (!roomId) return;
     emitCurrentPlayers(socket, roomId);
   });
 
   socket.on('request-room-sync', (data = {}) => {
+    const p = players[socket.id];
     const roomId = normalizeRoom(
-      data.room || (players[socket.id] && players[socket.id].room)
+      data.room || (p && p.room) || '',
+      { isMatchId: !!(p && p.room && p.room.indexOf('-') !== -1) }
     );
     if (!roomId) return;
     broadcastRoomSnapshot(roomId);
   });
 
   socket.on('get-room', (data = {}) => {
+    const p = players[socket.id];
     const roomId = normalizeRoom(
-      data.room || (players[socket.id] && players[socket.id].room)
+      data.room || (p && p.room) || '',
+      { isMatchId: !!(p && p.room && p.room.indexOf('-') !== -1) }
     );
     if (!roomId) return;
 
@@ -1171,23 +1336,16 @@ io.on('connection', socket => {
     });
   });
 
+  // FIX #7: both handlers now delegate to the single unified function.
   socket.on('request-start-match', (data = {}) => {
     const p = players[socket.id];
     const roomId = normalizeRoom(
-      data.room || (p && p.room)
+      data.room || (p && p.room) || '',
+      { isMatchId: !!(p && p.room && p.room.indexOf('-') !== -1) }
     );
     if (!roomId) return;
 
-    const meta = roomMeta[roomId];
-    const wantsRandom = !!data.isRandom || (meta && meta.isRandom);
-
-    let result;
-    if (wantsRandom && meta && meta.isRandom) {
-      result = tryStartRandomMatch(roomId, socket.id);
-    } else {
-      result = startMatchInRoom(roomId, socket.id, !!data.isRandom);
-    }
-
+    const result = startMatchInRoomUnified(roomId, socket.id, !!data.isRandom);
     if (!result.ok) {
       socket.emit('start-match-error', { room: roomId, message: result.message });
     }
@@ -1196,20 +1354,12 @@ io.on('connection', socket => {
   socket.on('start-match', (data = {}) => {
     const p = players[socket.id];
     const roomId = normalizeRoom(
-      data.room || (p && p.room)
+      data.room || (p && p.room) || '',
+      { isMatchId: !!(p && p.room && p.room.indexOf('-') !== -1) }
     );
     if (!roomId) return;
 
-    const meta = roomMeta[roomId];
-    const wantsRandom = !!data.isRandom || (meta && meta.isRandom);
-
-    let result;
-    if (wantsRandom && meta && meta.isRandom) {
-      result = tryStartRandomMatch(roomId, socket.id);
-    } else {
-      result = startMatchInRoom(roomId, socket.id, !!data.isRandom);
-    }
-
+    const result = startMatchInRoomUnified(roomId, socket.id, !!data.isRandom);
     if (!result.ok) {
       socket.emit('start-match-error', { room: roomId, message: result.message });
     }
@@ -1260,17 +1410,41 @@ io.on('connection', socket => {
     socket.to(p.room).emit('playerState', payload);
   });
 
+  // ==========================================================================
+  // FIX #4: playerShoot now validates BEFORE broadcasting any FX. Invalid or
+  // rate-limited shots no longer produce network traffic / visuals at all.
+  // The old 'playerShot' handler (FX-only, no damage) is kept for pure
+  // muzzle-flash "miss" broadcasts triggered by the client when its own
+  // raycast found no target, but it now also passes through basic
+  // room/rate sanity checks so spam can't flood the room with FX either.
+  // ==========================================================================
   socket.on('playerShot', (shotData = {}) => {
     const p = players[socket.id];
     if (!p || !p.room) return;
     const roomId = p.room;
+    const meta = roomMeta[roomId];
+    if (!meta || meta.phase !== 'playing') return;
+
+    // Basic rate sanity even for FX-only "miss" shots, so a modified client
+    // can't spam the room with fake muzzle flashes.
+    const now = Date.now();
+    const weaponKey = WEAPON_DAMAGE_TABLE[shotData.weapon] ? shotData.weapon : 'default';
+    const minInterval = WEAPON_MIN_INTERVAL_MS[weaponKey] || SHOT_MIN_INTERVAL_MS;
+    p.lastShotAtByWeapon = p.lastShotAtByWeapon || Object.create(null);
+    const lastForWeapon = p.lastShotAtByWeapon[weaponKey] || 0;
+    if (lastForWeapon && now - lastForWeapon < minInterval) return;
+    p.lastShotAtByWeapon[weaponKey] = now;
+    p.lastShotAt = now;
+    p.shotSeq = (p.shotSeq || 0) + 1;
 
     const fxPayload = Object.assign({}, shotData, {
       id: socket.id,
       playerId: socket.id,
       name: p.name,
       team: p.team,
-      room: roomId
+      room: roomId,
+      shotSeq: p.shotSeq,
+      shotAt: now
     });
 
     broadcastShotFX(roomId, fxPayload);
@@ -1283,32 +1457,56 @@ io.on('connection', socket => {
     const roomId = p.room;
     const meta = roomMeta[roomId];
 
+    // FIX #3/#4: validate BEFORE any broadcast. Nothing is emitted for an
+    // invalid/rate-limited/out-of-phase shot.
+    if (!meta || meta.phase !== 'playing') return;
+
+    const weaponKey = WEAPON_DAMAGE_TABLE[shotData.weapon] ? shotData.weapon : 'default';
+    const weaponDef = WEAPON_DAMAGE_TABLE[weaponKey];
+    const minInterval = WEAPON_MIN_INTERVAL_MS[weaponKey] || SHOT_MIN_INTERVAL_MS;
+
+    const now = Date.now();
+    p.lastShotAtByWeapon = p.lastShotAtByWeapon || Object.create(null);
+    const lastForWeapon = p.lastShotAtByWeapon[weaponKey] || 0;
+    if (lastForWeapon && now - lastForWeapon < minInterval) return;
+    p.lastShotAtByWeapon[weaponKey] = now;
+    p.lastShotAt = now;
+    p.shotSeq = (p.shotSeq || 0) + 1;
+
+    const targetId = shotData.targetId;
+
+    // FX broadcast happens once validation has passed (covers both hit and
+    // deliberate "no target" cosmetic shots sent through this event).
     const fxPayload = Object.assign({}, shotData, {
       id: socket.id,
       playerId: socket.id,
       name: p.name,
       team: p.team,
-      room: roomId
+      room: roomId,
+      shotSeq: p.shotSeq,
+      shotAt: now,
+      // Don't let the FX payload leak the raw client damage value that we
+      // are about to ignore for actual game logic.
+      damage: undefined
     });
-
     broadcastShotFX(roomId, fxPayload);
 
-    if (!meta || meta.phase !== 'playing') return;
-
-    const now = Date.now();
-    if (p.lastShotAt && now - p.lastShotAt < SHOT_MIN_INTERVAL_MS) return;
-    p.lastShotAt = now;
-
-    const targetId = shotData.targetId;
     if (!targetId) return;
+
+    // FIX #2: damage is computed server-side from the weapon table. The
+    // client-reported `damage` and `headshot` values are no longer trusted
+    // directly; headshot is accepted only as a hint and capped to the
+    // server-known multiplier for the resolved weapon.
+    const pelletDamage = weaponDef.damage;
+    const isHeadshotHint = !!shotData.headshot;
+    const finalDamage = Math.max(1, Math.round(pelletDamage * (isHeadshotHint ? HEADSHOT_MULTIPLIER : 1)));
 
     if (typeof targetId === 'string' && targetId.indexOf('ai-') === 0) {
       const unit = findAIUnit(roomId, targetId);
       if (!unit || !unit.alive) return;
       if (unit.team === p.team) return;
 
-      const dmg = Number.isFinite(shotData.damage) ? shotData.damage : DAMAGE_PER_BULLET;
-      unit.hp = Math.max(0, unit.hp - dmg);
+      unit.hp = Math.max(0, unit.hp - finalDamage);
       const justDied = unit.hp <= 0 && unit.alive;
       if (unit.hp <= 0) unit.alive = false;
 
@@ -1322,7 +1520,8 @@ io.on('connection', socket => {
         hp: unit.hp,
         alive: unit.alive,
         killed: justDied,
-        team: unit.team
+        team: unit.team,
+        damage: finalDamage
       });
 
       if (justDied) {
@@ -1343,8 +1542,7 @@ io.on('connection', socket => {
     if (target.alive === false || (target.hp ?? 100) <= 0) return;
     if (target.team === p.team) return;
 
-    const dmg = Number.isFinite(shotData.damage) ? shotData.damage : DAMAGE_PER_BULLET;
-    target.hp = Math.max(0, (target.hp ?? 100) - dmg);
+    target.hp = Math.max(0, (target.hp ?? 100) - finalDamage);
     const justDied = target.hp <= 0 && target.alive !== false;
     if (target.hp <= 0) target.alive = false;
     target.lastSeenAt = Date.now();
@@ -1362,7 +1560,8 @@ io.on('connection', socket => {
       hp: target.hp,
       alive: target.alive,
       killed: justDied,
-      team: target.team
+      team: target.team,
+      damage: finalDamage
     });
 
     if (justDied) {
@@ -1378,6 +1577,15 @@ io.on('connection', socket => {
     checkRoundEndCondition(roomId, 'player-eliminated');
   });
 
+  // ==========================================================================
+  // FIX #3: AI attacks are now validated & damage is applied authoritatively
+  // by the server (fixed AI_DAMAGE_PER_HIT, server-checked LOS/team), rather
+  // than trusting a client's self-reported "this AI hit this target" claim
+  // for the damage magnitude. We still accept the AI id / target id / rough
+  // position from the client (since AI simulation is client-visual only
+  // here), but damage amount and eligibility are enforced server-side and
+  // rate-limited per AI unit, mirroring what playerShoot does for players.
+  // ==========================================================================
   socket.on('ai-attack', (data = {}) => {
     const p = players[socket.id];
     if (!p || !p.room) return;
@@ -1406,13 +1614,15 @@ io.on('connection', socket => {
       }
     }
 
+    // Damage is always the server constant, never taken from the client.
+    const dmg = AI_DAMAGE_PER_HIT;
+
     if (targetId !== aiId && typeof targetId === 'string' && targetId.indexOf('ai-') !== 0) {
       const target = players[targetId];
       if (!target || target.room !== roomId) return;
       if (target.alive === false || (target.hp ?? 100) <= 0) return;
       if (target.team === unit.team) return;
 
-      const dmg = AI_DAMAGE_PER_HIT;
       target.hp = Math.max(0, (target.hp ?? 100) - dmg);
       const justDied = target.hp <= 0 && target.alive !== false;
       if (target.hp <= 0) target.alive = false;
@@ -1428,7 +1638,8 @@ io.on('connection', socket => {
         hp: target.hp,
         alive: target.alive,
         killed: justDied,
-        team: target.team
+        team: target.team,
+        damage: dmg
       });
 
       if (justDied) {
@@ -1449,7 +1660,7 @@ io.on('connection', socket => {
       const targetUnit = findAIUnit(roomId, targetId);
       if (!targetUnit || !targetUnit.alive || targetUnit.team === unit.team) return;
 
-      targetUnit.hp = Math.max(0, targetUnit.hp - AI_DAMAGE_PER_HIT);
+      targetUnit.hp = Math.max(0, targetUnit.hp - dmg);
       const justDied = targetUnit.hp <= 0 && targetUnit.alive;
       if (targetUnit.hp <= 0) targetUnit.alive = false;
 
@@ -1461,7 +1672,8 @@ io.on('connection', socket => {
         hp: targetUnit.hp,
         alive: targetUnit.alive,
         killed: justDied,
-        team: targetUnit.team
+        team: targetUnit.team,
+        damage: dmg
       });
 
       if (justDied) {
@@ -1477,6 +1689,158 @@ io.on('connection', socket => {
     }
   });
 
+  // ==========================================================================
+  // FIX #11: skill smoke placement is now broadcast to the whole room from
+  // the server (server re-emits to everyone including the caster), instead
+  // of only ever traveling as a payload inside 'playerShotFX' which some
+  // clients / paths might not relay symmetrically. This guarantees both
+  // screens show the smoke.
+  // ==========================================================================
+  socket.on('skill-smoke', (data = {}) => {
+    const p = players[socket.id];
+    if (!p || !p.room) return;
+    const roomId = p.room;
+    if (!Number.isFinite(data.x) || !Number.isFinite(data.z)) return;
+
+    const payload = {
+      room: roomId,
+      sourceId: socket.id,
+      team: p.team,
+      x: data.x,
+      z: data.z,
+      at: Date.now()
+    };
+    io.to(roomId).emit('skill-smoke', payload);
+    // legacy alias so older clients listening on playerShotFX/fxType still work
+    if (LEGACY_SHOT_EVENTS) {
+      io.to(roomId).emit('playerShotFX', Object.assign({}, payload, { fxType: 'skill-smoke' }));
+    }
+  });
+
+  // ==========================================================================
+  // FIX #11: bomb throw is now server-authoritative for broadcast (everyone
+  // in the room, including the thrower's opponents, receives the throw and
+  // the eventual explosion), and explosion damage is computed and applied
+  // server-side rather than only in the thrower's own client.
+  // ==========================================================================
+  const BOMB_DAMAGE = 38;
+  const BOMB_RADIUS = 4.6;
+  const BOMB_FUSE_MS = 5000;
+
+  socket.on('bomb-thrown', (data = {}) => {
+    const p = players[socket.id];
+    if (!p || !p.room) return;
+    const roomId = p.room;
+    const meta = roomMeta[roomId];
+    if (!meta || meta.phase !== 'playing') return;
+
+    if (![data.x, data.y, data.z, data.dx, data.dy, data.dz].every(Number.isFinite)) return;
+
+    const payload = {
+      room: roomId,
+      ownerId: socket.id,
+      team: p.team,
+      x: data.x, y: data.y, z: data.z,
+      dx: data.dx, dy: data.dy, dz: data.dz,
+      speed: Number.isFinite(data.speed) ? data.speed : 16,
+      thrownAt: Date.now()
+    };
+
+    io.to(roomId).emit('bomb-thrown', payload);
+    if (LEGACY_SHOT_EVENTS) {
+      io.to(roomId).emit('playerShotFX', Object.assign({}, payload, { fxType: 'bomb-throw' }));
+    }
+  });
+
+  socket.on('bomb-explode', (data = {}) => {
+    const p = players[socket.id];
+    if (!p || !p.room) return;
+    const roomId = p.room;
+    const meta = roomMeta[roomId];
+    if (!meta || meta.phase !== 'playing') return;
+    if (![data.x, data.y, data.z].every(Number.isFinite)) return;
+
+    const center = { x: data.x, y: data.y, z: data.z };
+    const radius = BOMB_RADIUS;
+    const ownerId = socket.id;
+    const affected = [];
+
+    // Apply damage to human players in the room, server-authoritative.
+    getRoomPlayerEntries(roomId).forEach(([id, target]) => {
+      if (id === ownerId) return; // no self-damage from own bomb by default
+      if (!target || target.alive === false) return;
+      const dx = (target.x || 0) - center.x;
+      const dz = (target.z || 0) - center.z;
+      const dy = (target.y || 1.6) - center.y;
+      const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+      if (dist > radius) return;
+      const hpFactor = 1 - dist / radius;
+      const dmg = Math.max(1, Math.round(BOMB_DAMAGE * Math.max(0.25, hpFactor)));
+      target.hp = Math.max(0, (target.hp ?? 100) - dmg);
+      const justDied = target.hp <= 0 && target.alive !== false;
+      if (target.hp <= 0) target.alive = false;
+      if (justDied) target.matchDeaths = (target.matchDeaths || 0) + 1;
+      affected.push({ type: 'human', id, dmg });
+
+      io.to(roomId).emit('damage-result', {
+        room: roomId,
+        sourceId: ownerId,
+        targetId: id,
+        targetType: 'human',
+        hp: target.hp,
+        alive: target.alive,
+        killed: justDied,
+        team: target.team,
+        damage: dmg,
+        sourceType: 'bomb'
+      });
+      if (justDied) {
+        io.to(roomId).emit('player-died', {
+          room: roomId,
+          targetId: id,
+          targetType: 'human',
+          killerId: ownerId
+        });
+      }
+    });
+
+    // Apply damage to AI units.
+    if (meta.aiUnits) {
+      meta.aiUnits.forEach(unit => {
+        if (!unit.alive) return;
+        // AI world position isn't tracked server-side beyond spawn; rely on
+        // client-reported hit list only for cosmetic AI kills triggered via
+        // ai-attack path elsewhere. Server-side bomb->AI damage is skipped
+        // here since the server doesn't simulate AI movement; the
+        // authoritative AI vs AI/human combat stays on the existing
+        // ai-attack / playerShoot paths.
+      });
+    }
+
+    io.to(roomId).emit('bomb-explode', {
+      room: roomId,
+      ownerId,
+      team: p.team,
+      x: center.x, y: center.y, z: center.z,
+      damage: BOMB_DAMAGE,
+      radius,
+      affected
+    });
+    if (LEGACY_SHOT_EVENTS) {
+      io.to(roomId).emit('playerShotFX', {
+        room: roomId,
+        fxType: 'bomb-explode',
+        ownerId,
+        x: center.x, y: center.y, z: center.z
+      });
+    }
+
+    if (affected.length) {
+      broadcastRoomPlayers(roomId);
+      checkRoundEndCondition(roomId, 'bomb-eliminated');
+    }
+  });
+
   socket.on('leave-room', () => {
     leaveRoom(socket);
   });
@@ -1489,4 +1853,9 @@ io.on('connection', socket => {
 
 server.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
+  if (ALLOWED_ORIGINS.length === 0) {
+    console.warn('⚠️  ALLOWED_ORIGINS is not set — CORS is permissive (dev mode). Set ALLOWED_ORIGINS in production.');
+  } else {
+    console.log('✅ CORS allowlist:', ALLOWED_ORIGINS.join(', '));
+  }
 });

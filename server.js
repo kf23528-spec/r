@@ -310,27 +310,170 @@ app.get('/shogi_knowledge.json', (_req, res) => {
   return res.status(404).json({ error: 'shogi_knowledge.json not found' });
 });
 const rooms = new Map();
+const BOT_ID = '__hidden_guest_ai__';
 const cleanCode = v => String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
+const cleanToken = v => String(v || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64);
 function makeCode() { let code; do { code = crypto.randomBytes(3).toString('hex').toUpperCase(); } while (rooms.has(code)); return code; }
-function cleanToken(v) { return String(v || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64); }
-function publicRoom(room) { return { roomId: room.id, state: room.state, moves: room.moves, lastMove: room.lastMove || null, players: { sente: !!room.players[1], gote: !!room.players[-1] }, agents: room.agentNames || { '1': 'SENTE AI', '-1': 'GOTE AI' }, result: room.result, revision: room.revision }; }
+function cleanName(v, fallback='プレイヤー') { const s=String(v||'').replace(/[<>\u0000-\u001f]/g,'').trim().slice(0,22); return s || fallback; }
+function publicRoom(room) {
+  return {
+    roomId: room.id, state: room.state, moves: room.moves, lastMove: room.lastMove || null,
+    players: { sente: !!room.players[1], gote: !!room.players[-1] },
+    names: { '1': room.names['1'], '-1': room.names['-1'] },
+    result: room.result, revision: room.revision,
+    hiddenReveal: !!(room.result && room.botSide)
+  };
+}
 function sendRoom(room) { io.to(room.id).emit('room-state', publicRoom(room)); }
-function makeRoom(id) { return { id, state: engine.initialState(), players: { 1: null, '-1': null }, agentNames: { '1': 'SENTE AI', '-1': 'GOTE AI' }, tokens: { '1': null, '-1': null }, spectators: new Set(), moves: [], lastMove: null, result: null, revision: 0, positions: new Map([[engine.positionKey(engine.initialState()), 1]]), createdAt: Date.now(), lastActive: Date.now() }; }
-function resultFor(room) { const legal = engine.legalMoves(room.state); if (!legal.length) { room.result = { winner: engine.inCheck(room.state, room.state.turn) ? -room.state.turn : 0, reason: engine.inCheck(room.state, room.state.turn) ? 'checkmate' : 'no-legal-moves' }; } else if (room.state.ply >= 500) { room.result = { winner: 0, reason: 'move-limit' }; } else { const key = engine.positionKey(room.state); const count = (room.positions.get(key) || 0) + 1; room.positions.set(key, count); if (count >= 4) room.result = { winner: 0, reason: 'repetition' }; } }
+function makeRoom(id) {
+  const initial = engine.initialState();
+  return {
+    id, state: initial, players: { 1: null, '-1': null }, names: { '1': '先手', '-1': '後手' },
+    tokens: { '1': null, '-1': null }, spectators: new Set(), moves: [], lastMove: null,
+    result: null, revision: 0, positions: new Map([[engine.positionKey(initial), 1]]),
+    createdAt: Date.now(), lastActive: Date.now(), botSide: 0, botTimer: null
+  };
+}
+function resultFor(room) {
+  const legal = engine.legalMoves(room.state);
+  if (!legal.length) room.result = { winner: engine.inCheck(room.state, room.state.turn) ? -room.state.turn : 0, reason: engine.inCheck(room.state, room.state.turn) ? 'checkmate' : 'no-legal-moves' };
+  else if (room.state.ply >= 500) room.result = { winner: 0, reason: 'move-limit' };
+  else {
+    const key = engine.positionKey(room.state), count = (room.positions.get(key) || 0) + 1;
+    room.positions.set(key, count);
+    if (count >= 4) room.result = { winner: 0, reason: 'repetition' };
+  }
+  if (room.result && room.botTimer) { clearTimeout(room.botTimer); room.botTimer = null; }
+}
+function bothOccupied(room) { return !!(room.players[1] && room.players[-1]); }
+function scheduleHiddenAI(room) {
+  if (!room || !room.botSide || room.result || room.botTimer || !bothOccupied(room) || room.state.turn !== room.botSide) return;
+  room.botTimer = setTimeout(() => {
+    room.botTimer = null;
+    if (room.result || !room.botSide || room.players[room.botSide] !== BOT_ID || !bothOccupied(room) || room.state.turn !== room.botSide) return;
+    const legal = engine.legalMoves(room.state);
+    if (!legal.length) { resultFor(room); sendRoom(room); return; }
+    // Hidden opponent uses the built-in search; no knowledge file or client-side AI is required.
+    const found = engine.searchRoot(room.state, legal, room.botSide, {}, 3, 0, 1, Date.now() + 950, null);
+    const move = found && found.move && legal.some(m => engine.moveKey(m) === engine.moveKey(found.move)) ? found.move : legal[0];
+    const before = room.state;
+    room.lastMove = move;
+    room.state = engine.applyMove(before, move);
+    room.moves.push((room.botSide === 1 ? '▲' : '△') + engine.moveText(before, move));
+    room.revision++;
+    room.lastActive = Date.now();
+    resultFor(room);
+    sendRoom(room);
+    scheduleHiddenAI(room);
+  }, 850 + Math.floor(Math.random() * 650));
+}
+function assignHiddenPlayer(room, side, displayName) {
+  room.botSide = side;
+  room.players[side] = BOT_ID;
+  room.tokens[String(side)] = null;
+  if (displayName) room.names[String(side)] = cleanName(displayName, '対局者');
+  else room.names[String(side)] = '対局者';
+}
 io.on('connection', socket => {
- console.log(`Socket connected: ${socket.id}`);
- socket.on('create-room', payload => { const id = makeCode(), room = makeRoom(id), token = cleanToken(payload?.token) || crypto.randomBytes(18).toString('hex'); room.players[1] = socket.id; room.tokens['1'] = token; rooms.set(id, room); socket.join(id); socket.data.roomId = id; socket.data.side = 1; socket.data.token = token; socket.emit('room-created', { ...publicRoom(room), side: 1 }); });
- socket.on('join-room', payload => { const id = cleanCode(payload?.roomId), room = rooms.get(id), token = cleanToken(payload?.token) || crypto.randomBytes(18).toString('hex'); if (!room) return socket.emit('room-error', { message: 'そのルームは見つかりません。コードを確認してください。' }); if (room.result) return socket.emit('room-error', { message: 'この対局は終了しています。新しい部屋を作成してください。' }); let side = [1, -1].find(s => token && room.tokens[String(s)] === token && !room.players[s]); if (!side) side = !room.players[-1] && !room.tokens['-1'] ? -1 : (!room.players[1] && !room.tokens['1'] ? 1 : 0); if (side === 0) { room.spectators.add(socket.id); socket.join(id); socket.data.roomId = id; socket.data.side = 0; socket.data.token = token; socket.emit('room-joined', { ...publicRoom(room), side: 0 }); return; } room.players[side] = socket.id; room.tokens[String(side)] = token; socket.join(id); socket.data.roomId = id; socket.data.side = side; socket.data.token = token; room.lastActive = Date.now(); socket.emit('room-joined', { ...publicRoom(room), side }); sendRoom(room); });
- socket.on('agent-profile', payload => { const id = cleanCode(payload?.roomId), room = rooms.get(id), side = socket.data.side; if (!room || socket.data.roomId !== id || ![1, -1].includes(side) || room.players[side] !== socket.id) return; const name = String(payload?.name || '').replace(/[<>\u0000-\u001f]/g, '').trim().slice(0, 22); if (name) room.agentNames[String(side)] = name; sendRoom(room); });
- socket.on('rejoin-room', payload => { const id = cleanCode(payload?.roomId), room = rooms.get(id), token = cleanToken(payload?.token); if (!room) return socket.emit('room-error', { message: '再接続先のルームがありません。' }); const side = [1, -1].find(s => token && room.tokens[String(s)] === token && !room.players[s]); if (!side) return socket.emit('room-error', { message: 'この端末の再接続情報が確認できません。ルームコードから再参加してください。' }); room.players[side] = socket.id; socket.join(id); socket.data.roomId = id; socket.data.side = side; socket.data.token = token; socket.emit('room-joined', { ...publicRoom(room), side }); sendRoom(room); });
- socket.on('move', payload => { const id = cleanCode(payload?.roomId), room = rooms.get(id), side = socket.data.side, move = payload?.move; if (!room || socket.data.roomId !== id || ![1, -1].includes(side)) return socket.emit('room-error', { message: 'この部屋の対局者ではありません。' }); if (room.result) return socket.emit('room-error', { message: '対局は既に終了しています。' }); if (room.players[side] !== socket.id || room.state.turn !== side) return socket.emit('room-error', { message: '現在はあなたの手番ではありません。' }); if (payload?.expectedRevision != null && Number(payload.expectedRevision) !== room.revision) { socket.emit('room-state', publicRoom(room)); return socket.emit('room-error', { message: '盤面が更新されました。最新状態を読み直します。' }); } if (!engine.isLegalMove(room.state, move)) return socket.emit('room-error', { message: '不正な着手です。盤面を更新してください。' }); const before = room.state; room.lastMove = move; room.state = engine.applyMove(before, move); room.moves.push((side === 1 ? '▲' : '△') + engine.moveText(before, move)); room.revision++; room.lastActive = Date.now(); resultFor(room); sendRoom(room); });
- socket.on('resign', payload => { const id = cleanCode(payload?.roomId), room = rooms.get(id), side = socket.data.side; if (!room || room.players[side] !== socket.id || ![1, -1].includes(side) || room.result) return; room.result = { winner: -side, reason: 'resign' }; sendRoom(room); });
- socket.on('leave-room', payload => { const id = cleanCode(payload?.roomId), room = rooms.get(id); if (room) { const side = socket.data.side; if (room.players[side] === socket.id) { room.players[side] = null; if (side === 1 || side === -1) room.tokens[String(side)] = null; } room.spectators.delete(socket.id); room.lastActive = Date.now(); sendRoom(room); } socket.leave(id); socket.data.roomId = null; socket.data.side = 0; socket.data.token = null; });
- socket.on('disconnect', reason => { console.log(`Socket disconnected: ${socket.id} (${reason})`); const id = socket.data.roomId, room = rooms.get(id); if (room) { const side = socket.data.side; if (room.players[side] === socket.id) room.players[side] = null; room.spectators.delete(socket.id); room.lastActive = Date.now(); sendRoom(room); } });
+  console.log(`Socket connected: ${socket.id}`);
+  socket.on('create-room', payload => {
+    const id = makeCode(), room = makeRoom(id), token = cleanToken(payload?.token) || crypto.randomBytes(18).toString('hex');
+    const name = cleanName(payload?.name, '先手');
+    room.names['1'] = name;
+    if (payload?.hiddenSeat === true) {
+      assignHiddenPlayer(room, 1, name);
+      room.spectators.add(socket.id);
+      socket.join(id); socket.data.roomId = id; socket.data.side = 0; socket.data.token = null;
+      rooms.set(id, room); socket.emit('room-created', { ...publicRoom(room), side: 0 });
+    } else {
+      room.players[1] = socket.id; room.tokens['1'] = token;
+      rooms.set(id, room); socket.join(id); socket.data.roomId = id; socket.data.side = 1; socket.data.token = token;
+      socket.emit('room-created', { ...publicRoom(room), side: 1 });
+    }
+  });
+  socket.on('join-room', payload => {
+    const id = cleanCode(payload?.roomId), room = rooms.get(id), token = cleanToken(payload?.token) || crypto.randomBytes(18).toString('hex');
+    if (!room) return socket.emit('room-error', { message: 'その対局は見つかりません。コードを確認してください。' });
+    if (room.result) return socket.emit('room-error', { message: 'この対局は終了しています。新しい対局を作成してください。' });
+    let side = [1, -1].find(s => token && room.tokens[String(s)] === token && !room.players[s]);
+    if (!side) side = !room.players[-1] && !room.tokens['-1'] ? -1 : (!room.players[1] && !room.tokens['1'] ? 1 : 0);
+    socket.join(id); socket.data.roomId = id; socket.data.side = side; socket.data.token = side ? token : null;
+    if (side === 0) {
+      room.spectators.add(socket.id);
+      socket.emit('room-joined', { ...publicRoom(room), side: 0 });
+      return;
+    }
+    room.players[side] = socket.id; room.tokens[String(side)] = token;
+    room.names[String(side)] = cleanName(payload?.name, side === 1 ? '先手' : '後手');
+    room.lastActive = Date.now();
+    socket.emit('room-joined', { ...publicRoom(room), side });
+    sendRoom(room); scheduleHiddenAI(room);
+  });
+  socket.on('rejoin-room', payload => {
+    const id = cleanCode(payload?.roomId), room = rooms.get(id), token = cleanToken(payload?.token);
+    if (!room) return socket.emit('room-error', { message: '再接続先の対局がありません。' });
+    const side = [1, -1].find(s => token && room.tokens[String(s)] === token && !room.players[s]);
+    if (!side) return socket.emit('room-error', { message: 'この端末の再接続情報が確認できません。対局コードから再参加してください。' });
+    room.players[side] = socket.id; socket.join(id); socket.data.roomId = id; socket.data.side = side; socket.data.token = token;
+    socket.emit('room-joined', { ...publicRoom(room), side }); sendRoom(room); scheduleHiddenAI(room);
+  });
+  socket.on('set-player-name', payload => {
+    const id = cleanCode(payload?.roomId), room = rooms.get(id), side = socket.data.side;
+    if (!room || socket.data.roomId !== id || ![1, -1].includes(side) || room.players[side] !== socket.id) return;
+    room.names[String(side)] = cleanName(payload?.name, side === 1 ? '先手' : '後手'); sendRoom(room);
+  });
+  socket.on('summon-hidden-player', payload => {
+    const id = cleanCode(payload?.roomId), room = rooms.get(id), side = socket.data.side;
+    if (!room || socket.data.roomId !== id || ![1, -1].includes(side) || room.players[side] !== socket.id) return socket.emit('room-error', { message: 'この対局では切り替えできません。' });
+    if (room.botSide) return socket.emit('room-error', { message: '隠し対局者は既に参加しています。' });
+    // Replace only the caller's own seat. The other human remains in the game; caller becomes a spectator.
+    assignHiddenPlayer(room, side, room.names[String(side)]);
+    room.spectators.add(socket.id); socket.data.side = 0; socket.data.token = null;
+    room.lastActive = Date.now();
+    socket.emit('hidden-player-armed');
+    sendRoom(room); scheduleHiddenAI(room);
+  });
+  socket.on('move', payload => {
+    const id = cleanCode(payload?.roomId), room = rooms.get(id), side = socket.data.side, move = payload?.move;
+    if (!room || socket.data.roomId !== id || ![1, -1].includes(side) || room.players[side] !== socket.id) return socket.emit('room-error', { message: 'この対局の対局者ではありません。' });
+    if (room.result) return socket.emit('room-error', { message: '対局は既に終了しています。' });
+    if (room.state.turn !== side) return socket.emit('room-error', { message: '現在はあなたの手番ではありません。' });
+    if (payload?.expectedRevision != null && Number(payload.expectedRevision) !== room.revision) { socket.emit('room-state', publicRoom(room)); return socket.emit('room-error', { message: '盤面が更新されました。最新状態を読み直します。' }); }
+    if (!engine.isLegalMove(room.state, move)) return socket.emit('room-error', { message: '不正な着手です。盤面を更新してください。' });
+    const before = room.state; room.lastMove = move; room.state = engine.applyMove(before, move);
+    room.moves.push((side === 1 ? '▲' : '△') + engine.moveText(before, move)); room.revision++; room.lastActive = Date.now();
+    resultFor(room); sendRoom(room); scheduleHiddenAI(room);
+  });
+  socket.on('resign', payload => {
+    const id = cleanCode(payload?.roomId), room = rooms.get(id), side = socket.data.side;
+    if (!room || room.players[side] !== socket.id || ![1, -1].includes(side) || room.result) return;
+    room.result = { winner: -side, reason: 'resign' }; if (room.botTimer) { clearTimeout(room.botTimer); room.botTimer = null; } sendRoom(room);
+  });
+  socket.on('leave-room', payload => {
+    const id = cleanCode(payload?.roomId), room = rooms.get(id);
+    if (room) {
+      const side = socket.data.side;
+      if ([1, -1].includes(side) && room.players[side] === socket.id) { room.players[side] = null; room.tokens[String(side)] = null; }
+      room.spectators.delete(socket.id); room.lastActive = Date.now(); sendRoom(room);
+    }
+    socket.leave(id); socket.data.roomId = null; socket.data.side = 0; socket.data.token = null;
+  });
+  socket.on('disconnect', reason => {
+    console.log(`Socket disconnected: ${socket.id} (${reason})`);
+    const id = socket.data.roomId, room = rooms.get(id);
+    if (room) {
+      const side = socket.data.side;
+      if ([1, -1].includes(side) && room.players[side] === socket.id) room.players[side] = null;
+      room.spectators.delete(socket.id); room.lastActive = Date.now(); sendRoom(room);
+    }
+  });
 });
-setInterval(() => { const now = Date.now(); for (const [id, room] of rooms) if (now - room.lastActive > 6 * 60 * 60 * 1000) rooms.delete(id); }, 10 * 60 * 1000).unref();
+setInterval(() => {
+  const now = Date.now();
+  for (const [id, room] of rooms) if (now - room.lastActive > 6 * 60 * 60 * 1000) { if (room.botTimer) clearTimeout(room.botTimer); rooms.delete(id); }
+}, 10 * 60 * 1000).unref();
 server.listen(PORT, '0.0.0.0', () => {
-  console.log(`Shogi AI Arena listening on 0.0.0.0:${PORT}`);
+  console.log(`Shogi online server listening on 0.0.0.0:${PORT}`);
   console.log(`Static directory: ${PUBLIC_DIR}`);
   console.log(`CORS mode: ${ALLOWED_ORIGINS.length ? ALLOWED_ORIGINS.join(', ') : 'permissive (same-server recommended)'}`);
 });

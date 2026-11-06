@@ -5,6 +5,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 const crypto = require('crypto');
 const path = require('path');
+const fs = require('fs');
 function createShogiEngine(){
  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
  const VALUE_HIDDEN=64,VALUE_INPUTS=12,VALUE_WEIGHTS=VALUE_INPUTS*VALUE_HIDDEN+VALUE_HIDDEN+VALUE_HIDDEN+1;
@@ -246,10 +247,53 @@ function createShogiEngine(){
 const engine = createShogiEngine();
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: '*' }, maxHttpBufferSize: 1e6 });
 const PORT = process.env.PORT || 3000;
-app.use(express.static(__dirname, { extensions: ['html'] }));
-app.get('/health', (_req, res) => res.json({ ok: true, rooms: rooms.size }));
+const PUBLIC_DIR = path.join(__dirname, 'public');
+
+// 以前のオンライン版に合わせて public/ を最優先で配信します。
+// ルートに index.html / shogi_knowledge.json がある構成も救済します。
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '')
+  .split(',').map(value => value.trim()).filter(Boolean);
+function isOriginAllowed(origin) {
+  if (!origin) return true;
+  if (ALLOWED_ORIGINS.length === 0) return true;
+  return ALLOWED_ORIGINS.includes(origin);
+}
+const io = new Server(server, {
+  cors: {
+    origin(origin, callback) {
+      if (isOriginAllowed(origin)) return callback(null, true);
+      return callback(new Error('CORS not allowed for origin: ' + origin));
+    },
+    methods: ['GET', 'POST']
+  },
+  maxHttpBufferSize: 1e6,
+  pingInterval: 25000,
+  pingTimeout: 20000
+});
+
+app.get('/health', (_req, res) => res.json({
+  ok: true,
+  service: 'shogi-ai-arena',
+  rooms: rooms.size,
+  socketClients: io.engine.clientsCount,
+  time: new Date().toISOString()
+}));
+app.use(express.static(PUBLIC_DIR, { extensions: ['html'] }));
+app.get('/', (_req, res) => {
+  const publicIndex = path.join(PUBLIC_DIR, 'index.html');
+  const rootIndex = path.join(__dirname, 'index.html');
+  if (fs.existsSync(publicIndex)) return res.sendFile(publicIndex);
+  if (fs.existsSync(rootIndex)) return res.sendFile(rootIndex);
+  return res.status(404).send('index.html が見つかりません。public/index.html を配置してください。');
+});
+app.get('/shogi_knowledge.json', (_req, res) => {
+  const publicData = path.join(PUBLIC_DIR, 'shogi_knowledge.json');
+  const rootData = path.join(__dirname, 'shogi_knowledge.json');
+  const file = fs.existsSync(publicData) ? publicData : rootData;
+  if (fs.existsSync(file)) return res.sendFile(file);
+  return res.status(404).json({ error: 'shogi_knowledge.json not found' });
+});
 const rooms = new Map();
 const cleanCode = v => String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
 function makeCode() { let code; do { code = crypto.randomBytes(3).toString('hex').toUpperCase(); } while (rooms.has(code)); return code; }
@@ -259,6 +303,7 @@ function sendRoom(room) { io.to(room.id).emit('room-state', publicRoom(room)); }
 function makeRoom(id) { return { id, state: engine.initialState(), players: { 1: null, '-1': null }, agentNames: { '1': 'SENTE AI', '-1': 'GOTE AI' }, tokens: { '1': null, '-1': null }, spectators: new Set(), moves: [], lastMove: null, result: null, revision: 0, positions: new Map([[engine.positionKey(engine.initialState()), 1]]), createdAt: Date.now(), lastActive: Date.now() }; }
 function resultFor(room) { const legal = engine.legalMoves(room.state); if (!legal.length) { room.result = { winner: engine.inCheck(room.state, room.state.turn) ? -room.state.turn : 0, reason: engine.inCheck(room.state, room.state.turn) ? 'checkmate' : 'no-legal-moves' }; } else if (room.state.ply >= 500) { room.result = { winner: 0, reason: 'move-limit' }; } else { const key = engine.positionKey(room.state); const count = (room.positions.get(key) || 0) + 1; room.positions.set(key, count); if (count >= 4) room.result = { winner: 0, reason: 'repetition' }; } }
 io.on('connection', socket => {
+ console.log(`Socket connected: ${socket.id}`);
  socket.on('create-room', payload => { const id = makeCode(), room = makeRoom(id), token = cleanToken(payload?.token) || crypto.randomBytes(18).toString('hex'); room.players[1] = socket.id; room.tokens['1'] = token; rooms.set(id, room); socket.join(id); socket.data.roomId = id; socket.data.side = 1; socket.data.token = token; socket.emit('room-created', { ...publicRoom(room), side: 1 }); });
  socket.on('join-room', payload => { const id = cleanCode(payload?.roomId), room = rooms.get(id), token = cleanToken(payload?.token) || crypto.randomBytes(18).toString('hex'); if (!room) return socket.emit('room-error', { message: 'そのルームは見つかりません。コードを確認してください。' }); if (room.result) return socket.emit('room-error', { message: 'この対局は終了しています。新しい部屋を作成してください。' }); let side = [1, -1].find(s => token && room.tokens[String(s)] === token && !room.players[s]); if (!side) side = !room.players[-1] && !room.tokens['-1'] ? -1 : (!room.players[1] && !room.tokens['1'] ? 1 : 0); if (side === 0) { room.spectators.add(socket.id); socket.join(id); socket.data.roomId = id; socket.data.side = 0; socket.data.token = token; socket.emit('room-joined', { ...publicRoom(room), side: 0 }); return; } room.players[side] = socket.id; room.tokens[String(side)] = token; socket.join(id); socket.data.roomId = id; socket.data.side = side; socket.data.token = token; room.lastActive = Date.now(); socket.emit('room-joined', { ...publicRoom(room), side }); sendRoom(room); });
  socket.on('agent-profile', payload => { const id = cleanCode(payload?.roomId), room = rooms.get(id), side = socket.data.side; if (!room || socket.data.roomId !== id || ![1, -1].includes(side) || room.players[side] !== socket.id) return; const name = String(payload?.name || '').replace(/[<>\u0000-\u001f]/g, '').trim().slice(0, 22); if (name) room.agentNames[String(side)] = name; sendRoom(room); });
@@ -266,7 +311,12 @@ io.on('connection', socket => {
  socket.on('move', payload => { const id = cleanCode(payload?.roomId), room = rooms.get(id), side = socket.data.side, move = payload?.move; if (!room || socket.data.roomId !== id || ![1, -1].includes(side)) return socket.emit('room-error', { message: 'この部屋の対局者ではありません。' }); if (room.result) return socket.emit('room-error', { message: '対局は既に終了しています。' }); if (room.players[side] !== socket.id || room.state.turn !== side) return socket.emit('room-error', { message: '現在はあなたの手番ではありません。' }); if (payload?.expectedRevision != null && Number(payload.expectedRevision) !== room.revision) { socket.emit('room-state', publicRoom(room)); return socket.emit('room-error', { message: '盤面が更新されました。最新状態を読み直します。' }); } if (!engine.isLegalMove(room.state, move)) return socket.emit('room-error', { message: '不正な着手です。盤面を更新してください。' }); const before = room.state; room.lastMove = move; room.state = engine.applyMove(before, move); room.moves.push((side === 1 ? '▲' : '△') + engine.moveText(before, move)); room.revision++; room.lastActive = Date.now(); resultFor(room); sendRoom(room); });
  socket.on('resign', payload => { const id = cleanCode(payload?.roomId), room = rooms.get(id), side = socket.data.side; if (!room || room.players[side] !== socket.id || ![1, -1].includes(side) || room.result) return; room.result = { winner: -side, reason: 'resign' }; sendRoom(room); });
  socket.on('leave-room', payload => { const id = cleanCode(payload?.roomId), room = rooms.get(id); if (room) { const side = socket.data.side; if (room.players[side] === socket.id) { room.players[side] = null; if (side === 1 || side === -1) room.tokens[String(side)] = null; } room.spectators.delete(socket.id); room.lastActive = Date.now(); sendRoom(room); } socket.leave(id); socket.data.roomId = null; socket.data.side = 0; socket.data.token = null; });
- socket.on('disconnect', () => { const id = socket.data.roomId, room = rooms.get(id); if (room) { const side = socket.data.side; if (room.players[side] === socket.id) room.players[side] = null; room.spectators.delete(socket.id); room.lastActive = Date.now(); sendRoom(room); } });
+ socket.on('disconnect', reason => { console.log(`Socket disconnected: ${socket.id} (${reason})`); const id = socket.data.roomId, room = rooms.get(id); if (room) { const side = socket.data.side; if (room.players[side] === socket.id) room.players[side] = null; room.spectators.delete(socket.id); room.lastActive = Date.now(); sendRoom(room); } });
 });
 setInterval(() => { const now = Date.now(); for (const [id, room] of rooms) if (now - room.lastActive > 6 * 60 * 60 * 1000) rooms.delete(id); }, 10 * 60 * 1000).unref();
-server.listen(PORT, '0.0.0.0', () => console.log(`Shogi AI Arena listening on ${PORT}`));
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`Shogi AI Arena listening on 0.0.0.0:${PORT}`);
+  console.log(`Static directory: ${PUBLIC_DIR}`);
+  console.log(`CORS mode: ${ALLOWED_ORIGINS.length ? ALLOWED_ORIGINS.join(', ') : 'permissive (same-server recommended)'}`);
+});
+server.on('error', error => { console.error('HTTP server error:', error); process.exitCode = 1; });

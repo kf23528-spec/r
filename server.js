@@ -279,6 +279,21 @@ app.get('/health', (_req, res) => res.json({
   socketClients: io.engine.clientsCount,
   time: new Date().toISOString()
 }));
+// GitHub Pages 上の index.html から Render の JSON を取得できるようにする。
+// ALLOWED_ORIGINS を設定した場合は、その origin だけを許可する。
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (isOriginAllowed(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', ALLOWED_ORIGINS.length ? (origin || ALLOWED_ORIGINS[0]) : '*');
+    res.setHeader('Vary', 'Origin');
+  }
+  if (req.method === 'OPTIONS') {
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    return res.status(204).end();
+  }
+  next();
+});
 app.use(express.static(PUBLIC_DIR, { extensions: ['html'] }));
 app.get('/', (_req, res) => {
   const publicIndex = path.join(PUBLIC_DIR, 'index.html');

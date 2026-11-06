@@ -1,1888 +1,272 @@
-const path = require('path');
+// 将棋AIアリーナ - Express + Socket.IO server
+// Node.js 18+ recommended. Install: npm install
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
-
-const app = express();
-const server = http.createServer(app);
-
-// ============================================================================
-// FIX #1: CORS is no longer wide open ('*'). Configure via env var
-// ALLOWED_ORIGINS (comma separated). Falls back to a small allowlist you
-// should edit for your deployment. This still allows same-origin/no-origin
-// requests (curl, server-to-server, some mobile webviews) but blocks
-// arbitrary browser origins from connecting to the socket.
-// ============================================================================
-const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '')
-  .split(',')
-  .map(s => s.trim())
-  .filter(Boolean);
-
-function isOriginAllowed(origin) {
-  if (!origin) return true; // non-browser clients / same-origin
-  if (ALLOWED_ORIGINS.length === 0) return true; // no allowlist configured -> permissive (dev mode)
-  return ALLOWED_ORIGINS.indexOf(origin) !== -1;
-}
-
-const io = new Server(server, {
-  cors: {
-    origin(origin, callback) {
-      if (isOriginAllowed(origin)) return callback(null, true);
-      return callback(new Error('CORS not allowed for origin: ' + origin));
-    },
-    methods: ['GET', 'POST']
+const crypto = require('crypto');
+const path = require('path');
+function createShogiEngine(){
+ const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+ const VALUE_HIDDEN=64,VALUE_INPUTS=12,VALUE_WEIGHTS=VALUE_INPUTS*VALUE_HIDDEN+VALUE_HIDDEN+VALUE_HIDDEN+1;
+ const TYPES=['K','R','B','G','S','N','L','P'];
+ const MAX_DROPS_PER_SIDE=5;
+ const VALUES={K:0,R:1000,B:850,G:600,S:520,N:430,L:360,P:180};
+ const PROMOTED={R:'D',B:'H',S:'G',N:'G',L:'G',P:'G'};
+ const STEP_K=[[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]];
+ function emptyHands(){return {1:{R:0,B:0,G:0,S:0,N:0,L:0,P:0},'-1':{R:0,B:0,G:0,S:0,N:0,L:0,P:0}};}
+ function initialState(){
+  const board=Array(81).fill(null),put=(x,y,s,t)=>board[y*9+x]={s,t,p:false};
+  const back=['L','N','S','G','K','G','S','N','L'];
+  for(let x=0;x<9;x++){put(x,0,-1,back[x]);put(x,8,1,back[x]);put(x,2,-1,'P');put(x,6,1,'P');}
+  put(1,1,-1,'R');put(7,1,-1,'B');put(1,7,1,'B');put(7,7,1,'R');
+  return {board,hands:emptyHands(),dropsUsed:{'1':0,'-1':0},turn:1,ply:0,history:[]};
+ }
+ function dropsUsedFor(st,side){const n=Number(st?.dropsUsed?.[String(side)]??0);return Number.isInteger(n)?clamp(n,0,MAX_DROPS_PER_SIDE):0;}
+ function cloneState(st){return {board:st.board.map(p=>p?{s:p.s,t:p.t,p:!!p.p}:null),hands:{1:{...st.hands[1]},'-1':{...st.hands['-1']}},dropsUsed:{'1':dropsUsedFor(st,1),'-1':dropsUsedFor(st,-1)},turn:st.turn,ply:st.ply,history:(st.history||[]).slice()};}
+ function inside(x,y){return x>=0&&x<9&&y>=0&&y<9;}
+ function key(x,y){return y*9+x;}
+ function demote(t){return t==='D'?'R':t==='H'?'B':t==='G'?'G':t;}
+ function forward(side){return -side;}
+ function promoteZone(side,y){return side===1?y<=2:y>=6;}
+ function canPromote(p){return p&&!p.p&&!['K','G'].includes(p.t);}
+ function mandatoryPromote(t,side,y){if(t==='P'||t==='L')return side===1?y===0:y===8;if(t==='N')return side===1?y<=1:y>=7;return false;}
+ function rawTargets(st,from,p){
+  const x=from%9,y=Math.floor(from/9),f=forward(p.s),out=[];
+  const add=(dx,dy,slide=false)=>{let nx=x+dx,ny=y+dy;while(inside(nx,ny)){const q=st.board[key(nx,ny)];if(q&&q.s===p.s)break;out.push(key(nx,ny));if(q||!slide)break;nx+=dx;ny+=dy;}};
+  const gold=p.p&&['S','N','L','P'].includes(p.t);
+  if(p.t==='K')STEP_K.forEach(([dx,dy])=>add(dx,dy));
+  else if(p.t==='R'||(p.p&&p.t==='R')){[[1,0],[-1,0],[0,1],[0,-1]].forEach(([dx,dy])=>add(dx,dy,true));if(p.p)[[1,1],[1,-1],[-1,1],[-1,-1]].forEach(([dx,dy])=>add(dx,dy));}
+  else if(p.t==='B'){[[1,1],[1,-1],[-1,1],[-1,-1]].forEach(([dx,dy])=>add(dx,dy,true));if(p.p)[[1,0],[-1,0],[0,1],[0,-1]].forEach(([dx,dy])=>add(dx,dy));}
+  else if(p.t==='L')add(0,f,true);
+  else if(p.t==='N'){add(-1,2*f);add(1,2*f);}
+  else if(p.t==='G'||gold){[[0,f],[1,f],[-1,f],[1,0],[-1,0],[0,-f]].forEach(([dx,dy])=>add(dx,dy));}
+  else if(p.t==='S'){[[0,f],[1,f],[-1,f],[1,-f],[-1,-f]].forEach(([dx,dy])=>add(dx,dy));}
+  else if(p.t==='P')add(0,f);
+  return out;
+ }
+ function isSquareAttacked(st,target,bySide){
+  for(let from=0;from<81;from++){const p=st.board[from];if(!p||p.s!==bySide)continue;if(rawTargets(st,from,p).includes(target))return true;}
+  return false;
+ }
+ function inCheck(st,side){let k=-1;for(let i=0;i<81;i++){const p=st.board[i];if(p&&p.s===side&&p.t==='K'){k=i;break;}}if(k<0)return true;return isSquareAttacked(st,k,-side);}
+ function applyMove(st,m){
+  const n=cloneState(st),h=n.hands[String(m.s||st.turn)];
+  if(m.drop){h[m.drop]=Math.max(0,(h[m.drop]||0)-1);n.dropsUsed[String(st.turn)]=Math.min(MAX_DROPS_PER_SIDE,(n.dropsUsed[String(st.turn)]||0)+1);n.board[m.to]={s:st.turn,t:m.drop,p:false};}
+  else{const pc=n.board[m.from];const captured=n.board[m.to];if(captured){const ct=demote(captured.t);if(ct!=='K')h[ct]=(h[ct]||0)+1;}n.board[m.from]=null;n.board[m.to]={s:pc.s,t:pc.t,p:!!pc.p||!!m.promote};}
+  n.turn=-st.turn;n.ply=st.ply+1;return n;
+ }
+ function hasAnyLegalMove(st,side=st.turn,pawnMateDepth=0){
+  // A checking pawn drop consumes one hand pawn. The depth bound is therefore
+  // safely above any real chain (there are only 18 pawns in the whole game).
+  if(pawnMateDepth>18)return true;
+  const base=st.turn===side?st:{...st,turn:side};
+  for(let from=0;from<81;from++){
+   const p=base.board[from];if(!p||p.s!==side)continue;
+   for(const to of rawTargets(base,from,p)){
+    if(base.board[to]?.t==='K')continue;
+    const y=Math.floor(to/9),can=canPromote(p)&&(promoteZone(side,Math.floor(from/9))||promoteZone(side,y));
+    const must=mandatoryPromote(p.t,side,y),variants=can?(must?[true]:[false,true]):[false];
+    for(const promote of variants){const next=applyMove(base,{from,to,promote,s:side});if(!inCheck(next,side))return true;}
+   }
   }
-});
-
-const PORT = process.env.PORT || 3000;
-const MAX_PLAYERS = 8;
-const START_MIN_PLAYERS = 2;
-const RANDOM_START_MIN_PLAYERS = 1;
-const START_DELAY_MS = 1800;
-const ROUND_DURATION_MS = 180000;
-const ROUND_RESET_DELAY_MS = 1200;
-const WIN_SCORE = 5;
-
-// ============================================================================
-// FIX #2: Damage is now authoritative on the server. Per-weapon damage table
-// keyed by a weapon key the client reports; the client-supplied `damage`
-// value is IGNORED. Headshot multiplier is also computed server-side from
-// server-known hit geometry rather than trusting a client `headshot` flag
-// blindly (we still accept the flag as a hint but clamp final damage to the
-// server-computed max for that weapon).
-// ============================================================================
-const WEAPON_DAMAGE_TABLE = {
-  default: { damage: 5, pellets: 1, ammoPerShot: 1 },
-  pistol: { damage: 10, pellets: 1, ammoPerShot: 1 },
-  shotgun: { damage: 6, pellets: 10, ammoPerShot: 10 }
-};
-const HEADSHOT_MULTIPLIER = 2.0;
-const DAMAGE_PER_BULLET = 4; // fallback for unknown weapon keys
-const AI_DAMAGE_PER_HIT = 4;
-// クライアントの実発射間隔は FIRE_INTERVAL(0.10s) * 900 = 90ms 判定。
-// サーバー側の下限をこれと同値/それ以上にすると、通信遅延やタイマーの
-// わずかな揺れ(ジッター)だけで正規の連射が弾かれてしまう。
-// 70ms まで緩めておけば、意図した約90〜100msの連射は常に通り、
-// 明らかな異常連打(30ms未満の連続弾)だけを引き続き弾ける。
-const SHOT_MIN_INTERVAL_MS = 70;
-// Per-weapon minimum interval floor (server authoritative rate limit),
-// slightly looser than the client's own interval to tolerate jitter.
-const WEAPON_MIN_INTERVAL_MS = {
-  default: 70,
-  pistol: 230,
-  shotgun: 560
-};
-
-// ===== Random battle (matchmaking) tuning =====
-// ランダムバトルは「部屋番号固定の1試合」ではなく、キュー配下に
-// 複数の match インスタンス (roomId は "R0001-1", "R0001-2", ...) を
-// サーバー側で自動生成して振り分ける。HTML 側は今まで通り
-// currentRoom = 'R0001' で join-room してくるが、サーバーが実際の
-// roomId / matchId を決めて room-state 等で送り返す。
-const RANDOM_QUEUE_MAX_PLAYERS = MAX_PLAYERS; // 1試合の上限 = 8人
-const RANDOM_AI_FILL_DELAY_MS = 30000; // 30秒経過でAI補充して開始（既存仕様維持）
-
-const OUTER_WALLS = [
-  { x: 0, z: -35.4, w: 72, d: 1.2 },
-  { x: 0, z: 35.4, w: 72, d: 1.2 },
-  { x: -35.4, z: 0, w: 1.2, d: 72 },
-  { x: 35.4, z: 0, w: 1.2, d: 72 }
-];
-
-const MAP_COLLIDERS_BY_ID = {
-  arena: OUTER_WALLS.concat([
-    { x: -23, z: -22, w: 6, d: 6 },
-    { x: -23, z: -8, w: 8, d: 5 },
-    { x: -23, z: 9, w: 7, d: 5 },
-    { x: -23, z: 24, w: 6, d: 6 },
-    { x: -10, z: -18, w: 5, d: 8 },
-    { x: -10, z: 0, w: 5, d: 10 },
-    { x: -10, z: 18, w: 5, d: 8 },
-    { x: 10, z: -18, w: 5, d: 8 },
-    { x: 10, z: 0, w: 5, d: 10 },
-    { x: 10, z: 18, w: 5, d: 8 },
-    { x: 23, z: -22, w: 6, d: 6 },
-    { x: 23, z: -8, w: 8, d: 5 },
-    { x: 23, z: 9, w: 7, d: 5 },
-    { x: 23, z: 24, w: 6, d: 6 },
-    { x: -5, z: -28, w: 10, d: 4 },
-    { x: 5, z: -28, w: 10, d: 4 },
-    { x: -5, z: 28, w: 10, d: 4 },
-    { x: 5, z: 28, w: 10, d: 4 },
-    { x: -28, z: -5, w: 4, d: 10 },
-    { x: -28, z: 5, w: 4, d: 10 },
-    { x: 28, z: -5, w: 4, d: 10 },
-    { x: 28, z: 5, w: 4, d: 10 },
-    { x: -6, z: -6, w: 3, d: 10 },
-    { x: 6, z: -6, w: 3, d: 10 },
-    { x: -6, z: 6, w: 3, d: 10 },
-    { x: 6, z: 6, w: 3, d: 10 },
-    { x: 0, z: -14, w: 4, d: 4 },
-    { x: 0, z: 14, w: 4, d: 4 }
-  ]),
-  warehouse: OUTER_WALLS.concat([
-    { x: -26, z: -26, w: 8, d: 8 },
-    { x: 26, z: -26, w: 8, d: 8 },
-    { x: -26, z: 26, w: 8, d: 8 },
-    { x: 26, z: 26, w: 8, d: 8 },
-    { x: -16, z: -16, w: 6, d: 6 },
-    { x: 16, z: -16, w: 6, d: 6 },
-    { x: -16, z: 16, w: 6, d: 6 },
-    { x: 16, z: 16, w: 6, d: 6 },
-    { x: 0, z: -22, w: 5, d: 12 },
-    { x: 0, z: 22, w: 5, d: 12 },
-    { x: -22, z: 0, w: 12, d: 5 },
-    { x: 22, z: 0, w: 12, d: 5 },
-    { x: -8, z: -4, w: 3, d: 16 },
-    { x: 8, z: 4, w: 3, d: 16 },
-    { x: 0, z: 0, w: 6, d: 6 },
-    { x: -14, z: 0, w: 3, d: 10 },
-    { x: 14, z: 0, w: 3, d: 10 }
-  ]),
-  courtyard: OUTER_WALLS.concat([
-    { x: -30, z: -30, w: 5, d: 5 },
-    { x: 30, z: -30, w: 5, d: 5 },
-    { x: -30, z: 30, w: 5, d: 5 },
-    { x: 30, z: 30, w: 5, d: 5 },
-    { x: -20, z: -20, w: 4, d: 12 },
-    { x: 20, z: -20, w: 4, d: 12 },
-    { x: -20, z: 20, w: 4, d: 12 },
-    { x: 20, z: 20, w: 4, d: 12 },
-    { x: -12, z: 0, w: 3, d: 20 },
-    { x: 12, z: 0, w: 3, d: 20 },
-    { x: 0, z: -12, w: 20, d: 3 },
-    { x: 0, z: 12, w: 20, d: 3 },
-    { x: -4, z: -4, w: 4, d: 4 },
-    { x: 4, z: -4, w: 4, d: 4 },
-    { x: -4, z: 4, w: 4, d: 4 },
-    { x: 4, z: 4, w: 4, d: 4 }
-  ])
-};
-
-const MAP_IDS = Object.keys(MAP_COLLIDERS_BY_ID);
-
-const SPAWN_POINTS_BY_MAP = {
-  arena: {
-    blue: [
-      { x: -30, y: 1.6, z: -30, ry: 0 },
-      { x: -30, y: 1.6, z: -12, ry: 0 },
-      { x: -30, y: 1.6, z: 12, ry: 0 },
-      { x: -30, y: 1.6, z: 30, ry: 0 }
-    ],
-    red: [
-      { x: 30, y: 1.6, z: 30, ry: Math.PI },
-      { x: 30, y: 1.6, z: 12, ry: Math.PI },
-      { x: 30, y: 1.6, z: -12, ry: Math.PI },
-      { x: 30, y: 1.6, z: -30, ry: Math.PI }
-    ]
-  },
-  warehouse: {
-    blue: [
-      { x: -32, y: 1.6, z: -32, ry: 0 },
-      { x: -32, y: 1.6, z: 0, ry: 0 },
-      { x: -32, y: 1.6, z: 32, ry: 0 },
-      { x: -32, y: 1.6, z: -12, ry: 0 }
-    ],
-    red: [
-      { x: 32, y: 1.6, z: 32, ry: Math.PI },
-      { x: 32, y: 1.6, z: 0, ry: Math.PI },
-      { x: 32, y: 1.6, z: -32, ry: Math.PI },
-      { x: 32, y: 1.6, z: 12, ry: Math.PI }
-    ]
-  },
-  courtyard: {
-    blue: [
-      { x: -33, y: 1.6, z: -15, ry: 0 },
-      { x: -33, y: 1.6, z: 0, ry: 0 },
-      { x: -33, y: 1.6, z: 15, ry: 0 },
-      { x: -33, y: 1.6, z: -30, ry: 0 }
-    ],
-    red: [
-      { x: 33, y: 1.6, z: 15, ry: Math.PI },
-      { x: 33, y: 1.6, z: 0, ry: Math.PI },
-      { x: 33, y: 1.6, z: -15, ry: Math.PI },
-      { x: 33, y: 1.6, z: 30, ry: Math.PI }
-    ]
-  }
-};
-
-// ============================================================================
-// FIX #9: express.static no longer serves the entire server root. Only a
-// dedicated `public/` directory is exposed. Put index.html and client
-// assets (ju.glb, pistol.glb, textures, etc.) inside ./public.
-// ============================================================================
-const PUBLIC_DIR = path.join(__dirname, 'public');
-app.use(express.static(PUBLIC_DIR));
-app.get('/', (_req, res) => {
-  res.sendFile(path.join(PUBLIC_DIR, 'index.html'));
-});
-
-const players = Object.create(null);   // socket.id -> player
-const roomMeta = Object.create(null);   // roomId -> meta
-
-// ============================================================================
-// FIX #8: Room membership index. Instead of scanning Object.values(players)
-// on every call, we maintain roomId -> Set<socketId> incrementally. All the
-// getRoomCount / getRoomPlayers / getRoomPlayerEntries helpers below now
-// read from this index instead of doing a full table scan.
-// ============================================================================
-const roomIndex = Object.create(null); // roomId -> Set<socketId>
-
-function indexAdd(roomId, id) {
-  if (!roomId) return;
-  if (!roomIndex[roomId]) roomIndex[roomId] = new Set();
-  roomIndex[roomId].add(id);
-}
-function indexRemove(roomId, id) {
-  if (!roomId || !roomIndex[roomId]) return;
-  roomIndex[roomId].delete(id);
-  if (roomIndex[roomId].size === 0) delete roomIndex[roomId];
-}
-function indexMove(fromRoomId, toRoomId, id) {
-  if (fromRoomId) indexRemove(fromRoomId, id);
-  if (toRoomId) indexAdd(toRoomId, id);
-}
-
-// ===== Random queue bookkeeping =====
-// queueId (= 元々 HTML が送ってくる room, 例 'R0001') -> {
-//   matchSeq: number,               // 次に発行する match 連番
-//   matches: [roomId, roomId, ...]  // このキューに属する実際の roomId 一覧（生成順）
-// }
-const randomQueues = Object.create(null);
-
-// ============================================================================
-// FIX #10: normalizeRoom is now aware of two distinct room-id "shapes":
-//   - a plain queue/room code the player typed (kept short, alnum)
-//   - a server-generated match id ("<queue>-<seq>") which needs more room
-// Length cap raised and made shape-dependent so queue ids won't collide as
-// easily and match ids (which append "-N") don't get truncated and clash.
-// ============================================================================
-const ROOM_CODE_MAX_LEN = 24;
-const MATCH_ID_MAX_LEN = 40;
-
-function normalizeRoom(room, opts) {
-  const isMatchId = !!(opts && opts.isMatchId);
-  const s = String(room ?? '')
-    .trim()
-    .toUpperCase()
-    .replace(/[^A-Z0-9_-]/g, '');
-  return s.slice(0, isMatchId ? MATCH_ID_MAX_LEN : ROOM_CODE_MAX_LEN);
-}
-
-function safeNum(value, fallback) {
-  return Number.isFinite(value) ? value : fallback;
-}
-
-function pickRandomMapId() {
-  return MAP_IDS[Math.floor(Math.random() * MAP_IDS.length)] || 'arena';
-}
-
-// ---- Random queue helpers ----
-
-function ensureRandomQueue(queueId) {
-  if (!queueId) return null;
-  if (!randomQueues[queueId]) {
-    randomQueues[queueId] = {
-      matchSeq: 0,
-      matches: []
-    };
-  }
-  return randomQueues[queueId];
-}
-
-// そのキューに属する match のうち、まだ参加を受け付けられる（=試合開始
-// していない、かつ定員に空きがある）ものを探す。無ければ新規作成する。
-function findOrCreateOpenRandomMatch(queueId) {
-  const q = ensureRandomQueue(queueId);
-  if (!q) return null;
-
-  for (let i = 0; i < q.matches.length; i++) {
-    const roomId = q.matches[i];
-    const meta = roomMeta[roomId];
-    if (!meta) continue; // 空になって掃除された枠はスキップ
-    const count = getRoomCount(roomId);
-    // starting/matchStarted になっている試合には新規参加させない。
-    // lobby 状態で、かつ定員未満のものだけを対象にする。
-    if (meta.phase === 'lobby' && !meta.starting && !meta.matchStarted && count < RANDOM_QUEUE_MAX_PLAYERS) {
-      return roomId;
+  const hand=base.hands[String(side)];
+  if(dropsUsedFor(base,side)>=MAX_DROPS_PER_SIDE)return false;
+  for(const t of TYPES.filter(x=>x!=='K')){
+   if(!(hand[t]>0))continue;
+   for(let to=0;to<81;to++){
+    if(base.board[to])continue;
+    const x=to%9,y=Math.floor(to/9);if(mandatoryPromote(t,side,y))continue;
+    if(t==='P'){
+     let nifu=false;for(let yy=0;yy<9;yy++){const q=base.board[key(x,yy)];if(q&&q.s===side&&q.t==='P'&&!q.p){nifu=true;break;}}
+     if(nifu)continue;
     }
-  }
-
-  // 空いている match が無いので新規作成
-  q.matchSeq += 1;
-  const roomId = normalizeRoom(`${queueId}-${q.matchSeq}`, { isMatchId: true });
-  q.matches.push(roomId);
-  const meta = ensureRoomMeta(roomId);
-  meta.isRandom = true;
-  meta.queueId = queueId;
-  meta.matchId = roomId;
-  return roomId;
-}
-
-// 途中参加を許すかどうかの判定。ロビー(未開始)なら常に許可。
-// 進行中の試合には新規参加させない（要件4）。
-function canJoinRandomMatch(roomId) {
-  const meta = roomMeta[roomId];
-  if (!meta) return true;
-  if (meta.phase === 'playing' || meta.phase === 'finished') return false;
-  const count = getRoomCount(roomId);
-  return count < RANDOM_QUEUE_MAX_PLAYERS;
-}
-
-function cleanupRandomQueueIfEmpty(queueId) {
-  const q = randomQueues[queueId];
-  if (!q) return;
-  // まだ roomMeta が残っている(=プレイヤーがいる) match が1つでもあれば維持
-  const stillActive = q.matches.some(roomId => !!roomMeta[roomId]);
-  if (!stillActive) {
-    delete randomQueues[queueId];
-  }
-}
-
-function ensureRoomMeta(room) {
-  const roomId = normalizeRoom(room, { isMatchId: room.indexOf('-') !== -1 });
-  if (!roomId) return null;
-
-  if (!roomMeta[roomId]) {
-    roomMeta[roomId] = {
-      starting: false,
-      matchStarted: false,
-      phase: 'lobby',
-      startedAt: 0,
-      roundIndex: 1,
-      roundEndsAt: 0,
-      lastStarter: '',
-      startToken: 0,
-      roundTimerId: null,
-      roundResetTimerId: null,
-      lastRoundSummary: null,
-      blueScore: 0,
-      redScore: 0,
-      roundResolved: false,
-      aiUnits: [],
-      mapId: 'arena',
-      // random battle specific
-      isRandom: false,
-      queueId: '',
-      matchId: '',
-      randomAiTimerId: null
-    };
-  }
-  return roomMeta[roomId];
-}
-
-function clearRoomTimers(roomId) {
-  const meta = roomMeta[roomId];
-  if (!meta) return;
-  if (meta.roundTimerId) {
-    clearInterval(meta.roundTimerId);
-    meta.roundTimerId = null;
-  }
-  if (meta.roundResetTimerId) {
-    clearTimeout(meta.roundResetTimerId);
-    meta.roundResetTimerId = null;
-  }
-  if (meta.randomAiTimerId) {
-    clearTimeout(meta.randomAiTimerId);
-    meta.randomAiTimerId = null;
-  }
-}
-
-// FIX #8: O(1) lookup via roomIndex instead of scanning all players.
-function getRoomCount(room) {
-  const roomId = normalizeRoom(room, { isMatchId: room.indexOf('-') !== -1 });
-  const set = roomIndex[roomId];
-  return set ? set.size : 0;
-}
-
-function cleanupRoomMetaIfEmpty(room) {
-  const roomId = normalizeRoom(room, { isMatchId: room.indexOf('-') !== -1 });
-  if (!roomId) return;
-  if (getRoomCount(roomId) === 0) {
-    const meta = roomMeta[roomId];
-    const queueId = meta && meta.queueId;
-    clearRoomTimers(roomId);
-    delete roomMeta[roomId];
-    delete roomIndex[roomId];
-    if (queueId) cleanupRandomQueueIfEmpty(queueId);
-  }
-}
-
-function flatPlayer(id, p) {
-  const kills = safeNum(p.matchKills, 0);
-  const deaths = safeNum(p.matchDeaths, 0);
-  return {
-    id,
-    playerId: id,
-    targetId: id,
-    name: p.name || id,
-    team: p.team || 'blue',
-    room: p.room || '',
-    roomId: p.room || '',
-    x: safeNum(p.x, 0),
-    y: safeNum(p.y, 1.6),
-    z: safeNum(p.z, 5),
-    ry: safeNum(p.ry, 0),
-    alive: p.alive !== false,
-    hp: safeNum(p.hp, 100),
-    matchMode: p.matchMode || 'ranked',
-    lastSeenAt: safeNum(p.lastSeenAt, Date.now()),
-    kills,
-    deaths,
-    kdr: deaths > 0 ? Math.round((kills / deaths) * 100) / 100 : kills
-  };
-}
-
-// FIX #8: use roomIndex instead of Object.entries(players) full scan.
-function getRoomPlayers(room) {
-  const roomId = normalizeRoom(room, { isMatchId: room.indexOf('-') !== -1 });
-  const result = Object.create(null);
-  const set = roomIndex[roomId];
-  if (!set) return result;
-  set.forEach(id => {
-    const p = players[id];
-    if (p) result[id] = flatPlayer(id, p);
-  });
-  return result;
-}
-
-function getRoomPlayerEntries(room) {
-  const roomId = normalizeRoom(room, { isMatchId: room.indexOf('-') !== -1 });
-  const set = roomIndex[roomId];
-  if (!set) return [];
-  const entries = [];
-  set.forEach(id => {
-    const p = players[id];
-    if (p) entries.push([id, p]);
-  });
-  entries.sort(([a], [b]) => a.localeCompare(b));
-  return entries;
-}
-
-function shuffleArray(arr) {
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    const t = arr[i];
-    arr[i] = arr[j];
-    arr[j] = t;
-  }
-  return arr;
-}
-
-function getSpawnPoint(team, index, mapId) {
-  const map = SPAWN_POINTS_BY_MAP[mapId] || SPAWN_POINTS_BY_MAP.arena;
-  const points = map[team] || map.blue;
-  return points[index % points.length];
-}
-
-function applySpawnPositions(roomId) {
-  const meta = roomMeta[roomId];
-  const mapId = (meta && meta.mapId) || 'arena';
-
-  const byTeam = { blue: [], red: [] };
-  getRoomPlayerEntries(roomId).forEach(([id, p]) => {
-    byTeam[p.team === 'red' ? 'red' : 'blue'].push(id);
-  });
-
-  ['blue', 'red'].forEach(team => {
-    byTeam[team].forEach((id, index) => {
-      const p = players[id];
-      if (!p) return;
-      const sp = getSpawnPoint(team, index, mapId);
-      p.x = sp.x;
-      p.y = sp.y;
-      p.z = sp.z;
-      p.ry = sp.ry;
-      p.alive = true;
-      p.hp = 100;
-      p.lastShotAt = 0;
-      p.lastShotAtByWeapon = Object.create(null);
-      p.lastSeenAt = Date.now();
-    });
-  });
-}
-
-function assignRandomTeams(roomId) {
-  const ids = getRoomPlayerEntries(roomId).map(([id]) => id);
-  shuffleArray(ids);
-  const blueCount = Math.ceil(ids.length / 2);
-
-  ids.forEach((id, index) => {
-    players[id].team = index < blueCount ? 'blue' : 'red';
-  });
-
-  return {
-    blue: ids.slice(0, blueCount),
-    red: ids.slice(blueCount)
-  };
-}
-
-function segmentIntersectsRect2D(x1, z1, x2, z2, rect) {
-  const halfW = rect.w / 2;
-  const halfD = rect.d / 2;
-  const minX = rect.x - halfW, maxX = rect.x + halfW;
-  const minZ = rect.z - halfD, maxZ = rect.z + halfD;
-
-  const dx = x2 - x1, dz = z2 - z1;
-  let tmin = 0, tmax = 1;
-
-  if (Math.abs(dx) < 1e-9) {
-    if (x1 < minX || x1 > maxX) return false;
-  } else {
-    let t1 = (minX - x1) / dx;
-    let t2 = (maxX - x1) / dx;
-    if (t1 > t2) [t1, t2] = [t2, t1];
-    if (t1 > tmin) tmin = t1;
-    if (t2 < tmax) tmax = t2;
-    if (tmin > tmax) return false;
-  }
-
-  if (Math.abs(dz) < 1e-9) {
-    if (z1 < minZ || z1 > maxZ) return false;
-  } else {
-    let t1 = (minZ - z1) / dz;
-    let t2 = (maxZ - z1) / dz;
-    if (t1 > t2) [t1, t2] = [t2, t1];
-    if (t1 > tmin) tmin = t1;
-    if (t2 < tmax) tmax = t2;
-    if (tmin > tmax) return false;
-  }
-
-  return true;
-}
-
-function isLineOfSightBlocked(x1, z1, x2, z2, mapId) {
-  if (![x1, z1, x2, z2].every(v => Number.isFinite(v))) return false;
-  const colliders = MAP_COLLIDERS_BY_ID[mapId] || MAP_COLLIDERS_BY_ID.arena;
-  for (const rect of colliders) {
-    if (segmentIntersectsRect2D(x1, z1, x2, z2, rect)) return true;
+    const next=applyMove(base,{drop:t,to,s:side});
+    if(inCheck(next,side))continue;
+    // Only a pawn drop that gives check needs the recursive uchi-fuzume test.
+    if(t==='P'&&inCheck(next,-side)&&!hasAnyLegalMove(next,-side,pawnMateDepth+1))continue;
+    return true;
+   }
   }
   return false;
-}
-
-function getAliveCount(room, team) {
-  const roomId = normalizeRoom(room, { isMatchId: room.indexOf('-') !== -1 });
-  const meta = roomMeta[roomId];
-  const set = roomIndex[roomId];
-  let count = 0;
-  if (set) {
-    set.forEach(id => {
-      const p = players[id];
-      if (p && p.team === team && p.alive !== false && (p.hp ?? 100) > 0) count++;
-    });
+ }
+ function legalMoves(st,side=st.turn){
+  const moves=[];
+  const base=st.turn===side?st:{...st,turn:side};
+  for(let from=0;from<81;from++){
+   const p=base.board[from];if(!p||p.s!==side)continue;
+   for(const to of rawTargets(base,from,p)){
+    if(base.board[to]?.t==='K')continue;
+    const y=Math.floor(to/9),can=canPromote(p)&&(promoteZone(side,Math.floor(from/9))||promoteZone(side,y));
+    const must=mandatoryPromote(p.t,side,y);
+    const variants=can?(must?[true]:[false,true]):[false];
+    for(const promote of variants){const m={from,to,promote,s:side};const next=applyMove(base,m);if(!inCheck(next,side))moves.push(m);}
+   }
   }
-
-  if (meta && Array.isArray(meta.aiUnits)) {
-    count += meta.aiUnits.filter(u => u.team === team && u.alive).length;
+  const hand=base.hands[String(side)];
+  if(dropsUsedFor(base,side)<MAX_DROPS_PER_SIDE)for(const t of TYPES.filter(x=>x!=='K')){if(!(hand[t]>0))continue;
+   for(let to=0;to<81;to++){if(base.board[to])continue;const x=to%9,y=Math.floor(to/9);if(mandatoryPromote(t,side,y))continue;
+    if(t==='P'){let nifu=false;for(let yy=0;yy<9;yy++){const q=base.board[key(x,yy)];if(q&&q.s===side&&q.t==='P'&&!q.p){nifu=true;break;}}if(nifu)continue;}
+    const m={drop:t,to,s:side};const next=applyMove(base,m);if(!inCheck(next,side)){const pawnDropMate=t==='P'&&inCheck(next,-side)&&!hasAnyLegalMove(next,-side);if(!pawnDropMate)moves.push(m);}
+   }
   }
-
-  return count;
-}
-
-function initAIUnitsForRoom(roomId, isRandomMatch) {
-  const meta = ensureRoomMeta(roomId);
-  if (!meta) return;
-
-  const aiCount = isRandomMatch ? 3 : 2;
-  const units = [];
-
-  ['blue', 'red'].forEach(team => {
-    for (let i = 0; i < aiCount; i++) {
-      units.push({
-        id: `ai-${team}-${i}`,
-        team,
-        hp: 100,
-        maxHp: 100,
-        alive: true,
-        lastAttackAt: 0
-      });
-    }
-  });
-
-  meta.aiUnits = units;
-}
-
-function reviveAIUnitsForRoom(roomId) {
-  const meta = roomMeta[roomId];
-  if (!meta) return;
-  meta.aiUnits.forEach(u => {
-    u.hp = u.maxHp;
-    u.alive = true;
-    u.lastAttackAt = 0;
-  });
-}
-
-function findAIUnit(roomId, aiId) {
-  const meta = roomMeta[roomId];
-  if (!meta) return null;
-  return meta.aiUnits.find(u => u.id === aiId) || null;
-}
-
-function emitRoomState(room) {
-  const roomId = normalizeRoom(room, { isMatchId: room.indexOf('-') !== -1 });
-  if (!roomId) return;
-
-  const meta = ensureRoomMeta(roomId);
-  if (!meta) return;
-
-  const count = getRoomCount(roomId);
-  const minPlayers = meta.isRandom ? RANDOM_START_MIN_PLAYERS : START_MIN_PLAYERS;
-  if (count < minPlayers) meta.starting = false;
-
-  io.to(roomId).emit('room-state', {
-    room: roomId,
-    // Random battle 用の識別子。HTML 側が今後これを見て currentRoom を
-    // 実際の match room に追従させられるようにする。
-    matchId: meta.matchId || roomId,
-    queueId: meta.queueId || '',
-    isRandom: !!meta.isRandom,
-    count,
-    maxPlayers: MAX_PLAYERS,
-    canStart: count >= minPlayers && count <= MAX_PLAYERS && !meta.starting,
-    starting: meta.starting,
-    matchStarted: meta.matchStarted,
-    phase: meta.phase,
-    roundIndex: meta.roundIndex,
-    roundEndsAt: meta.roundEndsAt,
-    roundDurationMs: ROUND_DURATION_MS,
-    blue: meta.blueScore,
-    red: meta.redScore,
-    mapId: meta.mapId,
-    aiUnits: meta.aiUnits,
-    players: getRoomPlayers(roomId)
-  });
-}
-
-function emitCurrentPlayers(socket, room) {
-  const roomId = normalizeRoom(room, { isMatchId: room.indexOf('-') !== -1 });
-  if (!roomId) return;
-  const roomPlayers = getRoomPlayers(roomId);
-  socket.emit('currentPlayers', roomPlayers);
-  socket.emit('room-players', { room: roomId, players: roomPlayers });
-}
-
-function broadcastRoomPlayers(room) {
-  const roomId = normalizeRoom(room, { isMatchId: room.indexOf('-') !== -1 });
-  if (!roomId) return;
-  io.to(roomId).emit('room-players', {
-    room: roomId,
-    players: getRoomPlayers(roomId)
-  });
-}
-
-function broadcastRoomSnapshot(room) {
-  const roomId = normalizeRoom(room, { isMatchId: room.indexOf('-') !== -1 });
-  if (!roomId) return;
-  const meta = ensureRoomMeta(roomId);
-  if (!meta) return;
-
-  const payload = {
-    room: roomId,
-    matchId: meta.matchId || roomId,
-    queueId: meta.queueId || '',
-    isRandom: !!meta.isRandom,
-    players: getRoomPlayers(roomId),
-    phase: meta.phase,
-    matchStarted: meta.matchStarted,
-    roundIndex: meta.roundIndex,
-    roundEndsAt: meta.roundEndsAt,
-    roundDurationMs: ROUND_DURATION_MS,
-    blue: meta.blueScore,
-    red: meta.redScore,
-    mapId: meta.mapId,
-    aiUnits: meta.aiUnits
-  };
-
-  io.to(roomId).emit('room-snapshot', payload);
-  emitRoomState(roomId);
-}
-
-// ============================================================================
-// FIX #5: Collapsed the 3 near-duplicate shot events (playerShot,
-// playerShotFX, playerShoot) down to a single canonical event name,
-// 'shot-fx', for pure visual/audio effect broadcasting. The old event names
-// are still emitted (as thin aliases) ONLY if you need old clients to keep
-// working; set LEGACY_SHOT_EVENTS=false to stop sending them once your
-// client is updated to listen to 'shot-fx' only.
-// ============================================================================
-const LEGACY_SHOT_EVENTS = true;
-
-function broadcastShotFX(roomId, payload) {
-  io.to(roomId).emit('shot-fx', payload);
-  if (LEGACY_SHOT_EVENTS) {
-    io.to(roomId).emit('playerShot', payload);
-    io.to(roomId).emit('playerShotFX', payload);
-    io.to(roomId).emit('playerShoot', payload);
+  return moves;
+ }
+ function positionFeatures(st){
+  let material=0,pawns=0,promoted=0,advance=0,center=0,camp=0,hand=0,pieces=0,majors=0,kingProgress=0,kingSafetyDiff=0;const kings={1:-1,'-1':-1},pieceBalance=0;
+  for(let i=0;i<81;i++){const p=st.board[i];if(!p)continue;const sign=p.s===1?1:-1,x=i%9,y=Math.floor(i/9);if(p.t==='K'){kings[p.s]=i;continue;}pieces+=sign;let v=VALUES[p.t]||0;if(p.p){promoted+=sign;if(p.t==='R')v=1250;else if(p.t==='B')v=1120;else v=600;}material+=sign*v;if(p.t==='P')pawns+=sign;advance+=sign*(p.s===1?8-y:y);center+=sign*(4-Math.abs(4-x));if((p.s===1&&y<=2)||(p.s===-1&&y>=6))camp+=sign;if(p.t==='R'||p.t==='B')majors+=sign;}
+  for(const side of [1,-1]){const h=st.hands[String(side)];for(const t of TYPES){if(t==='K')continue;hand+=(side===1?1:-1)*(VALUES[t]||0)*(h[t]||0);}}
+  for(const side of [1,-1]){const k=kings[side];if(k>=0){const kx=k%9,ky=Math.floor(k/9);let friends=0,enemies=0;for(let y=Math.max(0,ky-2);y<=Math.min(8,ky+2);y++)for(let x=Math.max(0,kx-2);x<=Math.min(8,kx+2);x++){const q=st.board[key(x,y)];if(q&&q.s===side)friends++;else if(q&&q.s===-side)enemies++;}kingSafetyDiff+=(side===1?1:-1)*(friends-enemies);kingProgress+=(side===1?1:-1)*(side===1?ky:8-ky);}}
+  return [1,clamp(material/5000,-1,1),clamp(pawns/18,-1,1),clamp(promoted/8,-1,1),clamp(advance/72,-1,1),clamp(center/36,-1,1),clamp(camp/12,-1,1),clamp(hand/3000,-1,1),clamp(kingSafetyDiff/12,-1,1),clamp(kingProgress/16,-1,1),clamp(majors/4,-1,1),clamp(pieces/36,-1,1)];
+ }
+ function evaluate(st,pov,weights={}){
+  const w={material:weights.material??1,advance:weights.advance??.11,kingSafety:weights.kingSafety??.12,hand:weights.hand??.92,center:weights.center??.06};let score=0,king={1:-1,'-1':-1},safety={1:0,'-1':0};
+  for(let i=0;i<81;i++){const p=st.board[i];if(!p)continue;if(p.t==='K'){king[p.s]=i;continue;}let v=VALUES[p.t]||0;if(p.p){if(p.t==='R')v=1250;else if(p.t==='B')v=1120;else v=600;}const y=Math.floor(i/9),x=i%9,adv=p.s===1?8-y:y;let ps=v*w.material+adv*w.advance*(p.t==='P'?2.1:1)+(4-Math.abs(4-x))*w.center;score+=p.s===pov?ps:-ps;}
+  for(const side of [1,-1]){const h=st.hands[String(side)];for(const t of TYPES){if(t==='K')continue;const v=(VALUES[t]||0)*w.hand*(h[t]||0);score+=side===pov?v:-v;}}
+  for(const side of [1,-1]){const k=king[side];if(k>=0){const kx=k%9,ky=Math.floor(k/9);let friends=0,enemies=0;for(let y=Math.max(0,ky-2);y<=Math.min(8,ky+2);y++)for(let x=Math.max(0,kx-2);x<=Math.min(8,kx+2);x++){const q=st.board[key(x,y)];if(q&&q.s===side)friends++;else if(q&&q.s===-side)enemies++;}safety[side]=(friends-enemies)*w.kingSafety;}}
+  score+=safety[pov]-safety[-pov];const vw=weights.valueNet;if(Array.isArray(vw)&&vw.length===VALUE_WEIGHTS){const f=positionFeatures(st),h=new Array(VALUE_HIDDEN),b1=VALUE_INPUTS*VALUE_HIDDEN,wo=b1+VALUE_HIDDEN;for(let j=0;j<VALUE_HIDDEN;j++){let z=vw[b1+j]||0,base=j*VALUE_INPUTS;for(let i=0;i<VALUE_INPUTS;i++)z+=(Number(vw[base+i])||0)*f[i];h[j]=Math.tanh(clamp(z,-8,8));}let out=vw[wo+VALUE_HIDDEN]||0;for(let j=0;j<VALUE_HIDDEN;j++)out+=(Number(vw[wo+j])||0)*h[j];score+=(pov===1?1:-1)*Math.tanh(clamp(out,-8,8))*160;}return score;
+ }
+ function tacticalTags(st,m,next){const tags=[];const mover=st.turn,src=m.drop?null:st.board[m.from],captured=m.drop?null:st.board[m.to];if(captured)tags.push('capture');if(m.promote)tags.push('promotion');if(m.drop)tags.push('drop');if(inCheck(next,-mover))tags.push('check');if(src&&src.t==='K')tags.push('kingMove');const px=m.to%9,py=Math.floor(m.to/9),centerBefore=m.from==null?8:Math.abs(4-(m.from%9))+Math.abs(4-Math.floor(m.from/9)),centerAfter=Math.abs(4-px)+Math.abs(4-py);if(centerAfter<centerBefore)tags.push('center');if(src&&['R','B','S','N','L'].includes(src.t)&&st.ply<24&&Math.abs(Math.floor(m.from/9)-(mover===1?8:0))>=2)tags.push('development');const moved=next.board[m.to];if(moved){const threats=rawTargets(next,m.to,moved).filter(i=>next.board[i]&&next.board[i].s===-mover&&next.board[i].t!=='K'&&(VALUES[next.board[i].t]||0)>=430);if(threats.length>=2)tags.push('fork');}return tags;}
+  function moveKey(m){return m.drop?`D${m.drop}@${m.to}`:`${m.from}-${m.to}${m.promote?'+':''}`;}
+ function moveOrder(st,m,preferredKey='',nodes=null,plyFromRoot=0){
+  const k=moveKey(m);let score=0;
+  if(k===preferredKey)score+=10000000;
+  const victim=st.board[m.to],attacker=m.drop?null:st.board[m.from];
+  if(victim)score+=1000000+(VALUES[demote(victim.t)]||0)*16-(VALUES[attacker?.t]||0);
+  if(m.promote)score+=700000+(VALUES[attacker?.t]||0)*.2;
+  if(m.drop)score+=1200+(VALUES[m.drop]||0)*.04;
+  if(attacker&&m.from!=null){const y0=Math.floor(m.from/9),y1=Math.floor(m.to/9);score+=(attacker.s===1?y0-y1:y1-y0)*3+(4-Math.abs(4-(m.to%9)))*1.5;}
+  const ks=nodes?.killers?.[plyFromRoot];if(ks){if(ks[0]===k)score+=26000;else if(ks[1]===k)score+=18000;}
+  return score;
+ }
+ function terminalScore(st,pov){return st.turn===pov?-100000+st.ply:100000-st.ply;}
+ function quiescence(st,alpha,beta,pov,weights,nodes,qDepth=0){
+  nodes.n++;if((nodes.n&63)===0&&nodes.deadline&&Date.now()>=nodes.deadline){nodes.stopped=true;return evaluate(st,pov,weights);}
+  const maximizing=st.turn===pov,checked=inCheck(st,st.turn),stand=evaluate(st,pov,weights);
+  if(qDepth>=5&&!checked)return stand;if(qDepth>=8)return stand;
+  if(!checked){if(maximizing){if(stand>=beta)return beta;if(stand>alpha)alpha=stand;}else{if(stand<=alpha)return alpha;if(stand<beta)beta=stand;}}
+  const legal=legalMoves(st,st.turn);if(!legal.length)return terminalScore(st,pov);
+  let moves=[];
+  if(checked)moves=legal;
+  else{for(const m of legal)if((!m.drop&&st.board[m.to])||m.promote)moves.push(m);}
+  if(!moves.length)return stand;
+  moves.sort((a,b)=>moveOrder(st,b,'',nodes,5+qDepth)-moveOrder(st,a,'',nodes,5+qDepth));
+  if(maximizing){let best=checked?-Infinity:stand;for(const m of moves){if(nodes.stopped)break;const v=quiescence(applyMove(st,m),alpha,beta,pov,weights,nodes,qDepth+1);if(v>best)best=v;if(v>alpha)alpha=v;if(beta<=alpha)break;}return best===-Infinity?stand:best;}
+  let best=checked?Infinity:stand;for(const m of moves){if(nodes.stopped)break;const v=quiescence(applyMove(st,m),alpha,beta,pov,weights,nodes,qDepth+1);if(v<best)best=v;if(v<beta)beta=v;if(beta<=alpha)break;}return best===Infinity?stand:best;
+ }
+ function minimax(st,depth,alpha,beta,pov,weights,nodes,plyFromRoot=0){
+  nodes.n++;if((nodes.n&63)===0&&nodes.deadline&&Date.now()>=nodes.deadline){nodes.stopped=true;return evaluate(st,pov,weights);}
+  const keyText=positionKey(st),alphaOriginal=alpha,betaOriginal=beta,entry=nodes.tt?.get(keyText);
+  if(entry&&entry.depth>=depth){nodes.ttHits=(nodes.ttHits||0)+1;if(entry.flag==='exact')return entry.score;if(entry.flag==='lower')alpha=Math.max(alpha,entry.score);else if(entry.flag==='upper')beta=Math.min(beta,entry.score);if(alpha>=beta)return entry.score;}
+  if(depth<=0)return quiescence(st,alpha,beta,pov,weights,nodes,0);
+  const moves=legalMoves(st,st.turn);if(!moves.length)return terminalScore(st,pov);
+  const maximizing=st.turn===pov;let best=maximizing?-Infinity:Infinity,bestKey='';
+  moves.sort((a,b)=>moveOrder(st,b,entry?.bestKey,nodes,plyFromRoot)-moveOrder(st,a,entry?.bestKey,nodes,plyFromRoot));
+  for(const m of moves){if(nodes.stopped)break;const next=applyMove(st,m),v=minimax(next,depth-1,alpha,beta,pov,weights,nodes,plyFromRoot+1),mk=moveKey(m);if(maximizing){if(v>best){best=v;bestKey=mk;}if(best>alpha)alpha=best;}else{if(v<best){best=v;bestKey=mk;}if(best<beta)beta=best;}
+   if(beta<=alpha){const quiet=!m.promote&&!m.drop&&!st.board[m.to];if(quiet){const arr=nodes.killers[plyFromRoot]||(nodes.killers[plyFromRoot]=[]);if(arr[0]!==mk){arr[1]=arr[0];arr[0]=mk;}}break;}
   }
-}
-
-function resetPlayersForNextRound(roomId) {
-  const meta = ensureRoomMeta(roomId);
-  if (!meta) return;
-
-  applySpawnPositions(roomId);
-  reviveAIUnitsForRoom(roomId);
-
-  meta.matchStarted = true;
-  meta.starting = false;
-  meta.phase = 'playing';
-  meta.startedAt = Date.now();
-  meta.roundEndsAt = Date.now() + ROUND_DURATION_MS;
-  meta.roundResolved = false;
-
-  const payload = {
-    room: roomId,
-    matchId: meta.matchId || roomId,
-    queueId: meta.queueId || '',
-    isRandom: !!meta.isRandom,
-    roundIndex: meta.roundIndex,
-    startedAt: meta.startedAt,
-    roundEndsAt: meta.roundEndsAt,
-    roundDurationMs: ROUND_DURATION_MS,
-    blue: meta.blueScore,
-    red: meta.redScore,
-    aiUnits: meta.aiUnits,
-    players: getRoomPlayers(roomId),
-    mapId: meta.mapId
-  };
-
-  io.to(roomId).emit('round-reset', payload);
-  io.to(roomId).emit('round-started', payload);
-  io.to(roomId).emit('match-started', {
-    room: roomId,
-    matchId: meta.matchId || roomId,
-    queueId: meta.queueId || '',
-    isRandom: !!meta.isRandom,
-    teams: {
-      blue: getRoomPlayerEntries(roomId).filter(([, p]) => p.team === 'blue').map(([id]) => id),
-      red: getRoomPlayerEntries(roomId).filter(([, p]) => p.team === 'red').map(([id]) => id)
-    },
-    players: getRoomPlayers(roomId),
-    startedBy: meta.lastStarter || '',
-    startedAt: meta.startedAt,
-    roundIndex: meta.roundIndex,
-    roundEndsAt: meta.roundEndsAt,
-    roundDurationMs: ROUND_DURATION_MS,
-    blue: meta.blueScore,
-    red: meta.redScore,
-    aiUnits: meta.aiUnits,
-    mapId: meta.mapId
-  });
-
-  broadcastRoomSnapshot(roomId);
-  startRoundTimer(roomId);
-}
-
-// ============================================================================
-// FIX #6: Round resolution now handles the "both teams wiped simultaneously"
-// case explicitly instead of silently returning and leaving the round stuck.
-// Simultaneous double-KO is resolved as a DRAW (winner: null) rather than
-// blocking. Timeout ties are also resolved as a draw instead of always
-// favoring blue.
-// ============================================================================
-function resolveRound(roomId, winner, reason) {
-  const meta = roomMeta[roomId];
-  if (!meta || meta.roundResolved) return;
-
-  meta.roundResolved = true;
-  clearRoomTimers(roomId);
-
-  if (winner === 'blue') meta.blueScore += 1;
-  else if (winner === 'red') meta.redScore += 1;
-  // winner === null / 'draw' -> no score change, but round still advances.
-
-  const isFinal = meta.blueScore >= WIN_SCORE || meta.redScore >= WIN_SCORE;
-  const finalWinner = meta.blueScore >= WIN_SCORE ? 'blue' : (meta.redScore >= WIN_SCORE ? 'red' : winner);
-
-  meta.phase = isFinal ? 'finished' : 'roundOver';
-  meta.matchStarted = !isFinal;
-  meta.roundEndsAt = 0;
-
-  const summary = {
-    room: roomId,
-    matchId: meta.matchId || roomId,
-    queueId: meta.queueId || '',
-    isRandom: !!meta.isRandom,
-    reason: reason || 'round-end',
-    winner: finalWinner,
-    draw: winner === null || winner === 'draw',
-    blue: meta.blueScore,
-    red: meta.redScore,
-    roundIndex: meta.roundIndex,
-    blueAlive: getAliveCount(roomId, 'blue'),
-    redAlive: getAliveCount(roomId, 'red'),
-    players: getRoomPlayers(roomId),
-    final: isFinal
-  };
-
-  meta.lastRoundSummary = summary;
-
-  io.to(roomId).emit('scoreUpdate', {
-    room: roomId,
-    matchId: meta.matchId || roomId,
-    queueId: meta.queueId || '',
-    blue: meta.blueScore,
-    red: meta.redScore,
-    round: meta.roundIndex
-  });
-  io.to(roomId).emit('round-ended', summary);
-  if (isFinal) io.to(roomId).emit('matchFinished', summary);
-
-  emitRoomState(roomId);
-
-  if (!isFinal) {
-    meta.roundIndex += 1;
-    meta.roundResetTimerId = setTimeout(() => {
-      const currentMeta = roomMeta[roomId];
-      if (!currentMeta) return;
-      resetPlayersForNextRound(roomId);
-      currentMeta.roundResetTimerId = null;
-    }, ROUND_RESET_DELAY_MS);
-  } else if (meta.isRandom && meta.queueId) {
-    // ランダム戦の match が終了したら、この roomId はキューの「再利用可能な枠」
-    // からは自然に外れる（phase !== 'lobby' になるため findOrCreateOpenRandomMatch
-    // が拾わなくなる）。全員退室したら cleanupRoomMetaIfEmpty で掃除される。
+  if(best===Infinity||best===-Infinity)best=evaluate(st,pov,weights);
+  if(nodes.tt&&!nodes.stopped){const flag=best<=alphaOriginal?'upper':best>=betaOriginal?'lower':'exact';if(nodes.tt.size>36000)nodes.tt.clear();nodes.tt.set(keyText,{depth,score:best,flag,bestKey});}
+  return best;
+ }
+ function searchRoot(st,rootMoves,side,weights={},depth=2,workerIndex=0,workerCount=1,deadline=0,searchContext=null){
+  let best=null,bestScore=-Infinity,bestTags=[],nodes={n:0,deadline,stopped:false,tt:searchContext?.tt||new Map(),killers:searchContext?.killers||[],ttHits:0};
+  const phase=st.ply<24?'opening':st.ply<70?'middlegame':'endgame',rootHint=searchContext?.rootMove||'';
+  const indexed=rootMoves.map((m,i)=>({m,i})).sort((a,b)=>moveOrder(st,b.m,rootHint,nodes,0)-moveOrder(st,a.m,rootHint,nodes,0));
+  for(const item of indexed){const i=item.i;if(i%workerCount!==workerIndex)continue;if(deadline&&Date.now()>=deadline){nodes.stopped=true;break;}const m=item.m,next=applyMove(st,m),tags=tacticalTags(st,m,next),bias=weights.tacticBias||{},patterns=weights.tacticalPatternBias||{};let bonus=0;
+   for(const tag of tags)bonus+=Number(bias[tag]||0)+Number(patterns[phase+'|'+tag]||0)+Number((weights.counterTacticBias||{})[tag]||0);
+   const counterSquares=weights.counterSquareBias||[];if(Number.isFinite(counterSquares[m.to]))bonus+=Math.max(-5,Math.min(18,Number(counterSquares[m.to])||0));
+   const counterMoves=weights.counterMoveBias||{};bonus+=Math.max(-25,Math.min(55,Number(counterMoves[moveKey(m)])||0));const repeatPenalty=weights.repetitionPenalty||{};bonus-=Math.max(0,Math.min(260,Number(repeatPenalty[moveKey(m)])||0));if(weights.preferredMoveKey===moveKey(m))bonus+=Math.max(0,Math.min(70,Number(weights.openingBonus)||0));
+   const rootAlpha=Number.isFinite(bestScore)?bestScore-bonus:-Infinity;
+   let score=minimax(next,Math.max(0,depth-1),rootAlpha,Infinity,side,weights,nodes,1)+bonus;
+   if(score>bestScore||(score===bestScore&&((i+st.ply+workerIndex)%3===0))){bestScore=score;best=m;bestTags=tags;}
+   if(nodes.stopped)break;
   }
-}
-
-function checkRoundEndCondition(roomId, reason) {
-  const meta = roomMeta[roomId];
-  if (!meta || meta.phase !== 'playing' || meta.roundResolved) return;
-
-  const blueAlive = getAliveCount(roomId, 'blue');
-  const redAlive = getAliveCount(roomId, 'red');
-
-  if (blueAlive > 0 && redAlive > 0) return;
-
-  // FIX #6: simultaneous wipe is now resolved as a draw instead of stalling.
-  if (blueAlive === 0 && redAlive === 0) {
-    resolveRound(roomId, null, reason || 'double-elimination');
-    return;
+  if(searchContext){searchContext.tt=nodes.tt;searchContext.killers=nodes.killers;if(best)searchContext.rootMove=moveKey(best);}
+  return {move:best,score:bestScore,nodes:nodes.n,ttHits:nodes.ttHits||0,stopped:nodes.stopped,depth,tags:bestTags};
+ }
+ function chooseMove(st,weights={},depth=2){const moves=legalMoves(st);if(!moves.length)return null;return searchRoot(st,moves,st.turn,weights,depth,0,1);}
+ function positionKey(st){return st.board.map(p=>p?(p.s===1?'+':'-')+p.t+(p.p?'!':''):'..').join('')+'|'+JSON.stringify(st.hands)+'|'+st.turn+'|drops:'+dropsUsedFor(st,1)+','+dropsUsedFor(st,-1);}
+ function isLegalMove(st,m){if(!m||!validateState(st))return false;if(m.s!=null&&m.s!==st.turn)return false;const k=moveKey(m);return legalMoves(st,st.turn).some(x=>moveKey(x)===k);}
+ function dropLegalityReason(st,type,to,side=st.turn){
+  if(!['R','B','G','S','N','L','P'].includes(type))return 'その種類の駒は打てません。';
+  if(!Number.isInteger(to)||to<0||to>=81)return '盤面の外です。';
+  const base=st.turn===side?st:{...st,turn:side};
+  if(dropsUsedFor(base,side)>=MAX_DROPS_PER_SIDE)return 'この対局で持ち駒を盤上へ打てる上限の5回に達しています。';
+  if(!(base.hands[String(side)]?.[type]>0))return 'その駒は持ち駒にありません。';
+  if(base.board[to])return 'そのマスには既に駒があります。';
+  const y=Math.floor(to/9),x=to%9;
+  if(mandatoryPromote(type,side,y))return type==='N'?'桂馬は最後の2段には打てません。':'歩・香車は最後の段には打てません。';
+  if(type==='P'){for(let yy=0;yy<9;yy++){const q=base.board[key(x,yy)];if(q&&q.s===side&&q.t==='P'&&!q.p)return '二歩になるため、この筋には歩を打てません。';}}
+  const next=applyMove(base,{drop:type,to,s:side});
+  if(inCheck(next,side))return '自分の玉への王手を解消できないため、ここには打てません。王手駒を取るか、王手の線を遮る場所を選んでください。';
+  if(type==='P'&&inCheck(next,-side)&&!hasAnyLegalMove(next,-side))return '打ち歩詰めになるため禁止です。';
+  return '';
+ }
+ function validateState(st){
+  if(!st||!Array.isArray(st.board)||st.board.length!==81||![1,-1].includes(st.turn)||!st.hands||!st.hands['1']||!st.hands['-1'])return false;
+  const counts={K:0,R:0,B:0,G:0,S:0,N:0,L:0,P:0},max={K:2,R:2,B:2,G:4,S:4,N:4,L:4,P:18};
+  const pawns={1:new Set(),'-1':new Set()};
+  for(let i=0;i<81;i++){
+   const p=st.board[i];if(!p)continue;
+   if(![1,-1].includes(p.s)||!['K','R','B','G','S','N','L','P'].includes(p.t))return false;
+   if(p.p&&!['R','B','S','N','L','P'].includes(p.t))return false;
+   counts[p.t]++;
+   const x=i%9,y=Math.floor(i/9);
+   if(!p.p&&p.t==='P'){if(y===(p.s===1?0:8)||pawns[p.s].has(x))return false;pawns[p.s].add(x);}
+   if(!p.p&&p.t==='L'&&y===(p.s===1?0:8))return false;
+   if(!p.p&&p.t==='N'&&(p.s===1?y<=1:y>=7))return false;
   }
-
-  const winner = blueAlive === 0 ? 'red' : 'blue';
-  resolveRound(roomId, winner, reason || 'elimination');
+  for(const side of [1,-1]){const used=Number(st.dropsUsed?.[String(side)]??0);if(!Number.isInteger(used)||used<0||used>MAX_DROPS_PER_SIDE)return false;for(const t of ['R','B','G','S','N','L','P']){const n=Number(st.hands[String(side)][t]??0);if(!Number.isInteger(n)||n<0)return false;counts[t]+=n;}}
+  for(const t of Object.keys(max))if(counts[t]!==max[t])return false;
+  const kings={1:0,'-1':0};for(const p of st.board)if(p?.t==='K')kings[p.s]++;
+  if(kings[1]!==1||kings[-1]!==1||inCheck(st,-st.turn))return false;
+  return true;
+ }
+ function kingSquare(st,side){for(let i=0;i<81;i++){const p=st.board[i];if(p&&p.s===side&&p.t==='K')return i;}return -1;}
+ function isInEnemyCamp(side,y){return side===1?y<=2:y>=6;}
+ function isKingEntered(st,side){const k=kingSquare(st,side);return k>=0&&isInEnemyCamp(side,Math.floor(k/9));}
+ function pointsFor(st,side,scope='all'){
+  let points=0,campPieces=0;
+  for(let i=0;i<81;i++){const p=st.board[i];if(!p||p.s!==side||p.t==='K')continue;const inCamp=isInEnemyCamp(side,Math.floor(i/9));if(scope==='camp'&&!inCamp)continue;if(scope==='camp')campPieces++;points+=(p.t==='R'||p.t==='B')?5:1;}
+  const hand=st.hands[String(side)]||{};
+  for(const t of ['R','B','G','S','N','L','P'])points+=(Number(hand[t])||0)*((t==='R'||t==='B')?5:1);
+  return {points,campPieces};
+ }
+ function declarationStatus(st,side){
+  const king=kingSquare(st,side),entered=king>=0&&isInEnemyCamp(side,Math.floor(king/9)),sc=pointsFor(st,side,'camp'),checked=king<0||inCheck(st,side),before500=(Number(st.ply)||0)<500,sideToMove=st.turn===side;
+  const eligible=sideToMove&&entered&&sc.campPieces>=10&&!checked&&sc.points>=24&&before500;
+  const resultPoints=sc.points>=31?'勝ち':sc.points>=24?'無勝負':'宣言不可（24点未満）';
+  return {side,entered,campPieces:sc.campPieces,points:sc.points,checked,before500,sideToMove,eligible,resultPoints,reason:!before500?'500手到達後は入玉宣言不可':!sideToMove?'宣言側の手番ではない':!entered?'玉が敵陣3段目以内にいない':sc.campPieces<10?'敵陣3段目以内の駒が10枚未満':checked?'玉に王手がかかっている':sc.points<24?'宣言に必要な24点未満':sc.points<31?'条件成立：24～30点は無勝負':'条件成立：31点以上で勝ち'};
+ }
+ function impassePoints(st){return {sente:pointsFor(st,1,'all').points,gote:pointsFor(st,-1,'all').points};}
+ function mutualImpasseOutcome(st){const p=impassePoints(st);if(p.sente<24)return {winner:-1,points:p,reason:'先手が24点未満'};if(p.gote<24)return {winner:1,points:p,reason:'後手が24点未満'};return {winner:0,points:p,reason:'双方24点以上・無勝負'};}
+  function moveText(st,m){const files='９８７６５４３２１',ranks='一二三四五六七八九';const pos=`${files[m.to%9]}${ranks[Math.floor(m.to/9)]}`;if(m.drop)return `${pos}${({R:'飛',B:'角',G:'金',S:'銀',N:'桂',L:'香',P:'歩'})[m.drop]}打`;const p=st.board[m.from],piece=p.t==='K'?(p.s===-1?'王':'玉'):({R:'飛',B:'角',G:'金',S:'銀',N:'桂',L:'香',P:'歩'})[p.t];return `${pos}${piece}${m.promote?'成':''}`;}
+ return {MAX_DROPS_PER_SIDE,dropsUsedFor,initialState,cloneState,legalMoves,hasAnyLegalMove,applyMove,inCheck,evaluate,positionFeatures,searchRoot,chooseMove,positionKey,moveText,moveKey,tacticalTags,demote,isLegalMove,dropLegalityReason,validateState,kingSquare,isKingEntered,pointsFor,impassePoints,declarationStatus,mutualImpasseOutcome};
 }
-
-function startRoundTimer(roomId) {
-  const meta = ensureRoomMeta(roomId);
-  if (!meta) return;
-
-  clearRoomTimers(roomId);
-
-  meta.roundEndsAt = Date.now() + ROUND_DURATION_MS;
-  meta.roundTimerId = setInterval(() => {
-    const currentMeta = roomMeta[roomId];
-    if (!currentMeta || currentMeta.phase !== 'playing') return;
-
-    const remainingMs = Math.max(0, currentMeta.roundEndsAt - Date.now());
-
-    io.to(roomId).emit('round-timer', {
-      room: roomId,
-      matchId: currentMeta.matchId || roomId,
-      queueId: currentMeta.queueId || '',
-      roundIndex: currentMeta.roundIndex,
-      remainingMs,
-      remainingSec: Math.ceil(remainingMs / 1000),
-      roundEndsAt: currentMeta.roundEndsAt
-    });
-
-    if (remainingMs <= 0) {
-      const blueAlive = getAliveCount(roomId, 'blue');
-      const redAlive = getAliveCount(roomId, 'red');
-      // FIX #6: timeout tie is now a draw instead of auto-favoring blue.
-      let winner;
-      if (blueAlive === redAlive) winner = null;
-      else winner = blueAlive > redAlive ? 'blue' : 'red';
-      resolveRound(roomId, winner, 'timeout');
-    }
-  }, 500);
-}
-
-// ============================================================================
-// FIX #7: Unified match-start entry point. request-start-match and
-// start-match socket handlers both now call this single function
-// (startMatchInRoomUnified) instead of duplicating the ranked/casual vs
-// random branching logic in two places.
-// ============================================================================
-function startMatchInRoom(room, starterId, isRandomMatch) {
-  const roomId = normalizeRoom(room, { isMatchId: room.indexOf('-') !== -1 });
-  if (!roomId) return { ok: false, message: 'Invalid room' };
-
-  const meta = ensureRoomMeta(roomId);
-  const count = getRoomCount(roomId);
-  const minPlayers = isRandomMatch ? RANDOM_START_MIN_PLAYERS : START_MIN_PLAYERS;
-
-  if (count < minPlayers) return { ok: false, message: 'Not enough players' };
-  if (count > MAX_PLAYERS) return { ok: false, message: 'Room is full' };
-  if (meta.starting) return { ok: false, message: 'Match already starting' };
-
-  meta.starting = true;
-  meta.lastStarter = starterId || '';
-  meta.startToken += 1;
-  meta.blueScore = 0;
-  meta.redScore = 0;
-  meta.roundIndex = 1;
-  meta.roundResolved = false;
-
-  getRoomPlayerEntries(roomId).forEach(([, p]) => {
-    p.matchKills = 0;
-    p.matchDeaths = 0;
-  });
-
-  const token = meta.startToken;
-
-  io.to(roomId).emit('match-starting', {
-    room: roomId,
-    matchId: meta.matchId || roomId,
-    queueId: meta.queueId || '',
-    startedBy: starterId || '',
-    count
-  });
-
-  emitRoomState(roomId);
-
-  setTimeout(() => {
-    const currentMeta = roomMeta[roomId];
-    if (!currentMeta || currentMeta.startToken !== token) return;
-
-    const nowCount = getRoomCount(roomId);
-    if (nowCount < minPlayers) {
-      currentMeta.starting = false;
-      currentMeta.matchStarted = false;
-      currentMeta.phase = 'lobby';
-      io.to(roomId).emit('match-start-cancelled', {
-        room: roomId,
-        matchId: currentMeta.matchId || roomId,
-        queueId: currentMeta.queueId || '',
-        message: 'Players left before start'
-      });
-      emitRoomState(roomId);
-      return;
-    }
-
-    assignRandomTeams(roomId);
-    currentMeta.mapId = pickRandomMapId();
-    applySpawnPositions(roomId);
-    initAIUnitsForRoom(roomId, isRandomMatch);
-
-    currentMeta.starting = false;
-    currentMeta.matchStarted = true;
-    currentMeta.phase = 'playing';
-    currentMeta.startedAt = Date.now();
-    currentMeta.roundIndex = currentMeta.roundIndex || 1;
-    currentMeta.roundEndsAt = Date.now() + ROUND_DURATION_MS;
-    currentMeta.roundResolved = false;
-
-    const payload = {
-      room: roomId,
-      matchId: currentMeta.matchId || roomId,
-      queueId: currentMeta.queueId || '',
-      isRandom: !!currentMeta.isRandom,
-      teams: {
-        blue: getRoomPlayerEntries(roomId).filter(([, p]) => p.team === 'blue').map(([id]) => id),
-        red: getRoomPlayerEntries(roomId).filter(([, p]) => p.team === 'red').map(([id]) => id)
-      },
-      players: getRoomPlayers(roomId),
-      startedBy: starterId || '',
-      startedAt: currentMeta.startedAt,
-      roundIndex: currentMeta.roundIndex,
-      roundEndsAt: currentMeta.roundEndsAt,
-      roundDurationMs: ROUND_DURATION_MS,
-      blue: currentMeta.blueScore,
-      red: currentMeta.redScore,
-      aiUnits: currentMeta.aiUnits,
-      mapId: currentMeta.mapId
-    };
-
-    io.to(roomId).emit('match-started', payload);
-    io.to(roomId).emit('round-started', payload);
-
-    broadcastRoomSnapshot(roomId);
-    emitRoomState(roomId);
-    startRoundTimer(roomId);
-  }, START_DELAY_MS);
-
-  return { ok: true };
-}
-
-function tryStartRandomMatch(roomId, starterId) {
-  const meta = roomMeta[roomId];
-  if (!meta || !meta.isRandom) return { ok: false, message: 'Not a random match room' };
-  if (meta.starting || meta.matchStarted) return { ok: false, message: 'Match already starting' };
-
-  const count = getRoomCount(roomId);
-  if (count < RANDOM_START_MIN_PLAYERS) return { ok: false, message: 'Not enough players' };
-
-  return startMatchInRoom(roomId, starterId, true);
-}
-
-// FIX #7: single shared entry point used by BOTH the 'request-start-match'
-// and 'start-match' socket handlers, and both random/non-random paths route
-// through it. Eliminates the duplicated if/else that used to live twice.
-function startMatchInRoomUnified(roomId, starterId, requestedRandom) {
-  const meta = roomMeta[roomId];
-  const wantsRandom = !!requestedRandom || (meta && meta.isRandom);
-
-  if (wantsRandom && meta && meta.isRandom) {
-    return tryStartRandomMatch(roomId, starterId);
-  }
-  return startMatchInRoom(roomId, starterId, !!requestedRandom);
-}
-
-// 参加者がランダム待機部屋(match)に入って RANDOM_AI_FILL_DELAY_MS 経っても
-// 開始していなければ、AI を補充して開始する（既存のクライアント側30秒仕様を
-// サーバー権威で肩代わりする）。
-function scheduleRandomAiFill(roomId) {
-  const meta = roomMeta[roomId];
-  if (!meta || !meta.isRandom) return;
-  if (meta.randomAiTimerId) return; // 既にスケジュール済み
-
-  meta.randomAiTimerId = setTimeout(() => {
-    const currentMeta = roomMeta[roomId];
-    if (!currentMeta) return;
-    currentMeta.randomAiTimerId = null;
-    if (currentMeta.starting || currentMeta.matchStarted) return;
-    const count = getRoomCount(roomId);
-    if (count < RANDOM_START_MIN_PLAYERS) return; // 誰もいなければ何もしない
-    tryStartRandomMatch(roomId, '');
-  }, RANDOM_AI_FILL_DELAY_MS);
-}
-
-function leaveRoom(socket) {
-  const p = players[socket.id];
-  if (!p) return;
-
-  const roomId = normalizeRoom(p.room, { isMatchId: p.room.indexOf('-') !== -1 });
-  if (roomId) {
-    socket.leave(roomId);
-    indexRemove(roomId, socket.id);
-    socket.to(roomId).emit('playerDisconnected', socket.id);
-    broadcastRoomPlayers(roomId);
-    emitRoomState(roomId);
-    checkRoundEndCondition(roomId, 'player-left');
-    cleanupRoomMetaIfEmpty(roomId);
-  }
-
-  delete players[socket.id];
-}
-
-// ============================================================================
-// FIX #11: Skill (smoke) and bomb effects/damage are now broadcast to the
-// WHOLE room authoritatively via the server (bomb-thrown / bomb-explode /
-// skill-smoke), instead of relying on client-to-client relay of
-// 'playerShotFX' with fxType. The server re-broadcasts these events to
-// every socket in the room (including bystanders on the other team), and
-// applies bomb explosion damage server-side so both players see hits and
-// both screens reflect it consistently.
-// ============================================================================
-function getServerHitRadius(targetType) {
-  return targetType === 'ai' ? 0.55 : 0.55;
-}
-
+const engine = createShogiEngine();
+const app = express();
+const server = http.createServer(app);
+const io = new Server(server, { cors: { origin: '*' }, maxHttpBufferSize: 1e6 });
+const PORT = process.env.PORT || 3000;
+app.use(express.static(__dirname, { extensions: ['html'] }));
+app.get('/health', (_req, res) => res.json({ ok: true, rooms: rooms.size }));
+const rooms = new Map();
+const cleanCode = v => String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
+function makeCode() { let code; do { code = crypto.randomBytes(3).toString('hex').toUpperCase(); } while (rooms.has(code)); return code; }
+function cleanToken(v) { return String(v || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64); }
+function publicRoom(room) { return { roomId: room.id, state: room.state, moves: room.moves, lastMove: room.lastMove || null, players: { sente: !!room.players[1], gote: !!room.players[-1] }, agents: room.agentNames || { '1': 'SENTE AI', '-1': 'GOTE AI' }, result: room.result, revision: room.revision }; }
+function sendRoom(room) { io.to(room.id).emit('room-state', publicRoom(room)); }
+function makeRoom(id) { return { id, state: engine.initialState(), players: { 1: null, '-1': null }, agentNames: { '1': 'SENTE AI', '-1': 'GOTE AI' }, tokens: { '1': null, '-1': null }, spectators: new Set(), moves: [], lastMove: null, result: null, revision: 0, positions: new Map([[engine.positionKey(engine.initialState()), 1]]), createdAt: Date.now(), lastActive: Date.now() }; }
+function resultFor(room) { const legal = engine.legalMoves(room.state); if (!legal.length) { room.result = { winner: engine.inCheck(room.state, room.state.turn) ? -room.state.turn : 0, reason: engine.inCheck(room.state, room.state.turn) ? 'checkmate' : 'no-legal-moves' }; } else if (room.state.ply >= 500) { room.result = { winner: 0, reason: 'move-limit' }; } else { const key = engine.positionKey(room.state); const count = (room.positions.get(key) || 0) + 1; room.positions.set(key, count); if (count >= 4) room.result = { winner: 0, reason: 'repetition' }; } }
 io.on('connection', socket => {
-  console.log(`🟢 接続: ${socket.id}`);
-
-  players[socket.id] = {
-    id: socket.id,
-    name: socket.id,
-    team: 'blue',
-    room: '',
-    x: 0,
-    y: 1.6,
-    z: 5,
-    ry: 0,
-    alive: true,
-    hp: 100,
-    matchMode: 'ranked',
-    lastShotAt: 0,
-    lastShotAtByWeapon: Object.create(null),
-    lastSeenAt: Date.now(),
-    matchKills: 0,
-    matchDeaths: 0,
-    shotSeq: 0
-  };
-
-  socket.on('join-room', (data = {}) => {
-    const requestedRoomId = normalizeRoom(data.room);
-    const name = String(data.name || socket.id).slice(0, 20);
-    const matchMode = data.matchMode || 'ranked';
-    const wantsRandom = !!data.isRandom;
-
-    if (!requestedRoomId) {
-      socket.emit('join-room-error', { message: 'Invalid room number' });
-      return;
-    }
-
-    // ===== Random battle branch =====
-    // HTML 側は currentRoom = 'R0001'（固定文字列）で join してくる。
-    // これを「キューID」として扱い、実際にプレイヤーを入れる roomId は
-    // サーバーが findOrCreateOpenRandomMatch で決定する。
-    if (wantsRandom) {
-      const queueId = requestedRoomId; // 例: 'R0001'
-      const targetRoomId = findOrCreateOpenRandomMatch(queueId);
-
-      if (!targetRoomId || !canJoinRandomMatch(targetRoomId)) {
-        socket.emit('join-room-error', { message: 'Random match is full, please retry' });
-        return;
-      }
-
-      const prev = players[socket.id];
-      const prevRoom = prev ? normalizeRoom(prev.room, { isMatchId: prev.room.indexOf('-') !== -1 }) : '';
-
-      if (prevRoom && prevRoom !== targetRoomId) {
-        socket.leave(prevRoom);
-        indexRemove(prevRoom, socket.id);
-        socket.to(prevRoom).emit('playerDisconnected', socket.id);
-        broadcastRoomPlayers(prevRoom);
-        emitRoomState(prevRoom);
-        checkRoundEndCondition(prevRoom, 'player-switched-room');
-        cleanupRoomMetaIfEmpty(prevRoom);
-      }
-
-      const meta = ensureRoomMeta(targetRoomId);
-      meta.isRandom = true;
-      meta.queueId = queueId;
-      meta.matchId = targetRoomId;
-
-      players[socket.id] = {
-        id: socket.id,
-        name,
-        team: 'blue',
-        room: targetRoomId,
-        x: Number.isFinite(data.x) ? data.x : 0,
-        y: Number.isFinite(data.y) ? data.y : 1.6,
-        z: Number.isFinite(data.z) ? data.z : 5,
-        ry: Number.isFinite(data.ry) ? data.ry : 0,
-        alive: data.alive !== false,
-        hp: Number.isFinite(data.hp) ? data.hp : 100,
-        matchMode,
-        lastShotAt: 0,
-        lastShotAtByWeapon: Object.create(null),
-        lastSeenAt: Date.now(),
-        matchKills: 0,
-        matchDeaths: 0,
-        shotSeq: 0
-      };
-
-      socket.join(targetRoomId);
-      indexAdd(targetRoomId, socket.id);
-      console.log(`📦 join-room(random): ${socket.id} -> queue ${queueId} -> match ${targetRoomId} (${name})`);
-
-      emitCurrentPlayers(socket, targetRoomId);
-
-      const fp = flatPlayer(socket.id, players[socket.id]);
-      socket.to(targetRoomId).emit('newPlayer', fp);
-
-      broadcastRoomPlayers(targetRoomId);
-      emitRoomState(targetRoomId);
-
-      socket.emit('room-snapshot', {
-        room: targetRoomId,
-        matchId: targetRoomId,
-        queueId,
-        isRandom: true,
-        players: getRoomPlayers(targetRoomId),
-        phase: meta.phase,
-        matchStarted: meta.matchStarted,
-        roundIndex: meta.roundIndex,
-        roundEndsAt: meta.roundEndsAt,
-        roundDurationMs: ROUND_DURATION_MS,
-        blue: meta.blueScore,
-        red: meta.redScore,
-        aiUnits: meta.aiUnits,
-        mapId: meta.mapId
-      });
-
-      // クライアントへ「本当の room / matchId」を明示的に伝える専用イベント。
-      // 既存の room-state / room-snapshot にも matchId は入っているが、
-      // HTML 側の adoptRandomServerRoom() が拾いやすいよう別途も送る。
-      socket.emit('random-match-assigned', {
-        queueId,
-        room: targetRoomId,
-        matchId: targetRoomId,
-        assignedRoom: targetRoomId,
-        count: getRoomCount(targetRoomId)
-      });
-
-      scheduleRandomAiFill(targetRoomId);
-      return;
-    }
-
-    // ===== Normal (ranked/casual, fixed room number) branch =====
-    // 既存仕様のまま。ランダム戦の分岐には一切影響しない。
-    const roomId = requestedRoomId;
-
-    const prev = players[socket.id];
-    const prevRoom = prev ? normalizeRoom(prev.room, { isMatchId: prev.room.indexOf('-') !== -1 }) : '';
-
-    if (prevRoom && prevRoom !== roomId) {
-      socket.leave(prevRoom);
-      indexRemove(prevRoom, socket.id);
-      socket.to(prevRoom).emit('playerDisconnected', socket.id);
-      broadcastRoomPlayers(prevRoom);
-      emitRoomState(prevRoom);
-      checkRoundEndCondition(prevRoom, 'player-switched-room');
-      cleanupRoomMetaIfEmpty(prevRoom);
-    }
-
-    const countNow = getRoomCount(roomId);
-    if (prevRoom !== roomId && countNow >= MAX_PLAYERS) {
-      socket.emit('join-room-error', { message: 'Room is full (max 8 players)' });
-      return;
-    }
-
-    const meta = ensureRoomMeta(roomId);
-
-    players[socket.id] = {
-      id: socket.id,
-      name,
-      team: 'blue',
-      room: roomId,
-      x: Number.isFinite(data.x) ? data.x : 0,
-      y: Number.isFinite(data.y) ? data.y : 1.6,
-      z: Number.isFinite(data.z) ? data.z : 5,
-      ry: Number.isFinite(data.ry) ? data.ry : 0,
-      alive: data.alive !== false,
-      hp: Number.isFinite(data.hp) ? data.hp : 100,
-      matchMode,
-      lastShotAt: 0,
-      lastShotAtByWeapon: Object.create(null),
-      lastSeenAt: Date.now(),
-      matchKills: 0,
-      matchDeaths: 0,
-      shotSeq: 0
-    };
-
-    socket.join(roomId);
-    indexAdd(roomId, socket.id);
-    console.log(`📦 join-room: ${socket.id} -> room ${roomId} (${name})`);
-
-    emitCurrentPlayers(socket, roomId);
-
-    const fp = flatPlayer(socket.id, players[socket.id]);
-    socket.to(roomId).emit('newPlayer', fp);
-
-    broadcastRoomPlayers(roomId);
-    emitRoomState(roomId);
-
-    socket.emit('room-snapshot', {
-      room: roomId,
-      matchId: meta.matchId || roomId,
-      queueId: meta.queueId || '',
-      isRandom: false,
-      players: getRoomPlayers(roomId),
-      phase: meta.phase,
-      matchStarted: meta.matchStarted,
-      roundIndex: meta.roundIndex,
-      roundEndsAt: meta.roundEndsAt,
-      roundDurationMs: ROUND_DURATION_MS,
-      blue: meta.blueScore,
-      red: meta.redScore,
-      aiUnits: meta.aiUnits,
-      mapId: meta.mapId
-    });
-  });
-
-  socket.on('request-room-players', (data = {}) => {
-    const p = players[socket.id];
-    const roomId = normalizeRoom(
-      data.room || (p && p.room) || '',
-      { isMatchId: !!(p && p.room && p.room.indexOf('-') !== -1) }
-    );
-    if (!roomId) return;
-    emitCurrentPlayers(socket, roomId);
-  });
-
-  socket.on('request-room-sync', (data = {}) => {
-    const p = players[socket.id];
-    const roomId = normalizeRoom(
-      data.room || (p && p.room) || '',
-      { isMatchId: !!(p && p.room && p.room.indexOf('-') !== -1) }
-    );
-    if (!roomId) return;
-    broadcastRoomSnapshot(roomId);
-  });
-
-  socket.on('get-room', (data = {}) => {
-    const p = players[socket.id];
-    const roomId = normalizeRoom(
-      data.room || (p && p.room) || '',
-      { isMatchId: !!(p && p.room && p.room.indexOf('-') !== -1) }
-    );
-    if (!roomId) return;
-
-    const meta = ensureRoomMeta(roomId);
-    const minPlayers = meta.isRandom ? RANDOM_START_MIN_PLAYERS : START_MIN_PLAYERS;
-    socket.emit('room-state', {
-      room: roomId,
-      matchId: meta.matchId || roomId,
-      queueId: meta.queueId || '',
-      isRandom: !!meta.isRandom,
-      count: getRoomCount(roomId),
-      maxPlayers: MAX_PLAYERS,
-      canStart: getRoomCount(roomId) >= minPlayers && !meta.starting,
-      starting: meta.starting,
-      matchStarted: meta.matchStarted,
-      phase: meta.phase,
-      roundIndex: meta.roundIndex,
-      roundEndsAt: meta.roundEndsAt,
-      roundDurationMs: ROUND_DURATION_MS,
-      blue: meta.blueScore,
-      red: meta.redScore,
-      mapId: meta.mapId,
-      aiUnits: meta.aiUnits,
-      players: getRoomPlayers(roomId)
-    });
-  });
-
-  // FIX #7: both handlers now delegate to the single unified function.
-  socket.on('request-start-match', (data = {}) => {
-    const p = players[socket.id];
-    const roomId = normalizeRoom(
-      data.room || (p && p.room) || '',
-      { isMatchId: !!(p && p.room && p.room.indexOf('-') !== -1) }
-    );
-    if (!roomId) return;
-
-    const result = startMatchInRoomUnified(roomId, socket.id, !!data.isRandom);
-    if (!result.ok) {
-      socket.emit('start-match-error', { room: roomId, message: result.message });
-    }
-  });
-
-  socket.on('start-match', (data = {}) => {
-    const p = players[socket.id];
-    const roomId = normalizeRoom(
-      data.room || (p && p.room) || '',
-      { isMatchId: !!(p && p.room && p.room.indexOf('-') !== -1) }
-    );
-    if (!roomId) return;
-
-    const result = startMatchInRoomUnified(roomId, socket.id, !!data.isRandom);
-    if (!result.ok) {
-      socket.emit('start-match-error', { room: roomId, message: result.message });
-    }
-  });
-
-  socket.on('playerMovement', (movementData = {}) => {
-    const p = players[socket.id];
-    if (!p || !p.room) return;
-    if (p.alive === false) return;
-
-    if (Number.isFinite(movementData.x)) p.x = movementData.x;
-    if (Number.isFinite(movementData.y)) p.y = movementData.y;
-    if (Number.isFinite(movementData.z)) p.z = movementData.z;
-    if (Number.isFinite(movementData.ry)) p.ry = movementData.ry;
-
-    p.lastSeenAt = Date.now();
-
-    socket.to(p.room).emit('playerMoved', {
-      id: socket.id,
-      playerId: socket.id,
-      name: p.name,
-      team: p.team,
-      room: p.room,
-      x: p.x,
-      y: p.y,
-      z: p.z,
-      ry: p.ry
-    });
-  });
-
-  socket.on('playerState', (stateData = {}) => {
-    const p = players[socket.id];
-    if (!p || !p.room) return;
-    if (p.alive === false) return;
-
-    if (Number.isFinite(stateData.x)) p.x = stateData.x;
-    if (Number.isFinite(stateData.y)) p.y = stateData.y;
-    if (Number.isFinite(stateData.z)) p.z = stateData.z;
-    if (Number.isFinite(stateData.ry)) p.ry = stateData.ry;
-
-    p.lastSeenAt = Date.now();
-
-    const payload = Object.assign(flatPlayer(socket.id, p), {
-      playerId: socket.id,
-      targetId: socket.id
-    });
-
-    socket.to(p.room).emit('playerState', payload);
-  });
-
-  // ==========================================================================
-  // FIX #4: playerShoot now validates BEFORE broadcasting any FX. Invalid or
-  // rate-limited shots no longer produce network traffic / visuals at all.
-  // The old 'playerShot' handler (FX-only, no damage) is kept for pure
-  // muzzle-flash "miss" broadcasts triggered by the client when its own
-  // raycast found no target, but it now also passes through basic
-  // room/rate sanity checks so spam can't flood the room with FX either.
-  // ==========================================================================
-  socket.on('playerShot', (shotData = {}) => {
-    const p = players[socket.id];
-    if (!p || !p.room) return;
-    const roomId = p.room;
-    const meta = roomMeta[roomId];
-    if (!meta || meta.phase !== 'playing') return;
-
-    // Basic rate sanity even for FX-only "miss" shots, so a modified client
-    // can't spam the room with fake muzzle flashes.
-    const now = Date.now();
-    const weaponKey = WEAPON_DAMAGE_TABLE[shotData.weapon] ? shotData.weapon : 'default';
-    const minInterval = WEAPON_MIN_INTERVAL_MS[weaponKey] || SHOT_MIN_INTERVAL_MS;
-    p.lastShotAtByWeapon = p.lastShotAtByWeapon || Object.create(null);
-    const lastForWeapon = p.lastShotAtByWeapon[weaponKey] || 0;
-    if (lastForWeapon && now - lastForWeapon < minInterval) return;
-    p.lastShotAtByWeapon[weaponKey] = now;
-    p.lastShotAt = now;
-    p.shotSeq = (p.shotSeq || 0) + 1;
-
-    const fxPayload = Object.assign({}, shotData, {
-      id: socket.id,
-      playerId: socket.id,
-      name: p.name,
-      team: p.team,
-      room: roomId,
-      shotSeq: p.shotSeq,
-      shotAt: now
-    });
-
-    broadcastShotFX(roomId, fxPayload);
-  });
-
-  socket.on('playerShoot', (shotData = {}) => {
-    const p = players[socket.id];
-    if (!p || !p.room) return;
-
-    const roomId = p.room;
-    const meta = roomMeta[roomId];
-
-    // FIX #3/#4: validate BEFORE any broadcast. Nothing is emitted for an
-    // invalid/rate-limited/out-of-phase shot.
-    if (!meta || meta.phase !== 'playing') return;
-
-    const weaponKey = WEAPON_DAMAGE_TABLE[shotData.weapon] ? shotData.weapon : 'default';
-    const weaponDef = WEAPON_DAMAGE_TABLE[weaponKey];
-    const minInterval = WEAPON_MIN_INTERVAL_MS[weaponKey] || SHOT_MIN_INTERVAL_MS;
-
-    const now = Date.now();
-    p.lastShotAtByWeapon = p.lastShotAtByWeapon || Object.create(null);
-    const lastForWeapon = p.lastShotAtByWeapon[weaponKey] || 0;
-    if (lastForWeapon && now - lastForWeapon < minInterval) return;
-    p.lastShotAtByWeapon[weaponKey] = now;
-    p.lastShotAt = now;
-    p.shotSeq = (p.shotSeq || 0) + 1;
-
-    const targetId = shotData.targetId;
-
-    // FX broadcast happens once validation has passed (covers both hit and
-    // deliberate "no target" cosmetic shots sent through this event).
-    const fxPayload = Object.assign({}, shotData, {
-      id: socket.id,
-      playerId: socket.id,
-      name: p.name,
-      team: p.team,
-      room: roomId,
-      shotSeq: p.shotSeq,
-      shotAt: now,
-      // Don't let the FX payload leak the raw client damage value that we
-      // are about to ignore for actual game logic.
-      damage: undefined
-    });
-    broadcastShotFX(roomId, fxPayload);
-
-    if (!targetId) return;
-
-    // FIX #2: damage is computed server-side from the weapon table. The
-    // client-reported `damage` and `headshot` values are no longer trusted
-    // directly; headshot is accepted only as a hint and capped to the
-    // server-known multiplier for the resolved weapon.
-    const pelletDamage = weaponDef.damage;
-    const isHeadshotHint = !!shotData.headshot;
-    const finalDamage = Math.max(1, Math.round(pelletDamage * (isHeadshotHint ? HEADSHOT_MULTIPLIER : 1)));
-
-    if (typeof targetId === 'string' && targetId.indexOf('ai-') === 0) {
-      const unit = findAIUnit(roomId, targetId);
-      if (!unit || !unit.alive) return;
-      if (unit.team === p.team) return;
-
-      unit.hp = Math.max(0, unit.hp - finalDamage);
-      const justDied = unit.hp <= 0 && unit.alive;
-      if (unit.hp <= 0) unit.alive = false;
-
-      if (justDied) p.matchKills = (p.matchKills || 0) + 1;
-
-      io.to(roomId).emit('damage-result', {
-        room: roomId,
-        sourceId: socket.id,
-        targetId: unit.id,
-        targetType: 'ai',
-        hp: unit.hp,
-        alive: unit.alive,
-        killed: justDied,
-        team: unit.team,
-        damage: finalDamage
-      });
-
-      if (justDied) {
-        io.to(roomId).emit('player-died', {
-          room: roomId,
-          targetId: unit.id,
-          targetType: 'ai',
-          killerId: socket.id
-        });
-      }
-
-      checkRoundEndCondition(roomId, 'ai-eliminated');
-      return;
-    }
-
-    const target = players[targetId];
-    if (!target || target.room !== roomId) return;
-    if (target.alive === false || (target.hp ?? 100) <= 0) return;
-    if (target.team === p.team) return;
-
-    target.hp = Math.max(0, (target.hp ?? 100) - finalDamage);
-    const justDied = target.hp <= 0 && target.alive !== false;
-    if (target.hp <= 0) target.alive = false;
-    target.lastSeenAt = Date.now();
-
-    if (justDied) {
-      p.matchKills = (p.matchKills || 0) + 1;
-      target.matchDeaths = (target.matchDeaths || 0) + 1;
-    }
-
-    io.to(roomId).emit('damage-result', {
-      room: roomId,
-      sourceId: socket.id,
-      targetId,
-      targetType: 'human',
-      hp: target.hp,
-      alive: target.alive,
-      killed: justDied,
-      team: target.team,
-      damage: finalDamage
-    });
-
-    if (justDied) {
-      io.to(roomId).emit('player-died', {
-        room: roomId,
-        targetId,
-        targetType: 'human',
-        killerId: socket.id
-      });
-    }
-
-    broadcastRoomPlayers(roomId);
-    checkRoundEndCondition(roomId, 'player-eliminated');
-  });
-
-  // ==========================================================================
-  // FIX #3: AI attacks are now validated & damage is applied authoritatively
-  // by the server (fixed AI_DAMAGE_PER_HIT, server-checked LOS/team), rather
-  // than trusting a client's self-reported "this AI hit this target" claim
-  // for the damage magnitude. We still accept the AI id / target id / rough
-  // position from the client (since AI simulation is client-visual only
-  // here), but damage amount and eligibility are enforced server-side and
-  // rate-limited per AI unit, mirroring what playerShoot does for players.
-  // ==========================================================================
-  socket.on('ai-attack', (data = {}) => {
-    const p = players[socket.id];
-    if (!p || !p.room) return;
-
-    const roomId = p.room;
-    const meta = roomMeta[roomId];
-    if (!meta || meta.phase !== 'playing') return;
-
-    const aiId = data.aiId;
-    const unit = findAIUnit(roomId, aiId);
-    if (!unit || !unit.alive) return;
-
-    const now = Date.now();
-    if (unit.lastAttackAt && now - unit.lastAttackAt < 400) return;
-    unit.lastAttackAt = now;
-
-    const targetId = data.targetId;
-    if (!targetId) return;
-
-    if (
-      Number.isFinite(data.aiX) && Number.isFinite(data.aiZ) &&
-      Number.isFinite(data.targetX) && Number.isFinite(data.targetZ)
-    ) {
-      if (isLineOfSightBlocked(data.aiX, data.aiZ, data.targetX, data.targetZ, meta.mapId)) {
-        return;
-      }
-    }
-
-    // Damage is always the server constant, never taken from the client.
-    const dmg = AI_DAMAGE_PER_HIT;
-
-    if (targetId !== aiId && typeof targetId === 'string' && targetId.indexOf('ai-') !== 0) {
-      const target = players[targetId];
-      if (!target || target.room !== roomId) return;
-      if (target.alive === false || (target.hp ?? 100) <= 0) return;
-      if (target.team === unit.team) return;
-
-      target.hp = Math.max(0, (target.hp ?? 100) - dmg);
-      const justDied = target.hp <= 0 && target.alive !== false;
-      if (target.hp <= 0) target.alive = false;
-      target.lastSeenAt = Date.now();
-
-      if (justDied) target.matchDeaths = (target.matchDeaths || 0) + 1;
-
-      io.to(roomId).emit('damage-result', {
-        room: roomId,
-        sourceId: aiId,
-        targetId,
-        targetType: 'human',
-        hp: target.hp,
-        alive: target.alive,
-        killed: justDied,
-        team: target.team,
-        damage: dmg
-      });
-
-      if (justDied) {
-        io.to(roomId).emit('player-died', {
-          room: roomId,
-          targetId,
-          targetType: 'human',
-          killerId: aiId
-        });
-      }
-
-      broadcastRoomPlayers(roomId);
-      checkRoundEndCondition(roomId, 'player-eliminated-by-ai');
-      return;
-    }
-
-    if (targetId.indexOf('ai-') === 0) {
-      const targetUnit = findAIUnit(roomId, targetId);
-      if (!targetUnit || !targetUnit.alive || targetUnit.team === unit.team) return;
-
-      targetUnit.hp = Math.max(0, targetUnit.hp - dmg);
-      const justDied = targetUnit.hp <= 0 && targetUnit.alive;
-      if (targetUnit.hp <= 0) targetUnit.alive = false;
-
-      io.to(roomId).emit('damage-result', {
-        room: roomId,
-        sourceId: aiId,
-        targetId: targetUnit.id,
-        targetType: 'ai',
-        hp: targetUnit.hp,
-        alive: targetUnit.alive,
-        killed: justDied,
-        team: targetUnit.team,
-        damage: dmg
-      });
-
-      if (justDied) {
-        io.to(roomId).emit('player-died', {
-          room: roomId,
-          targetId: targetUnit.id,
-          targetType: 'ai',
-          killerId: aiId
-        });
-      }
-
-      checkRoundEndCondition(roomId, 'ai-eliminated');
-    }
-  });
-
-  // ==========================================================================
-  // FIX #11: skill smoke placement is now broadcast to the whole room from
-  // the server (server re-emits to everyone including the caster), instead
-  // of only ever traveling as a payload inside 'playerShotFX' which some
-  // clients / paths might not relay symmetrically. This guarantees both
-  // screens show the smoke.
-  // ==========================================================================
-  socket.on('skill-smoke', (data = {}) => {
-    const p = players[socket.id];
-    if (!p || !p.room) return;
-    const roomId = p.room;
-    if (!Number.isFinite(data.x) || !Number.isFinite(data.z)) return;
-
-    const payload = {
-      room: roomId,
-      sourceId: socket.id,
-      team: p.team,
-      x: data.x,
-      z: data.z,
-      at: Date.now()
-    };
-    io.to(roomId).emit('skill-smoke', payload);
-    // legacy alias so older clients listening on playerShotFX/fxType still work
-    if (LEGACY_SHOT_EVENTS) {
-      io.to(roomId).emit('playerShotFX', Object.assign({}, payload, { fxType: 'skill-smoke' }));
-    }
-  });
-
-  // Backward-compatibility bridge for older HTML clients that still emit
-  // skill smoke via `playerShotFX` instead of the dedicated `skill-smoke` event.
-  // This keeps both screens in sync without requiring a client rollout first.
-  socket.on('playerShotFX', (data = {}) => {
-    const p = players[socket.id];
-    if (!p || !p.room) return;
-
-    if (data.fxType !== 'skill-smoke') return;
-
-    const roomId = p.room;
-    if (!Number.isFinite(data.x) || !Number.isFinite(data.z)) return;
-
-    const payload = {
-      room: roomId,
-      sourceId: socket.id,
-      team: p.team,
-      x: data.x,
-      z: data.z,
-      at: Date.now()
-    };
-
-    io.to(roomId).emit('skill-smoke', payload);
-    if (LEGACY_SHOT_EVENTS) {
-      io.to(roomId).emit('playerShotFX', Object.assign({}, payload, { fxType: 'skill-smoke' }));
-    }
-  });
-
-  // ==========================================================================
-  // FIX #11: bomb throw is now server-authoritative for broadcast (everyone
-  // in the room, including the thrower's opponents, receives the throw and
-  // the eventual explosion), and explosion damage is computed and applied
-  // server-side rather than only in the thrower's own client.
-  // ==========================================================================
-  const BOMB_DAMAGE = 38;
-  const BOMB_RADIUS = 4.6;
-  const BOMB_FUSE_MS = 5000;
-
-  socket.on('bomb-thrown', (data = {}) => {
-    const p = players[socket.id];
-    if (!p || !p.room) return;
-    const roomId = p.room;
-    const meta = roomMeta[roomId];
-    if (!meta || meta.phase !== 'playing') return;
-
-    if (![data.x, data.y, data.z, data.dx, data.dy, data.dz].every(Number.isFinite)) return;
-
-    const payload = {
-      room: roomId,
-      ownerId: socket.id,
-      team: p.team,
-      x: data.x, y: data.y, z: data.z,
-      dx: data.dx, dy: data.dy, dz: data.dz,
-      speed: Number.isFinite(data.speed) ? data.speed : 16,
-      thrownAt: Date.now()
-    };
-
-    io.to(roomId).emit('bomb-thrown', payload);
-    if (LEGACY_SHOT_EVENTS) {
-      io.to(roomId).emit('playerShotFX', Object.assign({}, payload, { fxType: 'bomb-throw' }));
-    }
-  });
-
-  socket.on('bomb-explode', (data = {}) => {
-    const p = players[socket.id];
-    if (!p || !p.room) return;
-    const roomId = p.room;
-    const meta = roomMeta[roomId];
-    if (!meta || meta.phase !== 'playing') return;
-    if (![data.x, data.y, data.z].every(Number.isFinite)) return;
-
-    const center = { x: data.x, y: data.y, z: data.z };
-    const radius = BOMB_RADIUS;
-    const ownerId = socket.id;
-    const affected = [];
-
-    // Apply damage to human players in the room, server-authoritative.
-    getRoomPlayerEntries(roomId).forEach(([id, target]) => {
-      if (id === ownerId) return; // no self-damage from own bomb by default
-      if (!target || target.alive === false) return;
-      const dx = (target.x || 0) - center.x;
-      const dz = (target.z || 0) - center.z;
-      const dy = (target.y || 1.6) - center.y;
-      const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
-      if (dist > radius) return;
-      const hpFactor = 1 - dist / radius;
-      const dmg = Math.max(1, Math.round(BOMB_DAMAGE * Math.max(0.25, hpFactor)));
-      target.hp = Math.max(0, (target.hp ?? 100) - dmg);
-      const justDied = target.hp <= 0 && target.alive !== false;
-      if (target.hp <= 0) target.alive = false;
-      if (justDied) target.matchDeaths = (target.matchDeaths || 0) + 1;
-      affected.push({ type: 'human', id, dmg });
-
-      io.to(roomId).emit('damage-result', {
-        room: roomId,
-        sourceId: ownerId,
-        targetId: id,
-        targetType: 'human',
-        hp: target.hp,
-        alive: target.alive,
-        killed: justDied,
-        team: target.team,
-        damage: dmg,
-        sourceType: 'bomb'
-      });
-      if (justDied) {
-        io.to(roomId).emit('player-died', {
-          room: roomId,
-          targetId: id,
-          targetType: 'human',
-          killerId: ownerId
-        });
-      }
-    });
-
-    // Apply damage to AI units.
-    if (meta.aiUnits) {
-      meta.aiUnits.forEach(unit => {
-        if (!unit.alive) return;
-        // AI world position isn't tracked server-side beyond spawn; rely on
-        // client-reported hit list only for cosmetic AI kills triggered via
-        // ai-attack path elsewhere. Server-side bomb->AI damage is skipped
-        // here since the server doesn't simulate AI movement; the
-        // authoritative AI vs AI/human combat stays on the existing
-        // ai-attack / playerShoot paths.
-      });
-    }
-
-    io.to(roomId).emit('bomb-explode', {
-      room: roomId,
-      ownerId,
-      team: p.team,
-      x: center.x, y: center.y, z: center.z,
-      damage: BOMB_DAMAGE,
-      radius,
-      affected
-    });
-    if (LEGACY_SHOT_EVENTS) {
-      io.to(roomId).emit('playerShotFX', {
-        room: roomId,
-        fxType: 'bomb-explode',
-        ownerId,
-        x: center.x, y: center.y, z: center.z
-      });
-    }
-
-    if (affected.length) {
-      broadcastRoomPlayers(roomId);
-      checkRoundEndCondition(roomId, 'bomb-eliminated');
-    }
-  });
-
-  socket.on('leave-room', () => {
-    leaveRoom(socket);
-  });
-
-  socket.on('disconnect', () => {
-    console.log(`❌ 切断: ${socket.id}`);
-    leaveRoom(socket);
-  });
+ socket.on('create-room', payload => { const id = makeCode(), room = makeRoom(id), token = cleanToken(payload?.token) || crypto.randomBytes(18).toString('hex'); room.players[1] = socket.id; room.tokens['1'] = token; rooms.set(id, room); socket.join(id); socket.data.roomId = id; socket.data.side = 1; socket.data.token = token; socket.emit('room-created', { ...publicRoom(room), side: 1 }); });
+ socket.on('join-room', payload => { const id = cleanCode(payload?.roomId), room = rooms.get(id), token = cleanToken(payload?.token) || crypto.randomBytes(18).toString('hex'); if (!room) return socket.emit('room-error', { message: 'そのルームは見つかりません。コードを確認してください。' }); if (room.result) return socket.emit('room-error', { message: 'この対局は終了しています。新しい部屋を作成してください。' }); let side = [1, -1].find(s => token && room.tokens[String(s)] === token && !room.players[s]); if (!side) side = !room.players[-1] && !room.tokens['-1'] ? -1 : (!room.players[1] && !room.tokens['1'] ? 1 : 0); if (side === 0) { room.spectators.add(socket.id); socket.join(id); socket.data.roomId = id; socket.data.side = 0; socket.data.token = token; socket.emit('room-joined', { ...publicRoom(room), side: 0 }); return; } room.players[side] = socket.id; room.tokens[String(side)] = token; socket.join(id); socket.data.roomId = id; socket.data.side = side; socket.data.token = token; room.lastActive = Date.now(); socket.emit('room-joined', { ...publicRoom(room), side }); sendRoom(room); });
+ socket.on('agent-profile', payload => { const id = cleanCode(payload?.roomId), room = rooms.get(id), side = socket.data.side; if (!room || socket.data.roomId !== id || ![1, -1].includes(side) || room.players[side] !== socket.id) return; const name = String(payload?.name || '').replace(/[<>\u0000-\u001f]/g, '').trim().slice(0, 22); if (name) room.agentNames[String(side)] = name; sendRoom(room); });
+ socket.on('rejoin-room', payload => { const id = cleanCode(payload?.roomId), room = rooms.get(id), token = cleanToken(payload?.token); if (!room) return socket.emit('room-error', { message: '再接続先のルームがありません。' }); const side = [1, -1].find(s => token && room.tokens[String(s)] === token && !room.players[s]); if (!side) return socket.emit('room-error', { message: 'この端末の再接続情報が確認できません。ルームコードから再参加してください。' }); room.players[side] = socket.id; socket.join(id); socket.data.roomId = id; socket.data.side = side; socket.data.token = token; socket.emit('room-joined', { ...publicRoom(room), side }); sendRoom(room); });
+ socket.on('move', payload => { const id = cleanCode(payload?.roomId), room = rooms.get(id), side = socket.data.side, move = payload?.move; if (!room || socket.data.roomId !== id || ![1, -1].includes(side)) return socket.emit('room-error', { message: 'この部屋の対局者ではありません。' }); if (room.result) return socket.emit('room-error', { message: '対局は既に終了しています。' }); if (room.players[side] !== socket.id || room.state.turn !== side) return socket.emit('room-error', { message: '現在はあなたの手番ではありません。' }); if (payload?.expectedRevision != null && Number(payload.expectedRevision) !== room.revision) { socket.emit('room-state', publicRoom(room)); return socket.emit('room-error', { message: '盤面が更新されました。最新状態を読み直します。' }); } if (!engine.isLegalMove(room.state, move)) return socket.emit('room-error', { message: '不正な着手です。盤面を更新してください。' }); const before = room.state; room.lastMove = move; room.state = engine.applyMove(before, move); room.moves.push((side === 1 ? '▲' : '△') + engine.moveText(before, move)); room.revision++; room.lastActive = Date.now(); resultFor(room); sendRoom(room); });
+ socket.on('resign', payload => { const id = cleanCode(payload?.roomId), room = rooms.get(id), side = socket.data.side; if (!room || room.players[side] !== socket.id || ![1, -1].includes(side) || room.result) return; room.result = { winner: -side, reason: 'resign' }; sendRoom(room); });
+ socket.on('leave-room', payload => { const id = cleanCode(payload?.roomId), room = rooms.get(id); if (room) { const side = socket.data.side; if (room.players[side] === socket.id) { room.players[side] = null; if (side === 1 || side === -1) room.tokens[String(side)] = null; } room.spectators.delete(socket.id); room.lastActive = Date.now(); sendRoom(room); } socket.leave(id); socket.data.roomId = null; socket.data.side = 0; socket.data.token = null; });
+ socket.on('disconnect', () => { const id = socket.data.roomId, room = rooms.get(id); if (room) { const side = socket.data.side; if (room.players[side] === socket.id) room.players[side] = null; room.spectators.delete(socket.id); room.lastActive = Date.now(); sendRoom(room); } });
 });
-
-server.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-  if (ALLOWED_ORIGINS.length === 0) {
-    console.warn('⚠️  ALLOWED_ORIGINS is not set — CORS is permissive (dev mode). Set ALLOWED_ORIGINS in production.');
-  } else {
-    console.log('✅ CORS allowlist:', ALLOWED_ORIGINS.join(', '));
-  }
-});
+setInterval(() => { const now = Date.now(); for (const [id, room] of rooms) if (now - room.lastActive > 6 * 60 * 60 * 1000) rooms.delete(id); }, 10 * 60 * 1000).unref();
+server.listen(PORT, '0.0.0.0', () => console.log(`Shogi AI Arena listening on ${PORT}`));

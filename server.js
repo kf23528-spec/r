@@ -267,7 +267,7 @@ const io = new Server(server, {
     },
     methods: ['GET', 'POST']
   },
-  maxHttpBufferSize: 1e6,
+  maxHttpBufferSize: 9e6,
   pingInterval: 25000,
   pingTimeout: 20000
 });
@@ -331,7 +331,7 @@ function makeRoom(id) {
     id, state: initial, players: { 1: null, '-1': null }, names: { '1': '先手', '-1': '後手' },
     tokens: { '1': null, '-1': null }, spectators: new Set(), moves: [], lastMove: null,
     result: null, revision: 0, positions: new Map([[engine.positionKey(initial), 1]]),
-    createdAt: Date.now(), lastActive: Date.now(), botSide: 0, botTimer: null
+    createdAt: Date.now(), lastActive: Date.now(), botSide: 0, botTimer: null, adminSocketId: null, botWeights: null, botKnowledgeSummary: null, botOpeningBook: null
   };
 }
 function resultFor(room) {
@@ -346,6 +346,65 @@ function resultFor(room) {
   if (room.result && room.botTimer) { clearTimeout(room.botTimer); room.botTimer = null; }
 }
 function bothOccupied(room) { return !!(room.players[1] && room.players[-1]); }
+function safeNumericMap(value, maxEntries = 3000) {
+  const out = {}; if (!value || typeof value !== 'object' || Array.isArray(value)) return out;
+  for (const [key, raw] of Object.entries(value).slice(0, maxEntries)) {
+    const n = Number(raw); if (Number.isFinite(n)) out[String(key).slice(0, 100)] = Math.max(-10000, Math.min(10000, n));
+  }
+  return out;
+}
+function normalizeHiddenKnowledge(data) {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('JSON形式を確認してください。');
+  const root = data.boards?.standard9x9 || data.brain?.learner || data.learner || data;
+  const source = root.weights && typeof root.weights === 'object' ? root.weights : {};
+  const weights = {};
+  for (const key of ['material', 'advance', 'kingSafety', 'hand', 'center']) {
+    const n = Number(source[key] ?? root[key]);
+    if (Number.isFinite(n)) weights[key] = Math.max(-20, Math.min(20, n));
+  }
+  const valueNet = root.valueNet?.weights || root.valueNet || source.valueNet || data.valueNet?.weights || data.valueNet;
+  let valueNetWeights = 0;
+  if (Array.isArray(valueNet) && valueNet.length === 897 && valueNet.every(v => Number.isFinite(Number(v)))) {
+    weights.valueNet = valueNet.map(v => Math.max(-20, Math.min(20, Number(v)))); valueNetWeights = weights.valueNet.length;
+  }
+  const tactics = root.tacticBias || root.tacticBiases || source.tacticBias;
+  const phases = root.tacticPhaseBias || root.tacticalPatternBias || source.tacticalPatternBias;
+  const counterTactics = root.counterTacticBias || source.counterTacticBias;
+  const counterMoves = root.counterMoveBias || source.counterMoveBias;
+  const repetition = root.repetitionPenalty || source.repetitionPenalty;
+  if (tactics) weights.tacticBias = safeNumericMap(tactics);
+  if (phases) weights.tacticalPatternBias = safeNumericMap(phases);
+  if (counterTactics) weights.counterTacticBias = safeNumericMap(counterTactics);
+  if (counterMoves) weights.counterMoveBias = safeNumericMap(counterMoves);
+  if (repetition) weights.repetitionPenalty = safeNumericMap(repetition);
+  const squares = root.counterSquareBias || source.counterSquareBias;
+  if (Array.isArray(squares) && squares.length <= 81) weights.counterSquareBias = squares.map(v => Number.isFinite(Number(v)) ? Math.max(-100, Math.min(100, Number(v))) : 0);
+  const openingSource = root.cpuOpeningBook || root.openingBook || data.cpuOpeningBook || data.openingBook;
+  const openingBook = {};
+  if (Array.isArray(openingSource)) {
+    for (const item of openingSource.slice(0, 3000)) {
+      if (!item || typeof item !== 'object') continue;
+      const key = item.positionKey || item.position || item.key || item.hash;
+      const move = item.moveKey || item.bestMove || item.move || item.action;
+      if (typeof key === 'string' && (typeof move === 'string' || (move && typeof move === 'object'))) openingBook[key.slice(0, 1000)] = move;
+    }
+  } else if (openingSource && typeof openingSource === 'object') {
+    for (const [key, move] of Object.entries(openingSource).slice(0, 3000)) if (typeof move === 'string' || (move && typeof move === 'object')) openingBook[key.slice(0, 1000)] = move;
+  }
+  const patterns = Array.isArray(root.tacticalPatterns) ? root.tacticalPatterns.length : 0;
+  const openingBookEntries = Object.keys(openingBook).length;
+  const usable = valueNetWeights || Object.keys(weights).length || openingBookEntries;
+  if (!usable) throw new Error('対応する重み・価値ネット・定跡が見つかりません。標準AIはそのまま利用できます。');
+  return { weights, openingBook, stats: { valueNetWeights, weightGroups: Object.keys(weights).length, openingBookEntries, tacticalPatterns: patterns } };
+}
+function resolveBookMove(room, legal) {
+  if (!room.botOpeningBook) return null;
+  const entry = room.botOpeningBook[engine.positionKey(room.state)]; if (!entry) return null;
+  let key = typeof entry === 'string' ? entry : (entry.moveKey || entry.key || null);
+  if (key) return legal.find(move => engine.moveKey(move) === key) || null;
+  if (entry && typeof entry === 'object') return legal.find(move => engine.moveKey(move) === engine.moveKey(entry)) || null;
+  return null;
+}
 function scheduleHiddenAI(room) {
   if (!room || !room.botSide || room.result || room.botTimer || !bothOccupied(room) || room.state.turn !== room.botSide) return;
   room.botTimer = setTimeout(() => {
@@ -353,8 +412,10 @@ function scheduleHiddenAI(room) {
     if (room.result || !room.botSide || room.players[room.botSide] !== BOT_ID || !bothOccupied(room) || room.state.turn !== room.botSide) return;
     const legal = engine.legalMoves(room.state);
     if (!legal.length) { resultFor(room); sendRoom(room); return; }
-    // Hidden opponent uses the built-in search; no knowledge file or client-side AI is required.
-    const found = engine.searchRoot(room.state, legal, room.botSide, {}, 3, 0, 1, Date.now() + 950, null);
+    // Standard search is always available. Optional operator-loaded knowledge affects only this room's hidden AI.
+    const bookMove = resolveBookMove(room, legal);
+    const weights = room.botWeights || {};
+    const found = bookMove ? { move: bookMove } : engine.searchRoot(room.state, legal, room.botSide, weights, 3, 0, 1, Date.now() + (room.botWeights ? 1250 : 950), null);
     const move = found && found.move && legal.some(m => engine.moveKey(m) === engine.moveKey(found.move)) ? found.move : legal[0];
     const before = room.state;
     room.lastMove = move;
@@ -382,8 +443,9 @@ io.on('connection', socket => {
     room.names['1'] = name;
     if (payload?.hiddenSeat === true) {
       assignHiddenPlayer(room, 1, name);
+      room.adminSocketId = socket.id;
       room.spectators.add(socket.id);
-      socket.join(id); socket.data.roomId = id; socket.data.side = 0; socket.data.token = null;
+      socket.join(id); socket.data.roomId = id; socket.data.side = 0; socket.data.token = null; socket.data.hiddenAdmin = true;
       rooms.set(id, room); socket.emit('room-created', { ...publicRoom(room), side: 0 });
     } else {
       room.players[1] = socket.id; room.tokens['1'] = token;
@@ -428,10 +490,32 @@ io.on('connection', socket => {
     if (room.botSide) return socket.emit('room-error', { message: '隠し対局者は既に参加しています。' });
     // Replace only the caller's own seat. The other human remains in the game; caller becomes a spectator.
     assignHiddenPlayer(room, side, room.names[String(side)]);
-    room.spectators.add(socket.id); socket.data.side = 0; socket.data.token = null;
+    room.adminSocketId = socket.id;
+    room.spectators.add(socket.id); socket.data.side = 0; socket.data.token = null; socket.data.hiddenAdmin = true;
     room.lastActive = Date.now();
     socket.emit('hidden-player-armed');
     sendRoom(room); scheduleHiddenAI(room);
+  });
+  socket.on('load-hidden-knowledge', payload => {
+    const id = cleanCode(payload?.roomId), room = rooms.get(id);
+    if (!room || socket.data.roomId !== id || room.adminSocketId !== socket.id || socket.data.hiddenAdmin !== true || !room.botSide) return socket.emit('hidden-knowledge-error', { message: '管理者セッションが確認できません。隠しAIを起動した端末から操作してください。' });
+    try {
+      const normalized = normalizeHiddenKnowledge(payload?.data);
+      room.botWeights = normalized.weights;
+      room.botOpeningBook = normalized.openingBook;
+      room.botKnowledgeSummary = normalized.stats;
+      room.lastActive = Date.now();
+      socket.emit('hidden-knowledge-loaded', { stats: normalized.stats, message: `知識データを適用しました · valueNet ${normalized.stats.valueNetWeights} · 定跡 ${normalized.stats.openingBookEntries} · 戦術 ${normalized.stats.tacticalPatterns}` });
+      scheduleHiddenAI(room);
+    } catch (error) {
+      socket.emit('hidden-knowledge-error', { message: error?.message || '知識データを適用できませんでした。' });
+    }
+  });
+  socket.on('clear-hidden-knowledge', payload => {
+    const id = cleanCode(payload?.roomId), room = rooms.get(id);
+    if (!room || socket.data.roomId !== id || room.adminSocketId !== socket.id || socket.data.hiddenAdmin !== true || !room.botSide) return socket.emit('hidden-knowledge-error', { message: '管理者セッションが確認できません。' });
+    room.botWeights = null; room.botOpeningBook = null; room.botKnowledgeSummary = null; room.lastActive = Date.now();
+    socket.emit('hidden-knowledge-loaded', { stats: { valueNetWeights: 0, openingBookEntries: 0 }, message: '標準AIへ戻しました。' });
   });
   socket.on('move', payload => {
     const id = cleanCode(payload?.roomId), room = rooms.get(id), side = socket.data.side, move = payload?.move;
@@ -454,9 +538,9 @@ io.on('connection', socket => {
     if (room) {
       const side = socket.data.side;
       if ([1, -1].includes(side) && room.players[side] === socket.id) { room.players[side] = null; room.tokens[String(side)] = null; }
-      room.spectators.delete(socket.id); room.lastActive = Date.now(); sendRoom(room);
+      room.spectators.delete(socket.id); if (room.adminSocketId === socket.id) room.adminSocketId = null; room.lastActive = Date.now(); sendRoom(room);
     }
-    socket.leave(id); socket.data.roomId = null; socket.data.side = 0; socket.data.token = null;
+    socket.data.hiddenAdmin = false; socket.leave(id); socket.data.roomId = null; socket.data.side = 0; socket.data.token = null;
   });
   socket.on('disconnect', reason => {
     console.log(`Socket disconnected: ${socket.id} (${reason})`);
@@ -464,7 +548,7 @@ io.on('connection', socket => {
     if (room) {
       const side = socket.data.side;
       if ([1, -1].includes(side) && room.players[side] === socket.id) room.players[side] = null;
-      room.spectators.delete(socket.id); room.lastActive = Date.now(); sendRoom(room);
+      room.spectators.delete(socket.id); if (room.adminSocketId === socket.id) room.adminSocketId = null; room.lastActive = Date.now(); sendRoom(room);
     }
   });
 });

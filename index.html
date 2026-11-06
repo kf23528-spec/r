@@ -1,0 +1,400 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#f4efe5">
+<title>将棋オンライン対局</title>
+<style>
+:root{--paper:#f4efe5;--paper2:#fffdf8;--ink:#302a22;--muted:#82796d;--line:#ded4c4;--wood:#d9ad72;--wood2:#efcf9d;--brown:#6e4d2c;--brown2:#8c683f;--green:#476a55;--green2:#e8f0e8;--red:#a64c3e;--shadow:0 12px 34px #543b1b15}
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:var(--paper);color:var(--ink);font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Hiragino Kaku Gothic ProN",Meiryo,sans-serif}body{padding:max(10px,env(safe-area-inset-top)) max(10px,env(safe-area-inset-right)) max(16px,env(safe-area-inset-bottom)) max(10px,env(safe-area-inset-left))}button,input{font:inherit}button{touch-action:manipulation;cursor:pointer}.shell{max-width:1320px;margin:0 auto}.topbar{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:5px 2px 15px}.brand{display:flex;align-items:center;gap:11px;min-width:0}.mark{width:43px;height:43px;border-radius:12px;display:grid;place-items:center;background:linear-gradient(145deg,#986e40,#634522);color:#fff5df;font-family:serif;font-weight:900;font-size:26px;box-shadow:0 5px 14px #60431e2b;user-select:none;-webkit-user-select:none;touch-action:manipulation}.brand h1{margin:0;font-family:"Yu Mincho","Hiragino Mincho ProN",serif;font-size:clamp(21px,3vw,28px);letter-spacing:.12em}.brand p{margin:3px 0 0;color:var(--muted);font-size:10px;letter-spacing:.2em}.connection{display:flex;align-items:center;gap:7px;padding:8px 11px;border:1px solid var(--line);border-radius:999px;background:#fffaf1;color:#756b5d;font-size:11px;white-space:nowrap}.dot{width:8px;height:8px;border-radius:50%;background:#b9aa91}.connection.ok .dot{background:#4d9565;box-shadow:0 0 0 4px #4d95651c}.connection.bad .dot{background:#b64b3c}.layout{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(310px,.85fr);gap:18px;align-items:start}.card{background:var(--paper2);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow)}.board-card{padding:clamp(11px,1.7vw,20px);min-width:0}.board-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px}.eyebrow{font-size:10px;letter-spacing:.13em;color:var(--brown2);font-weight:800}.title{margin-top:3px;font-size:18px;font-weight:850}.pill{border:1px solid #d7c8af;background:#f8f1e5;color:#76562e;border-radius:999px;padding:7px 11px;font-size:11px;white-space:nowrap}.player{display:grid;grid-template-columns:39px 1fr auto;align-items:center;gap:10px;padding:9px 12px;margin:8px 0;border:1px solid #e6ddcf;border-radius:12px;background:#fbf8f1;min-width:0}.player.mine{background:#f7f0e4;border-color:#d5bd97}.avatar{width:39px;height:39px;border-radius:50%;display:grid;place-items:center;background:#e9dfcf;color:#6b4c2b;font-family:serif;font-size:22px}.player-info{min-width:0}.player-info small{display:block;color:#928777;font-size:10px;margin-bottom:2px}.player-info strong{display:block;white-space:nowrap;text-overflow:ellipsis;overflow:hidden;font-size:14px}.player-info span{display:block;color:#9a8e7c;font-size:10px;margin-top:2px}.turn{border:1px solid #e0d7c8;color:#8c8275;border-radius:7px;padding:5px 7px;font-size:10px;white-space:nowrap}.turn.active{background:#e7efe6;border-color:#adc4ae;color:#3f6b49}.hand{min-height:34px;display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:5px;margin:3px 3px 8px;color:#a09687;font-size:10px}.hand.bottom{justify-content:flex-start;margin:8px 3px 3px}.hand button{min-width:34px;padding:5px 7px;border:1px solid #d9c7a9;border-radius:7px;background:#f5ead7;color:#4f3820;font-family:"Yu Mincho",serif;font-weight:800}.hand button span{font-family:ui-sans-serif,system-ui;font-size:9px;margin-left:3px;color:#8c6f4b}.hand button.selected{background:#e6ce9f;border-color:#9d743e;box-shadow:inset 0 0 0 1px #9d743e}.hand button:disabled{opacity:.45;cursor:default}.board-frame{padding:clamp(6px,1vw,12px);border-radius:13px;background:linear-gradient(135deg,#654525,#a87943 45%,#674727);box-shadow:inset 0 0 0 1px #f6dfb466,0 8px 22px #60421d22}.board{width:min(100%,820px);aspect-ratio:1;margin:auto;display:grid;grid-template-columns:repeat(9,minmax(0,1fr));grid-template-rows:repeat(9,minmax(0,1fr));border:2px solid #8e6538;background:#d8ae74;overflow:hidden;touch-action:manipulation;user-select:none;-webkit-user-select:none}.sq{appearance:none;border-top:0;border-left:0;padding:0;margin:0;position:relative;display:flex;align-items:center;justify-content:center;min-width:0;min-height:0;border-right:1px solid #9a7145;border-bottom:1px solid #9a7145;background:linear-gradient(145deg,#f0d5a7,#d9b27b);color:#352618}.sq:nth-child(odd){background:linear-gradient(145deg,#e9c995,#d5a96f)}.sq.last{background:#f6dfaa!important}.sq.selected{background:#d8e5bd!important;box-shadow:inset 0 0 0 3px #6a8b52}.sq.target:after{content:"";width:23%;height:23%;border-radius:50%;background:#668b4e99;position:absolute}.sq.capture-target:after{content:"";position:absolute;inset:8%;border:3px solid #9e5344;border-radius:50%}.piece{font-family:"Yu Mincho","Hiragino Mincho ProN",serif;font-weight:900;font-size:clamp(20px,4vw,42px);line-height:1;color:#302116;text-shadow:0 1px 0 #fff7,0 2px 1px #76502d35;white-space:nowrap;pointer-events:none}.piece.gote{transform:rotate(180deg);color:#713329}.piece.prom{color:#a42c20}.board.rotate{transform:rotate(180deg)}.board-caption{display:flex;justify-content:space-between;color:#8b7559;font-size:10px;padding:7px 2px 0}.status{display:flex;align-items:center;gap:8px;min-height:43px;margin-top:11px;padding:10px 12px;border:1px solid #e0d7c8;border-radius:10px;background:#f8f5ed;color:#625b50;font-size:12px}.status i{width:8px;height:8px;flex:none;border-radius:50%;background:#b68b4e}.status.ok i{background:#56885e}.status.error i{background:#b44e40}.side{display:flex;flex-direction:column;gap:13px}.section{padding:14px}.section-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:11px}.section h2{margin:0;font-size:14px;color:#54442e}.section-head small{font-size:10px;color:#9a8e7c}.name-input,.room-input{width:100%;min-width:0;padding:11px 12px;border:1px solid #d9cfbd;border-radius:9px;background:#fffdf8;color:#302a22;outline:none}.room-row{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:8px}.room-input{text-transform:uppercase;letter-spacing:.13em}.buttons{display:flex;gap:8px;flex-wrap:wrap}.btn{border:1px solid #d4c8b6;border-radius:9px;background:#f5f0e7;color:#44392b;padding:10px 13px;font-size:12px;font-weight:750}.btn.primary{background:linear-gradient(135deg,#87633a,#654823);border-color:#a17a4a;color:#fff8ed}.btn.danger{border-color:#d8b7ad;background:#fbefec;color:#8d4033}.btn:disabled{opacity:.45;cursor:not-allowed}.room-code{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:10px;padding:10px 12px;border:1px solid #e2d7c6;border-radius:9px;background:#faf6ee}.room-code small{display:block;color:#918574;font-size:10px}.room-code b{display:block;margin-top:2px;color:#654a29;font-size:21px;letter-spacing:.18em}.room-status{min-height:32px;margin-top:9px;color:#857b6d;font-size:11px;line-height:1.65}.log{max-height:310px;min-height:85px;overflow:auto;display:flex;flex-direction:column;gap:4px}.logrow{display:flex;justify-content:space-between;gap:9px;padding:7px 8px;border-radius:7px;background:#f7f3eb;color:#4c453b;font-size:11px}.logrow span:last-child{color:#9a8f80}.empty{padding:10px;color:#988d7d;font-size:11px}.foot{text-align:center;margin:13px 4px 0;color:#988e80;font-size:10px;line-height:1.6}.toast{position:fixed;z-index:50;left:50%;bottom:calc(17px + env(safe-area-inset-bottom));transform:translateX(-50%);max-width:92vw;padding:11px 15px;border:1px solid #9e8b70;border-radius:10px;background:#3e352a;color:#fff9ec;box-shadow:0 8px 28px #0003;font-size:12px}.hidden{display:none!important}.spectator-note{color:#80653e}.mini-help{font-size:10px;color:#998e7e;line-height:1.6;margin-top:8px}
+@media(max-width:900px){.layout{grid-template-columns:1fr}.side{display:grid;grid-template-columns:1fr}.board{width:min(100%,min(94vw,820px))}}
+@media(max-width:440px){body{padding-left:7px;padding-right:7px}.player{padding:8px}.avatar{width:34px;height:34px}.piece{font-size:clamp(18px,5vw,31px)}.section{padding:12px}.room-row{grid-template-columns:1fr auto}}
+</style>
+</head>
+<body>
+<div class="shell">
+<header class="topbar"><div class="brand"><div class="mark" id="brandMark" aria-label="将棋">将</div><div><h1>将棋</h1><p>オンライン対局</p></div></div><div class="connection" id="connection"><i class="dot"></i><span>接続中…</span></div></header>
+<main class="layout">
+<section class="card board-card">
+ <div class="board-head"><div><div class="eyebrow">SHOGI · 9 × 9</div><div class="title" id="matchTitle">対局盤</div></div><div class="pill" id="roundPill">待機中</div></div>
+ <div class="player" id="topPlayer"><div class="avatar" id="topAvatar">△</div><div class="player-info"><small id="topRole">後手</small><strong id="topName">対局相手</strong><span id="topMeta">相手の参加を待っています</span></div><div class="turn" id="topTurn">後手</div></div>
+ <div class="hand" id="topHand">持ち駒なし</div>
+ <div class="board-frame"><div class="board" id="board" aria-label="将棋盤"></div></div>
+ <div class="board-caption"><span>▲ 先手</span><span>盤面をタップして操作</span><span>△ 後手</span></div>
+ <div class="hand bottom" id="bottomHand">持ち駒なし</div>
+ <div class="player mine" id="bottomPlayer"><div class="avatar" id="bottomAvatar">▲</div><div class="player-info"><small id="bottomRole">先手</small><strong id="bottomName">あなた</strong><span id="bottomMeta">対局開始を待っています</span></div><div class="turn" id="bottomTurn">先手</div></div>
+ <div class="status" id="statusLine"><i></i><span id="statusText">サーバーに接続しています…</span></div>
+</section>
+<aside class="side">
+ <section class="card section">
+  <div class="section-head"><h2>オンライン対局</h2><small id="roomStateLabel">友達と対局</small></div>
+  <input id="playerName" class="name-input" maxlength="22" placeholder="あなたの名前" value="プレイヤー">
+  <div class="buttons" style="margin-top:8px"><button class="btn primary" id="createRoom">対局を作る</button><button class="btn danger" id="resign" disabled>投了</button></div>
+  <div class="room-row"><input id="roomInput" class="room-input" maxlength="8" placeholder="対局コード" autocomplete="off" autocapitalize="characters"><button class="btn" id="joinRoom">参加</button></div>
+  <div class="room-code"><div><small>対局コード</small><b id="roomCode">------</b></div><button class="btn" id="copyRoom">コピー</button></div>
+  <div class="room-status" id="roomStatus">対局を作ってコードを共有するか、相手のコードを入力してください。</div>
+  <div class="buttons"><button class="btn" id="leaveRoom">退出</button></div>
+  <div class="mini-help">通常は人間同士の対局です。持ち駒は各種類の表示をタップしてから盤面を選んでください。</div>
+ </section>
+ <section class="card section">
+  <div class="section-head"><h2>棋譜</h2><small id="moveCount">0手</small></div>
+  <div class="log" id="moveLog"><div class="empty">対局が始まると棋譜が表示されます。</div></div>
+ </section>
+</aside>
+</main>
+<footer class="foot">オンライン対局 · 通信が切れた場合は自動で再接続します。</footer>
+</div>
+<div id="toast" class="toast hidden"></div>
+<script src="https://r-cjyh.onrender.com/socket.io/socket.io.js"></script>
+<script>
+const SHOGI_SERVER_URL='https://r-cjyh.onrender.com';
+function createShogiEngine(){
+ const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+ const VALUE_HIDDEN=64,VALUE_INPUTS=12,VALUE_WEIGHTS=VALUE_INPUTS*VALUE_HIDDEN+VALUE_HIDDEN+VALUE_HIDDEN+1;
+ const TYPES=['K','R','B','G','S','N','L','P'];
+ const MAX_DROPS_PER_SIDE=5;
+ const VALUES={K:0,R:1000,B:850,G:600,S:520,N:430,L:360,P:180};
+ const PROMOTED={R:'D',B:'H',S:'G',N:'G',L:'G',P:'G'};
+ const STEP_K=[[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]];
+ function emptyHands(){return {1:{R:0,B:0,G:0,S:0,N:0,L:0,P:0},'-1':{R:0,B:0,G:0,S:0,N:0,L:0,P:0}};}
+ function initialState(){
+  const board=Array(81).fill(null),put=(x,y,s,t)=>board[y*9+x]={s,t,p:false};
+  const back=['L','N','S','G','K','G','S','N','L'];
+  for(let x=0;x<9;x++){put(x,0,-1,back[x]);put(x,8,1,back[x]);put(x,2,-1,'P');put(x,6,1,'P');}
+  put(1,1,-1,'R');put(7,1,-1,'B');put(1,7,1,'B');put(7,7,1,'R');
+  return {board,hands:emptyHands(),dropsUsed:{'1':0,'-1':0},turn:1,ply:0,history:[]};
+ }
+ function dropsUsedFor(st,side){const n=Number(st?.dropsUsed?.[String(side)]??0);return Number.isInteger(n)?clamp(n,0,MAX_DROPS_PER_SIDE):0;}
+ function cloneState(st){return {board:st.board.map(p=>p?{s:p.s,t:p.t,p:!!p.p}:null),hands:{1:{...st.hands[1]},'-1':{...st.hands['-1']}},dropsUsed:{'1':dropsUsedFor(st,1),'-1':dropsUsedFor(st,-1)},turn:st.turn,ply:st.ply,history:(st.history||[]).slice()};}
+ function inside(x,y){return x>=0&&x<9&&y>=0&&y<9;}
+ function key(x,y){return y*9+x;}
+ function demote(t){return t==='D'?'R':t==='H'?'B':t==='G'?'G':t;}
+ function forward(side){return -side;}
+ function promoteZone(side,y){return side===1?y<=2:y>=6;}
+ function canPromote(p){return p&&!p.p&&!['K','G'].includes(p.t);}
+ function mandatoryPromote(t,side,y){if(t==='P'||t==='L')return side===1?y===0:y===8;if(t==='N')return side===1?y<=1:y>=7;return false;}
+ function rawTargets(st,from,p){
+  const x=from%9,y=Math.floor(from/9),f=forward(p.s),out=[];
+  const add=(dx,dy,slide=false)=>{let nx=x+dx,ny=y+dy;while(inside(nx,ny)){const q=st.board[key(nx,ny)];if(q&&q.s===p.s)break;out.push(key(nx,ny));if(q||!slide)break;nx+=dx;ny+=dy;}};
+  const gold=p.p&&['S','N','L','P'].includes(p.t);
+  if(p.t==='K')STEP_K.forEach(([dx,dy])=>add(dx,dy));
+  else if(p.t==='R'||(p.p&&p.t==='R')){[[1,0],[-1,0],[0,1],[0,-1]].forEach(([dx,dy])=>add(dx,dy,true));if(p.p)[[1,1],[1,-1],[-1,1],[-1,-1]].forEach(([dx,dy])=>add(dx,dy));}
+  else if(p.t==='B'){[[1,1],[1,-1],[-1,1],[-1,-1]].forEach(([dx,dy])=>add(dx,dy,true));if(p.p)[[1,0],[-1,0],[0,1],[0,-1]].forEach(([dx,dy])=>add(dx,dy));}
+  else if(p.t==='L')add(0,f,true);
+  else if(p.t==='N'){add(-1,2*f);add(1,2*f);}
+  else if(p.t==='G'||gold){[[0,f],[1,f],[-1,f],[1,0],[-1,0],[0,-f]].forEach(([dx,dy])=>add(dx,dy));}
+  else if(p.t==='S'){[[0,f],[1,f],[-1,f],[1,-f],[-1,-f]].forEach(([dx,dy])=>add(dx,dy));}
+  else if(p.t==='P')add(0,f);
+  return out;
+ }
+ function isSquareAttacked(st,target,bySide){
+  for(let from=0;from<81;from++){const p=st.board[from];if(!p||p.s!==bySide)continue;if(rawTargets(st,from,p).includes(target))return true;}
+  return false;
+ }
+ function inCheck(st,side){let k=-1;for(let i=0;i<81;i++){const p=st.board[i];if(p&&p.s===side&&p.t==='K'){k=i;break;}}if(k<0)return true;return isSquareAttacked(st,k,-side);}
+ function applyMove(st,m){
+  const n=cloneState(st),h=n.hands[String(m.s||st.turn)];
+  if(m.drop){h[m.drop]=Math.max(0,(h[m.drop]||0)-1);n.dropsUsed[String(st.turn)]=Math.min(MAX_DROPS_PER_SIDE,(n.dropsUsed[String(st.turn)]||0)+1);n.board[m.to]={s:st.turn,t:m.drop,p:false};}
+  else{const pc=n.board[m.from];const captured=n.board[m.to];if(captured){const ct=demote(captured.t);if(ct!=='K')h[ct]=(h[ct]||0)+1;}n.board[m.from]=null;n.board[m.to]={s:pc.s,t:pc.t,p:!!pc.p||!!m.promote};}
+  n.turn=-st.turn;n.ply=st.ply+1;return n;
+ }
+ function hasAnyLegalMove(st,side=st.turn,pawnMateDepth=0){
+  // A checking pawn drop consumes one hand pawn. The depth bound is therefore
+  // safely above any real chain (there are only 18 pawns in the whole game).
+  if(pawnMateDepth>18)return true;
+  const base=st.turn===side?st:{...st,turn:side};
+  for(let from=0;from<81;from++){
+   const p=base.board[from];if(!p||p.s!==side)continue;
+   for(const to of rawTargets(base,from,p)){
+    if(base.board[to]?.t==='K')continue;
+    const y=Math.floor(to/9),can=canPromote(p)&&(promoteZone(side,Math.floor(from/9))||promoteZone(side,y));
+    const must=mandatoryPromote(p.t,side,y),variants=can?(must?[true]:[false,true]):[false];
+    for(const promote of variants){const next=applyMove(base,{from,to,promote,s:side});if(!inCheck(next,side))return true;}
+   }
+  }
+  const hand=base.hands[String(side)];
+  if(dropsUsedFor(base,side)>=MAX_DROPS_PER_SIDE)return false;
+  for(const t of TYPES.filter(x=>x!=='K')){
+   if(!(hand[t]>0))continue;
+   for(let to=0;to<81;to++){
+    if(base.board[to])continue;
+    const x=to%9,y=Math.floor(to/9);if(mandatoryPromote(t,side,y))continue;
+    if(t==='P'){
+     let nifu=false;for(let yy=0;yy<9;yy++){const q=base.board[key(x,yy)];if(q&&q.s===side&&q.t==='P'&&!q.p){nifu=true;break;}}
+     if(nifu)continue;
+    }
+    const next=applyMove(base,{drop:t,to,s:side});
+    if(inCheck(next,side))continue;
+    // Only a pawn drop that gives check needs the recursive uchi-fuzume test.
+    if(t==='P'&&inCheck(next,-side)&&!hasAnyLegalMove(next,-side,pawnMateDepth+1))continue;
+    return true;
+   }
+  }
+  return false;
+ }
+ function legalMoves(st,side=st.turn){
+  const moves=[];
+  const base=st.turn===side?st:{...st,turn:side};
+  for(let from=0;from<81;from++){
+   const p=base.board[from];if(!p||p.s!==side)continue;
+   for(const to of rawTargets(base,from,p)){
+    if(base.board[to]?.t==='K')continue;
+    const y=Math.floor(to/9),can=canPromote(p)&&(promoteZone(side,Math.floor(from/9))||promoteZone(side,y));
+    const must=mandatoryPromote(p.t,side,y);
+    const variants=can?(must?[true]:[false,true]):[false];
+    for(const promote of variants){const m={from,to,promote,s:side};const next=applyMove(base,m);if(!inCheck(next,side))moves.push(m);}
+   }
+  }
+  const hand=base.hands[String(side)];
+  if(dropsUsedFor(base,side)<MAX_DROPS_PER_SIDE)for(const t of TYPES.filter(x=>x!=='K')){if(!(hand[t]>0))continue;
+   for(let to=0;to<81;to++){if(base.board[to])continue;const x=to%9,y=Math.floor(to/9);if(mandatoryPromote(t,side,y))continue;
+    if(t==='P'){let nifu=false;for(let yy=0;yy<9;yy++){const q=base.board[key(x,yy)];if(q&&q.s===side&&q.t==='P'&&!q.p){nifu=true;break;}}if(nifu)continue;}
+    const m={drop:t,to,s:side};const next=applyMove(base,m);if(!inCheck(next,side)){const pawnDropMate=t==='P'&&inCheck(next,-side)&&!hasAnyLegalMove(next,-side);if(!pawnDropMate)moves.push(m);}
+   }
+  }
+  return moves;
+ }
+ function positionFeatures(st){
+  let material=0,pawns=0,promoted=0,advance=0,center=0,camp=0,hand=0,pieces=0,majors=0,kingProgress=0,kingSafetyDiff=0;const kings={1:-1,'-1':-1},pieceBalance=0;
+  for(let i=0;i<81;i++){const p=st.board[i];if(!p)continue;const sign=p.s===1?1:-1,x=i%9,y=Math.floor(i/9);if(p.t==='K'){kings[p.s]=i;continue;}pieces+=sign;let v=VALUES[p.t]||0;if(p.p){promoted+=sign;if(p.t==='R')v=1250;else if(p.t==='B')v=1120;else v=600;}material+=sign*v;if(p.t==='P')pawns+=sign;advance+=sign*(p.s===1?8-y:y);center+=sign*(4-Math.abs(4-x));if((p.s===1&&y<=2)||(p.s===-1&&y>=6))camp+=sign;if(p.t==='R'||p.t==='B')majors+=sign;}
+  for(const side of [1,-1]){const h=st.hands[String(side)];for(const t of TYPES){if(t==='K')continue;hand+=(side===1?1:-1)*(VALUES[t]||0)*(h[t]||0);}}
+  for(const side of [1,-1]){const k=kings[side];if(k>=0){const kx=k%9,ky=Math.floor(k/9);let friends=0,enemies=0;for(let y=Math.max(0,ky-2);y<=Math.min(8,ky+2);y++)for(let x=Math.max(0,kx-2);x<=Math.min(8,kx+2);x++){const q=st.board[key(x,y)];if(q&&q.s===side)friends++;else if(q&&q.s===-side)enemies++;}kingSafetyDiff+=(side===1?1:-1)*(friends-enemies);kingProgress+=(side===1?1:-1)*(side===1?ky:8-ky);}}
+  return [1,clamp(material/5000,-1,1),clamp(pawns/18,-1,1),clamp(promoted/8,-1,1),clamp(advance/72,-1,1),clamp(center/36,-1,1),clamp(camp/12,-1,1),clamp(hand/3000,-1,1),clamp(kingSafetyDiff/12,-1,1),clamp(kingProgress/16,-1,1),clamp(majors/4,-1,1),clamp(pieces/36,-1,1)];
+ }
+ function evaluate(st,pov,weights={}){
+  const w={material:weights.material??1,advance:weights.advance??.11,kingSafety:weights.kingSafety??.12,hand:weights.hand??.92,center:weights.center??.06};let score=0,king={1:-1,'-1':-1},safety={1:0,'-1':0};
+  for(let i=0;i<81;i++){const p=st.board[i];if(!p)continue;if(p.t==='K'){king[p.s]=i;continue;}let v=VALUES[p.t]||0;if(p.p){if(p.t==='R')v=1250;else if(p.t==='B')v=1120;else v=600;}const y=Math.floor(i/9),x=i%9,adv=p.s===1?8-y:y;let ps=v*w.material+adv*w.advance*(p.t==='P'?2.1:1)+(4-Math.abs(4-x))*w.center;score+=p.s===pov?ps:-ps;}
+  for(const side of [1,-1]){const h=st.hands[String(side)];for(const t of TYPES){if(t==='K')continue;const v=(VALUES[t]||0)*w.hand*(h[t]||0);score+=side===pov?v:-v;}}
+  for(const side of [1,-1]){const k=king[side];if(k>=0){const kx=k%9,ky=Math.floor(k/9);let friends=0,enemies=0;for(let y=Math.max(0,ky-2);y<=Math.min(8,ky+2);y++)for(let x=Math.max(0,kx-2);x<=Math.min(8,kx+2);x++){const q=st.board[key(x,y)];if(q&&q.s===side)friends++;else if(q&&q.s===-side)enemies++;}safety[side]=(friends-enemies)*w.kingSafety;}}
+  score+=safety[pov]-safety[-pov];const vw=weights.valueNet;if(Array.isArray(vw)&&vw.length===VALUE_WEIGHTS){const f=positionFeatures(st),h=new Array(VALUE_HIDDEN),b1=VALUE_INPUTS*VALUE_HIDDEN,wo=b1+VALUE_HIDDEN;for(let j=0;j<VALUE_HIDDEN;j++){let z=vw[b1+j]||0,base=j*VALUE_INPUTS;for(let i=0;i<VALUE_INPUTS;i++)z+=(Number(vw[base+i])||0)*f[i];h[j]=Math.tanh(clamp(z,-8,8));}let out=vw[wo+VALUE_HIDDEN]||0;for(let j=0;j<VALUE_HIDDEN;j++)out+=(Number(vw[wo+j])||0)*h[j];score+=(pov===1?1:-1)*Math.tanh(clamp(out,-8,8))*160;}return score;
+ }
+ function tacticalTags(st,m,next){const tags=[];const mover=st.turn,src=m.drop?null:st.board[m.from],captured=m.drop?null:st.board[m.to];if(captured)tags.push('capture');if(m.promote)tags.push('promotion');if(m.drop)tags.push('drop');if(inCheck(next,-mover))tags.push('check');if(src&&src.t==='K')tags.push('kingMove');const px=m.to%9,py=Math.floor(m.to/9),centerBefore=m.from==null?8:Math.abs(4-(m.from%9))+Math.abs(4-Math.floor(m.from/9)),centerAfter=Math.abs(4-px)+Math.abs(4-py);if(centerAfter<centerBefore)tags.push('center');if(src&&['R','B','S','N','L'].includes(src.t)&&st.ply<24&&Math.abs(Math.floor(m.from/9)-(mover===1?8:0))>=2)tags.push('development');const moved=next.board[m.to];if(moved){const threats=rawTargets(next,m.to,moved).filter(i=>next.board[i]&&next.board[i].s===-mover&&next.board[i].t!=='K'&&(VALUES[next.board[i].t]||0)>=430);if(threats.length>=2)tags.push('fork');}return tags;}
+  function moveKey(m){return m.drop?`D${m.drop}@${m.to}`:`${m.from}-${m.to}${m.promote?'+':''}`;}
+ function moveOrder(st,m,preferredKey='',nodes=null,plyFromRoot=0){
+  const k=moveKey(m);let score=0;
+  if(k===preferredKey)score+=10000000;
+  const victim=st.board[m.to],attacker=m.drop?null:st.board[m.from];
+  if(victim)score+=1000000+(VALUES[demote(victim.t)]||0)*16-(VALUES[attacker?.t]||0);
+  if(m.promote)score+=700000+(VALUES[attacker?.t]||0)*.2;
+  if(m.drop)score+=1200+(VALUES[m.drop]||0)*.04;
+  if(attacker&&m.from!=null){const y0=Math.floor(m.from/9),y1=Math.floor(m.to/9);score+=(attacker.s===1?y0-y1:y1-y0)*3+(4-Math.abs(4-(m.to%9)))*1.5;}
+  const ks=nodes?.killers?.[plyFromRoot];if(ks){if(ks[0]===k)score+=26000;else if(ks[1]===k)score+=18000;}
+  return score;
+ }
+ function terminalScore(st,pov){return st.turn===pov?-100000+st.ply:100000-st.ply;}
+ function quiescence(st,alpha,beta,pov,weights,nodes,qDepth=0){
+  nodes.n++;if((nodes.n&63)===0&&nodes.deadline&&Date.now()>=nodes.deadline){nodes.stopped=true;return evaluate(st,pov,weights);}
+  const maximizing=st.turn===pov,checked=inCheck(st,st.turn),stand=evaluate(st,pov,weights);
+  if(qDepth>=5&&!checked)return stand;if(qDepth>=8)return stand;
+  if(!checked){if(maximizing){if(stand>=beta)return beta;if(stand>alpha)alpha=stand;}else{if(stand<=alpha)return alpha;if(stand<beta)beta=stand;}}
+  const legal=legalMoves(st,st.turn);if(!legal.length)return terminalScore(st,pov);
+  let moves=[];
+  if(checked)moves=legal;
+  else{for(const m of legal)if((!m.drop&&st.board[m.to])||m.promote)moves.push(m);}
+  if(!moves.length)return stand;
+  moves.sort((a,b)=>moveOrder(st,b,'',nodes,5+qDepth)-moveOrder(st,a,'',nodes,5+qDepth));
+  if(maximizing){let best=checked?-Infinity:stand;for(const m of moves){if(nodes.stopped)break;const v=quiescence(applyMove(st,m),alpha,beta,pov,weights,nodes,qDepth+1);if(v>best)best=v;if(v>alpha)alpha=v;if(beta<=alpha)break;}return best===-Infinity?stand:best;}
+  let best=checked?Infinity:stand;for(const m of moves){if(nodes.stopped)break;const v=quiescence(applyMove(st,m),alpha,beta,pov,weights,nodes,qDepth+1);if(v<best)best=v;if(v<beta)beta=v;if(beta<=alpha)break;}return best===Infinity?stand:best;
+ }
+ function minimax(st,depth,alpha,beta,pov,weights,nodes,plyFromRoot=0){
+  nodes.n++;if((nodes.n&63)===0&&nodes.deadline&&Date.now()>=nodes.deadline){nodes.stopped=true;return evaluate(st,pov,weights);}
+  const keyText=positionKey(st),alphaOriginal=alpha,betaOriginal=beta,entry=nodes.tt?.get(keyText);
+  if(entry&&entry.depth>=depth){nodes.ttHits=(nodes.ttHits||0)+1;if(entry.flag==='exact')return entry.score;if(entry.flag==='lower')alpha=Math.max(alpha,entry.score);else if(entry.flag==='upper')beta=Math.min(beta,entry.score);if(alpha>=beta)return entry.score;}
+  if(depth<=0)return quiescence(st,alpha,beta,pov,weights,nodes,0);
+  const moves=legalMoves(st,st.turn);if(!moves.length)return terminalScore(st,pov);
+  const maximizing=st.turn===pov;let best=maximizing?-Infinity:Infinity,bestKey='';
+  moves.sort((a,b)=>moveOrder(st,b,entry?.bestKey,nodes,plyFromRoot)-moveOrder(st,a,entry?.bestKey,nodes,plyFromRoot));
+  for(const m of moves){if(nodes.stopped)break;const next=applyMove(st,m),v=minimax(next,depth-1,alpha,beta,pov,weights,nodes,plyFromRoot+1),mk=moveKey(m);if(maximizing){if(v>best){best=v;bestKey=mk;}if(best>alpha)alpha=best;}else{if(v<best){best=v;bestKey=mk;}if(best<beta)beta=best;}
+   if(beta<=alpha){const quiet=!m.promote&&!m.drop&&!st.board[m.to];if(quiet){const arr=nodes.killers[plyFromRoot]||(nodes.killers[plyFromRoot]=[]);if(arr[0]!==mk){arr[1]=arr[0];arr[0]=mk;}}break;}
+  }
+  if(best===Infinity||best===-Infinity)best=evaluate(st,pov,weights);
+  if(nodes.tt&&!nodes.stopped){const flag=best<=alphaOriginal?'upper':best>=betaOriginal?'lower':'exact';if(nodes.tt.size>36000)nodes.tt.clear();nodes.tt.set(keyText,{depth,score:best,flag,bestKey});}
+  return best;
+ }
+ function searchRoot(st,rootMoves,side,weights={},depth=2,workerIndex=0,workerCount=1,deadline=0,searchContext=null){
+  let best=null,bestScore=-Infinity,bestTags=[],nodes={n:0,deadline,stopped:false,tt:searchContext?.tt||new Map(),killers:searchContext?.killers||[],ttHits:0};
+  const phase=st.ply<24?'opening':st.ply<70?'middlegame':'endgame',rootHint=searchContext?.rootMove||'';
+  const indexed=rootMoves.map((m,i)=>({m,i})).sort((a,b)=>moveOrder(st,b.m,rootHint,nodes,0)-moveOrder(st,a.m,rootHint,nodes,0));
+  for(const item of indexed){const i=item.i;if(i%workerCount!==workerIndex)continue;if(deadline&&Date.now()>=deadline){nodes.stopped=true;break;}const m=item.m,next=applyMove(st,m),tags=tacticalTags(st,m,next),bias=weights.tacticBias||{},patterns=weights.tacticalPatternBias||{};let bonus=0;
+   for(const tag of tags)bonus+=Number(bias[tag]||0)+Number(patterns[phase+'|'+tag]||0)+Number((weights.counterTacticBias||{})[tag]||0);
+   const counterSquares=weights.counterSquareBias||[];if(Number.isFinite(counterSquares[m.to]))bonus+=Math.max(-5,Math.min(18,Number(counterSquares[m.to])||0));
+   const counterMoves=weights.counterMoveBias||{};bonus+=Math.max(-25,Math.min(55,Number(counterMoves[moveKey(m)])||0));const repeatPenalty=weights.repetitionPenalty||{};bonus-=Math.max(0,Math.min(260,Number(repeatPenalty[moveKey(m)])||0));if(weights.preferredMoveKey===moveKey(m))bonus+=Math.max(0,Math.min(70,Number(weights.openingBonus)||0));
+   const rootAlpha=Number.isFinite(bestScore)?bestScore-bonus:-Infinity;
+   let score=minimax(next,Math.max(0,depth-1),rootAlpha,Infinity,side,weights,nodes,1)+bonus;
+   if(score>bestScore||(score===bestScore&&((i+st.ply+workerIndex)%3===0))){bestScore=score;best=m;bestTags=tags;}
+   if(nodes.stopped)break;
+  }
+  if(searchContext){searchContext.tt=nodes.tt;searchContext.killers=nodes.killers;if(best)searchContext.rootMove=moveKey(best);}
+  return {move:best,score:bestScore,nodes:nodes.n,ttHits:nodes.ttHits||0,stopped:nodes.stopped,depth,tags:bestTags};
+ }
+ function chooseMove(st,weights={},depth=2){const moves=legalMoves(st);if(!moves.length)return null;return searchRoot(st,moves,st.turn,weights,depth,0,1);}
+ function positionKey(st){return st.board.map(p=>p?(p.s===1?'+':'-')+p.t+(p.p?'!':''):'..').join('')+'|'+JSON.stringify(st.hands)+'|'+st.turn+'|drops:'+dropsUsedFor(st,1)+','+dropsUsedFor(st,-1);}
+ function isLegalMove(st,m){if(!m||!validateState(st))return false;if(m.s!=null&&m.s!==st.turn)return false;const k=moveKey(m);return legalMoves(st,st.turn).some(x=>moveKey(x)===k);}
+ function dropLegalityReason(st,type,to,side=st.turn){
+  if(!['R','B','G','S','N','L','P'].includes(type))return 'その種類の駒は打てません。';
+  if(!Number.isInteger(to)||to<0||to>=81)return '盤面の外です。';
+  const base=st.turn===side?st:{...st,turn:side};
+  if(dropsUsedFor(base,side)>=MAX_DROPS_PER_SIDE)return 'この対局で持ち駒を盤上へ打てる上限の5回に達しています。';
+  if(!(base.hands[String(side)]?.[type]>0))return 'その駒は持ち駒にありません。';
+  if(base.board[to])return 'そのマスには既に駒があります。';
+  const y=Math.floor(to/9),x=to%9;
+  if(mandatoryPromote(type,side,y))return type==='N'?'桂馬は最後の2段には打てません。':'歩・香車は最後の段には打てません。';
+  if(type==='P'){for(let yy=0;yy<9;yy++){const q=base.board[key(x,yy)];if(q&&q.s===side&&q.t==='P'&&!q.p)return '二歩になるため、この筋には歩を打てません。';}}
+  const next=applyMove(base,{drop:type,to,s:side});
+  if(inCheck(next,side))return '自分の玉への王手を解消できないため、ここには打てません。王手駒を取るか、王手の線を遮る場所を選んでください。';
+  if(type==='P'&&inCheck(next,-side)&&!hasAnyLegalMove(next,-side))return '打ち歩詰めになるため禁止です。';
+  return '';
+ }
+ function validateState(st){
+  if(!st||!Array.isArray(st.board)||st.board.length!==81||![1,-1].includes(st.turn)||!st.hands||!st.hands['1']||!st.hands['-1'])return false;
+  const counts={K:0,R:0,B:0,G:0,S:0,N:0,L:0,P:0},max={K:2,R:2,B:2,G:4,S:4,N:4,L:4,P:18};
+  const pawns={1:new Set(),'-1':new Set()};
+  for(let i=0;i<81;i++){
+   const p=st.board[i];if(!p)continue;
+   if(![1,-1].includes(p.s)||!['K','R','B','G','S','N','L','P'].includes(p.t))return false;
+   if(p.p&&!['R','B','S','N','L','P'].includes(p.t))return false;
+   counts[p.t]++;
+   const x=i%9,y=Math.floor(i/9);
+   if(!p.p&&p.t==='P'){if(y===(p.s===1?0:8)||pawns[p.s].has(x))return false;pawns[p.s].add(x);}
+   if(!p.p&&p.t==='L'&&y===(p.s===1?0:8))return false;
+   if(!p.p&&p.t==='N'&&(p.s===1?y<=1:y>=7))return false;
+  }
+  for(const side of [1,-1]){const used=Number(st.dropsUsed?.[String(side)]??0);if(!Number.isInteger(used)||used<0||used>MAX_DROPS_PER_SIDE)return false;for(const t of ['R','B','G','S','N','L','P']){const n=Number(st.hands[String(side)][t]??0);if(!Number.isInteger(n)||n<0)return false;counts[t]+=n;}}
+  for(const t of Object.keys(max))if(counts[t]!==max[t])return false;
+  const kings={1:0,'-1':0};for(const p of st.board)if(p?.t==='K')kings[p.s]++;
+  if(kings[1]!==1||kings[-1]!==1||inCheck(st,-st.turn))return false;
+  return true;
+ }
+ function kingSquare(st,side){for(let i=0;i<81;i++){const p=st.board[i];if(p&&p.s===side&&p.t==='K')return i;}return -1;}
+ function isInEnemyCamp(side,y){return side===1?y<=2:y>=6;}
+ function isKingEntered(st,side){const k=kingSquare(st,side);return k>=0&&isInEnemyCamp(side,Math.floor(k/9));}
+ function pointsFor(st,side,scope='all'){
+  let points=0,campPieces=0;
+  for(let i=0;i<81;i++){const p=st.board[i];if(!p||p.s!==side||p.t==='K')continue;const inCamp=isInEnemyCamp(side,Math.floor(i/9));if(scope==='camp'&&!inCamp)continue;if(scope==='camp')campPieces++;points+=(p.t==='R'||p.t==='B')?5:1;}
+  const hand=st.hands[String(side)]||{};
+  for(const t of ['R','B','G','S','N','L','P'])points+=(Number(hand[t])||0)*((t==='R'||t==='B')?5:1);
+  return {points,campPieces};
+ }
+ function declarationStatus(st,side){
+  const king=kingSquare(st,side),entered=king>=0&&isInEnemyCamp(side,Math.floor(king/9)),sc=pointsFor(st,side,'camp'),checked=king<0||inCheck(st,side),before500=(Number(st.ply)||0)<500,sideToMove=st.turn===side;
+  const eligible=sideToMove&&entered&&sc.campPieces>=10&&!checked&&sc.points>=24&&before500;
+  const resultPoints=sc.points>=31?'勝ち':sc.points>=24?'無勝負':'宣言不可（24点未満）';
+  return {side,entered,campPieces:sc.campPieces,points:sc.points,checked,before500,sideToMove,eligible,resultPoints,reason:!before500?'500手到達後は入玉宣言不可':!sideToMove?'宣言側の手番ではない':!entered?'玉が敵陣3段目以内にいない':sc.campPieces<10?'敵陣3段目以内の駒が10枚未満':checked?'玉に王手がかかっている':sc.points<24?'宣言に必要な24点未満':sc.points<31?'条件成立：24～30点は無勝負':'条件成立：31点以上で勝ち'};
+ }
+ function impassePoints(st){return {sente:pointsFor(st,1,'all').points,gote:pointsFor(st,-1,'all').points};}
+ function mutualImpasseOutcome(st){const p=impassePoints(st);if(p.sente<24)return {winner:-1,points:p,reason:'先手が24点未満'};if(p.gote<24)return {winner:1,points:p,reason:'後手が24点未満'};return {winner:0,points:p,reason:'双方24点以上・無勝負'};}
+  function moveText(st,m){const files='９８７６５４３２１',ranks='一二三四五六七八九';const pos=`${files[m.to%9]}${ranks[Math.floor(m.to/9)]}`;if(m.drop)return `${pos}${({R:'飛',B:'角',G:'金',S:'銀',N:'桂',L:'香',P:'歩'})[m.drop]}打`;const p=st.board[m.from],piece=p.t==='K'?(p.s===-1?'王':'玉'):({R:'飛',B:'角',G:'金',S:'銀',N:'桂',L:'香',P:'歩'})[p.t];return `${pos}${piece}${m.promote?'成':''}`;}
+ return {MAX_DROPS_PER_SIDE,dropsUsedFor,initialState,cloneState,legalMoves,hasAnyLegalMove,applyMove,inCheck,evaluate,positionFeatures,searchRoot,chooseMove,positionKey,moveText,moveKey,tacticalTags,demote,isLegalMove,dropLegalityReason,validateState,kingSquare,isKingEntered,pointsFor,impassePoints,declarationStatus,mutualImpasseOutcome};
+}
+const engine=createShogiEngine();
+const $=id=>document.getElementById(id);
+const PIECES={K:'玉',R:'飛',B:'角',G:'金',S:'銀',N:'桂',L:'香',P:'歩'};
+let state=engine.initialState(),socket=null,roomId='',mySide=0,roomSnapshot=null,gameEnded=false;
+let moveTexts=[],lastMove=null,selectedSquare=null,selectedDrop=null,legalTargets=[];
+let secretPrankArmed=false,prankRevealed=false;
+let agentToken='';
+try{agentToken=sessionStorage.getItem('shogiHumanToken')||'';if(!agentToken){const b=new Uint8Array(18);crypto.getRandomValues(b);agentToken=Array.from(b,x=>x.toString(16).padStart(2,'0')).join('');sessionStorage.setItem('shogiHumanToken',agentToken);}}catch(_){const b=new Uint8Array(18);crypto.getRandomValues(b);agentToken=Array.from(crypto.getRandomValues(new Uint8Array(18)),x=>x.toString(16).padStart(2,'0')).join('');}
+function toast(s){const t=$('toast');t.textContent=s;t.classList.remove('hidden');clearTimeout(toast.timer);toast.timer=setTimeout(()=>t.classList.add('hidden'),2800);}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function playerName(){return String($('playerName').value||'プレイヤー').trim().slice(0,22)||'プレイヤー';}
+function bothReady(){return !!(roomSnapshot?.players?.sente&&roomSnapshot?.players?.gote);}
+function canPlay(){return !!(socket?.connected&&roomId&&[1,-1].includes(mySide)&&bothReady()&&!gameEnded&&roomSnapshot?.state?.turn===mySide);}
+function setStatus(s,kind=''){ $('statusText').textContent=s;$('statusLine').className='status '+kind; }
+function sideName(side){const name=roomSnapshot?.names?.[String(side)]|| (side===1?'先手':'後手');return side===mySide&&mySide!==0?'あなた（'+name+'）':name;}
+function showRoomStatus(){
+ if(!roomId){$('roomStatus').textContent='対局を作ってコードを共有するか、相手のコードを入力してください。';return;}
+ if(!bothReady())$('roomStatus').textContent=`対局コード ${roomId} を相手に共有してください。相手が参加すると対局が始まります。`;
+ else if(mySide===0)$('roomStatus').textContent=`対局 ${roomId} を観戦中です。`;
+ else $('roomStatus').textContent=`対局 ${roomId} · ${mySide===1?'先手':'後手'}で参加中。`;
+}
+function renderHand(id,side,interactive){
+ const el=$(id),h=state.hands[String(side)]||{},types=['R','B','G','S','N','L','P'];let out=[];
+ for(const t of types){const n=Number(h[t]||0);if(!n)continue;const b=document.createElement('button');b.type='button';b.disabled=!interactive||!canPlay();b.className=selectedDrop===t&&side===mySide?'selected':'';b.innerHTML=`${PIECES[t]}<span>${n}</span>`;b.addEventListener('click',()=>{if(!canPlay())return;selectedSquare=null;selectedDrop=selectedDrop===t?null:t;refreshLegalTargets();render();});out.push(b);}
+ el.innerHTML='';if(!out.length){el.textContent='持ち駒なし';return;}for(const b of out)el.appendChild(b);
+}
+function refreshLegalTargets(){
+ legalTargets=[];if(!canPlay())return;const legal=engine.legalMoves(state,mySide);
+ if(selectedSquare!==null)legalTargets=legal.filter(m=>!m.drop&&m.from===selectedSquare).map(m=>m.to);
+ if(selectedDrop)legalTargets=legal.filter(m=>m.drop===selectedDrop).map(m=>m.to);
+}
+function render(){
+ const board=$('board');board.innerHTML='';board.classList.toggle('rotate',mySide===-1);
+ const last=lastMove||roomSnapshot?.lastMove||null;
+ for(let i=0;i<81;i++){
+  const p=state.board[i],cell=document.createElement('button');cell.type='button';cell.className='sq';cell.dataset.index=String(i);cell.setAttribute('aria-label',`${9-(i%9)}筋 ${Math.floor(i/9)+1}段`);
+  if(last&&(last.to===i||(!last.drop&&last.from===i)))cell.classList.add('last');
+  if(selectedSquare===i)cell.classList.add('selected');
+  if(legalTargets.includes(i))cell.classList.add(p?'capture-target':'target');
+  if(p){const span=document.createElement('span');span.className='piece '+(p.s===-1?'gote ':'')+(p.p?'prom':'');span.textContent=(p.p?'成':'')+PIECES[p.t];cell.appendChild(span);}
+  cell.addEventListener('click',()=>onSquare(i));board.appendChild(cell);
+ }
+ const topSide=mySide===-1?1:-1,bottomSide=-topSide;
+ const topName=roomSnapshot?.names?.[String(topSide)]||(topSide===1?'先手':'後手');
+ const bottomName=roomSnapshot?.names?.[String(bottomSide)]||(bottomSide===1?'先手':'後手');
+ $('topRole').textContent=topSide===1?'先手':'後手';$('bottomRole').textContent=bottomSide===1?'先手':'後手';
+ $('topName').textContent=sideNameForDisplay(topSide,topName);$('bottomName').textContent=sideNameForDisplay(bottomSide,bottomName);
+ $('topMeta').textContent=roomSnapshot?.players?.[topSide===1?'sente':'gote']?'オンライン':'参加待ち';
+ $('bottomMeta').textContent=roomSnapshot?.players?.[bottomSide===1?'sente':'gote']?'オンライン':'参加待ち';
+ $('topAvatar').textContent=topSide===1?'▲':'△';$('bottomAvatar').textContent=bottomSide===1?'▲':'△';
+ $('topTurn').textContent=topSide===state.turn?'手番':'待機';$('bottomTurn').textContent=bottomSide===state.turn?'手番':'待機';
+ $('topTurn').className='turn'+(topSide===state.turn?' active':'');$('bottomTurn').className='turn'+(bottomSide===state.turn?' active':'');
+ $('topPlayer').classList.toggle('mine',topSide===mySide);$('bottomPlayer').classList.toggle('mine',bottomSide===mySide);
+ renderHand('topHand',topSide,false);renderHand('bottomHand',bottomSide,bottomSide===mySide);
+ $('moveCount').textContent=moveTexts.length+'手';
+ $('moveLog').innerHTML=moveTexts.length?moveTexts.slice(-100).map((m,i)=>`<div class="logrow"><span>${Math.max(1,moveTexts.length-99+i)}. ${esc(m)}</span><span>${i%2===0?'▲':'△'}</span></div>`).join(''):'<div class="empty">まだ対局は始まっていません。</div>';
+ $('resign').disabled=!roomId||!canPlay();
+ if(!roomId){$('roundPill').textContent='待機中';$('matchTitle').textContent='対局盤';}
+ else if(gameEnded){$('roundPill').textContent='終了';$('matchTitle').textContent='対局結果';}
+ else if(!bothReady()){$('roundPill').textContent='相手待ち';$('matchTitle').textContent='対局 '+roomId;}
+ else if(mySide===0){$('roundPill').textContent='観戦中';$('matchTitle').textContent='対局 '+roomId;}
+ else{$('roundPill').textContent='対局中';$('matchTitle').textContent='対局 '+roomId;}
+ refreshLegalTargets();
+}
+function sideNameForDisplay(side,name){if(side===mySide&&mySide!==0)return 'あなた · '+name;return name;}
+function onSquare(index){
+ if(!canPlay()){if(!roomId)setStatus('先に対局を作成するか、コードで参加してください。');else if(!bothReady())setStatus('相手の参加を待っています。');else if(mySide===0)setStatus('観戦中です。');else setStatus('相手の手番です。');return;}
+ const p=state.board[index],legal=engine.legalMoves(state,mySide);
+ if(selectedDrop){const cand=legal.filter(m=>m.drop===selectedDrop&&m.to===index);if(cand.length){sendMove(cand[0]);return;}if(p&&p.s===mySide){selectedDrop=null;selectedSquare=index;refreshLegalTargets();render();return;}return;}
+ if(selectedSquare!==null){const cand=legal.filter(m=>!m.drop&&m.from===selectedSquare&&m.to===index);if(cand.length){let chosen=cand[0];if(cand.length>1){const promote=cand.find(m=>m.promote),normal=cand.find(m=>!m.promote);chosen=window.confirm('成りますか？\n「OK」=成る / 「キャンセル」=成らない')?(promote||normal):(normal||promote);}sendMove(chosen);return;}}
+ if(p&&p.s===mySide){selectedSquare=index;selectedDrop=null;refreshLegalTargets();render();return;}
+ selectedSquare=null;selectedDrop=null;refreshLegalTargets();render();
+}
+function sendMove(move){if(!canPlay())return;const revision=Number(roomSnapshot.revision||0);socket.emit('move',{roomId,move,expectedRevision:revision});selectedSquare=null;selectedDrop=null;legalTargets=[];setStatus('着手を送信しています…');}
+function acceptRoom(d){roomSnapshot=d;state=d.state;moveTexts=d.moves||[];lastMove=d.lastMove||null;gameEnded=!!d.result;selectedSquare=null;selectedDrop=null;legalTargets=[];showRoomStatus();render();
+ if(d.result){const who=d.result.winner===0?'引き分け':d.result.winner===mySide?'あなたの勝ち':'対局相手の勝ち';setStatus('対局終了：'+who+(d.result.reason==='resign'?'（投了）':''),'ok');if(d.hiddenReveal&&!prankRevealed){prankRevealed=true;setTimeout(()=>toast('ドッキリ成功！実は対局相手はAIでした。'),500);setStatus('対局終了：実は対局相手はAIでした。','ok');}}
+ else if(!bothReady())setStatus('相手の参加を待っています。');
+ else if(mySide===0)setStatus('観戦中です。対局は自動で進行します。');
+ else if(state.turn===mySide)setStatus('あなたの手番です。盤面をタップして指してください。','ok');
+ else setStatus('相手の手番です。');
+}
+function connect(){
+ if(socket)return;
+ if(typeof io!=='function'){$('connection').className='connection bad';$('connection').lastElementChild.textContent='通信ライブラリ未読込';setStatus('通信ライブラリを読み込めません。Renderの接続先を確認してください。','error');return;}
+ socket=io(SHOGI_SERVER_URL,{reconnection:true,reconnectionAttempts:Infinity,reconnectionDelay:1000,reconnectionDelayMax:8000,timeout:20000,transports:['polling','websocket']});
+ socket.on('connect',()=>{$('connection').className='connection ok';$('connection').lastElementChild.textContent='接続済み';if(roomId)socket.emit('rejoin-room',{roomId,token:agentToken});else setStatus('サーバーに接続しました。対局を作成するか、参加してください。','ok');});
+ socket.on('connect_error',err=>{$('connection').className='connection bad';$('connection').lastElementChild.textContent='接続エラー';setStatus('接続エラー：'+String(err?.message||'unknown'),'error');});
+ socket.on('disconnect',reason=>{$('connection').className='connection bad';$('connection').lastElementChild.textContent='再接続中';setStatus('通信が切れました。再接続しています…');});
+ socket.on('room-created',d=>{roomId=d.roomId;mySide=d.side;$('roomCode').textContent=roomId;$('roomInput').value=roomId;acceptRoom(d);toast('対局を作成しました。コードを共有してください。');});
+ socket.on('room-joined',d=>{roomId=d.roomId;mySide=d.side;$('roomCode').textContent=roomId;$('roomInput').value=roomId;acceptRoom(d);toast(mySide===0?'観戦として参加しました':'対局に参加しました');});
+ socket.on('room-state',d=>{if(d.roomId!==roomId)return;acceptRoom(d);});
+ socket.on('room-error',d=>{toast(d.message||'対局エラー');if(d.state)acceptRoom(d.state);});
+ socket.on('hidden-player-armed',()=>{mySide=0;selectedSquare=null;selectedDrop=null;render();showRoomStatus();setStatus('観戦に切り替わりました。','ok');toast('対局を観戦しています。');});
+}
+$('createRoom').onclick=()=>{if(!socket?.connected)return toast('サーバーに接続していません');if(roomId)return toast('先に現在の対局から退出してください');socket.emit('create-room',{token:agentToken,name:playerName(),hiddenSeat:secretPrankArmed});secretPrankArmed=false;};
+$('joinRoom').onclick=()=>{if(!socket?.connected)return toast('サーバーに接続していません');if(roomId)return toast('先に現在の対局から退出してください');const code=$('roomInput').value.trim().toUpperCase();if(!code)return toast('対局コードを入力してください');socket.emit('join-room',{roomId:code,token:agentToken,name:playerName()});};
+$('copyRoom').onclick=async()=>{if(!roomId)return toast('先に対局を作成してください');try{await navigator.clipboard.writeText(roomId);toast('対局コードをコピーしました');}catch(_){$('roomInput').value=roomId;$('roomInput').select();toast('コードを選択してコピーしてください');}};
+$('leaveRoom').onclick=()=>{if(socket&&roomId)socket.emit('leave-room',{roomId,token:agentToken});roomId='';mySide=0;roomSnapshot=null;gameEnded=false;prankRevealed=false;state=engine.initialState();moveTexts=[];lastMove=null;selectedSquare=null;selectedDrop=null;$('roomCode').textContent='------';showRoomStatus();render();setStatus('対局から退出しました。');};
+$('resign').onclick=()=>{if(!canPlay())return; if(window.confirm('投了しますか？'))socket.emit('resign',{roomId});};
+$('playerName').onchange=()=>{if(roomId&&socket?.connected&&mySide!==0)socket.emit('set-player-name',{roomId,name:playerName()});};
+// Hidden prank: press and hold the small shogi mark. There is no visible AI control.
+let logoHoldTimer=null,logoHoldFired=false;
+const mark=$('brandMark');
+mark.addEventListener('pointerdown',()=>{logoHoldFired=false;clearTimeout(logoHoldTimer);logoHoldTimer=setTimeout(()=>{logoHoldFired=true;if(roomId&&[1,-1].includes(mySide)){socket.emit('summon-hidden-player',{roomId});}else if(!roomId){secretPrankArmed=true;toast('特別対局を準備しました');}else{toast('この対局では切り替えできません');}},2400);});
+['pointerup','pointerleave','pointercancel'].forEach(ev=>mark.addEventListener(ev,()=>clearTimeout(logoHoldTimer)));
+mark.addEventListener('click',e=>{if(logoHoldFired){e.preventDefault();e.stopPropagation();}});
+window.addEventListener('beforeunload',()=>{try{socket?.emit('leave-room',{roomId,token:agentToken});}catch(_){}});
+(function init(){render();connect();})();
+</script>
+</body>
+</html>
